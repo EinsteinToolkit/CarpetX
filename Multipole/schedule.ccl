@@ -1,0 +1,52 @@
+#schedule.ccl for thorn Multipole
+
+if (enable_test)
+{
+  STORAGE: harmonics[1]
+  STORAGE: test_integration_convergence_orders
+  STORAGE: test_integration_results
+  STORAGE: test_integration_symmetries
+  STORAGE: test_orthonormality
+}
+
+schedule Multipole_Calc at CCTK_ANALYSIS after (calc_np,PsiKadelia,Accelerator_CopyBack)
+{
+  LANG: C
+  OPTIONS: GLOBAL
+} "Calculate Multipoles"
+
+if (enable_test)
+{
+    schedule Multipole_SetHarmonic at CCTK_INITIAL
+    {
+      Reads: Grid::coordinates(everywhere)
+      Writes: Multipole::harmonics(interior)
+      LANG: C
+    } "Populate grid functions with spherical harmonics"
+
+    schedule Multipole_TestOrthonormality at CCTK_INITIAL
+    {
+      LANG: C
+    } "Loop over modes and integrate them to check orthonormality"
+}
+
+schedule Multipole_ParamCheck at CCTK_PARAMCHECK
+{
+  LANG: C
+  OPTIONS: GLOBAL
+} "Check Multipole parameters"
+
+# Tests
+
+if (enable_test)
+{
+  schedule Multipole_TestIntegrationConvergence at CCTK_PARAMCHECK
+  {
+    LANG: C
+  } "Test convergence of integration"
+
+  schedule Multipole_TestIntegrationSymmetry at CCTK_PARAMCHECK
+  {
+    LANG: C
+  } "Test symmetry of integration"
+}

@@ -1,0 +1,276 @@
+\documentclass{article}
+% Use the Cactus ThornGuide style file
+% (Automatically used from Cactus distribution, if you have a
+%  thorn without the Cactus Flesh download this from the Cactus
+%  homepage at www.cactuscode.org)
+\usepackage{../../../../doc/latex/cactus}
+
+\begin{document}
+
+% The author of the documentation
+\author{Ian Hinder}
+
+% The title of the document (not necessarily the name of the Thorn)
+\title{Multipole}
+
+% the date your document was last changed, if your document is in CVS,
+% please use:
+%    \date{$ $Date: 2004-01-07 14:12:39 -0600 (Wed, 07 Jan 2004) $ $}
+\date{01 Jun 2010}
+
+\maketitle
+
+% Do not delete next line
+% START CACTUS THORNGUIDE
+
+% Add all definitions used in this documentation here
+%   \def\mydef etc
+
+% Add an abstract for this thorn's documentation
+\begin{abstract}
+The Multipole thorn performs spherical harmonic mode decomposition
+of Cactus grid functions on coordinate spheres.
+\end{abstract}
+
+% The following sections are suggestive only.
+% Remove them or add your own.
+
+\section{Introduction}
+This thorn allows the user to compute the coefficients of the
+spherical harmonic expansion of a field stored in a Cactus grid
+function on coordinate spheres of given radii.  A set of radii for
+these spheres, as well as the number of angular points to use, can be
+specified.  Complex fields can be used, but they must be stored in
+pairs of real Cactus grid functions (the \verb|CCTK_COMPLEX| type is
+not supported).
+
+\section{Physical System}
+The angular dependence of a field $u(t, r, \theta, \varphi)$ can be
+expanded in spin-weight $s$ spherical harmonics
+\cite{Goldberg:1966uu}:
+
+\begin{eqnarray}
+  u(t, r, \theta, \varphi) = \sum_{l=0}^\infty \sum_{m=-l}^l C^{lm}(t,r) {}_s Y_{lm}(\theta,\varphi)
+\end{eqnarray}
+
+where the coefficients $C^{lm}(t,r)$ are given by
+
+\begin{eqnarray}
+C^{lm}(t, r) = \int {}_s Y_{lm}^* u(t, r, \theta, \varphi) r^2 d \Omega \label{eqn:clmint}
+\end{eqnarray}
+
+At any given time, $t$, this thorn can compute $C^{lm}(t,r)$ for a
+number of grid functions on several coordinate spheres with radii $r_i$.
+The coordinate system of the Cactus grids must be Cartesian and the
+coordinates $r$, $\theta$, $\varphi$ are related to $x$, $y$ and $z$
+by the usual transformation between Cartesian and spherical polar
+coordinates ($\theta$ is the polar angle and $\varphi$ is the
+azimuthal angle).
+
+The spin-weighted spherical harmonics are computed using Eq.~3.1 in
+Ref.~\cite{Goldberg:1966uu}.
+
+\section{Numerical Implementation}
+
+The coordinate sphere on which the multipolar decomposition is
+performed is represented internally as a 2-dimensional grid evenly
+spaced in $\theta$ and $\varphi$ with coordinates
+
+\begin{eqnarray}
+\theta_k &=& \frac{\pi k}{n_\theta} \quad k = 0, 1, ..., n_\theta \\
+\varphi_k &=& \frac{2\pi k}{n_\varphi} \quad k = 0, 1, ..., n_\varphi,
+\end{eqnarray}
+
+so $n_\theta$ and $n_\varphi$ count the number of cells (not the
+number of points).  The gridfunction to be decomposed, $u$, is first
+interpolated from the 3D Cactus grid onto this 2D grid at a given
+radius, $r_i$, and the $C^{lm}$ are computed by evaluating the integral
+in Eq.~\ref{eqn:clmint} for different values of $l$ and $m$.  The
+interpolation is performed using the Cactus interpolation interface,
+so any Cactus interpolator can be used.  The numerical method used for
+interpolation should be specified in the documentation for the thorn
+which provides it.  One such thorn is AEILocalInterp.  The integration
+is performed using either the midpoint rule, yielding a result which
+is second order accurate in the angular spacings $\Delta \theta =
+\pi/n_\theta$ and $\Delta \varphi = 2\pi/n_\theta$, or Simpson's rule,
+which is fourth order accurate.
+
+\section{Using This Thorn}
+
+\subsection{Obtaining This Thorn}
+
+This thorn is available as part of the Einstein Toolkit via:
+
+{\tt svn checkout https://svn.einsteintoolkit.org/cactus/EinsteinAnalysis/Multipole/trunk Multipole}
+
+or by using the Einstein Toolkit \verb|GetComponents| script and thornguide.
+
+\subsection{Basic Usage}
+
+Suppose that you have a real grid function, $u$, for which you want to
+compute the spherical harmonic coefficients $C^{lm}$.  Start by
+including Multipole and an interpolator (for example AEILocalInterp)
+in the ActiveThorns line of your parameter file (for interpolation
+thorns other than AEILocalInterp, you will need to modify the
+\verb|interpolator| and \verb|interpolator_options| accoording to the
+documentation of the interpolation thorn).  Next decide the number and
+radii of the coordinate spheres on which you want to decompose.  Set
+the number of spheres with the \verb|nradii| parameter, and the radii
+themselves with the \verb|radius[i]| parameters (the indices $i$ are
+zero-based).  For example,
+
+\begin{verbatim}
+ActiveThorns = ".... AEILocalInterp Multipole"
+
+Multipole::nradii       = 3
+Multipole::radius[0]    = 10
+Multipole::radius[1]    = 20
+Multipole::radius[2]    = 30
+Multipole::variables    = "MyThorn::u"
+\end{verbatim}
+
+The default parameters will compute all $l = 2$ modes assuming a
+spin-weight $s = 0$ on every iteration of your simulation.  The
+coefficients $C^{lm}$ will be output in the files with names of the
+form \verb|mp_<var>_l<lmode>_m<mmode>_r<rad>.asc|, for example
+
+\begin{verbatim}
+mp_u_l2_m2_r10.00.asc
+mp_u_l2_m-1_r20.00.asc
+\end{verbatim}
+
+For the filename, the radius is converted to a string with two decimal
+places, which should be sufficient.  These are ASCII files where each
+line has columns
+
+$t$, $\mathrm{Re} \, C^{lm}$, $\mathrm{Im} \, C^{lm}$.
+
+\subsection{Special Behaviour}
+Often it will be necessary to go beyond the basic usage described in the
+previous section.
+
+\subsubsection{Higher modes}
+By default, Multipole computes only $l = 2$ modes.  You can choose
+whether to extract a single mode, or all modes from $l = $
+\verb|l_min| to $l = $ \verb|l_mode|, with $|m| \le $ \verb|m_mode|.
+This is controlled by the \verb|mode_type| parameter, which can be set
+to \verb|"all_modes"| or \verb|"specific_mode"|.  The parameters
+\verb|l_min| and \verb|l_mode| specify the lowest and highest modes to
+compute.  The parameter \verb|m_mode| specifies up to which value of
+$m$ to compute.  When using \verb|mode_type| = \verb|"specific_mode"|,
+the mode $l$ and $m$ are given by \verb|l_mode| and \verb|m_mode|
+respectively.
+
+\subsubsection{Variable options}
+Several variable-specific options can be listed as {\em tags} in the
+\verb|variables| parameter:
+\begin{verbatim}
+Multipole::variables = "<imp>::<var>{<tagname> = <tagvalue> ... } ..."
+\end{verbatim}
+Valid tags are:
+
+\begin{tabular}{lp{0.9\columnwidth}}
+  cmplx & A string giving the fully qualified variable name for the imaginary part of a complex field, assuming that \verb|<imp>::<var>| is the real part. \\
+  name & A string giving an alias to use for the decomposed variable in the output filename, for use in the case of complex variable when otherwise the name of the real part would be used, which might be confusing. \\
+  sw & The integer spin-weight of the spherical harmonic decomposition to use.
+\end{tabular}
+
+Strings should be enclosed in single quotes within the list of tags.
+
+\subsubsection{Complex variables}
+In order to decompose a complex quantity, Multipole currently requires
+that the field is stored in two separate \verb|CCTK_REAL| grid
+functions, one for the real and one for the imaginary part.  Suppose
+the complex function $u$ is stored in two gridfunctions \verb|u_re|
+and \verb|u_im|.  In order to correctly decompose $u$, specify the
+real variable in the variables parameter, and use the tag \verb|cmplx|
+to specify the name of its imaginary companion:
+\begin{verbatim}
+Multipole::variables = "MyThorn::u_re{cmplx = 'MyThorn::u_im'}"
+\end{verbatim}
+
+\subsubsection{Renaming variables}
+In some cases, you might want the name of the variable in the output
+filename to be different to the name of the grid function.  This can
+be done by setting the \verb|name| tag of the variable:
+\begin{verbatim}
+Multipole::variables = "MyThorn::u{name = 'myfunction'}"
+\end{verbatim}
+For example, in the case of a complex variable where the output file
+contains the name of the real part, you can rename it as follows:
+\begin{verbatim}
+Multipole::variables = "MyThorn::u_re{cmplx = 'MyThorn::u_im' name = 'u'}"
+\end{verbatim}
+
+\subsubsection{Spin weight}
+Depending on the nature of the field to be decomposed, a 
+spin-weight other than 0 might be required in the spherical harmonic basis.  Use
+the tag \verb|sw| for this
+\begin{verbatim}
+Multipole::variables = "MyThorn::u_re{cmplx = 'MyThorn::u_im' name = 'u' sw = -2}"
+\end{verbatim}
+
+\subsubsection{Interpolator options}
+The interpolator to be used can be specified in the
+\verb|interpolator_name| parameter, and a string containing
+interpolator parameters can be specified in the
+\verb|interpolator_pars| parameter.  See the interpolator (for example
+AEIThorns/AEILocalInterp) documentation for details of interpolators
+available and their options.
+
+\subsubsection{Output}
+When used with mesh-refinement, it is common to require mode
+decomposition less frequently than every iteration.  The parameter
+\verb|out_every| can be used to control this.  1D and 2D output of the
+coordinate spheres can be enabled using \verb|out_1d_every| and
+\verb|out_2d_every|.
+
+\subsection{Interaction With Other Thorns}
+
+This thorn obtains grid function data via the standard Cactus
+interpolator interface.  To use this, one needs the parallel driver
+(for example PUGHInterp or CarpetInterp) as well as the low-level
+interpolator (e.g. AEILocalInterp).
+
+\subsection{Examples}
+
+To use this thorn with WeylScal4 to compute modes of the complex
+$\Psi_4$ variable, one could use the following example:
+
+\begin{verbatim}
+ActiveThorns = ".... WeylScal4 CarpetInterp AEILocalInterp Multipole"
+
+Multipole::nradii    = 3
+Multipole::radius[0] = 10
+Multipole::radius[1] = 20
+Multipole::radius[2] = 30
+Multipole::variables = "WeylScal4::Psi4r{sw=-2 cmplx='WeylScal4::Psi4i'}"
+Multipole::l_mode    = 4
+Multipole::m_mode    = 4
+\end{verbatim}
+
+\section{History}
+
+This thorn was developed in the Penn State Numerical Relativity group
+and contributed to the Einstein Toolkit.
+
+\subsection{Acknowledgements}
+
+This thorn was written by Ian Hinder and Andrew Knapp, with
+contributions from Eloisa Bentivegna and Shaun Wood.
+
+%\bibliography{multipole}
+%\bibliographystyle{plain}
+
+\begin{thebibliography}{1}
+\bibitem{Goldberg:1966uu}
+J.~N. Goldberg, A.~J. MacFarlane, E.~T. Newman, F.~Rohrlich, and E.~C.~G.
+  Sudarshan.
+\newblock {Spin s spherical harmonics and edth}.
+\newblock {\em J. Math. Phys.}, 8:2155, 1967.
+\end{thebibliography}
+
+% Do not delete next line
+% END CACTUS THORNGUIDE
+
+\end{document}

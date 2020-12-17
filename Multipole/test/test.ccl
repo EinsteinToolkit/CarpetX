@@ -1,0 +1,8 @@
+ABSTOL 1e-8
+RELTOL 1e-8
+
+# The convergence order tests are very sensitive to roundoff, because
+# the integration has a very small relative error (1e-7).  Hence
+# subtracting the numerical result from the exact result loses ~7
+# digits of precision.
+ABSTOL 1e-3 ^test_.*_convergence_order\.\.asc$

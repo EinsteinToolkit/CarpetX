@@ -1,0 +1,167 @@
+#param.ccl for thorn Multipole
+
+restricted:
+#Interpolator params:
+CCTK_STRING interpolator_name "Which interpolator should I use"
+{
+    ".+" :: "Any nonempty string"
+} "Hermite polynomial interpolation"
+
+CCTK_STRING interpolator_pars "Parameters for the interpolator"
+{
+    ".*" :: "Any string that Util_TableSetFromString() will take"
+} "order=3 boundary_off_centering_tolerance={0.0 0.0 0.0 0.0 0.0 0.0} boundary_extrapolation_tolerance={0.0 0.0 0.0 0.0 0.0 0.0}"
+
+# The above makes sure that the interpolator doesn't off-centre the
+# interpolation stencil if there are insufficient points to
+# interpolate, which can happen if there are insufficient ghost-zones
+# for the interpolation method used, and can lead to processor-number
+# dependent results.
+
+CCTK_STRING coord_system "What is the coord system?"
+{
+    ".*" :: "Any smart string will do"
+} "cart3d"
+
+KEYWORD integration_method "How to do surface integrals" STEERABLE=always
+{
+  "midpoint"      :: "Midpoint rule (2nd order)"
+  "trapezoidal"   :: "Trapezoidal rule (2nd order)"
+  "Simpson"       :: "Simpson's rule (4th order) [requires even ntheta and nphi]"
+  "DriscollHealy" :: "Driscoll & Healy (exponentially convergent) [requires even ntheta]"
+} "midpoint"
+
+
+STRING out_dir "Output directory for Extract's files, overrides IO::out_dir" STEERABLE = RECOVER
+{
+  ".+" :: "A valid directory name"
+  "^$" :: "An empty string to choose the default from IO::out_dir"
+} ""
+
+CCTK_INT out_every "How often to output" \
+STEERABLE=recover
+{
+  0   :: "no output"
+  1:* :: "output every to many iterations"
+} 1
+
+CCTK_INT out_1d_every "How often to output 1d data" \
+STEERABLE=recover
+{
+  0   :: "no output"
+  1:* :: "output every to many iterations"
+} 0
+
+#physical params:
+CCTK_INT nradii "How many extraction radii?" \
+STEERABLE=recover
+{
+  0:100 :: ""
+} 1
+
+
+CCTK_REAL radius[101] "The radii for extraction" \
+STEERABLE=recover
+{
+  0.0:* :: "Please keep it in the grid"
+} 0.0
+
+CCTK_INT ntheta "The number of points in the theta direction, minus one. (E.g., if this is set to 50, then 51 points will be chosen.)" \
+STEERABLE=recover
+{
+  0:* :: "Positive please"
+} 50
+
+CCTK_INT nphi "The number of points in the phi direction, minus one. (E.g., if this is set to 100, then 101 points will be chosen.)" \
+STEERABLE=recover
+{
+  1:* :: ""
+} 100
+
+# there must be no more than max_vars (10) variables, see multipole.cc
+CCTK_STRING variables "What variables to decompose"
+{
+    ".*" :: "A list of variables"
+} ""
+
+CCTK_BOOLEAN verbose "Output detailed information about what is happening"
+{
+} "no"
+
+# this maximum must match max_l_modes-1 in multipole.cc
+CCTK_INT l_max "The maximum l mode to extract" STEERABLE=always
+{
+  0:9 :: "l >= 0"
+} 2
+
+CCTK_BOOLEAN enable_test "whether to set a spherical harmonic in the 'harmonic' grid functions"
+{
+} "no"
+
+CCTK_INT test_l "which mode to put into the test variables"
+{
+  * :: "Any integer"
+} 2
+
+CCTK_INT test_m "which mode to put into the test variables"
+{
+  * :: "Any integer"
+} 2
+
+CCTK_INT test_sw "which spin weight to put into the test variables"
+{
+  * :: "Any integer"
+} -2
+
+CCTK_BOOLEAN test_mode_proportional_to_r "whether the test spherical harmonic coefficient is proportional to the radial coordinate"
+{
+} "no"
+
+
+# This parameter is deprecated and is no longer used
+KEYWORD mode_type "Which type of mode extraction do we have" STEERABLE=always
+{
+  "all modes"     :: "Extract all modes up to (l_mode, m_mode)."
+  "specific mode" :: "Select one specific (l_mode, m_mode) mode"
+  "deprecated"    :: "Deprecated"
+} "deprecated"
+
+# This parameter is deprecated and is no longer used
+CCTK_INT l_min "all modes: above which l mode to calculate/ specific mode: which l mode to extract" STEERABLE=always
+{
+  -1:* :: "Deprecated"
+} -1
+
+# This parameter is deprecated and is only used if set to a nondefault
+# value, in which case it is a synonym for l_max.
+CCTK_INT l_mode "The maximum l mode to extract" STEERABLE=always
+{
+  -1:* :: "Deprecated"
+} -1
+
+# This parameter is deprecated and is no longer used
+CCTK_INT m_mode "all modes: Up to which m mode to calculate/ specific mode: which m mode to extract " STEERABLE=always
+{
+  -100:* :: "Deprecated"
+} -100
+
+CCTK_BOOLEAN output_ascii "Output a simple ASCII file for each mode at each radius"
+{
+} "yes"
+
+CCTK_BOOLEAN output_hdf5 "Output an HDF5 file for each variable containing one dataset per mode at each radius"
+{
+} "no"
+
+CCTK_INT hdf5_chunk_size "How many iterations to preallocate in extensible HDF5 datasets"
+{
+  1:* :: "Any integer"
+} 200
+
+
+#############################################################################
+### import IOUtil parameters
+#############################################################################
+
+shares: IO
+USES STRING out_dir AS io_out_dir

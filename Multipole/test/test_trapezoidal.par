@@ -1,0 +1,97 @@
+
+ActiveThorns = "CoordBase SymBase Boundary CartGrid3d IOUtil Carpet CarpetLib  CarpetInterp AEILocalInterp InitBase Multipole LoopControl CarpetIOASCII"
+
+#############################################################
+# Grid
+#############################################################
+
+CartGrid3D::type                        = "coordbase"
+CartGrid3D::domain                      = "full"
+CartGrid3D::avoid_origin                = "no"
+
+CoordBase::domainsize                   = minmax
+CoordBase::xmin                         = -10
+CoordBase::ymin                         = -10
+CoordBase::zmin                         = -10
+CoordBase::xmax                         = 10
+CoordBase::ymax                         = 10
+CoordBase::zmax                         = 10
+CoordBase::dx                           = 0.2
+CoordBase::dy                           = 0.2
+CoordBase::dz                           = 0.2
+CoordBase::boundary_size_x_lower        = 2
+CoordBase::boundary_size_y_lower        = 2
+CoordBase::boundary_size_z_lower        = 2
+CoordBase::boundary_shiftout_x_lower    = 0
+CoordBase::boundary_shiftout_y_lower    = 0
+CoordBase::boundary_shiftout_z_lower    = 0
+CoordBase::boundary_size_x_upper        = 2
+CoordBase::boundary_size_y_upper        = 2
+CoordBase::boundary_size_z_upper        = 2
+CoordBase::boundary_shiftout_x_upper    = 0
+CoordBase::boundary_shiftout_y_upper    = 0
+CoordBase::boundary_shiftout_z_upper    = 0
+
+#############################################################
+# Carpet
+#############################################################
+
+Carpet::ghost_size                      = 3
+Carpet::domain_from_coordbase           = "yes"
+Carpet::poison_new_timelevels           = "yes"
+Carpet::check_for_poison                = "no"
+CarpetLib::poison_value                    = 113
+Carpet::init_fill_timelevels            = "yes"
+
+#############################################################
+# CarpetLib
+#############################################################
+
+CarpetLib::poison_new_memory            = "yes"
+
+#############################################################
+# Cactus
+#############################################################
+
+Cactus::terminate                     = "iteration"
+Cactus::cctk_itlast                   = 0
+
+#############################################################
+# Multipole
+#############################################################
+
+Multipole::nradii = 1
+Multipole::radius[0] = 8.0
+Multipole::variables = "Multipole::harmonic_re{sw=-2 cmplx='Multipole::harmonic_im' name='harmonic'}"
+Multipole::integration_method = "trapezoidal"
+
+Multipole::enable_test = "yes"
+Multipole::test_l = 2
+Multipole::test_m = 2
+Multipole::out_1d_every = 1
+
+#############################################################
+# Output
+#############################################################
+
+IO::out_dir                          = $parfile
+IO::out_fileinfo                     = "none"
+IO::parfile_write                    = "no"
+
+CarpetIOASCII::compact_format = "yes"
+
+# Enabling 1D output for the test grid functions would be helpful for
+# localising any failures but it makes the tests dependent on the
+# number of processors, as CarpetIOASCII's output is dependent on
+# this.
+
+# CarpetIOASCII::out1d_vars = "Multipole::harmonics"
+# CarpetIOASCII::out1d_every = 1
+# CarpetIOASCII::out1d_x = yes
+# CarpetIOASCII::out1d_y = yes
+# CarpetIOASCII::out1d_z = yes
+
+CarpetIOASCII::out0d_vars = "Multipole::test_trapezoidal_convergence_order Multipole::test_trapezoidal_pi_symmetry Multipole::test_trapezoidal_result_low Multipole::test_trapezoidal_result_high"
+CarpetIOASCII::out0d_every = 1
+CarpetIOASCII::out2d_vars = "Multipole::test_orthonormality"
+CarpetIOASCII::out2d_every = 1

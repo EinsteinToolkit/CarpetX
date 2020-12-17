@@ -1,0 +1,44 @@
+#interface.ccl for thorn Multipole
+implements: multipole
+inherits:   Grid 
+
+CCTK_INT FUNCTION IO_TruncateOutputFiles \
+  (CCTK_POINTER_TO_CONST IN GH)
+
+REQUIRES FUNCTION IO_TruncateOutputFiles
+
+public:
+
+CCTK_REAL harmonics type=GF timelevels=1
+{
+  harmonic_re, harmonic_im
+} "Spherical harmonics"
+
+CCTK_REAL test_integration_convergence_orders type=SCALAR
+{
+  test_midpoint_convergence_order,
+  test_trapezoidal_convergence_order,
+  test_simpson_convergence_order
+} "Test integration convergence orders"
+
+CCTK_REAL test_integration_results type=SCALAR
+{
+  test_midpoint_result_low, test_midpoint_result_high,
+  test_trapezoidal_result_low, test_trapezoidal_result_high,
+  test_simpson_result_low, test_simpson_result_high
+} "Test integration results"
+
+
+CCTK_REAL test_integration_symmetries type=SCALAR
+{
+  test_midpoint_pi_symmetry,
+  test_trapezoidal_pi_symmetry,
+  test_simpson_pi_symmetry,
+  test_driscollhealy_pi_symmetry
+} "Test integration symmetries"
+
+# [0..max_l_modes) has N=max_l_modes^2
+# comparing each mode with each other but skipping the duplicates gives
+# N*(N+1)/2
+# only 1 spin-weight mode is tested
+CCTK_REAL test_orthonormality type=ARRAY distrib=constant dim=2 size=1,(10*10)*(10*10+1)/2  "Test orthonormality of spherical harmonics"

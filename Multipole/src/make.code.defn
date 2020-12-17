@@ -1,0 +1,1 @@
+SRCS=interpolate.cc multipole.cc utils.cc sphericalharmonic.cc integrate.cc tests.cc
