@@ -1,13 +1,31 @@
 
-ActiveThorns = "CoordBase SymBase Boundary CartGrid3d IOUtil Carpet CarpetLib  CarpetInterp AEILocalInterp InitBase Multipole LoopControl CarpetIOASCII"
+ActiveThorns = "Coordinates SymBase Coordbase IOUtil CarpetX InitBase Multipole"
+ActiveThorns = "LocalInterp AEILocalInterp"
 
 #############################################################
 # Grid
 #############################################################
-
-CartGrid3D::type                        = "coordbase"
-CartGrid3D::domain                      = "full"
-CartGrid3D::avoid_origin                = "no"
+Cactus::presync_mode = "mixed-error"
+CarpetX::interpolation_order = 3
+Multipole::interpolator_pars = "order=3"
+CarpetX::verbose = "yes"
+CarpetX::max_tile_size_y = 100000
+CarpetX::max_tile_size_z = 100000
+CarpetX::max_grid_size_x = 100000
+CarpetX::max_grid_size_y = 100000
+CarpetX::max_grid_size_z = 100000
+CarpetX::xmin                         = -10
+CarpetX::ymin                         = -10
+CarpetX::zmin                         = -10
+CarpetX::xmax                         = 10
+CarpetX::ymax                         = 10
+CarpetX::zmax                         = 10
+CarpetX::ncells_x = 128
+CarpetX::ncells_y = 128
+CarpetX::ncells_z = 128
+CarpetX::periodic_x = "no"
+CarpetX::periodic_y = "no"
+CarpetX::periodic_z = "no"
 
 CoordBase::domainsize                   = minmax
 CoordBase::xmin                         = -10
@@ -16,9 +34,9 @@ CoordBase::zmin                         = -10
 CoordBase::xmax                         = 10
 CoordBase::ymax                         = 10
 CoordBase::zmax                         = 10
-CoordBase::dx                           = 0.2
-CoordBase::dy                           = 0.2
-CoordBase::dz                           = 0.2
+CoordBase::dx                           = 20.0/128
+CoordBase::dy                           = 20.0/128
+CoordBase::dz                           = 20.0/128
 CoordBase::boundary_size_x_lower        = 2
 CoordBase::boundary_size_y_lower        = 2
 CoordBase::boundary_size_z_lower        = 2
@@ -36,18 +54,18 @@ CoordBase::boundary_shiftout_z_upper    = 0
 # Carpet
 #############################################################
 
-Carpet::ghost_size                      = 3
-Carpet::domain_from_coordbase           = "yes"
-Carpet::poison_new_timelevels           = "yes"
-Carpet::check_for_poison                = "no"
-CarpetLib::poison_value                    = 113
-Carpet::init_fill_timelevels            = "yes"
+CarpetX::ghost_size                      = 3
+#Carpet::domain_from_coordbase           = "yes"
+#Carpet::poison_new_timelevels           = "yes"
+#Carpet::check_for_poison                = "no"
+#CarpetLib::poison_value                    = 113
+#Carpet::init_fill_timelevels            = "yes"
 
 #############################################################
 # CarpetLib
 #############################################################
 
-CarpetLib::poison_new_memory            = "yes"
+#CarpetLib::poison_new_memory            = "yes"
 
 #############################################################
 # Cactus
@@ -77,21 +95,22 @@ Multipole::out_1d_every = 1
 IO::out_dir                          = $parfile
 IO::out_fileinfo                     = "none"
 IO::parfile_write                    = "no"
+IO::out_every = 1
 
-CarpetIOASCII::compact_format = "yes"
-
-# Enabling 1D output for the test grid functions would be helpful for
-# localising any failures but it makes the tests dependent on the
-# number of processors, as CarpetIOASCII's output is dependent on
-# this.
-
-# CarpetIOASCII::out1d_vars = "Multipole::harmonics"
-# CarpetIOASCII::out1d_every = 1
-# CarpetIOASCII::out1d_x = yes
-# CarpetIOASCII::out1d_y = yes
-# CarpetIOASCII::out1d_z = yes
-
-CarpetIOASCII::out0d_vars = "Multipole::test_midpoint_convergence_order Multipole::test_midpoint_pi_symmetry Multipole::test_midpoint_result_low Multipole::test_midpoint_result_high"
-CarpetIOASCII::out0d_every = 1
-CarpetIOASCII::out2d_vars = "Multipole::test_orthonormality"
-CarpetIOASCII::out2d_every = 1
+#CarpetIOASCII::compact_format = "yes"
+#
+## Enabling 1D output for the test grid functions would be helpful for
+## localising any failures but it makes the tests dependent on the
+## number of processors, as CarpetIOASCII's output is dependent on
+## this.
+#
+## CarpetIOASCII::out1d_vars = "Multipole::harmonics"
+## CarpetIOASCII::out1d_every = 1
+## CarpetIOASCII::out1d_x = yes
+## CarpetIOASCII::out1d_y = yes
+## CarpetIOASCII::out1d_z = yes
+#
+#CarpetIOASCII::out0d_vars = "Multipole::test_midpoint_convergence_order Multipole::test_midpoint_pi_symmetry Multipole::test_midpoint_result_low Multipole::test_midpoint_result_high"
+#CarpetIOASCII::out0d_every = 1
+#CarpetIOASCII::out2d_vars = "Multipole::test_orthonormality"
+#CarpetIOASCII::out2d_every = 1

@@ -1,6 +1,6 @@
 #interface.ccl for thorn Multipole
 implements: multipole
-inherits:   Grid 
+inherits:   Coordinates 
 
 CCTK_INT FUNCTION IO_TruncateOutputFiles \
   (CCTK_POINTER_TO_CONST IN GH)
@@ -9,7 +9,7 @@ REQUIRES FUNCTION IO_TruncateOutputFiles
 
 public:
 
-CCTK_REAL harmonics type=GF timelevels=1
+CCTK_REAL harmonics type=GF timelevels=1 tags='index={0 0 0}'
 {
   harmonic_re, harmonic_im
 } "Spherical harmonics"

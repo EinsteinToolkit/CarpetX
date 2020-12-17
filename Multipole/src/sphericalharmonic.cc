@@ -75,17 +75,20 @@ extern "C" void Multipole_SetHarmonic(CCTK_ARGUMENTS)
 {
   DECLARE_CCTK_ARGUMENTS_Multipole_SetHarmonic;
   DECLARE_CCTK_PARAMETERS;
+  CCTK_REAL vcoordr;
 
-  for (int k = 0; k < cctk_lsh[2]; k++)
+  for (int k = 0; k < cctk_lsh[2]+1; k++)
   {
-    for (int j = 0; j < cctk_lsh[1]; j++)
+    for (int j = 0; j < cctk_lsh[1]+1; j++)
     {
-      for (int i = 0; i < cctk_lsh[0]; i++)
+      for (int i = 0; i < cctk_lsh[0]+1; i++)
       {
-        int index = CCTK_GFINDEX3D(cctkGH,i,j,k) ;
+        int index = i + j * (cctk_lsh[0]+1) + k * (cctk_lsh[0]+1)*(cctk_lsh[1]+1)  ;
+        vcoordr = sqrt(vcoordx[index]*vcoordx[index] + vcoordy[index]*vcoordy[index] + vcoordz[index]*vcoordz[index]);
 
-        CCTK_REAL theta = acos(z[index]/r[index]);
-        CCTK_REAL phi = atan2(y[index],x[index]);
+        CCTK_REAL theta = acos(vcoordz[index]/vcoordr);
+        if (vcoordr == 0) theta = 0;
+        CCTK_REAL phi = atan2(vcoordy[index],vcoordx[index]);
 
         CCTK_REAL re = 0;
         CCTK_REAL im = 0;
@@ -93,7 +96,7 @@ extern "C" void Multipole_SetHarmonic(CCTK_ARGUMENTS)
         Multipole_SphericalHarmonic(test_sw,test_l,test_m,theta,phi,
                                     &re, &im);
 
-        CCTK_REAL fac = test_mode_proportional_to_r ? r[index] : 1.0;
+        CCTK_REAL fac = test_mode_proportional_to_r ? vcoordr : 1.0;
 
         harmonic_re[index] = re * fac;
         harmonic_im[index] = im * fac;

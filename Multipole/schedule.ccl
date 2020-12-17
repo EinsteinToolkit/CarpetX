@@ -13,13 +13,14 @@ schedule Multipole_Calc at CCTK_ANALYSIS after (calc_np,PsiKadelia,Accelerator_C
 {
   LANG: C
   OPTIONS: GLOBAL
+  Reads: Coordinates::vertex_coords
 } "Calculate Multipoles"
 
 if (enable_test)
 {
     schedule Multipole_SetHarmonic at CCTK_INITIAL
     {
-      Reads: Grid::coordinates(everywhere)
+      Reads: Coordinates::vertex_coords
       Writes: Multipole::harmonics(interior)
       LANG: C
     } "Populate grid functions with spherical harmonics"
@@ -27,6 +28,7 @@ if (enable_test)
     schedule Multipole_TestOrthonormality at CCTK_INITIAL
     {
       LANG: C
+      OPTIONS: GLOBAL
     } "Loop over modes and integrate them to check orthonormality"
 }
 

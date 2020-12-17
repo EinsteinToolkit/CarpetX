@@ -272,7 +272,7 @@ extern "C" void Multipole_ParamCheck(CCTK_ARGUMENTS)
 
 extern "C" void Multipole_Calc(CCTK_ARGUMENTS)
 {
-  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_ARGUMENTS_Multipole_Calc
   DECLARE_CCTK_PARAMETERS
 
   static CCTK_REAL *xs, *ys, *zs;
