@@ -14,6 +14,7 @@ schedule Multipole_Calc at CCTK_ANALYSIS after (calc_np,PsiKadelia,Accelerator_C
   LANG: C
   OPTIONS: GLOBAL
   Reads: Coordinates::vertex_coords
+  Writes: Multipole::harmonics(everywhere)
 } "Calculate Multipoles"
 
 if (enable_test)

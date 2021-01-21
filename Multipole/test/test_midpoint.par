@@ -1,5 +1,5 @@
 
-ActiveThorns = "Coordinates SymBase Coordbase IOUtil CarpetX InitBase Multipole"
+ActiveThorns = "Coordinates SymBase IOUtil CarpetX InitBase Multipole"
 ActiveThorns = "LocalInterp AEILocalInterp"
 
 #############################################################
@@ -26,29 +26,6 @@ CarpetX::ncells_z = 128
 CarpetX::periodic_x = "no"
 CarpetX::periodic_y = "no"
 CarpetX::periodic_z = "no"
-
-CoordBase::domainsize                   = minmax
-CoordBase::xmin                         = -10
-CoordBase::ymin                         = -10
-CoordBase::zmin                         = -10
-CoordBase::xmax                         = 10
-CoordBase::ymax                         = 10
-CoordBase::zmax                         = 10
-CoordBase::dx                           = 20.0/128
-CoordBase::dy                           = 20.0/128
-CoordBase::dz                           = 20.0/128
-CoordBase::boundary_size_x_lower        = 2
-CoordBase::boundary_size_y_lower        = 2
-CoordBase::boundary_size_z_lower        = 2
-CoordBase::boundary_shiftout_x_lower    = 0
-CoordBase::boundary_shiftout_y_lower    = 0
-CoordBase::boundary_shiftout_z_lower    = 0
-CoordBase::boundary_size_x_upper        = 2
-CoordBase::boundary_size_y_upper        = 2
-CoordBase::boundary_size_z_upper        = 2
-CoordBase::boundary_shiftout_x_upper    = 0
-CoordBase::boundary_shiftout_y_upper    = 0
-CoordBase::boundary_shiftout_z_upper    = 0
 
 #############################################################
 # Carpet
