@@ -1,0 +1,176 @@
+#!/usr/bin/env python
+
+from math import *
+import re
+from string import Template
+import sys
+
+################################################################################
+
+domain_size = 128.0
+domain_spacing = 1.0
+fine_box_size = 2.0
+#TODO fine_box_spacing = 1/16.0
+fine_box_spacing = 1/24.0
+#TODO fine_box_spacing = 1/32.0
+
+dtfac = 1/4.0
+
+################################################################################
+
+xmin = -domain_size
+xmax = +domain_size
+nlevels = int(round(log(1.0 * domain_spacing / fine_box_spacing, 2)) + 1)
+ncells = int(round(2.0 * domain_size / domain_spacing))
+
+large_box_size = fine_box_size * 2 ** (nlevels - 2)
+error_threshold = 1.0 / large_box_size
+
+out_every = int(round(1.0 / dtfac * 2 ** (nlevels - 1)))
+
+try:
+    run_test = int("@RUN_TEST@")
+except:
+    run_test = 0
+final_time = 1.0/16 if run_test else 100.0
+
+parfile = """
+# run.me:
+# run.cores: 40
+# run.memory: 1.0e9
+# run.time: 7200.0
+
+ActiveThorns = "
+    ADMBase
+    CarpetX
+    Coordinates
+    Formaline
+    IOUtil
+    ODESolvers
+    TimerReport
+    TmunuBase
+    TwoPunctures
+    Z4c
+    Multipole
+    Weyl
+    AEILocalInterp
+"
+
+# domain_size = $domain_size
+# domain_spacing = $domain_spacing
+# fine_box_size = $fine_box_size
+# fine_box_spacing = $fine_box_spacing
+# dtfac = $dtfac
+
+Multipole::radius[0] = 10.0
+Multipole::variables = "Weyl::Psi4re{sw=-2 cmplx='Weyl::Psi4im' name='Psi4'}"
+Multipole::l_max = 4
+Multipole::verbose = "yes"
+CarpetX::interpolation_order = 3
+Multipole::interpolator_pars = "order=3"
+
+Cactus::presync_mode = "mixed-error"
+
+Cactus::terminate = "time"
+Cactus::cctk_final_time = $final_time
+
+CarpetX::verbose = no
+CarpetX::poison_undefined_values = no
+CarpetX::restrict_during_sync = no
+
+CarpetX::xmin = $xmin
+CarpetX::ymin = $xmin
+CarpetX::zmin = $xmin
+
+CarpetX::xmax = $xmax
+CarpetX::ymax = $xmax
+CarpetX::zmax = $xmax
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::periodic_x = no
+CarpetX::periodic_y = no
+CarpetX::periodic_z = no
+CarpetX::periodic = no
+# CarpetX::reflection_x = yes
+# CarpetX::reflection_y = yes
+# CarpetX::reflection_z = yes
+# CarpetX::reflection_upper_x = yes
+# CarpetX::reflection_upper_y = yes
+# CarpetX::reflection_upper_z = yes
+
+CarpetX::ghost_size = 3
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 0   #TODO 16
+CarpetX::regrid_error_threshold = $error_threshold
+
+CarpetX::prolongation_type = "ddf"
+CarpetX::prolongation_order = 5
+
+ODESolvers::method = "RK4"
+CarpetX::dtfac = $dtfac
+
+ADMBase::initial_data = "TwoPunctures"
+ADMBase::initial_lapse = "TwoPunctures-averaged"
+
+# QC-0 setup
+TwoPunctures::par_b =  1.168642873
+TwoPunctures::par_m_plus =  0.453
+TwoPunctures::par_m_minus =  0.453
+TwoPunctures::par_P_plus [1] = +0.3331917498
+TwoPunctures::par_P_minus[1] = -0.3331917498
+
+TwoPunctures::grid_setup_method = "evaluation"
+
+TwoPunctures::TP_epsilon = 1.0e-2
+TwoPunctures::TP_Tiny    = 1.0e-2
+
+TwoPunctures::verbose = no
+
+Z4c::calc_ADM_vars = yes
+Z4c::calc_ADMRHS_vars = yes
+Z4c::calc_constraints = yes
+
+Z4c::chi_floor = 1.0e-6
+Z4c::alphaG_floor = 1.0e-8
+Z4c::epsdiss = 0.32
+
+IO::out_dir = $$parfile
+IO::out_every = $out_every
+IO::out_mode = "np"
+IO::out_proc_every = 1
+
+CarpetX::out_plotfile_groups = ""
+
+CarpetX::out_silo_vars = "
+    # ADMBase::metric
+    # ADMBase::curv
+    ADMBase::lapse
+    # ADMBase::shift
+    # Z4c::chi
+    # Z4c::gamma_tilde
+    # Z4c::K_hat
+    # Z4c::A_tilde
+    # Z4c::Gam_tilde
+    # Z4c::Theta
+    # Z4c::alphaG
+    # Z4c::betaG
+    # Z4c::ZtC
+    # Z4c::HC
+    # Z4c::MtC
+    #Z4c::allC
+"
+
+CarpetX::out_tsv = no
+
+TimerReport::out_every = $out_every
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 100
+"""
+
+open(re.sub(r'(.*)\.rpar$', r'\1.par', sys.argv[0]), 'w').write(
+    re.sub(r'\n *',r'\n', Template(parfile).substitute(locals())))
