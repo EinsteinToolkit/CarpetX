@@ -1,0 +1,206 @@
+# Component list for the Einstein Toolkit <http://einsteintoolkit.org/>
+# $Revision$
+# $Date$
+# $HeadURL$
+
+!CRL_VERSION = 1.0
+
+!DEFINE ROOT = Cactus
+!DEFINE ARR  = $ROOT/arrangements
+!DEFINE COMPONENTLIST_TARGET = $ROOT/thornlists
+
+
+
+# To download these thorns via GetComponents, use then the following
+# command (on the same system where you originally used
+# GetComponents):
+
+#   cd Cactus (or whatever your source tree is called)
+#   bin/GetComponents --update --root=. manifest/einsteintoolkit.th
+
+
+
+# This thorn list
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/einsteintoolkit/manifest.git
+!REPO_PATH= $1
+!NAME     = manifest
+!CHECKOUT = ./manifest
+
+# Cactus Flesh
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/cactus.git
+!NAME     = flesh
+!CHECKOUT = .clang-format CONTRIBUTORS COPYRIGHT doc lib Makefile src
+
+# Simulation Factory
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/simfactory/simfactory2.git
+!REPO_PATH=$1
+!NAME     = simfactory2
+!CHECKOUT = ./simfactory
+
+# Example parameter files
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/einsteintoolkit/einsteinexamples.git
+!CHECKOUT = par
+
+# Various Cactus utilities
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/utilities.git
+!REPO_PATH= $1
+!NAME     = utils
+!CHECKOUT = ./utils
+
+# The GetComponents script
+!TARGET   = $ROOT/bin
+!TYPE     = git
+!URL      = https://github.com/gridaphobe/CRL.git
+!CHECKOUT = GetComponents
+
+
+
+# CactusBase thorns
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/cactusbase.git
+!REPO_PATH= $2
+!CHECKOUT =
+CactusBase/Boundary
+# CactusBase/CartGrid3D
+CactusBase/CoordBase
+CactusBase/Fortran
+CactusBase/InitBase
+# CactusBase/IOASCII
+# CactusBase/IOBasic
+CactusBase/IOUtil
+CactusBase/SymBase
+CactusBase/Time
+
+
+
+# CactusUtils thorns
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/cactusutils.git
+!REPO_PATH= $2
+!CHECKOUT =
+CactusUtils/Formaline
+# CactusUtils/MemSpeed
+# CactusUtils/NaNCatcher
+# CactusUtils/NaNChecker
+# CactusUtils/Nice
+# CactusUtils/NoMPI
+# CactusUtils/SystemStatistics
+CactusUtils/SystemTopology
+CactusUtils/TerminationTrigger
+CactusUtils/TimerReport
+# CactusUtils/Trigger
+CactusUtils/Vectors
+# CactusUtils/WatchDog
+
+
+
+# Additional Cactus thorns
+!TARGET   = $ARR
+!TYPE     = svn
+!URL      = https://github.com/EinsteinToolkit/$1-$2.git/branches/ET_2020_05
+!REPO_BRANCH = ET_2020_05
+!CHECKOUT = ExternalLibraries/OpenCL ExternalLibraries/pciutils ExternalLibraries/PETSc
+ExternalLibraries/FFTW3
+ExternalLibraries/GSL
+ExternalLibraries/HDF5
+#DISABLED ExternalLibraries/LAPACK
+ExternalLibraries/MPI
+ExternalLibraries/OpenBLAS
+ExternalLibraries/hwloc
+ExternalLibraries/zlib
+
+
+
+# CarpetX thorns
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://bitbucket.org/eschnett/cactusamrex.git
+!REPO_PATH= $2
+!CHECKOUT = CarpetX/Kokkos CarpetX/NSIMD CarpetX/SHTOOLS CarpetX/Silo CarpetX/libsharp
+CarpetX/ADMBase
+CarpetX/AHFinder
+CarpetX/AMReX
+CarpetX/Arith
+#[const error] CarpetX/BaikalX
+CarpetX/Boost
+CarpetX/BrillLindquist
+CarpetX/CarpetX
+CarpetX/Coordinates
+CarpetX/DGCoordinates
+CarpetX/DGWaveToy
+CarpetX/ErrorEstimator
+CarpetX/Forms
+CarpetX/Hydro
+CarpetX/HydroBase
+CarpetX/HydroToyCarpetX
+#DISABLED CarpetX/Kokkos
+CarpetX/Maxwell
+CarpetX/MaxwellToyCarpetX
+#DISABLED CarpetX/NSIMD
+#[const error] CarpetX/NewRad
+CarpetX/ODESolvers
+CarpetX/Poisson
+CarpetX/Punctures
+#DISABLED CarpetX/SHTOOLS
+#DISABLED CarpetX/Silo
+CarpetX/StaticTrumpet
+CarpetX/TestArrayGroup
+CarpetX/TestODESolvers
+CarpetX/TestProlongate
+CarpetX/TmunuBase
+CarpetX/TwoPunctures
+CarpetX/WaveToyCarpetX
+CarpetX/Weyl
+CarpetX/Z4c
+CarpetX/googletest
+#DISABLED CarpetX/libsharp
+CarpetX/ssht
+CarpetX/yaml_cpp
+
+
+
+# THCBase thorns
+!TARGET   = $ARR
+!TYPE     = git
+# !URL      = https://bitbucket.org/FreeTHC/thcbase.git
+!URL      = https://bitbucket.org/eschnett/thcbase.git
+!REPO_BRANCH = eschnett/carpetx
+!REPO_PATH= $2
+!CHECKOUT =
+THCBase/AdvectHRSC
+THCBase/CPPUtils
+THCBase/FDCore
+THCBase/HRSCCore
+
+# # THCCore thorns
+# !TARGET   = $ARR
+# !TYPE     = git
+# !URL      = https://bitbucket.org/FreeTHC/thccore.git
+# # !URL      = https://bitbucket.org/eschnett/thccore.git
+# # !REPO_BRANCH = eschnett/carpetx
+# !REPO_PATH= $2
+# !CHECKOUT =
+# THCCore/THC_Core
+# 
+# # THCExtra thorns
+# !TARGET   = $ARR
+# !TYPE     = git
+# !URL      = https://bitbucket.org/FreeTHC/thcextra.git
+# # !URL      = https://bitbucket.org/eschnett/thcextra.git
+# # !REPO_BRANCH = eschnett/carpetx
+# !REPO_PATH= $2
+# !CHECKOUT =
+# THCExtra/EOS_Thermal
+# THCExtra/PizzaNumUtils
