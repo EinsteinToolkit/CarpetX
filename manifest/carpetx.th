@@ -109,8 +109,7 @@ CactusUtils/Vectors
 # Additional Cactus thorns
 !TARGET   = $ARR
 !TYPE     = svn
-!URL      = https://github.com/EinsteinToolkit/$1-$2.git/branches/ET_2020_05
-!REPO_BRANCH = ET_2020_05
+!URL      = https://github.com/EinsteinToolkit/$1-$2.git/trunk
 !CHECKOUT = ExternalLibraries/OpenCL ExternalLibraries/pciutils ExternalLibraries/PETSc
 ExternalLibraries/FFTW3
 ExternalLibraries/GSL
@@ -121,6 +120,25 @@ ExternalLibraries/OpenBLAS
 ExternalLibraries/hwloc
 ExternalLibraries/zlib
 
+!TARGET   = $ARR
+!TYPE     = svn
+!URL      = https://github.com/rhaas80/$1-$2.git/trunk
+!CHECKOUT = ExternalLibraries/CUDA
+ExternalLibraries/ADIOS
+#DISABLED ExternalLibraries/CUDA
+ExternalLibraries/AMReX
+ExternalLibraries/NSIMD
+ExternalLibraries/ssht
+ExternalLibraries/Silo
+ExternalLibraries/yaml_cpp
+ExternalLibraries/CMake
+ExternalLibraries/openPMD
+
+!TARGET   = $ARR
+!TYPE     = svn
+!URL      = https://github.com/dradice/Boost.git/trunk
+!CHECKOUT =
+ExternalLibraries/Boost
 
 
 # CarpetX thorns
@@ -131,10 +149,10 @@ ExternalLibraries/zlib
 !CHECKOUT = CarpetX/Kokkos CarpetX/NSIMD CarpetX/SHTOOLS CarpetX/Silo CarpetX/libsharp
 CarpetX/ADMBase
 CarpetX/AHFinder
-CarpetX/AMReX
+#DISABLED CarpetX/AMReX
 CarpetX/Arith
 #[const error] CarpetX/BaikalX
-CarpetX/Boost
+#DISABLED CarpetX/Boost
 CarpetX/BrillLindquist
 CarpetX/CarpetX
 CarpetX/Coordinates
@@ -166,8 +184,8 @@ CarpetX/Weyl
 CarpetX/Z4c
 CarpetX/googletest
 #DISABLED CarpetX/libsharp
-CarpetX/ssht
-CarpetX/yaml_cpp
+#DISABLED CarpetX/ssht
+#DISABLED CarpetX/yaml_cpp
 
 
 
