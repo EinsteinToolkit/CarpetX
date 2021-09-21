@@ -1,0 +1,40 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    ErrorEstimator
+    SyncTestX
+"
+ 
+$nlevels = 7
+$ncells = 32
+
+Cactus::cctk_show_schedule = yes
+
+Cactus::terminate = "iteration"
+Cactus::cctk_itlast = 20
+
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::xmin = -100.0
+CarpetX::ymin = -100.0
+CarpetX::zmin = -100.0
+
+CarpetX::xmax = +100.0
+CarpetX::ymax = +100.0
+CarpetX::zmax = +100.0
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+ErrorEstimator::region_shape = "cube"
+ErrorEstimator::scale_by_resolution = yes
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 16
+CarpetX::regrid_error_threshold = 0.03125
+
+CarpetX::dtfac = 0.5
+
+IO::out_dir = $parfile
+IO::out_every = $ncells * 2 ** ($nlevels - 1) / 32

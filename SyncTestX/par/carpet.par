@@ -1,0 +1,58 @@
+ActiveThorns = "
+    Carpet
+    IOUtil
+    InitBase
+    CoordBase
+    SymBase
+    CarpetRegrid2
+    SyncTestX
+"
+ 
+$nlevels = 7
+$ncells = 32
+
+Cactus::cctk_show_schedule = yes
+
+Cactus::terminate = "iteration"
+Cactus::cctk_itlast = 20
+
+Cactus::presync_mode = "mixed-error"
+
+Carpet::domain_from_coordbase = yes
+CoordBase::xmin = -100.00
+CoordBase::ymin = -100.00
+CoordBase::zmin = -100.00
+CoordBase::xmax = +100.00
+CoordBase::ymax = +100.00
+CoordBase::zmax = +100.00
+CoordBase::dx   = 200.00/$ncells
+CoordBase::dy   = 200.00/$ncells
+CoordBase::dz   = 200.00/$ncells
+
+CoordBase::boundary_size_x_lower     = 3
+CoordBase::boundary_size_y_lower     = 3
+CoordBase::boundary_size_z_lower     = 3
+CoordBase::boundary_size_x_upper     = 3
+CoordBase::boundary_size_y_upper     = 3
+CoordBase::boundary_size_z_upper     = 3
+
+CoordBase::boundary_shiftout_x_lower = 0
+CoordBase::boundary_shiftout_z_lower = 0
+
+Carpet::init_fill_timelevels=yes
+Carpet::time_refinement_factors = "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"
+
+Carpet::max_refinement_levels = $nlevels
+CarpetRegrid2::regrid_every = 16
+
+#CarpetRegrid2::num_centres = 1
+#CarpetRegrid2::num_levels_1         =  6
+#CarpetRegrid2::position_x_1         =  0.0
+#CarpetRegrid2::radius_1[ 1]         =  62.0
+#CarpetRegrid2::radius_1[ 2]         =  31.0
+#CarpetRegrid2::radius_1[ 3]         =  15.5
+#CarpetRegrid2::radius_1[ 4]         =   9.0-1.25
+#CarpetRegrid2::radius_1[ 5]         =   4.5-(1.25/2.0)
+
+IO::out_dir = $parfile
+IO::out_every = $ncells * 2 ** ($nlevels - 1) / 32

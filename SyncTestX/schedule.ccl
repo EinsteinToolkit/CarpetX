@@ -1,0 +1,53 @@
+# Schedule definitions for thorn SyncTestX
+
+STORAGE: phi[1], test[1]
+
+SCHEDULE SyncTestX_Initialize AT initial
+{
+  LANG: C
+  WRITES: phi(interiorwithboundary)
+  WRITES: test(interiorwithboundary)
+} "Set up initial conditions for the wave equation"
+
+SCHEDULE SyncTestX_Sync AT initial AFTER SyncTestX_Initialize
+{
+  LANG: C
+  SYNC: phi
+} "Boundary conditions for the wave equation"
+
+SCHEDULE SyncTestX_Sync2 AT initial AFTER SyncTestX_Sync
+{
+  LANG: C
+  SYNC: test
+} "Boundary conditions for the wave equation"
+
+SCHEDULE SyncTestX_Sync AT postregrid
+{
+  LANG: C
+  SYNC: phi
+} "Boundary conditions for the wave equation"
+
+SCHEDULE SyncTestX_Sync2 AT postregrid AFTER SyncTestX_Sync
+{
+  LANG: C
+  SYNC: test
+} "Boundary conditions for the wave equation"
+
+SCHEDULE SyncTestX_Evolve AT evol
+{
+  LANG: C
+  WRITES: phi(interiorwithboundary)
+  WRITES: test(interiorwithboundary)
+} "Set up initial conditions for the wave equation"
+
+SCHEDULE SyncTestX_Sync AT evol AFTER SyncTestX_Evolve
+{
+  LANG: C
+  SYNC: phi
+} "Boundary conditions for the wave equation"
+
+SCHEDULE SyncTestX_Sync2 AT evol AFTER SyncTestX_Sync
+{
+  LANG: C
+  SYNC: test
+} "Boundary conditions for the wave equation"
