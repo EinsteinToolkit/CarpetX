@@ -1,40 +1,54 @@
 ActiveThorns = "
     CarpetX
-    IOUtil
     ErrorEstimator
+    IOUtil
     SyncTestX
+    TimerReport
 "
  
-$nlevels = 7
+$nlevels = 5
 $ncells = 32
+$yfac = 1.0
 
 Cactus::cctk_show_schedule = yes
 
 Cactus::terminate = "iteration"
-Cactus::cctk_itlast = 20
+Cactus::cctk_itlast = 200.0
 
 Cactus::presync_mode = "mixed-error"
 
 CarpetX::xmin = -100.0
-CarpetX::ymin = -100.0
+CarpetX::ymin = -100.0*$yfac
 CarpetX::zmin = -100.0
 
 CarpetX::xmax = +100.0
-CarpetX::ymax = +100.0
+CarpetX::ymax = +100.0*$yfac
 CarpetX::zmax = +100.0
 
 CarpetX::ncells_x = $ncells
-CarpetX::ncells_y = $ncells
+CarpetX::ncells_y = $yfac*$ncells
 CarpetX::ncells_z = $ncells
+
+CarpetX::poison_undefined_values = no
 
 ErrorEstimator::region_shape = "cube"
 ErrorEstimator::scale_by_resolution = yes
+ErrorEstimator::error_factor_x = 1.0
+ErrorEstimator::error_factor_y = $yfac
+ErrorEstimator::error_factor_z = 1.0
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 16
-CarpetX::regrid_error_threshold = 0.03125
-
+CarpetX::regrid_error_threshold = 0.1
 CarpetX::dtfac = 0.5
 
-IO::out_dir = $parfile
-IO::out_every = $ncells * 2 ** ($nlevels - 1) / 32
+TimerReport::out_every = 5120
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 20
+
+#IO only used to verify grids match for test
+#IO::out_dir = $parfile
+#IO::out_every = $ncells * 2 ** ($nlevels - 1) / 32
+#
+#CarpetX::out_silo_vars = "SyncTestX::phi"

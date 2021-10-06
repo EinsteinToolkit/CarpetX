@@ -1,0 +1,85 @@
+ActiveThorns = "
+    Carpet
+    CartGrid3D
+    InitBase
+    IOUtil
+    CoordBase
+    SymBase
+    CarpetRegrid2
+    SyncTestX
+    TimerReport
+"
+ 
+$nlevels = 7
+$ncells = 32
+
+Cactus::cctk_show_schedule = yes
+Carpet::poison_new_timelevels = no
+
+Cactus::terminate = "iteration"
+Cactus::cctk_itlast = 200
+
+Cactus::presync_mode = "mixed-error"
+Carpet::prolongation_order_time = 0
+ActiveThorns = CartGrid3D
+CartGrid3D::type = "coordbase"
+
+Carpet::domain_from_coordbase = yes
+CoordBase::xmin = -100.00
+CoordBase::ymin = -400.00
+CoordBase::zmin = -100.00
+CoordBase::xmax = +100.00
+CoordBase::ymax = +400.00
+CoordBase::zmax = +100.00
+CoordBase::dx   = 200.00/$ncells
+CoordBase::dy   = 200.00/$ncells
+CoordBase::dz   = 200.00/$ncells
+
+CoordBase::boundary_size_x_lower     = 1
+CoordBase::boundary_size_y_lower     = 1
+CoordBase::boundary_size_z_lower     = 1
+CoordBase::boundary_size_x_upper     = 1
+CoordBase::boundary_size_y_upper     = 1
+CoordBase::boundary_size_z_upper     = 1
+
+CoordBase::boundary_shiftout_x_lower = 1
+CoordBase::boundary_shiftout_z_lower = 1
+
+Carpet::init_fill_timelevels=yes
+Carpet::time_refinement_factors = "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"
+
+Carpet::max_refinement_levels = $nlevels
+CarpetRegrid2::regrid_every = 16
+
+CarpetRegrid2::num_centres = 1
+CarpetRegrid2::num_levels_1         =  5
+CarpetRegrid2::position_x_1         =  0.0
+CarpetRegrid2::radius_x_1[ 1]         =  75.0
+CarpetRegrid2::radius_x_1[ 2]         =  38.0
+CarpetRegrid2::radius_x_1[ 3]         =  18.0
+CarpetRegrid2::radius_x_1[ 4]         =  9.0
+CarpetRegrid2::radius_y_1[ 1]         =  275.0
+CarpetRegrid2::radius_y_1[ 2]         =  137.0
+CarpetRegrid2::radius_y_1[ 3]         =  68.0
+CarpetRegrid2::radius_y_1[ 4]         =  34.0
+CarpetRegrid2::radius_z_1[ 1]         =  75.0
+CarpetRegrid2::radius_z_1[ 2]         =  38.0
+CarpetRegrid2::radius_z_1[ 3]         =  18.0
+CarpetRegrid2::radius_z_1[ 4]         =  9.0
+
+#Activethorns = "CarpetIOHDF5"
+#IO::out_dir = $parfile
+#IO::out_every = $ncells * 2 ** ($nlevels - 1) / 32
+#IOHDF5::one_file_per_group     = yes
+#IOHDF5::output_symmetry_points = no
+#IOHDF5::out3D_ghosts           = no
+#IOHDF5::compression_level      = 1
+#IOHDF5::use_checksums          = yes
+#IOHDF5::out_vars               = "
+#        SyncTestX::phi
+#"
+
+TimerReport::out_every = 5120
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 20
