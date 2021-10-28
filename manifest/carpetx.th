@@ -134,6 +134,13 @@ ExternalLibraries/yaml_cpp
 ExternalLibraries/CMake
 ExternalLibraries/openPMD
 
+# RePrimAnd
+!TARGET   = $ARR
+!TYPE     = svn
+!URL      = https://github.com/rhaas80/RePrimAnd.git/trunk/ET_interface/thorns/$2
+!CHECKOUT = ExternalLibraries/RePrimAnd
+#DISABLED ExternalLibraries/RePrimAnd
+
 !TARGET   = $ARR
 !TYPE     = svn
 !URL      = https://github.com/dradice/Boost.git/trunk
