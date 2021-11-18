@@ -14,3 +14,18 @@ CCTK_REAL epsilon "Epsilon to avoid infinity when dividing by zero" STEERABLE=al
 {
   0.0:* :: ""
 } 1.0e-10
+
+CCTK_REAL error_factor_x "Factor to increase error tolerance in x-direction" STEERABLE=always
+{
+  0.0:* :: ""
+} 1.0
+
+CCTK_REAL error_factor_y "Factor to increase error tolerance in y-direction" STEERABLE=always
+{
+  0.0:* :: ""
+} 1.0
+
+CCTK_REAL error_factor_z "Factor to increase error tolerance in z-direction" STEERABLE=always
+{
+  0.0:* :: ""
+} 1.0
