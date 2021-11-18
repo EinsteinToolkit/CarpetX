@@ -43,6 +43,7 @@ extern "C" void ErrorEstimator_Estimate(CCTK_ARGUMENTS) {
   const vect<int, dim> ones{1, 1, 1};
   const vect<int, dim> levfac{cctk_levfac[0], cctk_levfac[1], cctk_levfac[2]};
   const vect<int, dim> scalefactors = scale_by_resolution ? levfac : ones;
+  const vect<CCTK_REAL, dim> errorfactors{error_factor_x, error_factor_y, error_factor_z};
 
   const std::array<int, dim> indextype = {1, 1, 1};
   const GF3D2layout layout(cctkGH, indextype);
@@ -63,9 +64,9 @@ extern "C" void ErrorEstimator_Estimate(CCTK_ARGUMENTS) {
         const CCTK_REAL r = [&]() {
           switch (shape) {
           case shape_t::sphere:
-            return radius_sphere(scalefactors * p.X);
+            return radius_sphere(scalefactors * p.X / errorfactors);
           case shape_t::cube:
-            return radius_cube(scalefactors * p.X);
+            return radius_cube(scalefactors * p.X / errorfactors);
           default:
             assert(0);
           };
