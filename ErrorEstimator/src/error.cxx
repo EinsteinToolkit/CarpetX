@@ -28,7 +28,8 @@ constexpr T radius_sphere(const T x, const T y, const T z) {
 }
 
 template <typename T> constexpr T radius_cube(const T x, const T y, const T z) {
-  return fmax3(fabs(x), fabs(y), fabs(z));
+  DECLARE_CCTK_PARAMETERS;
+  return fmax3(fabs(x)/error_factor_x, fabs(y)/error_factor_y, fabs(z)/error_factor_z);
 }
 
 template <typename T, int CI, int CJ, int CK>
