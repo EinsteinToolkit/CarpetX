@@ -186,7 +186,9 @@ CarpetX/TestODESolvers
 CarpetX/TestProlongate
 CarpetX/TmunuBase
 CarpetX/TwoPunctures
+CarpetX/WaveToyCPU
 CarpetX/WaveToyCarpetX
+CarpetX/WaveToyGPU
 CarpetX/Weyl
 CarpetX/Z4c
 CarpetX/googletest
