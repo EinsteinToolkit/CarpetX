@@ -21,17 +21,16 @@ extern "C" void HydroBase_initial_data(CCTK_ARGUMENTS) {
 
   const GF3D<CCTK_REAL, 1, 1, 1> press_(cctkGH, press);
 
+  const GF3D<CCTK_REAL, 1, 1, 1> Bvecx_(cctkGH, Bvecx);
+  const GF3D<CCTK_REAL, 1, 1, 1> Bvecy_(cctkGH, Bvecy);
+  const GF3D<CCTK_REAL, 1, 1, 1> Bvecz_(cctkGH, Bvecz);
+
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { rho_(p.I) = 0; });
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { velx_(p.I) = 0; });
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { vely_(p.I) = 0; });
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { velz_(p.I) = 0; });
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { eps_(p.I) = 0; });
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { press_(p.I) = 0; });
-  
-  const GF3D<CCTK_REAL, 1, 1, 1> Bvecx_(cctkGH, Bvecx);
-  const GF3D<CCTK_REAL, 1, 1, 1> Bvecy_(cctkGH, Bvecy);
-  const GF3D<CCTK_REAL, 1, 1, 1> Bvecz_(cctkGH, Bvecz);
-  
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { Bvecx_(p.I) = 0; });
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { Bvecy_(p.I) = 0; });
   loop_all<1, 1, 1>(cctkGH, [&](const PointDesc &p) { Bvecz_(p.I) = 0; });
