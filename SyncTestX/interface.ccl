@@ -1,4 +1,4 @@
-# Interface definition for thorn WaveToyCarpetX
+# Interface definition for thorn SyncTestX
 
 IMPLEMENTS: SyncTestX
 
