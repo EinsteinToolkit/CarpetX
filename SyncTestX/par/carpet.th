@@ -1,0 +1,125 @@
+!CRL_VERSION = 1.0
+
+# Component list: carpet.th
+
+!DEFINE ROOT = Cactus
+!DEFINE ARR  = $ROOT/arrangements
+!DEFINE COMPONENTLIST_TARGET = $ROOT/thornlists/
+
+!DEFINE ET_RELEASE = ET_2021_05
+
+# This thorn list
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/einsteintoolkit/manifest.git
+!REPO_BRANCH = $ET_RELEASE
+!REPO_PATH= $1
+!NAME     = manifest
+!CHECKOUT = ./manifest
+
+# Cactus Flesh
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/cactus.git
+!REPO_BRANCH = $ET_RELEASE
+!NAME     = flesh
+!CHECKOUT = .clang-format CONTRIBUTORS COPYRIGHT doc lib Makefile src
+
+# Simulation Factory
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/simfactory/simfactory2.git
+!REPO_BRANCH = $ET_RELEASE
+!REPO_PATH=$1
+!NAME     = simfactory2
+!CHECKOUT = ./simfactory
+
+# Example parameter files
+!TARGET   = $ROOT
+!TYPE     = git
+!URL      = https://bitbucket.org/einsteintoolkit/einsteinexamples.git
+!REPO_BRANCH = $ET_RELEASE
+!CHECKOUT = par
+
+# Various Cactus utilities
+!TARGET   = $ROOT/utils
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/utilities.git
+!REPO_BRANCH = $ET_RELEASE
+!REPO_PATH= $2
+!CHECKOUT = ./ParameterFiles ./Scripts ./Syntax
+
+# The GetComponents script
+!TARGET   = $ROOT/bin
+!TYPE     = git
+!URL      = https://github.com/gridaphobe/CRL.git
+!REPO_BRANCH = $ET_RELEASE
+!CHECKOUT = GetComponents
+
+# CactusDoc thorns
+!TARGET   = $ARR/CactusDoc
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/coredoc.git
+!REPO_BRANCH = $ET_RELEASE
+!NAME     = CoreDoc
+!REPO_PATH= $1
+!CHECKOUT = ./CoreDoc
+
+# CactusBase thorns
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/cactusbase.git
+!REPO_BRANCH = $ET_RELEASE
+!REPO_PATH= $2
+!CHECKOUT =
+CactusBase/CartGrid3D
+CactusBase/CoordBase
+CactusBase/InitBase
+CactusBase/IOUtil
+CactusBase/SymBase
+
+# CactusUtils thorns
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://bitbucket.org/cactuscode/cactusutils.git
+!REPO_BRANCH = $ET_RELEASE
+!REPO_PATH= $2
+!CHECKOUT =
+CactusUtils/TimerReport
+CactusUtils/Vectors
+
+# Carpet, the AMR driver
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://bitbucket.org/eschnett/carpet.git
+!REPO_BRANCH = $ET_RELEASE
+!REPO_PATH= $2
+!CHECKOUT = Carpet/doc
+Carpet/Carpet
+Carpet/CarpetLib
+Carpet/CarpetRegrid2
+Carpet/CycleClock
+Carpet/LoopControl
+Carpet/Timers
+
+# Additional Cactus thorns
+!TARGET   = $ARR
+!TYPE     = svn
+!URL      = https://github.com/EinsteinToolkit/$1-$2.git/branches/$ET_RELEASE
+!REPO_BRANCH = $ET_RELEASE
+!CHECKOUT =
+ExternalLibraries/hwloc
+ExternalLibraries/MPI
+#DISABLED ExternalLibraries/OpenBLAS
+#DISABLED ExternalLibraries/OpenCL
+#DISABLED ExternalLibraries/pciutils
+#DISABLED ExternalLibraries/PETSc
+ExternalLibraries/zlib
+
+# CarpetX thorns
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://bitbucket.org/eschnett/cactusamrex.git
+!REPO_PATH= $2
+!CHECKOUT =
+CarpetX/SyncTestX
