@@ -1,4 +1,7 @@
-#if __has_include(<../Configuration/Capabilities/cctki_CARPETX.h>)
+// a bit of a hack since we must include fixmath.hxx before cctk.h but need to
+// find out about capabilities to decide if fixmath (for CarpetX) is required
+#include "cctk_Capabilities.h"
+#ifdef HAVE_CAPABILITY_CarpetX
 #include <fixmath.hxx>
 #endif
 #include <cctk.h>
