@@ -1,5 +1,7 @@
-#ifndef LOOPCONTROL_H
-#define LOOPCONTROL_H
+#ifdef HAVE_CAPABILITY_CarpetX
+
+#ifndef CARPETX_LOOPCONTROL_H
+#define CARPETX_LOOPCONTROL_H
 
 #include <cctk_Loop.h>
 
@@ -83,4 +85,6 @@ GridDescBase_t LC_CreateGridDesc(const cGH *cctkGH);
 }
 #endif
 
-#endif // LOOPCONTROL_H
+#endif // CARPETX_LOOPCONTROL_H
+
+#endif // HAVE_CAPABILITY_CarpetX
