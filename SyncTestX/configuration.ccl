@@ -1,7 +1,7 @@
 # Configuration definitions for thorn SyncTestX
-OPTIONAL Carpet
+OPTIONAL_IFACTIVE Carpet
 {
 }
-OPTIONAL CarpetX
+OPTIONAL_IFACTIVE CarpetX
 {
 }
