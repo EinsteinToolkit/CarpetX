@@ -1,0 +1,19 @@
+# Interface definition for thorn HydroBase
+
+IMPLEMENTS: HydroBase
+
+USES INCLUDE HEADER: loop.hxx
+
+
+
+PUBLIC:
+
+CCTK_REAL rho TYPE=gf TAGS='index={1 1 1}' "rest mass density rho"
+
+CCTK_REAL vel TYPE=gf TAGS='index={1 1 1}' { velx vely velz } "velocity v^i"
+
+CCTK_REAL eps TYPE=gf TAGS='index={1 1 1}' "specific internal energy epsilon"
+
+CCTK_REAL press TYPE=gf TAGS='index={1 1 1}' "pressure p"
+
+CCTK_REAL Bvec TYPE=gf TAGS='index={1 1 1}' { Bvecx Bvecy Bvecz } "Primitive Magnetic Field vector B^i"
