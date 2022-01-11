@@ -26,10 +26,10 @@ CartGrid3D::type = "coordbase"
 
 Carpet::domain_from_coordbase = yes
 CoordBase::xmin = -100.00
-CoordBase::ymin = -300.00
+CoordBase::ymin = -200.00
 CoordBase::zmin = -100.00
 CoordBase::xmax = +100.00
-CoordBase::ymax = +300.00
+CoordBase::ymax = +200.00
 CoordBase::zmax = +100.00
 CoordBase::dx   = 200.00/$ncells
 CoordBase::dy   = 200.00/$ncells
