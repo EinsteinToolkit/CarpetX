@@ -1,3 +1,11 @@
+Cactus Code Thorn SyncTestX
+Author(s)    : Samuel Cupp
+Maintainer(s): Cactus team
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
 The SyncTestX thorn provides a comparison test for the communication
 overhead of Carpet and CarpetX. The thorn is compatible with both
 without changes, and a weak scaling test is provided in the par
