@@ -26,9 +26,14 @@ directory.
    thornlist provided in SyncTestX/par/ and compile the toolkit in
    the newly created Cactus directory.
 
-4) For the Carpet simulations, run the sing.par, doub.par, trip.par,
-   and quad.par. The TimerReport thorn will output the timing data to
-   screen, so pipe the output into a file for later comparisons.
+4) For the Carpet simulations, use the parfile carpet.par. Near the top
+   of the parfile is the variable nnodes. Changing this will scale the y-
+   coordinate to generate more work for the weak scaling. After changing
+   this value to {1,2,3,4}, search for the CarpetRegrid2 parameters. In this
+   section, activate the appropriate parameters and comment out the rest.
+   These parameters ensure that the refined meshes match the meshes generated
+   by CarpetX. The TimerReport thorn will output the timing data to screen,
+   so pipe the output into a file for later comparisons.
 
 5) For the CarpetX simulations, use amrex.par. Near the top of the parfile
    is the variable yfac. Changing this variable will modify various values
@@ -60,10 +65,10 @@ directory.
    parfiles allows for the two grids to be plotted simultaneously.
    Fiddle with the CarpetRegrid2 parameters until the meshes match.
 
-4) Repeat this for every parfile in the test. This must be done
-   for each parfile because we are explicitly setting the refinement
-   zones. If the test is only changing a single dimension, then the other
-   two dimensions shouldn't change.
+4) Repeat this for every scaling factor (2x, 3x, etc.) in the test.
+   This must be done for each grid because we are explicitly setting
+   the refinement zones. If the test is only changing a single
+   dimension, then the other two dimensions shouldn't change.
 
 5) Once the meshes match for each comparison point of the test,
    the IO can be safely turned off, and the test is ready.
