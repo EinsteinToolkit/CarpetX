@@ -109,14 +109,16 @@ CactusUtils/Vectors
 # Additional Cactus thorns
 !TARGET   = $ARR
 !TYPE     = svn
-!URL      = https://github.com/EinsteinToolkit/$1-$2.git/trunk
-!CHECKOUT = ExternalLibraries/OpenCL ExternalLibraries/pciutils ExternalLibraries/PETSc
+!URL      = https://github.com/EinsteinToolkit/$1-$2.git/branches/ET_2020_05
+!REPO_BRANCH = ET_2020_05
+!CHECKOUT = ExternalLibraries/OpenCL ExternalLibraries/pciutils
 ExternalLibraries/FFTW3
 ExternalLibraries/GSL
 ExternalLibraries/HDF5
 #DISABLED ExternalLibraries/LAPACK
 ExternalLibraries/MPI
 ExternalLibraries/OpenBLAS
+#ExternalLibraries/PETSc
 ExternalLibraries/hwloc
 ExternalLibraries/zlib
 
@@ -137,9 +139,9 @@ ExternalLibraries/openPMD
 # RePrimAnd
 !TARGET   = $ARR
 !TYPE     = svn
-!URL      = https://github.com/rhaas80/RePrimAnd.git/trunk/ET_interface/thorns/$2
+!URL      = https://github.com/wokast/RePrimAnd.git/trunk/ET_interface/thorns/$2
 !CHECKOUT =
-ExternalLibraries/RePrimAnd
+# ExternalLibraries/RePrimAnd
 
 !TARGET   = $ARR
 !TYPE     = svn
@@ -153,10 +155,12 @@ ExternalLibraries/Boost
 !TYPE     = git
 !URL      = https://bitbucket.org/eschnett/cactusamrex.git
 !REPO_PATH= $2
-!CHECKOUT = CarpetX/Kokkos CarpetX/NSIMD CarpetX/SHTOOLS CarpetX/Silo CarpetX/libsharp
+!CHECKOUT = CarpetX/Kokkos CarpetX/SHTOOLS CarpetX/libsharp CarpetX/ADIOS2 CarpetX/AMReX CarpetX/Boost CarpetX/NSIMD CarpetX/Silo CarpetX/ssht CarpetX/yaml_cpp
+#DISABLED CarpetX/ADIOS2
 CarpetX/ADMBase
-CarpetX/AHFinder
+#CarpetX/AHFinder
 #DISABLED CarpetX/AMReX
+CarpetX/Algo
 CarpetX/Arith
 #[const error] CarpetX/BaikalX
 #DISABLED CarpetX/Boost
@@ -166,51 +170,69 @@ CarpetX/Coordinates
 CarpetX/DGCoordinates
 CarpetX/DGWaveToy
 CarpetX/ErrorEstimator
-CarpetX/Forms
+#CarpetX/Forms
+#CarpetX/GRHydroToyGPU
+CarpetX/AsterX
 CarpetX/Hydro
 CarpetX/HydroBase
+CarpetX/HydroInitial
+CarpetX/KHInitial
 CarpetX/HydroToyCarpetX
-CarpetX/Loop
 #DISABLED CarpetX/Kokkos
+CarpetX/Loop
 CarpetX/Maxwell
 CarpetX/MaxwellToyCarpetX
+CarpetX/MultiPatch
 #DISABLED CarpetX/NSIMD
 #[const error] CarpetX/NewRad
 CarpetX/ODESolvers
+#DISABLED CarpetX/PDESolvers
 CarpetX/Poisson
+#DISABLED CarpetX/Poisson2
 CarpetX/Punctures
 #DISABLED CarpetX/SHTOOLS
 #DISABLED CarpetX/Silo
 CarpetX/StaticTrumpet
 CarpetX/TestArrayGroup
 CarpetX/TestODESolvers
+CarpetX/TestODESolvers2
 CarpetX/TestProlongate
+CarpetX/TestSymmetries
 CarpetX/TmunuBase
 CarpetX/TwoPunctures
-CarpetX/WaveToyCPU
 CarpetX/WaveToyCarpetX
+CarpetX/WaveToyCPU
 CarpetX/WaveToyGPU
+CarpetX/WaveToyMoL
 CarpetX/Weyl
 CarpetX/Z4c
-CarpetX/googletest
 #DISABLED CarpetX/libsharp
 #DISABLED CarpetX/ssht
 #DISABLED CarpetX/yaml_cpp
 
-
-
-# THCBase thorns
+# the openPMD thorn is in a directory openPMD-api and GetComponents' REPO_PATH
+# rules require some creativie path settings to get the correct link
 !TARGET   = $ARR
 !TYPE     = git
-# !URL      = https://bitbucket.org/FreeTHC/thcbase.git
-!URL      = https://bitbucket.org/eschnett/thcbase.git
-!REPO_BRANCH = eschnett/carpetx
-!REPO_PATH= $2
+!URL      = https://bitbucket.org/eschnett/cactusamrex.git
+!REPO_PATH= ../../arrangements/$1/../../repos/cactusamrex/openPMD_api
 !CHECKOUT =
-THCBase/AdvectHRSC
-THCBase/CPPUtils
-THCBase/FDCore
-THCBase/HRSCCore
+#DISABLED CarpetX/openPMD
+
+
+
+# # THCBase thorns
+# !TARGET   = $ARR
+# !TYPE     = git
+# # !URL      = https://bitbucket.org/FreeTHC/thcbase.git
+# !URL      = https://bitbucket.org/eschnett/thcbase.git
+# !REPO_BRANCH = eschnett/carpetx
+# !REPO_PATH= $2
+# !CHECKOUT =
+# THCBase/AdvectHRSC
+# THCBase/CPPUtils
+# THCBase/FDCore
+# THCBase/HRSCCore
 
 # # THCCore thorns
 # !TARGET   = $ARR
