@@ -170,6 +170,7 @@ CarpetX/Forms
 CarpetX/Hydro
 CarpetX/HydroBase
 CarpetX/HydroToyCarpetX
+CarpetX/Loop
 #DISABLED CarpetX/Kokkos
 CarpetX/Maxwell
 CarpetX/MaxwellToyCarpetX
