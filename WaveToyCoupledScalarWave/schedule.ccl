@@ -1,0 +1,63 @@
+# Schedule definitions for thorn WaveToyCoupledScalarWave
+# Define some schedule groups to organize the schedule
+
+SCHEDULE GROUP WaveToyCoupledScalarWave_InitialGroup AT initial
+{
+} "Set up initial conditions"
+
+
+
+SCHEDULE GROUP WaveToyCoupledScalarWave_PostStepGroup AT postinitial
+{
+} "Post-process state variables"
+
+
+SCHEDULE GROUP WaveToyCoupledScalarWave_PostStepGroup AT postregrid
+{
+} "Post-process state variables"
+
+
+SCHEDULE GROUP WaveToyCoupledScalarWave_PostStepGroup IN ODESolvers_PostStep
+{
+} "Post-process state variables"
+
+SCHEDULE GROUP WaveToyCoupledScalarWave_RHSGroup IN ODESolvers_RHS
+{
+} "Calculate RHS"
+
+
+SCHEDULE GROUP WaveToyCoupledScalarWave_AnalysisGroup AT analysis
+{
+} "Analyse state"
+
+################################################################################
+
+
+
+SCHEDULE WaveToyCoupledScalarWave_Initialize IN WaveToyCoupledScalarWave_InitialGroup
+{
+  LANG: C
+  WRITES: phi(interior) mu(interior) zeta(interior) nu(interior)
+} "Set up initial conditions for the wave equation"
+
+SCHEDULE WaveToyCoupledScalarWave_Sync IN WaveToyCoupledScalarWave_PostStepGroup
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Boundary conditions for the wave equation"
+
+SCHEDULE WaveToyCoupledScalarWave_RHS IN WaveToyCoupledScalarWave_RHSGroup
+{
+  LANG: C
+  READS: phi(everywhere) mu(everywhere) zeta(everywhere) nu(everywhere)
+  WRITES: phi_rhs(interior) mu_rhs(interior) zeta_rhs(interior) nu_rhs(interior)
+  SYNC: rhs
+} "Calculate RHS for the wave equation"
+
+SCHEDULE WaveToyCoupledScalarWave_RHSSync IN WaveToyCoupledScalarWave_RHSGroup AFTER WaveToyCoupledScalarWave_RHS
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: rhs
+} "Boundary conditions for the RHS of the wave equation"

@@ -1,0 +1,28 @@
+# Interface definition for thorn WaveToyCoupledScalarWave
+
+IMPLEMENTS: WaveToyCoupledScalarWave
+
+INHERITS: CarpetX
+
+
+
+USES INCLUDE HEADER: fixmath.hxx
+USES INCLUDE HEADER: loop.hxx
+
+
+
+CCTK_REAL state TYPE=gf TAGS='index={0 0 0} rhs="rhs"'
+{
+  phi
+  mu
+  zeta
+  nu
+} "Scalar potential for wave equation"
+
+CCTK_REAL rhs TYPE=gf TAGS='index={0 0 0} checkpoint="no"'
+{
+  phi_rhs
+  mu_rhs
+  zeta_rhs
+  nu_rhs
+} "RHS for scalar potential for wave equation"
