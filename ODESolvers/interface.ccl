@@ -2,8 +2,6 @@
 
 IMPLEMENTS: ODESolvers
 
-USES INCLUDE HEADER: div.hxx
-
 
 
 void FUNCTION CallScheduleGroup(

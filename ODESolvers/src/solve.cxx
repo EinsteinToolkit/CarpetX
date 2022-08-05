@@ -7,17 +7,8 @@
 #include <cctk_Arguments.h>
 #include <util_Table.h>
 
-#include <div.hxx>
-
 #include <AMReX_MultiFab.H>
 
-#ifdef _OPENMP
-#include <omp.h>
-#else
-static inline int omp_get_max_threads() { return 1; }
-#endif
-
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -28,6 +19,8 @@ static inline int omp_get_max_threads() { return 1; }
 #include <tuple>
 #include <utility>
 #include <vector>
+
+CCTK_REAL ODESolvers_alpha = 0;
 
 namespace ODESolvers {
 using namespace std;
@@ -75,7 +68,7 @@ struct statecomp_t {
   statecomp_t(const statecomp_t &) = delete;
   statecomp_t &operator=(const statecomp_t &) = delete;
 
-  const cGH *cctkGH; // this might be unused
+  const cGH *cctkGH;
   vector<string> groupnames;
   vector<int> groupids;
   vector<amrex::MultiFab *> mfabs;
@@ -122,8 +115,7 @@ void statecomp_t::check_valid(const function<string()> &why) const {
         const auto &groupdata = *leveldata.groupdata.at(groupid);
         for (int vi = 0; vi < groupdata.numvars; ++vi) {
           const int tl = 0;
-          CarpetX::check_valid(leveldata, groupdata, vi, tl,
-                               nan_handling_t::forbid_nans, why);
+          CarpetX::check_valid(groupdata, vi, tl, nan_handling_t::forbid_nans,why);
         }
       });
     }
@@ -177,25 +169,22 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
     }
   }
 
-  assert(isfinite(scale));
   const bool read_dst = scale != 0;
   if (read_dst)
     dst.check_valid("before lincomb, destination");
-  for (size_t n = 0; n < N; ++n) {
-    assert(isfinite(factors[n]));
+  for (size_t n = 0; n < N; ++n)
     srcs[n]->check_valid([=]() {
       ostringstream buf;
       buf << "before lincomb, source #" << n;
       return buf.str();
     });
-  }
 
 #ifndef AMREX_USE_GPU
   vector<function<void()> > tasks;
 #endif
 
   for (size_t m = 0; m < size; ++m) {
-    const ptrdiff_t ncomps = dst.mfabs.at(m)->nComp();
+    const size_t ncomp = dst.mfabs.at(m)->nComp();
     const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync();
     for (amrex::MFIter mfi(*dst.mfabs.at(m), mfitinfo); mfi.isValid(); ++mfi) {
       const amrex::Array4<CCTK_REAL> dstvar = dst.mfabs.at(m)->array(mfi);
@@ -208,51 +197,42 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
         assert(srcvars[n].nstride == dstvar.nstride);
       }
       const ptrdiff_t nstride = dstvar.nstride;
-      const ptrdiff_t npoints = nstride * ncomps;
 
       CCTK_REAL *restrict const dstptr = dstvar.dataPtr();
       array<const CCTK_REAL *restrict, N> srcptrs;
       for (size_t n = 0; n < N; ++n)
         srcptrs[n] = srcvars[n].dataPtr();
+      const ptrdiff_t npoints = nstride * ncomp;
 
 #ifndef AMREX_USE_GPU
       // CPU
 
-      const ptrdiff_t ntiles = omp_get_max_threads();
-      const ptrdiff_t tile_size =
-          Arith::align_ceil(Arith::div_ceil(npoints, ntiles), ptrdiff_t(64));
+      if (!read_dst) {
 
-      for (ptrdiff_t imin = 0; imin < npoints; imin += tile_size) {
-        using std::min;
-        const ptrdiff_t imax = min(npoints, imin + tile_size);
-
-        if (!read_dst) {
-
-          auto task = [=]() {
+        auto task = [=]() {
 #pragma omp simd
-            for (ptrdiff_t i = imin; i < imax; ++i) {
-              CCTK_REAL accum = 0;
-              for (size_t n = 0; n < N; ++n)
-                accum += factors[n] * srcptrs[n][i];
-              dstptr[i] = accum;
-            }
-          };
-          tasks.push_back(std::move(task));
+          for (ptrdiff_t i = 0; i < npoints; ++i) {
+            CCTK_REAL accum = 0;
+            for (size_t n = 0; n < N; ++n)
+              accum += factors[n] * srcptrs[n][i];
+            dstptr[i] = accum;
+          }
+        };
+        tasks.emplace_back(move(task));
 
-        } else {
+      } else {
 
-          auto task = [=]() {
+        auto task = [=]() {
 #pragma omp simd
-            for (ptrdiff_t i = imin; i < imax; ++i) {
-              CCTK_REAL accum = scale * dstptr[i];
-              for (size_t n = 0; n < N; ++n)
-                accum += factors[n] * srcptrs[n][i];
-              dstptr[i] = accum;
-            }
-          };
-          tasks.push_back(std::move(task));
-        }
-      } // for imin
+          for (ptrdiff_t i = 0; i < npoints; ++i) {
+            CCTK_REAL accum = scale * dstptr[i];
+            for (size_t n = 0; n < N; ++n)
+              accum += factors[n] * srcptrs[n][i];
+            dstptr[i] = accum;
+          }
+        };
+        tasks.emplace_back(move(task));
+      }
 
 #else
       // GPU
@@ -363,22 +343,8 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
     return detail::call_lincomb<8>(dst, scale, factors, srcs, indices);
   case 9:
     return detail::call_lincomb<9>(dst, scale, factors, srcs, indices);
-  case 10:
-    return detail::call_lincomb<10>(dst, scale, factors, srcs, indices);
-  case 11:
-    return detail::call_lincomb<11>(dst, scale, factors, srcs, indices);
-  case 12:
-    return detail::call_lincomb<12>(dst, scale, factors, srcs, indices);
-  case 13:
-    return detail::call_lincomb<13>(dst, scale, factors, srcs, indices);
-  case 14:
-    return detail::call_lincomb<14>(dst, scale, factors, srcs, indices);
-  case 15:
-    return detail::call_lincomb<15>(dst, scale, factors, srcs, indices);
-  case 16:
-    return detail::call_lincomb<16>(dst, scale, factors, srcs, indices);
   default:
-    CCTK_VERROR("Unsupported vector length: %d", (int)NNZ);
+    CCTK_ERROR("Unsupported vector length");
   }
 }
 
@@ -583,7 +549,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Step 2
 
     // Add scaled RHS to state vector
-    statecomp_t::lincomb(var, 1, make_array(dt), make_array(&k1));
+    statecomp_t::lincomb(var, 0, make_array(dt), make_array(&k1));
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt;
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
 
@@ -626,8 +592,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     if (verbose)
       CCTK_VINFO("Calculating RHS #1 at t=%g", double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
-    // const auto k1 = rhs.copy();
-    const auto kaccum = rhs.copy();
+    const auto k1 = rhs.copy();
 
     // Step 2
 
@@ -639,8 +604,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     if (verbose)
       CCTK_VINFO("Calculating RHS #2 at t=%g", double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
-    // const auto k2 = rhs.copy();
-    statecomp_t::lincomb(kaccum, 1, make_array(2.0), make_array(&rhs));
+
+    const auto k2 = rhs.copy();
 
     // Step 3
 
@@ -653,8 +618,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     if (verbose)
       CCTK_VINFO("Calculating RHS #3 at t=%g", double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
-    // const auto k3 = rhs.copy();
-    statecomp_t::lincomb(kaccum, 1, make_array(2.0), make_array(&rhs));
+
+    const auto k3 = rhs.copy();
 
     // Step 4
 
@@ -666,11 +631,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     if (verbose)
       CCTK_VINFO("Calculating RHS #4 at t=%g", double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
+
     const auto &k4 = rhs;
 
     // Calculate new state vector
-    statecomp_t::lincomb(var, 0, make_array(1.0, dt / 6, dt / 6),
-                         make_array(&old, &kaccum, &k4));
+    statecomp_t::lincomb(var, 0,
+                         make_array(1.0, dt / 6, dt / 3, dt / 3, dt / 6),
+                         make_array(&old, &k1, &k2, &k3, &k4));
 
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
@@ -916,7 +883,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     if (verbose)
       CCTK_VINFO("Calculating RHS #1 at t=%g", double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
-    const auto k1 = rhs.copy();
+    const auto k1 = rhs.copy(); 
 
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt / 2;
     statecomp_t::lincomb(var, 1, make_array(dt / 2), make_array(&rhs));
@@ -946,6 +913,241 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     statecomp_t::lincomb(var, 0, make_array(1.0, dt, dt),
                          make_array(&y0, &k2, &kprime2));
+
+  } else if (CCTK_EQUALS(method, "IMEX_122")) {
+    // code structure forked from "RK2"
+    
+    // function 'f' -> non-stiff part
+    // k1_hat = f(y0)
+    // Step 1 : 
+    // beta = y0 + (dt/2)*k1_hat
+    // alpha = dt/2
+    // y1 -> get from 'UserSolvedFunction_G(beta)'
+    // y1 = (dt/2)*g(y1) - beta
+
+    // Step 2:
+    // k2_hat = f(y1)
+    // k1 = (y1-beta)/(dt/2)
+    // y_np1 = y0 + dt*k2_hat + dt*k1
+
+    // lincomb(dest, a, b^i, src^i)
+    // dest = a * dest + b^i * src^i
+
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
+    const auto old_var = var.copy();
+    CallScheduleGroup(cctkGH, "ODESolvers_NonStiffRHS");
+    const auto old_non_stiff_rhs = rhs.copy();
+
+    // Step 1
+    statecomp_t::lincomb(var,0,make_array(1.0,dt/2),make_array(&old_var, &old_non_stiff_rhs));     // here 'var' = beta
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt/2;
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+
+    const auto beta = var.copy();
+    ODESolvers_alpha = dt/2;
+    CallScheduleGroup(cctkGH, "ODESolvers_ImplicitStep");
+    // time 
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+    const auto y1_var = var.copy(); //copy y1
+
+    //Step 2
+    CallScheduleGroup(cctkGH, "ODESolvers_NonStiffRHS");
+    const auto y1_non_stiff_rhs = rhs.copy(); //calculates f(y1)
+    // y_np1 = y0 + dt*f(y1) + 2*(y1-beta)
+    statecomp_t::lincomb(y1_var,1.0,make_array(-1.0),make_array(&beta)); // compute (y1 - beta) and store it in 'y1_var'
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+    statecomp_t::lincomb(var,0,make_array(1.0,dt,2.0),make_array(&old_var,&y1_non_stiff_rhs,&y1_var));
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt/2;
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+
+    // reset cctk_time and delta time to original
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_delta_time) = dt;
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
+
+    //ToDo: Add verbose for each step
+
+  }else if (CCTK_EQUALS(method, "IMEX_ARS343")) {
+    /* 
+    lincomb(dest, a, b^i, src^i)
+     dest = a * dest + b^i * src^i 
+    */
+
+
+
+    // function 'f' -> non-stiff RHS
+    // cctk::delta_time for alpha
+    // *const_cast<CCTK_REAL *>(&cctkGH->cctk_delta_time) = dt;
+    //--------------Stage 1----------------
+    // k1_hat = f(y0)
+    // alpha = dt*a(1,1) = dt*Gamma
+    // beta_1 = y0 + dt*(a_hat(2,1)*k1_hat)
+    // y1 -> get from 'UserSolvedFunction_G(alpha,beta_1)' call
+    // compute g(y1) -> k1 = (y1-beta_1)/alpha )
+    //--------------Stage 2----------------
+    // k2_hat = f(y1)
+    // alpha = dt*a(2,2) = dt*Gamma
+    // beta_2 = y0 + dt*( a(2,1)*k1 +
+    //                    a_hat(3,1)*k1_hat +
+    //                    a_hat(3,2)*k2_hat )
+    // y2 -> get from 'UserSolvedFunction_G(alpha,beta_2)' call
+    // compute g(y2) -> k2 = (y2-beta_2)/alpha )
+    //--------------Stage 3----------------
+    // k3_hat = f(y2)
+    // alpha = dt*a(3,3) = dt*Gamma
+    // beta_3 = y0 + dt*( a(3,1)*k1 +
+    //                    a(3,2)*k2 +
+    //                    a_hat(4,1)*k1_hat +
+    //                    a_hat(4,2)*k2_hat +
+    //                    a_hat(4,3)*k3_hat )
+    // y3 = -> get from 'UserSolvedFunction_G(alpha,beta_3)' call
+    // compute g(y3) -> k3 = (y3-beta_3)/alpha )
+    //-----Calculate new state vector------
+    // k4_hat = f(y3)
+    //
+    // y_np1 = y0 + dt*( b(1)*k1 +
+    //                   b(2)*k2 + 
+    //                   b(3)*k3 +
+    //                   b_hat(1)*k1_hat +
+    //                   b_hat(2)*k2_hat +
+    //                   b_hat(3)*k3_hat + 
+    //                   b_hat(4)*k4_hat )
+
+
+    // Define butcher table data:
+    const double Gamma = 0.4358665215;
+    const double delta = -0.644373171;
+    const double eta = 0.3966543747;
+    const double mu = 0.5529291479;
+
+    const auto implicit_butcher_table_a = [](int i,int j, const auto Gamma, const auto delta, const auto eta, const auto mu) {
+      const double a_imp[4][4] = {{0,0,0,0},
+                           {0,Gamma,0,0},
+                           {0,(1 - Gamma)/2,Gamma,0},
+                           {0,(1-Gamma-delta),delta,Gamma}};
+      return a_imp[i][j]; };
+
+    const auto explicit_butcher_table_a_hat = [](int i,int j, const auto Gamma, const auto delta, const auto eta, const auto mu) {
+      i = i-1;
+      j = j-1;
+      const double a_exp[4][4] = {{0,0,0,0},
+                           {Gamma,0,0,0},
+                           {((1 + Gamma)/2) - eta,eta,0,0},
+                           {(1-2*mu),mu,mu,0}};
+      return a_exp[i][j]; };
+
+    const auto implicit_b = [](int i, const auto Gamma, const auto delta, const auto eta, const auto mu) {
+      const double b[4] = {0,(1-Gamma-delta),delta,Gamma};
+      return b[i]; };
+
+    const auto explicit_b_hat = [](int i, const auto Gamma, const auto delta, const auto eta, const auto mu) {
+      i = i - 1;
+      const double b_hat[4] = {0,(1-Gamma-delta),delta,Gamma};
+      return b_hat[i]; };
+
+    const auto implicit_c = [](int i, const auto Gamma, const auto delta, const auto eta, const auto mu) {
+      const double c[4] = {0,Gamma,((1+Gamma)/2),1};
+      return c[i]; };
+
+    const auto explicit_c_hat = [](int i, const auto Gamma, const auto delta, const auto eta, const auto mu) {
+      i = i - 1;
+      const double c_hat[4] = {0,Gamma,((1+Gamma)/2),1};
+      return c_hat[i]; };
+
+
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
+    //-----------------Stage 1---------------------
+    const auto y0_var = var.copy();
+    CallScheduleGroup(cctkGH, "ODESolvers_NonStiffRHS");
+    const auto k1_hat = rhs.copy();
+
+    ODESolvers_alpha = dt*Gamma;
+    statecomp_t beta_product(cctkGH);
+    beta_product = var.copy(); // copy dummy data into new state vector since lincomb requires new state vector data shape
+    statecomp_t::lincomb(beta_product,0,make_array(explicit_butcher_table_a_hat(2,1,Gamma,delta,eta,mu)),make_array(&k1_hat));
+    statecomp_t::lincomb(var,0,make_array(1.0,dt),make_array(&y0_var, &beta_product));     // here 'var' = beta
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+
+    auto beta = var.copy();
+    
+    CallScheduleGroup(cctkGH, "ODESolvers_ImplicitStep");
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+    const auto y1_var = var.copy();
+    statecomp_t k1(cctkGH);
+    k1 = var.copy(); // copy dummy data into new state vector
+    statecomp_t::lincomb(k1,0,make_array(1.0/ ODESolvers_alpha,-1.0/ ODESolvers_alpha),make_array(&y1_var,&beta));
+    //-----------------Stage 2---------------------
+
+    CallScheduleGroup(cctkGH, "ODESolvers_NonStiffRHS");
+    const auto k2_hat = rhs.copy();
+
+    statecomp_t::lincomb(beta_product,0,
+    make_array(
+      implicit_butcher_table_a(2,1,Gamma,delta,eta,mu),
+      explicit_butcher_table_a_hat(3,1,Gamma,delta,eta,mu),
+      explicit_butcher_table_a_hat(3,2,Gamma,delta,eta,mu)),
+    make_array(&k1,&k1_hat,&k2_hat));
+    statecomp_t::lincomb(var,0,make_array(1.0,dt),make_array(&y0_var, &beta_product));     // here 'var' = beta
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+
+    beta = var.copy();
+
+    CallScheduleGroup(cctkGH, "ODESolvers_ImplicitStep");
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+    //compute g(y2) -> k2:
+    const auto y2_var = var.copy(); 
+    statecomp_t k2(cctkGH);
+    k2 = var.copy(); // copy dummy data into new state vector
+    statecomp_t::lincomb(k2,0,make_array(1.0/ ODESolvers_alpha,-1.0/ ODESolvers_alpha),make_array(&y2_var,&beta));
+    //-----------------Stage 3---------------------
+
+    CallScheduleGroup(cctkGH, "ODESolvers_NonStiffRHS");
+    const auto k3_hat = rhs.copy();
+
+    statecomp_t::lincomb(beta_product,0,
+      make_array(
+        implicit_butcher_table_a(3,1,Gamma,delta,eta,mu),
+        implicit_butcher_table_a(3,2,Gamma,delta,eta,mu),
+        explicit_butcher_table_a_hat(4,1,Gamma,delta,eta,mu),
+        explicit_butcher_table_a_hat(4,2,Gamma,delta,eta,mu),
+        explicit_butcher_table_a_hat(4,3,Gamma,delta,eta,mu)
+      ),
+    make_array(&k1,&k2,&k1_hat,&k2_hat,&k3_hat));
+    statecomp_t::lincomb(var,0,make_array(1.0,dt),make_array(&y0_var, &beta_product));     // here 'var' = beta
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+
+    beta = var.copy();
+    CallScheduleGroup(cctkGH, "ODESolvers_ImplicitStep");
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+    const auto y3_var = var.copy();
+    statecomp_t k3(cctkGH);
+    k3 = var.copy(); // copy dummy data into new state vector
+    statecomp_t::lincomb(k3,0,make_array(1.0/ ODESolvers_alpha,-1.0/ ODESolvers_alpha),make_array(&y3_var,&beta));
+    //-----------Calculate new state vector-------------
+
+    CallScheduleGroup(cctkGH, "ODESolvers_NonStiffRHS");
+    const auto k4_hat = rhs.copy();
+    
+    statecomp_t ynp1_product(cctkGH);
+    ynp1_product = var.copy(); // copy dummy data into new state vector
+    statecomp_t::lincomb(ynp1_product,0,
+      make_array(
+        implicit_b(1,Gamma,delta,eta,mu),
+        implicit_b(2,Gamma,delta,eta,mu),
+        implicit_b(3,Gamma,delta,eta,mu),
+        explicit_b_hat(1,Gamma,delta,eta,mu),
+        explicit_b_hat(2,Gamma,delta,eta,mu),
+        explicit_b_hat(3,Gamma,delta,eta,mu),
+        explicit_b_hat(4,Gamma,delta,eta,mu)
+      ),
+      make_array(&k1,&k2,&k3,&k1_hat,&k2_hat,&k3_hat,&k4_hat));
+    statecomp_t::lincomb(var,0,make_array(1.0,dt),make_array(&y0_var,&ynp1_product));
+    
+
+    // reset cctk_time and delta time to original
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_delta_time) = dt;
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
+    
+    //ToDo: Add verbose for each step
 
   } else {
     assert(0);

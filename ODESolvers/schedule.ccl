@@ -4,7 +4,7 @@ SCHEDULE ODESolvers_Solve AT evol
 {
   LANG: C
   OPTIONS: level
-} "Solve ODEs"
+} "Solve ODEs loop"
 
 
 
@@ -106,6 +106,10 @@ SCHEDULE ODESolvers_Solve AT evol
   SCHEDULE GROUP ODESolvers_RHS AT postinitial AFTER ODESolvers_PostStep
   {
   } "Evaluate RHS for of state vector everywhere on the grid"
+
+  SCHEDULE GROUP ODESolvers_NonStiffRHS AT postinitial AFTER ODESolvers_PostStep
+  {
+  } "Evaluate non stiff RHS for of state vector everywhere on the grid"
   
   SCHEDULE GROUP ODESolvers_EstimateError AT postinitial AFTER (ODESolvers_PostStep, ODESolvers_RHS)
   {
@@ -123,10 +127,13 @@ SCHEDULE ODESolvers_Solve AT evol
   {
   } "Evaluate the RHS for of state vector everywhere on the grid"
   
-  # # This group will also be scheduled dynamically from ODESolvers_solve
-  # SCHEDULE GROUP ODESolvers_ImplicitStep AT poststep AFTER ODESolvers_PostStep
-  # {
-  # } "Take an implicit step everywhere on the grid"
+  SCHEDULE GROUP ODESolvers_NonStiffRHS AT poststep AFTER ODESolvers_PostStep
+  {
+  } "Evaluate the non stiff RHS of state vector everywhere on the grid"
+
+  SCHEDULE GROUP ODESolvers_ImplicitStep
+  {
+  } "Take an implicit step everywhere on the grid"
   
   SCHEDULE GROUP ODESolvers_EstimateError AT poststep AFTER (ODESolvers_PostStep, ODESolvers_RHS)
   {

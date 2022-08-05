@@ -1,5 +1,5 @@
 Cactus Code Thorn ODESolvers
-Author(s)    : Erik Schnetter <schnetter@gmail.com>
+Author(s)    : Erik Schnetter <schnetter@gmail.com>, Annamalai P S <annamalaips.97@gmail.com> (Implemented IMEX methods)
 Maintainer(s): Erik Schnetter <schnetter@gmail.com>
 Licence      : LGPL
 --------------------------------------------------------------------------
@@ -8,11 +8,18 @@ Licence      : LGPL
 
 Solve systems of coupled ordinary differential equations
 
-2. To Do
+2. Implemented IMEX method - Midpoint(1,2,2) and ARS(3,4,3) described in:
 
-Implement IMEX methods as e.g. described in
+[0] Python code example: https://github.com/annamalai-ps/IMEX/tree/main/IMEX_1D_scalar_wave_evolution
 
-Ascher, Ruuth, Spiteri: "Implicit-Explicit Runge-Kutta Methods for
+[1] Ascher, Ruuth, Spiteri: "Implicit-Explicit Runge-Kutta Methods for
 Time-Dependent Partial Differential Equations", Appl. Numer. Math 25
 (1997), pages 151-167,
 <http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.48.1525&rep=rep1&type=pdf>.
+
+[2] Pareschi, Lorenzo & Russo, Giovanni. (2001),
+Implicit–Explicit Runge–Kutta schemes for stiff systems of differential equations,
+Recent trends in numerical analysis (pp.269-288)Publisher: Nova Sci. Publ.,
+<https://www.researchgate.net/publication/230865813_Implicit-Explicit_Runge-Kutta_schemes_for_stiff_systems_of_differential_equations>
+
+

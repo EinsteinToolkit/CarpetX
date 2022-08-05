@@ -13,6 +13,8 @@ KEYWORD method "ODE solver method" STEERABLE=always
   "DP87" :: "Dormand & Prince 8(7)"
 
   "Implicit Euler" :: "implicit Euler"
+  "IMEX_122" :: "Implicit-Explicit midpoint method"
+  "IMEX_ARS343" :: "Implicit-Explicit ARS(3,4,3) (3 stage implicit,4 stage explicit, 3rd order accurate) method"
 } "RK2"
 
 BOOLEAN verbose "Verbose output" STEERABLE=always
