@@ -1,0 +1,36 @@
+# Interface definition for thorn WaveToyIMEX
+
+IMPLEMENTS: WaveToyIMEX
+
+INHERITS: CarpetX
+
+
+
+USES INCLUDE HEADER: fixmath.hxx
+USES INCLUDE HEADER: loop.hxx
+
+
+
+CCTK_REAL state TYPE=gf TAGS='index={0 0 0} rhs="NonStiffRHS"'
+{
+  phi
+  mu
+  zeta
+  nu
+} "Scalar potential for wave equation"
+
+CCTK_REAL NonStiffRHS TYPE=gf TAGS='index={0 0 0} checkpoint="no"'
+{
+  phi_NonStiffRHS
+  mu_NonStiffRHS
+  zeta_NonStiffRHS
+  nu_NonStiffRHS
+} "Non stiff RHS for scalar potential for wave equation"
+
+CCTK_REAL UserSolvedFunction_G TYPE=gf TAGS='index={0 0 0} checkpoint="no"' 
+{
+  phi_1
+  mu_1
+  zeta_1
+  nu_1
+} "state vector 'y1'(in explicit form) solved from implicit equation G(y1)"

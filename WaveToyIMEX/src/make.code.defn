@@ -1,0 +1,7 @@
+# Main make.code.defn file for thorn WaveToyIMEX
+
+# Source files in this directory
+SRCS = WaveToyIMEX.cxx
+
+# Subdirectories containing source files
+SUBDIRS = 

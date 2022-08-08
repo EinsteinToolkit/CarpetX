@@ -1,0 +1,10 @@
+Cactus Code Thorn WaveToyIMEX
+Author(s)    : Annamalai P S <annamalaips.97@gmail.com>
+Maintainer(s): Annamalai P S <annamalaips.97@gmail.com>
+--------------------------------------------------------------------------
+
+1. Purpose
+
+A coupled scalar wave toy evolved using Implicit-Explicit (IMEX) integrators and the CarpetX driver, using CPU kernels.
+
+More info: https://github.com/annamalai-ps/IMEX/tree/main/IMEX_1D_scalar_wave_evolution

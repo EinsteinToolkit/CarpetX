@@ -1,0 +1,71 @@
+# Schedule definitions for thorn WaveToyIMEX
+# Define some schedule groups to organize the schedule
+
+SCHEDULE GROUP WaveToyIMEX_InitialGroup AT initial
+{
+} "Set up initial conditions"
+
+
+SCHEDULE GROUP WaveToyIMEX_PostStepGroup AT postinitial
+{
+} "Post-process state variables"
+
+
+SCHEDULE GROUP WaveToyIMEX_PostStepGroup AT postregrid
+{
+} "Post-process state variables"
+
+
+SCHEDULE GROUP WaveToyIMEX_PostStepGroup IN ODESolvers_PostStep
+{
+} "Post-process state variables"
+
+SCHEDULE GROUP WaveToyIMEX_NonStiffRHSGroup IN ODESolvers_NonStiffRHS
+{
+} "Calculate non stiff RHS"
+
+SCHEDULE GROUP WaveToyIMEX_FunctionG IN ODESolvers_ImplicitStep
+{
+} "Calculate state vector 'y1'(in explicit form)"
+
+
+################################################################################
+
+
+
+SCHEDULE WaveToyIMEX_Initialize IN WaveToyIMEX_InitialGroup
+{
+  LANG: C
+  WRITES: phi(interior) mu(interior) zeta(interior) nu(interior)
+} "Set up initial conditions for the wave equation"
+
+SCHEDULE WaveToyIMEX_Sync IN WaveToyIMEX_PostStepGroup
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Boundary conditions for the wave equation"
+
+SCHEDULE WaveToyIMEX_NonStiffRHS IN WaveToyIMEX_NonStiffRHSGroup
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: phi_NonStiffRHS(interior) mu_NonStiffRHS(interior) zeta_NonStiffRHS(interior) nu_NonStiffRHS(interior)
+  SYNC: nonstiffrhs
+} "Calculate non stiff NonStiffRHS for the wave equation"
+
+SCHEDULE WaveToyIMEX_NonStiffRHSSync IN WaveToyIMEX_NonStiffRHSGroup AFTER WaveToyIMEX_NonStiffRHS
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: nonstiffrhs
+} "Sync NonStiffRHS of the wave equation"
+
+
+SCHEDULE WaveToyIMEX_UserSolvedFunction_G IN WaveToyIMEX_FunctionG
+{
+  LANG: C
+  READS: phi(everywhere) mu(everywhere) zeta(everywhere) nu(everywhere)
+  WRITES: phi(everywhere) mu(everywhere) zeta(everywhere) nu(everywhere) 
+  SYNC: state
+} "Calculate implicit state vectors (in explicit form)"
