@@ -21,3 +21,10 @@ REAL time_offset "Time offset"
 {
   *:* :: ""
 } 0.0
+
+
+CCTK_KEYWORD fill_region "What region to fill"
+{
+  "all"           :: "Fill the whole grid (with ghosts) with data."
+  "int"           :: "Fill the interior with data and call sync to interpolate on the ghosts."
+} "all"

@@ -10,3 +10,17 @@ Licence      : LGPL
 1. Purpose
 
 Test the MultiPatch thorn interface(s) in CarpetX
+
+2. TODOs:
+Test interpatch interpolator
+ - Fill a GF only in the interior.
+ - call sync
+ - Check if ghosts are ok
+ NOTE: Set time steps explicitly.
+
+ Enforce number of points to be a multiple of the blocking factor.
+
+ Enforce the numbr of cartesian and agular points to be equal.
+ Colapse user parameters to be only the angular number of cells
+
+ Check if the volume elements are positive

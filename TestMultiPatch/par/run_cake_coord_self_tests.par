@@ -29,12 +29,12 @@ MultiPatch::patch_system = "Cake"
 MultiPatch::cake_outer_boundary_radius = 5.0
 MultiPatch::cake_inner_boundary_radius = 1.0
 
-MultiPatch::cake_cartesian_ncells_i    = 40
-MultiPatch::cake_cartesian_ncells_j    = 40
-MultiPatch::cake_cartesian_ncells_k    = 40
+MultiPatch::cake_cartesian_ncells_i    = 10
+MultiPatch::cake_cartesian_ncells_j    = 10
+MultiPatch::cake_cartesian_ncells_k    = 10
 
-MultiPatch::cake_angular_cells         = 40
-MultiPatch::cake_radial_cells          = 40
+MultiPatch::cake_angular_cells         = 10
+MultiPatch::cake_radial_cells          = 10
 
 TestMultiPatch::test_data = "plane_wave"
 
@@ -47,6 +47,8 @@ TestMultiPatch::space_offset[1] = 0.0
 TestMultiPatch::space_offset[2] = 0.0
 
 TestMultiPatch::time_offset = 0.0
+
+TestMultiPatch::fill_region = "int"
 
 IO::out_dir = $parfile
 IO::out_every = 1
