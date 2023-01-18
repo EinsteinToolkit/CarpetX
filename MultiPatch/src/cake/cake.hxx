@@ -11,29 +11,24 @@ namespace MultiPatch {
 namespace Cake {
 
 /**
- * Stores a 3-vector with all indices down
+ * Stores a 3-vector
  */
-using svec_d = vec<CCTK_REAL, dim, DN>;
+using svec = vec<CCTK_REAL, dim>;
 
 /**
- * Stores a 3-vector with all indices up
+ * Stores a 3-matrix
  */
-using svec_u = vec<CCTK_REAL, dim, UP>;
-
-/**
- * Stores a 3-matrix with all indices down
- */
-using smat_d = smat<CCTK_REAL, dim, DN, DN>;
+using smat = smat<CCTK_REAL, dim>;
 
 /**
  * Stores a Jacobian matrix of 3 dimensions
  */
-using jac_t = vec<vec<CCTK_REAL, dim, DN>, dim, UP>;
+using jac_t = vec<vec<CCTK_REAL, dim>, dim>;
 
 /**
  * Stores a the derivatives of a Jacobian matrix of 3 dimensions
  */
-using djac_t = vec<smat<CCTK_REAL, dim, DN, DN>, dim, UP>;
+using djac_t = vec<smat, dim>;
 
 /**
  * Precondition assertion. If the precondition fails, the code is aborted.
@@ -134,7 +129,7 @@ inline const std::string piece_name(const patch_piece &p) {
  * @return The patch piece owning the global coordinates.
  */
 CCTK_DEVICE CCTK_HOST patch_piece
-get_owner_patch(const PatchTransformations &pt, const svec_u &global_vars);
+get_owner_patch(const PatchTransformations &pt, const svec &global_vars);
 
 } // namespace Cake
 } // namespace MultiPatch

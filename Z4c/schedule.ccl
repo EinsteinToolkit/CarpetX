@@ -107,13 +107,13 @@ SCHEDULE Z4c_Initial1 IN Z4c_InitialGroup
   WRITES: Theta(interior)
   WRITES: alphaG(interior)
   WRITES: betaG(interior)
-  SYNC: chi
+  # SYNC: chi
   SYNC: gamma_tilde
-  SYNC: K_hat
-  SYNC: A_tilde
-  SYNC: Theta
-  SYNC: alphaG
-  SYNC: betaG
+  # SYNC: K_hat
+  # SYNC: A_tilde
+  # SYNC: Theta
+  # SYNC: alphaG
+  # SYNC: betaG
 } "Convert ADM to Z4c variables, part 1"
 
 SCHEDULE Z4c_Initial2 IN Z4c_InitialGroup AFTER Z4c_Initial1
@@ -121,15 +121,22 @@ SCHEDULE Z4c_Initial2 IN Z4c_InitialGroup AFTER Z4c_Initial1
   LANG: C
   READS: gamma_tilde(everywhere)
   WRITES: Gam_tilde(interior)
-  SYNC: Gam_tilde
+  # SYNC: Gam_tilde
 } "Convert ADM to Z4c variables, part 2"
 
 
 
-SCHEDULE Z4c_Sync IN Z4c_PostStepGroup
+SCHEDULE Z4c_Enforce IN Z4c_PostStepGroup
 {
   LANG: C
-  OPTIONS: global
+  READS: chi(interior)
+  READS: gamma_tilde(interior)
+  READS: A_tilde(interior)
+  READS: alphaG(interior)
+  WRITES: chi(interior)
+  WRITES: gamma_tilde(interior)
+  WRITES: A_tilde(interior)
+  WRITES: alphaG(interior)
   SYNC: chi
   SYNC: gamma_tilde
   SYNC: K_hat
@@ -138,19 +145,6 @@ SCHEDULE Z4c_Sync IN Z4c_PostStepGroup
   SYNC: Theta
   SYNC: alphaG
   SYNC: betaG
-} "Synchronize Z4c variables"
-
-SCHEDULE Z4c_Enforce IN Z4c_PostStepGroup AFTER Z4c_Sync
-{
-  LANG: C
-  READS: chi(everywhere)
-  READS: gamma_tilde(everywhere)
-  READS: A_tilde(everywhere)
-  READS: alphaG(everywhere)
-  WRITES: chi(everywhere)
-  WRITES: gamma_tilde(everywhere)
-  WRITES: A_tilde(everywhere)
-  WRITES: alphaG(everywhere)
 } "Enforce algebraic Z4c constraints"
 
 if (calc_ADM_vars) {
@@ -222,10 +216,10 @@ if (calc_constraints) {
     WRITES: HC(interior)
     WRITES: MtC(interior)
     WRITES: allC(interior)
-    SYNC: ZtC
-    SYNC: HC
-    SYNC: MtC
-    SYNC: allC
+    # SYNC: ZtC
+    # SYNC: HC
+    # SYNC: MtC
+    # SYNC: allC
   } "Calculate Z4c constraints"
 }
 
@@ -253,12 +247,12 @@ SCHEDULE Z4c_RHS IN Z4c_RHSGroup
   WRITES: Theta_rhs(interior)
   WRITES: alphaG_rhs(interior)
   WRITES: betaG_rhs(interior)
-  SYNC: chi_rhs
-  SYNC: gamma_tilde_rhs
-  SYNC: K_hat_rhs
-  SYNC: A_tilde_rhs
-  SYNC: Gam_tilde_rhs
-  SYNC: Theta_rhs
-  SYNC: alphaG_rhs
-  SYNC: betaG_rhs
+  # SYNC: chi_rhs
+  # SYNC: gamma_tilde_rhs
+  # SYNC: K_hat_rhs
+  # SYNC: A_tilde_rhs
+  # SYNC: Gam_tilde_rhs
+  # SYNC: Theta_rhs
+  # SYNC: alphaG_rhs
+  # SYNC: betaG_rhs
 } "Calculate Z4c RHS"

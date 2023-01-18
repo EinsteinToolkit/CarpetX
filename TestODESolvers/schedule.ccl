@@ -18,6 +18,13 @@ SCHEDULE TestODESolvers_RHS IN ODESolvers_RHS
   WRITES: rhs(everywhere), rhs2(everywhere)
 } "RHS function"
 
+SCHEDULE TestODESolvers_PostStep IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state state2
+} "Synchronize"
+
 SCHEDULE TestODESolvers_Error AT analysis
 {
   LANG: C

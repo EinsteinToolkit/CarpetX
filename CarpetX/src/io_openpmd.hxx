@@ -1,7 +1,6 @@
 #ifndef IO_OPENPMD_HXX
 #define IO_OPENPMD_HXX
 
-#include <fixmath.hxx>
 #include <cctk.h>
 
 #ifdef HAVE_CAPABILITY_openPMD_api

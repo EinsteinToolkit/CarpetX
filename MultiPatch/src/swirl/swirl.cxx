@@ -10,14 +10,14 @@ namespace MultiPatch {
 
 namespace Swirl {
 
-CCTK_DEVICE CCTK_HOST vec<CCTK_REAL, dim, DN> zero3() {
-  return zero<vec<CCTK_REAL, dim, DN> >()();
+CCTK_DEVICE CCTK_HOST vec<CCTK_REAL, dim> zero3() {
+  return zero<vec<CCTK_REAL, dim> >()();
 }
-CCTK_DEVICE CCTK_HOST smat<CCTK_REAL, dim, DN, DN> zero33() {
-  return zero<smat<CCTK_REAL, dim, DN, DN> >()();
+CCTK_DEVICE CCTK_HOST smat<CCTK_REAL, dim> zero33() {
+  return zero<smat<CCTK_REAL, dim> >()();
 }
-CCTK_DEVICE CCTK_HOST smat<CCTK_REAL, dim, DN, DN> delta33() {
-  return one<smat<CCTK_REAL, dim, DN, DN> >()();
+CCTK_DEVICE CCTK_HOST smat<CCTK_REAL, dim> delta33() {
+  return one<smat<CCTK_REAL, dim> >()();
 }
 
 template <typename T> static CCTK_DEVICE CCTK_HOST T pow4(const T &x) {
@@ -41,36 +41,35 @@ Patch makePatch(const PatchTransformations &pt) {
 }
 
 // Implementations
-CCTK_DEVICE CCTK_HOST std_tuple<int, vec<CCTK_REAL, dim, UP> >
+CCTK_DEVICE CCTK_HOST std_tuple<int, vec<CCTK_REAL, dim> >
 global2local_impl(const PatchTransformations &pt,
-                  const vec<CCTK_REAL, dim, UP> &x) {
+                  const vec<CCTK_REAL, dim> &x) {
   using std::cbrt, std::cos, std::sin, std::sqrt;
   // alpha=0 at origin, alpha=1 at boundary
   const CCTK_REAL alpha = 1 - sqrt((pow2(x(0)) + pow2(x(1)) + pow2(x(2))) / 3);
   const CCTK_REAL cos_alpha = cbrt(pow2(cos(M_PI / 2 * alpha)));
   const CCTK_REAL sin_alpha = cbrt(pow2(sin(M_PI / 2 * alpha)));
 
-  const vec<vec<CCTK_REAL, dim, DN>, dim, UP> Rinvelts = {
+  const vec<vec<CCTK_REAL, dim>, dim> Rinvelts = {
       {cos_alpha * cos_alpha, -cos_alpha * sin_alpha, sin_alpha * sin_alpha},
       {sin_alpha * sin_alpha, cos_alpha * cos_alpha, -cos_alpha * sin_alpha},
       {-cos_alpha * sin_alpha, sin_alpha * sin_alpha, cos_alpha * cos_alpha},
   };
-  const mat<CCTK_REAL, dim, UP, DN> Rinv(
-      [&](int i, int j) { return Rinvelts(i)(j); });
+  const mat<CCTK_REAL, dim> Rinv([&](int i, int j) { return Rinvelts(i)(j); });
   // Note: det Rinv = 1, i.e. |x| = |a|
 
-  const vec<CCTK_REAL, dim, UP> a([&](int i) {
+  const vec<CCTK_REAL, dim> a([&](int i) {
     return sum<dim>([&](int j) { return Rinv(i, j) * x(j); });
   });
 
   return std_make_tuple(0, a);
 }
 
-CCTK_DEVICE CCTK_HOST
-    std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP>,
-              vec<smat<CCTK_REAL, dim, DN, DN>, dim, UP> >
+CCTK_DEVICE
+    CCTK_HOST std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim>,
+                        vec<smat<CCTK_REAL, dim>, dim> >
     d2local_dglobal2_impl(const PatchTransformations &pt, int patch,
-                          const vec<CCTK_REAL, dim, UP> &a) {
+                          const vec<CCTK_REAL, dim> &a) {
   switch (patch) {
 
   case 0: {
@@ -82,46 +81,45 @@ CCTK_DEVICE CCTK_HOST
     const CCTK_REAL sin_alpha = cbrt(pow2(sin(M_PI / 2 * alpha)));
     // x=(rotated a) for alpha=1 (origin), x=a for alpha=0 (boundary)
 
-    const vec<vec<CCTK_REAL, dim, DN>, dim, UP> Relts = {
+    const vec<vec<CCTK_REAL, dim>, dim> Relts = {
         {cos_alpha, sin_alpha, 0},
         {0, cos_alpha, sin_alpha},
         {sin_alpha, 0, cos_alpha},
     };
-    const mat<CCTK_REAL, dim, UP, DN> R(
-        [&](int i, int j) { return Relts(i)(j); });
+    const mat<CCTK_REAL, dim> R([&](int i, int j) { return Relts(i)(j); });
     // Note: det R = 1, i.e. |x| = |a|
 
-    const vec<CCTK_REAL, dim, UP> x(
+    const vec<CCTK_REAL, dim> x(
         [&](int i) { return sum<dim>([&](int j) { return R(i, j) * a(j); }); });
 
-    const vec<CCTK_REAL, dim, DN> dalpha_da = a / (3 * (alpha - 1));
-    const vec<CCTK_REAL, dim, DN> dcos_alpha_da =
+    const vec<CCTK_REAL, dim> dalpha_da = a / (3 * (alpha - 1));
+    const vec<CCTK_REAL, dim> dcos_alpha_da =
         -(M_PI / 3) * sin(M_PI / 2 * alpha) / cbrt(cos(M_PI / 2 * alpha)) *
         dalpha_da;
-    const vec<CCTK_REAL, dim, DN> dsin_alpha_da =
+    const vec<CCTK_REAL, dim> dsin_alpha_da =
         (M_PI / 3) * cos(M_PI / 2 * alpha) / cbrt(sin(M_PI / 2 * alpha)) *
         dalpha_da;
 
-    const vec<vec<vec<CCTK_REAL, dim, DN>, dim, DN>, dim, UP> dRelts_da = {
+    const vec<vec<vec<CCTK_REAL, dim>, dim>, dim> dRelts_da = {
         {dcos_alpha_da, dsin_alpha_da, zero3()},
         {zero3(), dcos_alpha_da, dsin_alpha_da},
         {dsin_alpha_da, zero3(), dcos_alpha_da},
     };
-    const mat<vec<CCTK_REAL, dim, DN>, dim, UP, DN> dR_da([&](int i, int j) {
-      return vec<CCTK_REAL, dim, DN>([&](int k) { return dRelts_da(i)(j)(k); });
+    const mat<vec<CCTK_REAL, dim>, dim> dR_da([&](int i, int j) {
+      return vec<CCTK_REAL, dim>([&](int k) { return dRelts_da(i)(j)(k); });
     });
 
-    const vec<vec<CCTK_REAL, dim, DN>, dim, UP> dxda([&](int i) {
-      return vec<CCTK_REAL, dim, DN>([&](int j) {
+    const vec<vec<CCTK_REAL, dim>, dim> dxda([&](int i) {
+      return vec<CCTK_REAL, dim>([&](int j) {
         return sum<dim>([&](int k) { return dR_da(i, k)(j) * a(k); }) + R(i, j);
       });
     });
 
-    const smat<CCTK_REAL, dim, DN, DN> ddalpha_dada([&](int i, int j) {
+    const smat<CCTK_REAL, dim> ddalpha_dada([&](int i, int j) {
       return (delta33()(i, j) * (alpha - 1) - a(i) * dalpha_da(j)) /
              (3 * pow2(alpha - 1));
     });
-    const smat<CCTK_REAL, dim, DN, DN> ddcos_alpha_dada([&](int i, int j) {
+    const smat<CCTK_REAL, dim> ddcos_alpha_dada([&](int i, int j) {
       return -(pow2(M_PI) / 18) *
                  (3 * pow2(cos(M_PI / 2 * alpha)) +
                   pow2(sin(M_PI / 2 * alpha))) /
@@ -130,7 +128,7 @@ CCTK_DEVICE CCTK_HOST
              (M_PI / 3) * sin(M_PI / 2 * alpha) / cbrt(cos(M_PI / 2 * alpha)) *
                  ddalpha_dada(i, j);
     });
-    const smat<CCTK_REAL, dim, DN, DN> ddsin_alpha_dada([&](int i, int j) {
+    const smat<CCTK_REAL, dim> ddsin_alpha_dada([&](int i, int j) {
       return -(pow2(M_PI) / 18) *
                  (pow2(cos(M_PI / 2 * alpha)) +
                   3 * pow2(sin(M_PI / 2 * alpha))) /
@@ -140,20 +138,18 @@ CCTK_DEVICE CCTK_HOST
                  ddalpha_dada(i, j);
     });
 
-    const vec<vec<smat<CCTK_REAL, dim, DN, DN>, dim, DN>, dim, UP>
-        ddRelts_dada = {
-            {ddcos_alpha_dada, ddsin_alpha_dada, zero33()},
-            {zero33(), ddcos_alpha_dada, ddsin_alpha_dada},
-            {ddsin_alpha_dada, zero33(), ddcos_alpha_dada},
-        };
-    const mat<smat<CCTK_REAL, dim, DN, DN>, dim, UP, DN> ddR_dada(
-        [&](int i, int j) {
-          return smat<CCTK_REAL, dim, DN, DN>(
-              [&](int k, int l) { return ddRelts_dada(i)(j)(k, l); });
-        });
+    const vec<vec<smat<CCTK_REAL, dim>, dim>, dim> ddRelts_dada = {
+        {ddcos_alpha_dada, ddsin_alpha_dada, zero33()},
+        {zero33(), ddcos_alpha_dada, ddsin_alpha_dada},
+        {ddsin_alpha_dada, zero33(), ddcos_alpha_dada},
+    };
+    const mat<smat<CCTK_REAL, dim>, dim> ddR_dada([&](int i, int j) {
+      return smat<CCTK_REAL, dim>(
+          [&](int k, int l) { return ddRelts_dada(i)(j)(k, l); });
+    });
 
-    const vec<smat<CCTK_REAL, dim, DN, DN>, dim, UP> ddxdada([&](int i) {
-      return smat<CCTK_REAL, dim, DN, DN>([&](int j, int k) {
+    const vec<smat<CCTK_REAL, dim>, dim> ddxdada([&](int i) {
+      return smat<CCTK_REAL, dim>([&](int j, int k) {
         return sum<dim>([&](int l) { return ddR_dada(i, l)(j, k) * a(l); }) +
                dR_da(i, k)(j) + dR_da(i, j)(k);
       });
@@ -167,64 +163,64 @@ CCTK_DEVICE CCTK_HOST
   }
 }
 
-CCTK_DEVICE CCTK_HOST
-    std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP> >
+CCTK_DEVICE
+    CCTK_HOST std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim> >
     dlocal_dglobal_impl(const PatchTransformations &pt, int patch,
-                        const vec<CCTK_REAL, dim, UP> &a) {
+                        const vec<CCTK_REAL, dim> &a) {
   const auto x_dx_ddx = d2local_dglobal2_impl(pt, patch, a);
   return std_make_tuple(std::get<0>(x_dx_ddx), std::get<1>(x_dx_ddx));
 }
 
-CCTK_DEVICE CCTK_HOST vec<CCTK_REAL, dim, UP>
+CCTK_DEVICE CCTK_HOST vec<CCTK_REAL, dim>
 local2global_impl(const PatchTransformations &pt, int patch,
-                  const vec<CCTK_REAL, dim, UP> &a) {
+                  const vec<CCTK_REAL, dim> &a) {
   const auto x_dx = dlocal_dglobal_impl(pt, patch, a);
   return std::get<0>(x_dx);
 }
 
 // Host functions
-std_tuple<int, vec<CCTK_REAL, dim, UP> >
-global2local(const PatchTransformations &pt, const vec<CCTK_REAL, dim, UP> &x) {
+std_tuple<int, vec<CCTK_REAL, dim> >
+global2local(const PatchTransformations &pt, const vec<CCTK_REAL, dim> &x) {
   return global2local_impl(pt, x);
 }
-vec<CCTK_REAL, dim, UP> local2global(const PatchTransformations &pt, int patch,
-                                     const vec<CCTK_REAL, dim, UP> &a) {
+vec<CCTK_REAL, dim> local2global(const PatchTransformations &pt, int patch,
+                                 const vec<CCTK_REAL, dim> &a) {
   return local2global_impl(pt, patch, a);
 }
-std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP> >
+std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim> >
 dlocal_dglobal(const PatchTransformations &pt, int patch,
-               const vec<CCTK_REAL, dim, UP> &a) {
+               const vec<CCTK_REAL, dim> &a) {
   return dlocal_dglobal_impl(pt, patch, a);
 }
-std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP>,
-          vec<smat<CCTK_REAL, dim, DN, DN>, dim, UP> >
+std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim>,
+          vec<smat<CCTK_REAL, dim>, dim> >
 d2local_dglobal2(const PatchTransformations &pt, int patch,
-                 const vec<CCTK_REAL, dim, UP> &a) {
+                 const vec<CCTK_REAL, dim> &a) {
   return d2local_dglobal2_impl(pt, patch, a);
 }
 
 // Device functions
-CCTK_DEVICE std_tuple<int, vec<CCTK_REAL, dim, UP> >
+CCTK_DEVICE std_tuple<int, vec<CCTK_REAL, dim> >
 global2local_device(const PatchTransformations &pt,
-                    const vec<CCTK_REAL, dim, UP> &x) {
+                    const vec<CCTK_REAL, dim> &x) {
   return global2local_impl(pt, x);
 }
-CCTK_DEVICE vec<CCTK_REAL, dim, UP>
+CCTK_DEVICE vec<CCTK_REAL, dim>
 local2global_device(const PatchTransformations &pt, int patch,
-                    const vec<CCTK_REAL, dim, UP> &a) {
+                    const vec<CCTK_REAL, dim> &a) {
   return local2global_impl(pt, patch, a);
 }
 CCTK_DEVICE
-std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP> >
+std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim> >
 dlocal_dglobal_device(const PatchTransformations &pt, int patch,
-                      const vec<CCTK_REAL, dim, UP> &a) {
+                      const vec<CCTK_REAL, dim> &a) {
   return dlocal_dglobal_impl(pt, patch, a);
 }
 CCTK_DEVICE
-std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP>,
-          vec<smat<CCTK_REAL, dim, DN, DN>, dim, UP> >
+std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim>,
+          vec<smat<CCTK_REAL, dim>, dim> >
 d2local_dglobal2_device(const PatchTransformations &pt, int patch,
-                        const vec<CCTK_REAL, dim, UP> &a) {
+                        const vec<CCTK_REAL, dim> &a) {
   return d2local_dglobal2_impl(pt, patch, a);
 }
 } // namespace Swirl

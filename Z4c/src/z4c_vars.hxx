@@ -30,32 +30,32 @@ template <typename T> struct z4c_vars_noderivs {
   //                   W[sqrt detg] = +1
 
   // Z4c variables
-  const T chi;                     // W = -2/3
-  const smat<T, 3, DN, DN> gammat; // W = -2/3
-  const T Kh;                      // W = 0
-  const smat<T, 3, DN, DN> At;     // W = -2/3
-  const vec<T, 3, UP> Gamt;        // W = +2/3
-  const T Theta;                   // W = 0
-  const T alphaG;                  // W = 0
-  const vec<T, 3, UP> betaG;       // W = 0
+  const T chi;             // W = -2/3
+  const smat<T, 3> gammat; // W = -2/3
+  const T Kh;              // W = 0
+  const smat<T, 3> At;     // W = -2/3
+  const vec<T, 3> Gamt;    // W = +2/3
+  const T Theta;           // W = 0
+  const T alphaG;          // W = 0
+  const vec<T, 3> betaG;   // W = 0
 
   // T_munu variables
   const T eTtt;
-  const vec<T, 3, DN> eTti;
-  const smat<T, 3, DN, DN> eTij;
+  const vec<T, 3> eTti;
+  const smat<T, 3> eTij;
 
   // Hydro variables
   const T rho;
-  const vec<T, 3, DN> Si;
-  const smat<T, 3, DN, DN> Sij;
+  const vec<T, 3> Si;
+  const smat<T, 3> Sij;
 
   // ADM variables
-  const smat<T, 3, DN, DN> g; // W = 0
-  const smat<T, 3, DN, DN> K; // W = 0
-  const T alpha;              // W = 0
-  const T dtalpha;            // W = 0
-  const vec<T, 3, UP> beta;   // W = 0
-  const vec<T, 3, UP> dtbeta; // W = 0
+  const smat<T, 3> g;     // W = 0
+  const smat<T, 3> K;     // W = 0
+  const T alpha;          // W = 0
+  const T dtalpha;        // W = 0
+  const vec<T, 3> beta;   // W = 0
+  const vec<T, 3> dtbeta; // W = 0
 
   friend CCTK_ATTRIBUTE_NOINLINE ostream &
   operator<<(ostream &os, const z4c_vars_noderivs &vars) {
@@ -92,11 +92,11 @@ template <typename T> struct z4c_vars_noderivs {
       const bool set_Theta_zero, const T &kappa1, const T &kappa2,
       const T &f_mu_L, const T &f_mu_S, const T &eta,
       //
-      const T &chi, const smat<T, 3, DN, DN> &gammat, const T &Kh,
-      const smat<T, 3, DN, DN> &At, const vec<T, 3, UP> &Gamt, const T &Theta,
-      const T &alphaG, const vec<T, 3, UP> &betaG,
+      const T &chi, const smat<T, 3> &gammat, const T &Kh, const smat<T, 3> &At,
+      const vec<T, 3> &Gamt, const T &Theta, const T &alphaG,
+      const vec<T, 3> &betaG,
       //
-      const T &eTtt, const vec<T, 3, DN> &eTti, const smat<T, 3, DN, DN> &eTij)
+      const T &eTtt, const vec<T, 3> &eTti, const smat<T, 3> &eTij)
       : set_Theta_zero(set_Theta_zero), kappa1(kappa1), kappa2(kappa2),
         f_mu_L(f_mu_L), f_mu_S(f_mu_S), eta(eta),
         //
@@ -106,7 +106,7 @@ template <typename T> struct z4c_vars_noderivs {
         eTtt(eTtt), eTti(eTti), eTij(eTij),
         // Hydro variables
         // rho = n^a n^b T_ab
-        rho(1 / pow2(alphaG) *
+        rho(1 / pow2(1 + alphaG) *
             (eTtt //
              - 2 * sum<3>([&](int x)
                               ARITH_INLINE { return betaG(x) * eTti(x); }) //
@@ -117,7 +117,7 @@ template <typename T> struct z4c_vars_noderivs {
                }))),
         // S_i = -p_i^a n^b T_ab
         Si([&](int a) ARITH_INLINE {
-          return -1 / alphaG *
+          return -1 / (1 + alphaG) *
                  (eTti(a) //
                   - sum<3>([&](int x)
                                ARITH_INLINE { return betaG(x) * eTij(a, x); }));
@@ -129,18 +129,18 @@ template <typename T> struct z4c_vars_noderivs {
         K([&](int a, int b) ARITH_INLINE {
           return 1 / chi * (At(a, b) + (Kh + 2 * Theta) / 3 * gammat(a, b));
         }), //
-        alpha(alphaG),
+        alpha(1 + alphaG),
         // (11)
         dtalpha([&]() ARITH_INLINE {
-          // const T mu_L = f_mu_L / alphaG;
-          // return -pow2(alphaG) * mu_L * Kh;
-          return -alphaG * f_mu_L * Kh;
+          // const T mu_L = f_mu_L / (1 + alphaG);
+          // return -pow2(1 + alphaG) * mu_L * Kh;
+          return -(1 + alphaG) * f_mu_L * Kh;
         }()), //
         beta(betaG),
         // (12)
         dtbeta([&](int a) ARITH_INLINE {
-          // const T mu_S = f_mu_S / pow2(alphaG);
-          // return pow2(alphaG) * mu_S * Gamt(a) //
+          // const T mu_S = f_mu_S / pow2(1 + alphaG);
+          // return pow2(1 + alphaG) * mu_S * Gamt(a) //
           //        - eta * betaG(a);
           return f_mu_S * Gamt(a) //
                  - eta * betaG(a);
@@ -184,33 +184,33 @@ template <typename T> struct z4c_vars_noderivs {
       const GF3D2<const T> &gf_eTyz_, const GF3D2<const T> &gf_eTzz_,
       //
       const vect<int, 3> &I)
-      : z4c_vars_noderivs<T>(
-            kappa1, kappa2, f_mu_L, f_mu_S, eta,
-            //
-            gf_chi_(I),
-            //
-            smat<T, 3, DN, DN>(gf_gammatxx_, gf_gammatxy_, gf_gammatxz_,
-                               gf_gammatyy_, gf_gammatyz_, gf_gammatzz_, I),
-            //
-            gf_Kh_(I),
-            //
-            smat<T, 3, DN, DN>(gf_Atxx_, gf_Atxy_, gf_Atxz_, gf_Atyy_, gf_Atyz_,
-                               gf_Atzz_, I),
-            //
-            vec<T, 3, UP>(gf_Gamtx_, gf_Gamty_, gf_Gamtz_, I),
-            //
-            gf_Theta_(I),
-            //
-            gf_alphaG_(I),
-            //
-            vec<T, 3, UP>(gf_betaGx_, gf_betaGy_, gf_betaGz_, I),
-            //
-            gf_eTtt_(I),
-            //
-            vec<T, 3, UP>(gf_eTtx_, gf_eTty_, gf_eTtz_, I),
-            //
-            smat<T, 3, DN, DN>(gf_eTxx_, gf_eTxy_, gf_eTxz_, gf_eTyy_, gf_eTyz_,
-                               gf_eTzz_, I))
+      : z4c_vars_noderivs<T>(kappa1, kappa2, f_mu_L, f_mu_S, eta,
+                             //
+                             gf_chi_(I),
+                             //
+                             smat<T, 3>(gf_gammatxx_, gf_gammatxy_,
+                                        gf_gammatxz_, gf_gammatyy_,
+                                        gf_gammatyz_, gf_gammatzz_, I),
+                             //
+                             gf_Kh_(I),
+                             //
+                             smat<T, 3>(gf_Atxx_, gf_Atxy_, gf_Atxz_, gf_Atyy_,
+                                        gf_Atyz_, gf_Atzz_, I),
+                             //
+                             vec<T, 3>(gf_Gamtx_, gf_Gamty_, gf_Gamtz_, I),
+                             //
+                             gf_Theta_(I),
+                             //
+                             gf_alphaG_(I),
+                             //
+                             vec<T, 3>(gf_betaGx_, gf_betaGy_, gf_betaGz_, I),
+                             //
+                             gf_eTtt_(I),
+                             //
+                             vec<T, 3>(gf_eTtx_, gf_eTty_, gf_eTtz_, I),
+                             //
+                             smat<T, 3>(gf_eTxx_, gf_eTxy_, gf_eTxz_, gf_eTyy_,
+                                        gf_eTyz_, gf_eTzz_, I))
   //
   {}
 };
@@ -256,60 +256,60 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
   using z4c_vars_noderivs<T>::dtbeta;
 
   // Derivatives of Z4c variables
-  const vec<T, 3, DN> dchi;
-  const smat<T, 3, DN, DN> ddchi;
-  const smat<vec<T, 3, DN>, 3, DN, DN> dgammat;
-  const smat<smat<T, 3, DN, DN>, 3, DN, DN> ddgammat;
-  const vec<T, 3, DN> dKh;
-  const smat<vec<T, 3, DN>, 3, DN, DN> dAt;
-  const vec<vec<T, 3, DN>, 3, UP> dGamt;
-  const vec<T, 3, DN> dTheta;
-  const vec<T, 3, DN> dalphaG;
-  const smat<T, 3, DN, DN> ddalphaG;
-  const vec<vec<T, 3, DN>, 3, UP> dbetaG;
-  const vec<smat<T, 3, DN, DN>, 3, UP> ddbetaG;
+  const vec<T, 3> dchi;
+  const smat<T, 3> ddchi;
+  const smat<vec<T, 3>, 3> dgammat;
+  const smat<smat<T, 3>, 3> ddgammat;
+  const vec<T, 3> dKh;
+  const smat<vec<T, 3>, 3> dAt;
+  const vec<vec<T, 3>, 3> dGamt;
+  const vec<T, 3> dTheta;
+  const vec<T, 3> dalphaG;
+  const smat<T, 3> ddalphaG;
+  const vec<vec<T, 3>, 3> dbetaG;
+  const vec<smat<T, 3>, 3> ddbetaG;
 
   // Intermediate variables
-  const smat<T, 3, UP, UP> gammatu;
-  const smat<vec<T, 3, DN>, 3, UP, UP> dgammatu;
-  const vec<smat<T, 3, DN, DN>, 3, DN> Gammatl;
-  const vec<vec<vec<T, 3, UP>, 3, DN>, 3, DN> Gammatlu;
-  const vec<smat<T, 3, DN, DN>, 3, UP> Gammat;
-  const vec<T, 3, UP> Gamtd;
-  const smat<T, 3, DN, DN> DDchi;
-  const smat<T, 3, UP, UP> gu;
-  const smat<vec<T, 3, DN>, 3, DN, DN> dg;
-  const vec<smat<T, 3, DN, DN>, 3, DN> Gammal;
-  const vec<smat<T, 3, DN, DN>, 3, UP> Gamma;
-  const smat<T, 3, DN, DN> DDalphaG;
-  const smat<T, 3, DN, DN> Rchi;
-  const smat<T, 3, DN, DN> Rt;
-  const smat<T, 3, DN, DN> R;
+  const smat<T, 3> gammatu;
+  const smat<vec<T, 3>, 3> dgammatu;
+  const vec<smat<T, 3>, 3> Gammatl;
+  const vec<vec<vec<T, 3>, 3>, 3> Gammatlu;
+  const vec<smat<T, 3>, 3> Gammat;
+  const vec<T, 3> Gamtd;
+  const smat<T, 3> DDchi;
+  const smat<T, 3> gu;
+  const smat<vec<T, 3>, 3> dg;
+  const vec<smat<T, 3>, 3> Gammal;
+  const vec<smat<T, 3>, 3> Gamma;
+  const smat<T, 3> DDalphaG;
+  const smat<T, 3> Rchi;
+  const smat<T, 3> Rt;
+  const smat<T, 3> R;
   const T Rsc;
-  const smat<T, 3, UP, UP> Atu;
-  const smat<vec<T, 3, DN>, 3, UP, UP> dAtu;
+  const smat<T, 3> Atu;
+  const smat<vec<T, 3>, 3> dAtu;
   const T traceSij;
 
   // Constraints
-  const vec<T, 3, UP> ZtC;
+  const vec<T, 3> ZtC;
   const T HC;
-  const vec<T, 3, UP> MtC;
+  const vec<T, 3> MtC;
   const T allC;
 
   // RHS variables
   const T chi_rhs;
-  const smat<T, 3, DN, DN> gammat_rhs;
+  const smat<T, 3> gammat_rhs;
   const T Kh_rhs;
-  const smat<T, 3, DN, DN> At_rhs;
-  const vec<T, 3, UP> Gamt_rhs;
+  const smat<T, 3> At_rhs;
+  const vec<T, 3> Gamt_rhs;
   const T Theta_rhs;
   const T alphaG_rhs;
-  const vec<T, 3, UP> betaG_rhs;
+  const vec<T, 3> betaG_rhs;
 
   // ADM RHS variables
-  const smat<T, 3, DN, DN> K_rhs;
+  const smat<T, 3> K_rhs;
   const T dtalpha_rhs;
-  const vec<T, 3, UP> dtbeta_rhs;
+  const vec<T, 3> dtbeta_rhs;
 
   friend CCTK_ATTRIBUTE_NOINLINE ostream &operator<<(ostream &os,
                                                      const z4c_vars &vars) {
@@ -392,22 +392,18 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
       const bool set_Theta_zero, const T &kappa1, const T &kappa2,
       const T &f_mu_L, const T &f_mu_S, const T &eta,
       //
-      const T &chi, const vec<T, 3, DN> &dchi,
-      const smat<T, 3, DN, DN> &ddchi, //
-      const smat<T, 3, DN, DN> &gammat,
-      const smat<vec<T, 3, DN>, 3, DN, DN> &dgammat,
-      const smat<smat<T, 3, DN, DN>, 3, DN, DN> &ddgammat, //
-      const T &Kh, const vec<T, 3, DN> &dKh,               //
-      const smat<T, 3, DN, DN> &At,
-      const smat<vec<T, 3, DN>, 3, DN, DN> &dAt,                         //
-      const vec<T, 3, UP> &Gamt, const vec<vec<T, 3, DN>, 3, UP> &dGamt, //
-      const T &Theta, const vec<T, 3, DN> &dTheta,                       //
-      const T &alphaG, const vec<T, 3, DN> &dalphaG,
-      const smat<T, 3, DN, DN> &ddalphaG, //
-      const vec<T, 3, UP> &betaG, const vec<vec<T, 3, DN>, 3, UP> &dbetaG,
-      const vec<smat<T, 3, DN, DN>, 3, UP> &ddbetaG,
+      const T &chi, const vec<T, 3> &dchi, const smat<T, 3> &ddchi, //
+      const smat<T, 3> &gammat, const smat<vec<T, 3>, 3> &dgammat,
+      const smat<smat<T, 3>, 3> &ddgammat,                                   //
+      const T &Kh, const vec<T, 3> &dKh,                                     //
+      const smat<T, 3> &At, const smat<vec<T, 3>, 3> &dAt,                   //
+      const vec<T, 3> &Gamt, const vec<vec<T, 3>, 3> &dGamt,                 //
+      const T &Theta, const vec<T, 3> &dTheta,                               //
+      const T &alphaG, const vec<T, 3> &dalphaG, const smat<T, 3> &ddalphaG, //
+      const vec<T, 3> &betaG, const vec<vec<T, 3>, 3> &dbetaG,
+      const vec<smat<T, 3>, 3> &ddbetaG,
       //
-      const T &eTtt, const vec<T, 3, DN> &eTti, const smat<T, 3, DN, DN> &eTij)
+      const T &eTtt, const vec<T, 3> &eTti, const smat<T, 3> &eTij)
       : z4c_vars_noderivs<T>(
             set_Theta_zero, kappa1, kappa2, f_mu_L, f_mu_S, eta, //
             chi, gammat, Kh, At, Gamt, Theta, alphaG, betaG, eTtt, eTti, eTij),
@@ -439,7 +435,7 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
         }),                                                                 //
         gu([&](int a, int b) ARITH_INLINE { return chi * gammatu(a, b); }), //
         dg([&](int a, int b) ARITH_INLINE {
-          return vec<T, 3, DN>([&](int c) ARITH_INLINE {
+          return vec<T, 3>([&](int c) ARITH_INLINE {
             return -dchi(c) / pow2(chi) * gammat(a, b) //
                    + 1 / chi * dgammat(a, b)(c);
           });
@@ -564,7 +560,7 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
         // RHS
         // (1)
         chi_rhs(2 / T(3) * chi *
-                (alphaG * (Kh + 2 * Theta)
+                ((1 + alphaG) * (Kh + 2 * Theta)
                  // chi = detg^(-1/3)
                  // chi^(-3) = detg
                  // chi^(-3/2) = sqrt detg
@@ -576,7 +572,7 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
                  - sum<3>([&](int x) ARITH_INLINE { return dbetaG(x)(x); }))),
         // (2)
         gammat_rhs([&](int a, int b) ARITH_INLINE {
-          return -2 * alphaG * At(a, b) //
+          return -2 * (1 + alphaG) * At(a, b) //
                  + sum<3>([&](int x) ARITH_INLINE {
                      return gammat(x, a) * dbetaG(x)(b) //
                             + gammat(x, b) * dbetaG(x)(a);
@@ -589,31 +585,32 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
         Kh_rhs(sum_symm<3>([&](int x, int y) ARITH_INLINE {
                  return -gu(x, y) * DDalphaG(x, y);
                }) //
-               + alphaG * (sum_symm<3>([&](int x, int y) ARITH_INLINE {
-                             return At(x, y) * Atu(x, y);
-                           })                                 //
-                           + 1 / T(3) * pow2(Kh + 2 * Theta)) //
-               + 4 * T(M_PI) * alphaG * (traceSij + rho)      //
-               + alphaG * kappa1 * (1 - kappa2) * Theta),
+               + (1 + alphaG) * (sum_symm<3>([&](int x, int y) ARITH_INLINE {
+                                   return At(x, y) * Atu(x, y);
+                                 })                                 //
+                                 + 1 / T(3) * pow2(Kh + 2 * Theta)) //
+               + 4 * T(M_PI) * (1 + alphaG) * (traceSij + rho)      //
+               + (1 + alphaG) * kappa1 * (1 - kappa2) * Theta),
         // (4)
         At_rhs([&](int a, int b) ARITH_INLINE {
-          return chi * ((-DDalphaG(a, b)                         //
-                         + alphaG * (R(a, b)                     //
-                                     - 8 * T(M_PI) * Sij(a, b))) //
+          return chi * ((-DDalphaG(a, b)                               //
+                         + (1 + alphaG) * (R(a, b)                     //
+                                           - 8 * T(M_PI) * Sij(a, b))) //
                         - 1 / T(3) * g(a, b) *
                               sum_symm<3>([&](int x, int y) ARITH_INLINE {
                                 return gu(x, y) *
-                                       (-DDalphaG(x, y)     //
-                                        + alphaG * (R(x, y) //
-                                                    - 8 * T(M_PI) * Sij(x, y)));
-                              }))                        //
-                 + alphaG * ((Kh + 2 * Theta) * At(a, b) //
-                             - 2 * sum<3>([&](int x) ARITH_INLINE {
-                                 return At(x, a) *
-                                        sum<3>([&](int y) ARITH_INLINE {
-                                          return gammatu(x, y) * At(y, b);
-                                        });
-                               })) //
+                                       (-DDalphaG(x, y) //
+                                        + (1 + alphaG) *
+                                              (R(x, y) //
+                                               - 8 * T(M_PI) * Sij(x, y)));
+                              }))                              //
+                 + (1 + alphaG) * ((Kh + 2 * Theta) * At(a, b) //
+                                   - 2 * sum<3>([&](int x) ARITH_INLINE {
+                                       return At(x, a) *
+                                              sum<3>([&](int y) ARITH_INLINE {
+                                                return gammatu(x, y) * At(y, b);
+                                              });
+                                     })) //
                  + sum<3>([&](int x) ARITH_INLINE {
                      return At(x, a) * dbetaG(x)(b) //
                             + At(x, b) * dbetaG(x)(a);
@@ -628,7 +625,7 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
               -2 * sum<3>([&](int x) ARITH_INLINE {
                 return Atu(a, x) * dalphaG(x);
               }) //
-              + 2 * alphaG *
+              + 2 * (1 + alphaG) *
                     (sum_symm<3>([&](int x, int y) ARITH_INLINE {
                        return Gammat(a)(x, y) * Atu(x, y);
                      }) //
@@ -653,19 +650,19 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
                            ARITH_INLINE { return Gamtd(x) * dbetaG(a)(x); }) //
               + 2 / T(3) * Gamtd(a) *
                     sum<3>([&](int x) ARITH_INLINE { return dbetaG(x)(x); }) //
-              - 2 * alphaG * kappa1 * (Gamt(a) - Gamtd(a));
+              - 2 * (1 + alphaG) * kappa1 * (Gamt(a) - Gamtd(a));
         }),
         // (6)
         Theta_rhs(set_Theta_zero
                       ? T(0)
-                      : 1 / T(2) * alphaG *
+                      : 1 / T(2) * (1 + alphaG) *
                                 (Rsc //
                                  - sum_symm<3>([&](int x, int y) ARITH_INLINE {
                                      return At(x, y) * Atu(x, y);
                                    })                               //
                                  + 2 / T(3) * pow2(Kh + 2 * Theta)) //
-                            - alphaG * (8 * T(M_PI) * rho           //
-                                        + kappa1 * (2 + kappa2) * Theta)),
+                            - (1 + alphaG) * (8 * T(M_PI) * rho     //
+                                              + kappa1 * (2 + kappa2) * Theta)),
         //
         alphaG_rhs(dtalpha),
         //
@@ -682,7 +679,7 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
         //
         dtalpha_rhs([&]() ARITH_INLINE {
           return -alphaG_rhs * f_mu_L * Kh //
-                 - alphaG * f_mu_L * Kh_rhs;
+                 - (1 + alphaG) * f_mu_L * Kh_rhs;
           ;
         }()),
         //
@@ -728,73 +725,73 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
       const GF3D2<const T> &gf_eTxz_, const GF3D2<const T> &gf_eTyy_,
       const GF3D2<const T> &gf_eTyz_, const GF3D2<const T> &gf_eTzz_,
       //
-      const vect<int, 3> &I, const vec<T, 3, UP> &dx)
-      : z4c_vars(
-            set_Theta_zero, kappa1, kappa2, f_mu_L, f_mu_S, eta,
-            //
-            gf_chi_(I), deriv(gf_chi_, I, dx), deriv2(gf_chi_, I, dx),
-            //
-            smat<T, 3, DN, DN>(gf_gammatxx_, gf_gammatxy_, gf_gammatxz_,
-                               gf_gammatyy_, gf_gammatyz_, gf_gammatzz_, I),
-            smat<vec<T, 3, DN>, 3, DN, DN>{
-                deriv(gf_gammatxx_, I, dx),
-                deriv(gf_gammatxy_, I, dx),
-                deriv(gf_gammatxz_, I, dx),
-                deriv(gf_gammatyy_, I, dx),
-                deriv(gf_gammatyz_, I, dx),
-                deriv(gf_gammatzz_, I, dx),
-            },
-            smat<smat<T, 3, DN, DN>, 3, DN, DN>{
-                deriv2(gf_gammatxx_, I, dx),
-                deriv2(gf_gammatxy_, I, dx),
-                deriv2(gf_gammatxz_, I, dx),
-                deriv2(gf_gammatyy_, I, dx),
-                deriv2(gf_gammatyz_, I, dx),
-                deriv2(gf_gammatzz_, I, dx),
-            },
-            //
-            gf_Kh_(I), deriv(gf_Kh_, I, dx),
-            //
-            smat<T, 3, DN, DN>(gf_Atxx_, gf_Atxy_, gf_Atxz_, gf_Atyy_, gf_Atyz_,
-                               gf_Atzz_, I),
-            smat<vec<T, 3, DN>, 3, DN, DN>{
-                deriv(gf_Atxx_, I, dx),
-                deriv(gf_Atxy_, I, dx),
-                deriv(gf_Atxz_, I, dx),
-                deriv(gf_Atyy_, I, dx),
-                deriv(gf_Atyz_, I, dx),
-                deriv(gf_Atzz_, I, dx),
-            },
-            //
-            vec<T, 3, UP>(gf_Gamtx_, gf_Gamty_, gf_Gamtz_, I),
-            vec<vec<T, 3, DN>, 3, UP>{
-                deriv(gf_Gamtx_, I, dx),
-                deriv(gf_Gamty_, I, dx),
-                deriv(gf_Gamtz_, I, dx),
-            },
-            //
-            gf_Theta_(I), deriv(gf_Theta_, I, dx),
-            //
-            gf_alphaG_(I), deriv(gf_alphaG_, I, dx), deriv2(gf_alphaG_, I, dx),
-            //
-            vec<T, 3, UP>(gf_betaGx_, gf_betaGy_, gf_betaGz_, I),
-            vec<vec<T, 3, DN>, 3, UP>{
-                deriv(gf_betaGx_, I, dx),
-                deriv(gf_betaGy_, I, dx),
-                deriv(gf_betaGz_, I, dx),
-            },
-            vec<smat<T, 3, DN, DN>, 3, UP>{
-                deriv2(gf_betaGx_, I, dx),
-                deriv2(gf_betaGy_, I, dx),
-                deriv2(gf_betaGz_, I, dx),
-            },
-            //
-            gf_eTtt_(I),
-            //
-            vec<T, 3, DN>(gf_eTtx_, gf_eTty_, gf_eTtz_, I),
-            //
-            smat<T, 3, DN, DN>(gf_eTxx_, gf_eTxy_, gf_eTxz_, gf_eTyy_, gf_eTyz_,
-                               gf_eTzz_, I))
+      const vect<int, 3> &I, const vec<T, 3> &dx)
+      : z4c_vars(set_Theta_zero, kappa1, kappa2, f_mu_L, f_mu_S, eta,
+                 //
+                 gf_chi_(I), deriv(gf_chi_, I, dx), deriv2(gf_chi_, I, dx),
+                 //
+                 smat<T, 3>(gf_gammatxx_, gf_gammatxy_, gf_gammatxz_,
+                            gf_gammatyy_, gf_gammatyz_, gf_gammatzz_, I),
+                 smat<vec<T, 3>, 3>{
+                     deriv(gf_gammatxx_, I, dx),
+                     deriv(gf_gammatxy_, I, dx),
+                     deriv(gf_gammatxz_, I, dx),
+                     deriv(gf_gammatyy_, I, dx),
+                     deriv(gf_gammatyz_, I, dx),
+                     deriv(gf_gammatzz_, I, dx),
+                 },
+                 smat<smat<T, 3>, 3>{
+                     deriv2(gf_gammatxx_, I, dx),
+                     deriv2(gf_gammatxy_, I, dx),
+                     deriv2(gf_gammatxz_, I, dx),
+                     deriv2(gf_gammatyy_, I, dx),
+                     deriv2(gf_gammatyz_, I, dx),
+                     deriv2(gf_gammatzz_, I, dx),
+                 },
+                 //
+                 gf_Kh_(I), deriv(gf_Kh_, I, dx),
+                 //
+                 smat<T, 3>(gf_Atxx_, gf_Atxy_, gf_Atxz_, gf_Atyy_, gf_Atyz_,
+                            gf_Atzz_, I),
+                 smat<vec<T, 3>, 3>{
+                     deriv(gf_Atxx_, I, dx),
+                     deriv(gf_Atxy_, I, dx),
+                     deriv(gf_Atxz_, I, dx),
+                     deriv(gf_Atyy_, I, dx),
+                     deriv(gf_Atyz_, I, dx),
+                     deriv(gf_Atzz_, I, dx),
+                 },
+                 //
+                 vec<T, 3>(gf_Gamtx_, gf_Gamty_, gf_Gamtz_, I),
+                 vec<vec<T, 3>, 3>{
+                     deriv(gf_Gamtx_, I, dx),
+                     deriv(gf_Gamty_, I, dx),
+                     deriv(gf_Gamtz_, I, dx),
+                 },
+                 //
+                 gf_Theta_(I), deriv(gf_Theta_, I, dx),
+                 //
+                 gf_alphaG_(I), deriv(gf_alphaG_, I, dx),
+                 deriv2(gf_alphaG_, I, dx),
+                 //
+                 vec<T, 3>(gf_betaGx_, gf_betaGy_, gf_betaGz_, I),
+                 vec<vec<T, 3>, 3>{
+                     deriv(gf_betaGx_, I, dx),
+                     deriv(gf_betaGy_, I, dx),
+                     deriv(gf_betaGz_, I, dx),
+                 },
+                 vec<smat<T, 3>, 3>{
+                     deriv2(gf_betaGx_, I, dx),
+                     deriv2(gf_betaGy_, I, dx),
+                     deriv2(gf_betaGz_, I, dx),
+                 },
+                 //
+                 gf_eTtt_(I),
+                 //
+                 vec<T, 3>(gf_eTtx_, gf_eTty_, gf_eTtz_, I),
+                 //
+                 smat<T, 3>(gf_eTxx_, gf_eTxy_, gf_eTxz_, gf_eTyy_, gf_eTyz_,
+                            gf_eTzz_, I))
   //
   {}
 
@@ -846,73 +843,73 @@ template <typename T> struct z4c_vars : z4c_vars_noderivs<T> {
            const GF3D3ptr<const T, NI, NJ, NK> &gf_eTyz_,
            const GF3D3ptr<const T, NI, NJ, NK> &gf_eTzz_,
            //
-           const vect<int, 3> &I, const vec<T, 3, UP> &dx)
-      : z4c_vars(
-            kappa1, kappa2, f_mu_L, f_mu_S, eta,
-            //
-            gf_chi_(I), deriv(gf_chi_, I, dx), deriv2(gf_chi_, I, dx),
-            //
-            smat<T, 3, DN, DN>(gf_gammatxx_, gf_gammatxy_, gf_gammatxz_,
-                               gf_gammatyy_, gf_gammatyz_, gf_gammatzz_, I),
-            smat<vec<T, 3, DN>, 3, DN, DN>{
-                deriv(gf_gammatxx_, I, dx),
-                deriv(gf_gammatxy_, I, dx),
-                deriv(gf_gammatxz_, I, dx),
-                deriv(gf_gammatyy_, I, dx),
-                deriv(gf_gammatyz_, I, dx),
-                deriv(gf_gammatzz_, I, dx),
-            },
-            smat<smat<T, 3, DN, DN>, 3, DN, DN>{
-                deriv2(gf_gammatxx_, I, dx),
-                deriv2(gf_gammatxy_, I, dx),
-                deriv2(gf_gammatxz_, I, dx),
-                deriv2(gf_gammatyy_, I, dx),
-                deriv2(gf_gammatyz_, I, dx),
-                deriv2(gf_gammatzz_, I, dx),
-            },
-            //
-            gf_Kh_(I), deriv(gf_Kh_, I, dx),
-            //
-            smat<T, 3, DN, DN>(gf_Atxx_, gf_Atxy_, gf_Atxz_, gf_Atyy_, gf_Atyz_,
-                               gf_Atzz_, I),
-            smat<vec<T, 3, DN>, 3, DN, DN>{
-                deriv(gf_Atxx_, I, dx),
-                deriv(gf_Atxy_, I, dx),
-                deriv(gf_Atxz_, I, dx),
-                deriv(gf_Atyy_, I, dx),
-                deriv(gf_Atyz_, I, dx),
-                deriv(gf_Atzz_, I, dx),
-            },
-            //
-            vec<T, 3, UP>(gf_Gamtx_, gf_Gamty_, gf_Gamtz_, I),
-            vec<vec<T, 3, DN>, 3, UP>{
-                deriv(gf_Gamtx_, I, dx),
-                deriv(gf_Gamty_, I, dx),
-                deriv(gf_Gamtz_, I, dx),
-            },
-            //
-            gf_Theta_(I), deriv(gf_Theta_, I, dx),
-            //
-            gf_alphaG_(I), deriv(gf_alphaG_, I, dx), deriv2(gf_alphaG_, I, dx),
-            //
-            vec<T, 3, UP>(gf_betaGx_, gf_betaGy_, gf_betaGz_, I),
-            vec<vec<T, 3, DN>, 3, UP>{
-                deriv(gf_betaGx_, I, dx),
-                deriv(gf_betaGy_, I, dx),
-                deriv(gf_betaGz_, I, dx),
-            },
-            vec<smat<T, 3, DN, DN>, 3, UP>{
-                deriv2(gf_betaGx_, I, dx),
-                deriv2(gf_betaGy_, I, dx),
-                deriv2(gf_betaGz_, I, dx),
-            },
-            //
-            gf_eTtt_(I),
-            //
-            vec<T, 3, DN>(gf_eTtx_, gf_eTty_, gf_eTtz_, I),
-            //
-            smat<T, 3, DN, DN>(gf_eTxx_, gf_eTxy_, gf_eTxz_, gf_eTyy_, gf_eTyz_,
-                               gf_eTzz_, I))
+           const vect<int, 3> &I, const vec<T, 3> &dx)
+      : z4c_vars(kappa1, kappa2, f_mu_L, f_mu_S, eta,
+                 //
+                 gf_chi_(I), deriv(gf_chi_, I, dx), deriv2(gf_chi_, I, dx),
+                 //
+                 smat<T, 3>(gf_gammatxx_, gf_gammatxy_, gf_gammatxz_,
+                            gf_gammatyy_, gf_gammatyz_, gf_gammatzz_, I),
+                 smat<vec<T, 3>, 3>{
+                     deriv(gf_gammatxx_, I, dx),
+                     deriv(gf_gammatxy_, I, dx),
+                     deriv(gf_gammatxz_, I, dx),
+                     deriv(gf_gammatyy_, I, dx),
+                     deriv(gf_gammatyz_, I, dx),
+                     deriv(gf_gammatzz_, I, dx),
+                 },
+                 smat<smat<T, 3>, 3>{
+                     deriv2(gf_gammatxx_, I, dx),
+                     deriv2(gf_gammatxy_, I, dx),
+                     deriv2(gf_gammatxz_, I, dx),
+                     deriv2(gf_gammatyy_, I, dx),
+                     deriv2(gf_gammatyz_, I, dx),
+                     deriv2(gf_gammatzz_, I, dx),
+                 },
+                 //
+                 gf_Kh_(I), deriv(gf_Kh_, I, dx),
+                 //
+                 smat<T, 3>(gf_Atxx_, gf_Atxy_, gf_Atxz_, gf_Atyy_, gf_Atyz_,
+                            gf_Atzz_, I),
+                 smat<vec<T, 3>, 3>{
+                     deriv(gf_Atxx_, I, dx),
+                     deriv(gf_Atxy_, I, dx),
+                     deriv(gf_Atxz_, I, dx),
+                     deriv(gf_Atyy_, I, dx),
+                     deriv(gf_Atyz_, I, dx),
+                     deriv(gf_Atzz_, I, dx),
+                 },
+                 //
+                 vec<T, 3>(gf_Gamtx_, gf_Gamty_, gf_Gamtz_, I),
+                 vec<vec<T, 3>, 3>{
+                     deriv(gf_Gamtx_, I, dx),
+                     deriv(gf_Gamty_, I, dx),
+                     deriv(gf_Gamtz_, I, dx),
+                 },
+                 //
+                 gf_Theta_(I), deriv(gf_Theta_, I, dx),
+                 //
+                 gf_alphaG_(I), deriv(gf_alphaG_, I, dx),
+                 deriv2(gf_alphaG_, I, dx),
+                 //
+                 vec<T, 3>(gf_betaGx_, gf_betaGy_, gf_betaGz_, I),
+                 vec<vec<T, 3>, 3>{
+                     deriv(gf_betaGx_, I, dx),
+                     deriv(gf_betaGy_, I, dx),
+                     deriv(gf_betaGz_, I, dx),
+                 },
+                 vec<smat<T, 3>, 3>{
+                     deriv2(gf_betaGx_, I, dx),
+                     deriv2(gf_betaGy_, I, dx),
+                     deriv2(gf_betaGz_, I, dx),
+                 },
+                 //
+                 gf_eTtt_(I),
+                 //
+                 vec<T, 3>(gf_eTtx_, gf_eTty_, gf_eTtz_, I),
+                 //
+                 smat<T, 3>(gf_eTxx_, gf_eTxy_, gf_eTxz_, gf_eTyy_, gf_eTyz_,
+                            gf_eTzz_, I))
   //
   {}
 };

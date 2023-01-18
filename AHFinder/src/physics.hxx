@@ -11,18 +11,16 @@
 namespace AHFinder {
 using namespace Arith;
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-constexpr T det(const smat<T, 3, dnup1, dnup2> &g) {
+template <typename T> constexpr T det(const smat<T, 3> &g) {
   return 2 * g(0, 1) * g(0, 2) * g(1, 2) - g(2, 2) * pow2(g(0, 1)) -
          g(1, 1) * pow2(g(0, 2)) +
          g(0, 0) * (g(1, 1) * g(2, 2) - pow2(g(1, 2)));
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-constexpr smat<T, 3, !dnup1, !dnup2> inv(const smat<T, 3, dnup1, dnup2> &g,
-                                         const T &detg) {
+template <typename T>
+constexpr smat<T, 3> inv(const smat<T, 3> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return detg1 * smat<T, 3, !dnup1, !dnup2>{
+  return detg1 * smat<T, 3>{
                      g(1, 1) * g(2, 2) - pow2(g(1, 2)),
                      g(0, 2) * g(1, 2) - g(0, 1) * g(2, 2),
                      -(g(0, 2) * g(1, 1)) + g(0, 1) * g(1, 2),
@@ -31,23 +29,20 @@ constexpr smat<T, 3, !dnup1, !dnup2> inv(const smat<T, 3, dnup1, dnup2> &g,
                      g(0, 0) * g(1, 1) - pow2(g(0, 1)),
                  };
 }
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-constexpr smat<T, 3, !dnup1, !dnup2> inv(const smat<T, 3, dnup1, dnup2> &g) {
+template <typename T> constexpr smat<T, 3> inv(const smat<T, 3> &g) {
   return inv(g, det(g));
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-constexpr T det(const mat<T, 3, dnup1, dnup2> &g) {
+template <typename T> constexpr T det(const mat<T, 3> &g) {
   return g(0, 2) * (-(g(1, 1) * g(2, 0)) + g(1, 0) * g(2, 1)) +
          g(0, 1) * (g(1, 2) * g(2, 0) - g(1, 0) * g(2, 2)) +
          g(0, 0) * (-(g(1, 2) * g(2, 1)) + g(1, 1) * g(2, 2));
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-constexpr mat<T, 3, !dnup1, !dnup2> inv(const mat<T, 3, dnup1, dnup2> &g,
-                                        const T &detg) {
+template <typename T>
+constexpr mat<T, 3> inv(const mat<T, 3> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return detg1 * mat<T, 3, !dnup1, !dnup2>{
+  return detg1 * mat<T, 3>{
                      -(g(1, 2) * g(2, 1)) + g(1, 1) * g(2, 2),
                      g(0, 2) * g(2, 1) - g(0, 1) * g(2, 2),
                      -(g(0, 2) * g(1, 1)) + g(0, 1) * g(1, 2),
@@ -61,23 +56,20 @@ constexpr mat<T, 3, !dnup1, !dnup2> inv(const mat<T, 3, dnup1, dnup2> &g,
                      -(g(0, 1) * g(1, 0)) + g(0, 0) * g(1, 1),
                  };
 }
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-constexpr mat<T, 3, !dnup1, !dnup2> inv(const mat<T, 3, dnup1, dnup2> &g) {
+template <typename T> constexpr mat<T, 3> inv(const mat<T, 3> &g) {
   return inv(g, det(g));
 }
 
-template <typename T1, typename T2, int D, dnup_t dnup1, dnup_t dnup2,
-          symm_t symm,
+template <typename T1, typename T2, int D, symm_t symm,
           typename R = decltype(std::declval<T1>() * std::declval<T2>())>
-constexpr vec<R, D, dnup1> matmul(const gmat<T1, D, dnup1, dnup2, symm> &A,
-                                  const vec<T2, D, !dnup2> &x) {
-  return vec<R, D, dnup1>(
+constexpr vec<R, D> matmul(const gmat<T1, D, symm> &A, const vec<T2, D> &x) {
+  return vec<R, D>(
       [&](int a) { return sum<D>([&](int b) { return A(a, b) * x(b); }); });
 }
 
-template <typename T, int D, dnup_t dnup, symm_t symm>
-void gram_schmidt(const gmat<T, D, !dnup, !dnup, symm> g, vec<T, D, dnup> &x1,
-                  vec<T, D, dnup> &x2, vec<T, D, dnup> &x3) {
+template <typename T, int D, symm_t symm>
+void gram_schmidt(const gmat<T, D, symm> g, vec<T, D> &x1, vec<T, D> &x2,
+                  vec<T, D> &x3) {
   using std::sqrt;
 
   // First vector

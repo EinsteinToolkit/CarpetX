@@ -1,5 +1,7 @@
 # Configuration definitions for thorn AMReX
 
+REQUIRES MPI
+
 PROVIDES AMReX
 {
   SCRIPT configure.sh

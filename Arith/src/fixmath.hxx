@@ -1,6 +1,8 @@
 #ifndef FIXMATH_HXX
 #define FIXMATH_HXX
 
+#if 0
+
 // Include this file BEFORE including <cctk.h>, best before including
 // any other include files
 
@@ -20,5 +22,7 @@
 #undef isnan
 #undef isnormal
 #undef signbit
+
+#endif
 
 #endif // #ifndef FIXMATH_HXX

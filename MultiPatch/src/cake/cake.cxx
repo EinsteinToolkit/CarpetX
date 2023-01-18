@@ -103,10 +103,10 @@ global_to_local_cake_core(const PatchTransformations &pt, CCTK_REAL a,
  * @param local_vars The values of the local variables (a,b,c)
  * @return A spatial vector containing the coordinate transformations.
  */
-CCTK_DEVICE CCTK_HOST svec_u local2global(const PatchTransformations &pt,
-                                          int patch, const svec_u &local_vars) {
+CCTK_DEVICE CCTK_HOST svec local2global(const PatchTransformations &pt,
+                                        int patch, const svec &local_vars) {
 
-  svec_u global_vars = {0.0, 0.0, 0.0};
+  svec global_vars = {0.0, 0.0, 0.0};
 
   const auto a = local_vars(0);
   const auto b = local_vars(1);
@@ -158,8 +158,8 @@ CCTK_DEVICE CCTK_HOST svec_u local2global(const PatchTransformations &pt,
  * @param global_vars The values of the local global (x, y, z)
  * @return A tuple containing the patch piece and the global coordinate triplet.
  */
-CCTK_DEVICE CCTK_HOST std_tuple<int, svec_u>
-global2local(const PatchTransformations &pt, const svec_u &global_vars) {
+CCTK_DEVICE CCTK_HOST std_tuple<int, svec>
+global2local(const PatchTransformations &pt, const svec &global_vars) {
   const auto x = global_vars(0);
   const auto y = global_vars(1);
   const auto z = global_vars(2);
@@ -211,8 +211,10 @@ global2local(const PatchTransformations &pt, const svec_u &global_vars) {
 
   default:
 #ifndef __CUDACC__
-    CCTK_VERROR("No global -> local transformations available for patch %s",
-                piece_name(piece).c_str());
+    throw std::runtime_error("error");
+    CCTK_VERROR("At point (%f, %f, %f): No global -> local transformations "
+                "available for patch %s.",
+                x, y, z, piece_name(piece).c_str());
 #else
     assert(0);
 #endif
@@ -221,7 +223,7 @@ global2local(const PatchTransformations &pt, const svec_u &global_vars) {
 
   const CCTK_REAL c = global_to_local_cake_core(pt, a, b, var);
 
-  return std_make_tuple(static_cast<int>(piece), svec_u{a, b, c});
+  return std_make_tuple(static_cast<int>(piece), svec{a, b, c});
 }
 
 /**
@@ -241,9 +243,9 @@ global2local(const PatchTransformations &pt, const svec_u &global_vars) {
  * @return A tuple containing the local to global coordinate transformation,
  * the local to global jacobian matrix and it's derivative.
  */
-CCTK_DEVICE CCTK_HOST std_tuple<svec_u, jac_t, djac_t>
+CCTK_DEVICE CCTK_HOST std_tuple<svec, jac_t, djac_t>
 d2local_dglobal2(const PatchTransformations &pt, int patch,
-                 const svec_u &local_vars) {
+                 const svec &local_vars) {
 
   auto local_to_global_result = pt.local2global(pt, patch, local_vars);
   auto jacobian_results = cake_jacs(pt, patch, local_to_global_result);
@@ -265,9 +267,9 @@ d2local_dglobal2(const PatchTransformations &pt, int patch,
  * @return A tuple containing the local to global coordinate transformation
  * and the local to global jacobian matrix.
  */
-CCTK_DEVICE CCTK_HOST std_tuple<svec_u, jac_t>
+CCTK_DEVICE CCTK_HOST std_tuple<svec, jac_t>
 dlocal_dglobal(const PatchTransformations &pt, int patch,
-               const svec_u &local_vars) {
+               const svec &local_vars) {
 
   const auto data = pt.d2local_dglobal2(pt, patch, local_vars);
   return std_make_tuple(std::get<0>(data), std::get<1>(data));

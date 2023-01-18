@@ -18,16 +18,16 @@ namespace TestMultiPatch {
  * Stores a 3-vector with all indices up
  */
 template <typename real_t>
-using svec_u = Arith::vec<real_t, Loop::dim, Arith::UP>;
+using svec = Arith::vec<real_t, Loop::dim>;
 
 /**
  * Stores a 4-vector with all indices up
  */
-template <typename real_t> using qvec_u = Arith::vec<real_t, 4, Arith::UP>;
+template <typename real_t> using qvec = Arith::vec<real_t, 4>;
 
 template <typename real_t>
 CCTK_DEVICE CCTK_HOST static inline real_t
-plane_wave_omega(const svec_u<real_t> &wave_number) {
+plane_wave_omega(const svec<real_t> &wave_number) {
   using std::sqrt;
   return sqrt(wave_number(0) * wave_number(0) +
               wave_number(1) * wave_number(1) +
@@ -35,10 +35,10 @@ plane_wave_omega(const svec_u<real_t> &wave_number) {
 }
 
 template <typename real_t>
-CCTK_DEVICE CCTK_HOST static inline qvec_u<real_t>
-plane_wave_n(const svec_u<real_t> &wave_number, const qvec_u<real_t> &offsets,
-             const qvec_u<real_t> coords) {
-  return qvec_u<real_t>{plane_wave_omega(wave_number) *
+CCTK_DEVICE CCTK_HOST static inline qvec<real_t>
+plane_wave_n(const svec<real_t> &wave_number, const qvec<real_t> &offsets,
+             const qvec<real_t> coords) {
+  return qvec<real_t>{plane_wave_omega(wave_number) *
                             (coords(0) - offsets(0)),
                         wave_number(0) * (coords(1) - offsets(1)),
                         wave_number(1) * (coords(2) - offsets(2)),
@@ -47,8 +47,8 @@ plane_wave_n(const svec_u<real_t> &wave_number, const qvec_u<real_t> &offsets,
 
 template <typename real_t>
 CCTK_DEVICE CCTK_HOST static inline real_t
-plane_wave_w(const svec_u<real_t> &wave_number, const qvec_u<real_t> &offsets,
-             const qvec_u<real_t> coords) {
+plane_wave_w(const svec<real_t> &wave_number, const qvec<real_t> &offsets,
+             const qvec<real_t> coords) {
   const auto n = plane_wave_n(wave_number, offsets, coords);
   return 2 * M_PI * (n(0) + n(1) + n(2) + n(3));
 }

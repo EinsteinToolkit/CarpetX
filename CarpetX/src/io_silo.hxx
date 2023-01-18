@@ -1,7 +1,6 @@
 #ifndef IO_SILO_HXX
 #define IO_SILO_HXX
 
-#include <fixmath.hxx>
 #include <cctk.h>
 
 #ifdef HAVE_CAPABILITY_Silo

@@ -21,16 +21,6 @@
 namespace Arith {
 using namespace std;
 
-// Co- and contravariance
-
-enum class dnup_t : bool { dn, up };
-constexpr dnup_t DN = dnup_t::dn;
-constexpr dnup_t UP = dnup_t::up;
-constexpr dnup_t operator!(const dnup_t dnup) { return dnup_t(!bool(dnup)); }
-inline ostream &operator<<(ostream &os, const dnup_t dnup) {
-  return os << (dnup == DN ? "d" : "u");
-}
-
 // Symmetries
 
 enum class symm_t : int { full, symm, anti };
@@ -80,7 +70,7 @@ inline ostream &operator<<(ostream &os, const symm_t symm) {
 // It might be possible to unify these two types. In practice, there
 // is little confusion, so this is not urgent.
 
-template <typename T, int D, dnup_t dnup> struct vec {
+template <typename T, int D> struct vec {
 
   constexpr static int N = D;
   vect<T, N> elts;
@@ -109,7 +99,7 @@ public:
   constexpr ARITH_INLINE vec &operator=(vec &&) = default;
 
   template <typename U>
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(vec<U, D, dnup> x)
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(vec<U, D> x)
       : elts(std::move(x.elts)) {}
 
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(initializer_list<T> x)
@@ -142,37 +132,35 @@ public:
     return vect<T, N>::unit(i);
   }
 
-  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<int, D, dnup>
-  iota() {
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<int, D> iota() {
     return {vect<int, N>::iota()};
   }
 
   template <typename F, typename... Args,
             typename R =
                 remove_cv_t<remove_reference_t<result_of_t<F(T, Args...)> > > >
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D, dnup>
-  fmap(const F &f, const vec &x, const vec<Args, D, dnup> &...args) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D>
+  fmap(const F &f, const vec &x, const vec<Args, D> &...args) {
     return fmap(f, x.elts, args.elts...);
   }
   template <typename F, typename... Args>
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST void
-  fmap_(const F &f, const vec &x, const vec<Args, D, dnup> &...args) {
+  fmap_(const F &f, const vec &x, const vec<Args, D> &...args) {
     fmap_(f, x.elts, args.elts...);
   }
 
   template <
       typename... Args,
       typename R = remove_cv_t<remove_reference_t<result_of_t<T(Args...)> > > >
-  ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D, dnup>
+  ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D>
   operator()(const Args &...args) const {
     return fmap([&](const T &var) { return var(args...); }, *this);
   }
   template <typename Arg1, typename Arg2, typename U,
             typename R = remove_cv_t<
                 remove_reference_t<result_of_t<T(Arg1, Arg2, U)> > > >
-  ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D, dnup>
-  operator()(const Arg1 &arg1, const Arg2 &arg2,
-             const vec<U, D, dnup> &val) const {
+  ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D>
+  operator()(const Arg1 &arg1, const Arg2 &arg2, const vec<U, D> &val) const {
     return fmap([&](const T &var, const U &x) { return var(arg1, arg2, x); },
                 *this, val);
   }
@@ -180,7 +168,7 @@ public:
   //           typename = decltype(declval<T1>().store(declval<Args>()...,
   //                                                   declval<U>()))>
   // ARITH_INLINE ARITH_DEVICE ARITH_HOST void store(const Args &...args,
-  //                         const vec<U, D, dnup> &val) const {
+  //                         const vec<U, D> &val) const {
   //   fmap_([&](const auto &var, const auto &x) { return var.store(args..., x);
   //   },
   //        val);
@@ -189,7 +177,7 @@ public:
             typename = decltype(declval<T1>().store(
                 declval<Arg1>(), declval<Arg2>(), declval<U>()))>
   ARITH_INLINE ARITH_DEVICE ARITH_HOST void
-  store(const Arg1 &arg1, const Arg2 &arg2, const vec<U, D, dnup> &val) const {
+  store(const Arg1 &arg1, const Arg2 &arg2, const vec<U, D> &val) const {
     fmap_([&](const T &var, const U &x) { return var.store(arg1, arg2, x); },
           *this, val);
   }
@@ -205,40 +193,40 @@ public:
     return elts[ind(i)];
   }
 
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D, dnup>
-  operator+(const vec<T, D, dnup> &x) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D>
+  operator+(const vec<T, D> &x) {
     return {+x.elts};
   }
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D, dnup>
-  operator-(const vec<T, D, dnup> &x) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D>
+  operator-(const vec<T, D> &x) {
     return {-x.elts};
   }
   template <typename U,
             typename R = decltype(std::declval<T>() + std::declval<U>())>
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D, dnup>
-  operator+(const vec<T, D, dnup> &x, const vec<U, D, dnup> &y) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D>
+  operator+(const vec<T, D> &x, const vec<U, D> &y) {
     return {x.elts + y.elts};
   }
   template <typename U,
             typename R = decltype(std::declval<T>() - std::declval<U>())>
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D, dnup>
-  operator-(const vec<T, D, dnup> &x, const vec<U, D, dnup> &y) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D>
+  operator-(const vec<T, D> &x, const vec<U, D> &y) {
     return {x.elts - y.elts};
   }
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D, dnup>
-  operator*(const T &a, const vec<T, D, dnup> &x) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D>
+  operator*(const T &a, const vec<T, D> &x) {
     return {a * x.elts};
   }
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D, dnup>
-  operator*(const vec<T, D, dnup> &x, const T &a) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D>
+  operator*(const vec<T, D> &x, const T &a) {
     return {x.elts * a};
   }
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D, dnup>
-  operator/(const vec<T, D, dnup> &x, const T &a) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D>
+  operator/(const vec<T, D> &x, const T &a) {
     return {x.elts / a};
   }
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D, dnup>
-  operator%(const vec<T, D, dnup> &x, const T &a) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<T, D>
+  operator%(const vec<T, D> &x, const T &a) {
     return {x.elts % a};
   }
 
@@ -250,12 +238,12 @@ public:
   }
   template <typename U>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec
-  operator+=(const vec<U, D, dnup> &x) {
+  operator+=(const vec<U, D> &x) {
     return *this = *this + x;
   }
   template <typename U>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec
-  operator-=(const vec<U, D, dnup> &x) {
+  operator-=(const vec<U, D> &x) {
     return *this = *this - x;
   }
   template <typename U>
@@ -273,12 +261,12 @@ public:
 
   template <typename U>
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator==(const vec<T, D, dnup> &x, const vec<U, D, dnup> &y) {
+  operator==(const vec<T, D> &x, const vec<U, D> &y) {
     return all(x.elts == y.elts);
   }
   template <typename U>
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator!=(const vec<T, D, dnup> &x, const vec<U, D, dnup> &y) {
+  operator!=(const vec<T, D> &x, const vec<U, D> &y) {
     return !(x == y);
   }
 
@@ -302,9 +290,8 @@ public:
     return anyisnan(x.elts);
   }
 
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*vec<bool, D, dnup>*/
-      isnan(const vec &x) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*vec<bool, D>*/
+  isnan(const vec &x) {
     return isnan(x.elts);
   }
 
@@ -312,8 +299,12 @@ public:
     return maxabs(x.elts);
   }
 
-  friend ostream &operator<<(ostream &os, const vec<T, D, dnup> &v) {
-    os << "(" << dnup << ")[";
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T sumabs(const vec &x) {
+    return sumabs(x.elts);
+  }
+
+  friend ostream &operator<<(ostream &os, const vec<T, D> &v) {
+    os << "[";
     for (int i = 0; i < D; ++i) {
       if (i > 0)
         os << ",";
@@ -324,42 +315,42 @@ public:
   }
 };
 
-template <typename T, int D, dnup_t dnup> struct zero<vec<T, D, dnup> > {
-  typedef vec<T, D, dnup> value_type;
-  // static constexpr value_type value = vec<T, D, dnup>::pure(zero<T>::value);
+template <typename T, int D> struct zero<vec<T, D> > {
+  typedef vec<T, D> value_type;
+  // static constexpr value_type value = vec<T, D>::pure(zero<T>::value);
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
-    return vec<T, D, dnup>::pure(zero<T>());
+    return vec<T, D>::pure(zero<T>());
   }
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST value_type operator()() const {
-    return vec<T, D, dnup>::pure(zero<T>());
+    return vec<T, D>::pure(zero<T>());
   }
 };
 
-template <typename T, int D, dnup_t dnup> struct nan<vec<T, D, dnup> > {
-  typedef vec<T, D, dnup> value_type;
-  // static constexpr value_type value = vec<T, D, dnup>::pure(nan<T>::value);
+template <typename T, int D> struct nan<vec<T, D> > {
+  typedef vec<T, D> value_type;
+  // static constexpr value_type value = vec<T, D>::pure(nan<T>::value);
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
-    return vec<T, D, dnup>::pure(nan<T>());
+    return vec<T, D>::pure(nan<T>());
   }
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST value_type operator()() const {
-    return vec<T, D, dnup>::pure(nan<T>());
+    return vec<T, D>::pure(nan<T>());
   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <typename T, int D, dnup_t dnup>
-constexpr vec<simd<T>, D, dnup> if_else(const simdl<T> &cond,
-                                        const vec<simd<T>, D, dnup> &x,
-                                        const vec<simd<T>, D, dnup> &y) {
+template <typename T, int D>
+constexpr vec<simd<T>, D> if_else(const simdl<T> &cond,
+                                  const vec<simd<T>, D> &x,
+                                  const vec<simd<T>, D> &y) {
   return fmap([&](const auto &x, const auto &y) { return if_else(cond, x, y); },
               x, y);
 }
 
-template <typename T, typename U, int D, dnup_t dnup>
-constexpr vec<dual<simd<T>, U>, D, dnup>
-if_else(const simdl<T> &cond, const vec<dual<simd<T>, U>, D, dnup> &x,
-        const vec<dual<simd<T>, U>, D, dnup> &y) {
+template <typename T, typename U, int D>
+constexpr vec<dual<simd<T>, U>, D> if_else(const simdl<T> &cond,
+                                           const vec<dual<simd<T>, U>, D> &x,
+                                           const vec<dual<simd<T>, U>, D> &y) {
   return fmap([&](const auto &x, const auto &y) { return if_else(cond, x, y); },
               x, y);
 }

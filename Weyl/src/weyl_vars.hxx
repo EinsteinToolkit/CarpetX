@@ -18,33 +18,32 @@ namespace Weyl {
 template <typename T> struct weyl_vars_noderivs {
 
   // Position
-  const vec<T, 4, UP> coord;
+  const vec<T, 4> coord;
 
   // ADM variables
-  const smat<T, 3, DN, DN> gamma;
+  const smat<T, 3> gamma;
   const T alpha;
-  const vec<T, 3, UP> beta;
+  const vec<T, 3> beta;
 
   // Intermediate quantities
-  const vec<T, 3, DN> betal;
+  const vec<T, 3> betal;
   const T gtt;
 
   // 4-metric
-  const smat<T, 4, DN, DN> g;
+  const smat<T, 4> g;
 
   // Inverse 4-metric
   const T detg;
-  const smat<T, 4, UP, UP> gu;
+  const smat<T, 4> gu;
 
   // Tetrad
-  const vec<T, 4, UP> et, ephi, etheta, er;
-  const vec<T, 4, UP> l, n;
-  const vec<cplx<T>, 4, UP> m;
+  const vec<T, 4> et, ephi, etheta, er;
+  const vec<T, 4> l, n;
+  const vec<cplx<T>, 4> m;
 
-  inline ARITH_INLINE ARITH_DEVICE ARITH_HOST
-  weyl_vars_noderivs(const T time, const vec<T, 3, UP> &coord3,
-                     const smat<T, 3, DN, DN> &gamma, const T &alpha,
-                     const vec<T, 3, UP> &beta)
+  inline ARITH_INLINE ARITH_DEVICE ARITH_HOST weyl_vars_noderivs(
+      const T time, const vec<T, 3> &coord3, const smat<T, 3> &gamma,
+      const T &alpha, const vec<T, 3> &beta)
       : coord{time, coord3(0), coord3(1), coord3(2)},
         //
         gamma(gamma), alpha(alpha), beta(beta),
@@ -80,7 +79,7 @@ template <typename T> struct weyl_vars_noderivs {
   {}
 
   inline ARITH_INLINE ARITH_DEVICE ARITH_HOST
-  weyl_vars_noderivs(const vec<T, 4, UP> &coord, const smat<T, 4, DN, DN> &g)
+  weyl_vars_noderivs(const vec<T, 4> &coord, const smat<T, 4> &g)
       : coord(coord),                        //
         gamma(), alpha(), beta(), betal(),   //
         g(g), detg(calc_det(g)),             //
@@ -129,64 +128,64 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
   using weyl_vars_noderivs<T>::m;
 
   // Time derivatives of ADM variables
-  const smat<T, 3, DN, DN> k;
+  const smat<T, 3> k;
   const T dtalpha;
-  const vec<T, 3, UP> dtbeta;
+  const vec<T, 3> dtbeta;
 
   // Spatial derivatives of ADM variables
-  const smat<vec<T, 3, DN>, 3, DN, DN> dgamma;
-  const smat<smat<T, 3, DN, DN>, 3, DN, DN> ddgamma;
-  const vec<T, 3, DN> dalpha;
+  const smat<vec<T, 3>, 3> dgamma;
+  const smat<smat<T, 3>, 3> ddgamma;
+  const vec<T, 3> dalpha;
 
   // Second time derivatives of ADM variables
-  const smat<T, 3, DN, DN> dtk;
+  const smat<T, 3> dtk;
   const T dt2alpha;
-  const vec<T, 3, UP> dt2beta;
+  const vec<T, 3> dt2beta;
 
   // Space-time derivatives of ADM variables
-  const smat<vec<T, 3, DN>, 3, DN, DN> dk;
-  const vec<T, 3, DN> ddtalpha;
-  const vec<vec<T, 3, DN>, 3, UP> ddtbeta;
+  const smat<vec<T, 3>, 3> dk;
+  const vec<T, 3> ddtalpha;
+  const vec<vec<T, 3>, 3> ddtbeta;
 
   // Second spatial derivatives of ADM variables
-  const smat<T, 3, DN, DN> ddalpha;
-  const vec<vec<T, 3, DN>, 3, UP> dbeta;
-  const vec<smat<T, 3, DN, DN>, 3, UP> ddbeta;
+  const smat<T, 3> ddalpha;
+  const vec<vec<T, 3>, 3> dbeta;
+  const vec<smat<T, 3>, 3> ddbeta;
 
   // Intermediate quantities
-  const mat<T, 3, DN, DN> dtgamma;
-  const vec<T, 3, DN> dtbetal;
-  const vec<vec<T, 3, DN>, 3, DN> dbetal;
+  const mat<T, 3> dtgamma;
+  const vec<T, 3> dtbetal;
+  const vec<vec<T, 3>, 3> dbetal;
   const T dtgtt;
-  const vec<T, 3, DN> dgtt;
+  const vec<T, 3> dgtt;
 
-  const smat<T, 3, DN, DN> dt2gamma;
-  const smat<vec<T, 3, DN>, 3, DN, DN> ddtgamma;
-  const vec<T, 3, DN> dt2betal;
-  const vec<vec<T, 3, DN>, 3, DN> ddtbetal;
-  const vec<smat<T, 3, DN, DN>, 3, DN> ddbetal;
+  const smat<T, 3> dt2gamma;
+  const smat<vec<T, 3>, 3> ddtgamma;
+  const vec<T, 3> dt2betal;
+  const vec<vec<T, 3>, 3> ddtbetal;
+  const vec<smat<T, 3>, 3> ddbetal;
   const T dt2gtt;
-  const vec<T, 3, DN> ddtgtt;
-  const smat<T, 3, DN, DN> ddgtt;
+  const vec<T, 3> ddtgtt;
+  const smat<T, 3> ddgtt;
 
   // Derivatives of 4-metric
-  const smat<vec<T, 4, DN>, 4, DN, DN> dg;
-  const smat<smat<T, 4, DN, DN>, 4, DN, DN> ddg;
-  const smat<vec<T, 4, DN>, 4, UP, UP> dgu;
+  const smat<vec<T, 4>, 4> dg;
+  const smat<smat<T, 4>, 4> ddg;
+  const smat<vec<T, 4>, 4> dgu;
 
   // Christoffel symbol
-  const vec<smat<T, 4, DN, DN>, 4, DN> Gammal;
-  const vec<smat<T, 4, DN, DN>, 4, UP> Gamma;
+  const vec<smat<T, 4>, 4> Gammal;
+  const vec<smat<T, 4>, 4> Gamma;
 
-  const vec<smat<vec<T, 4, DN>, 4, DN, DN>, 4, DN> dGammal;
-  const vec<smat<vec<T, 4, DN>, 4, DN, DN>, 4, UP> dGamma;
+  const vec<smat<vec<T, 4>, 4>, 4> dGammal;
+  const vec<smat<vec<T, 4>, 4>, 4> dGamma;
 
   // Riemann, Ricci, Weyl
-  const rten<T, 4, DN, DN, DN, DN> Rm;
-  const smat<T, 4, DN, DN> R;
+  const rten<T, 4> Rm;
+  const smat<T, 4> R;
   const T Rsc;
   // TODO: C is trace free
-  const rten<T, 4, DN, DN, DN, DN> C;
+  const rten<T, 4> C;
 
   // Ricci and Weyl scalars
   const T Lambda;
@@ -195,34 +194,31 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
   const cplx<T> Psi0, Psi1, Psi2, Psi3, Psi4;
 
   // Gradient of tetrad
-  const vec<vec<T, 4, DN>, 4, UP> det, dephi, detheta, der;
-  const vec<vec<T, 4, DN>, 4, UP> dl, dn;
-  const vec<vec<cplx<T>, 4, DN>, 4, UP> dm;
+  const vec<vec<T, 4>, 4> det, dephi, detheta, der;
+  const vec<vec<T, 4>, 4> dl, dn;
+  const vec<vec<cplx<T>, 4>, 4> dm;
 
   // Newman-Penrose spin coefficients
   const cplx<T> npkappa, npsigma, nprho, nptau, npepsilon, npbeta, npalpha,
       npgamma, nppi, npmu, nplambda, npnu;
 
-  inline ARITH_INLINE ARITH_DEVICE ARITH_HOST weyl_vars(
-      const T time, const vec<T, 3, UP> &coord3,
-      //
-      const smat<T, 3, DN, DN> &gamma, const T &alpha,
-      const vec<T, 3, UP> &beta,
-      //
-      const mat<T, 3, DN, DN> &k, const T &dtalpha, const vec<T, 3, UP> &dtbeta,
-      //
-      const mat<vec<T, 3, DN>, 3, DN, DN> &dgamma, const vec<T, 3, DN> &dalpha,
-      const vec<vec<T, 3, DN>, 3, UP> &dbeta,
-      //
-      const mat<T, 3, DN, DN> &dtk, const T &dt2alpha,
-      const vec<T, 3, UP> &dt2beta,
-      //
-      const mat<vec<T, 3, DN>, 3, DN, DN> &dk, const vec<T, 3, DN> &ddtalpha,
-      const vec<vec<T, 3, DN>, 3, UP> &ddtbeta,
-      //
-      const mat<mat<T, 3, DN, DN>, 3, DN, DN> &ddgamma,
-      const mat<T, 3, DN, DN> &ddalpha,
-      const vec<mat<T, 3, DN, DN>, 3, UP> &ddbeta)
+  inline ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  weyl_vars(const T time, const vec<T, 3> &coord3,
+            //
+            const smat<T, 3> &gamma, const T &alpha, const vec<T, 3> &beta,
+            //
+            const mat<T, 3> &k, const T &dtalpha, const vec<T, 3> &dtbeta,
+            //
+            const mat<vec<T, 3>, 3> &dgamma, const vec<T, 3> &dalpha,
+            const vec<vec<T, 3>, 3> &dbeta,
+            //
+            const mat<T, 3> &dtk, const T &dt2alpha, const vec<T, 3> &dt2beta,
+            //
+            const mat<vec<T, 3>, 3> &dk, const vec<T, 3> &ddtalpha,
+            const vec<vec<T, 3>, 3> &ddtbeta,
+            //
+            const mat<mat<T, 3>, 3> &ddgamma, const mat<T, 3> &ddalpha,
+            const vec<mat<T, 3>, 3> &ddbeta)
       : weyl_vars_noderivs<T>(time, coord3, gamma, alpha, beta),
         // Time derivatives of ADM variables
         k(k), dtalpha(dtalpha), dtbeta(dtbeta),
@@ -256,7 +252,7 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
           });
         }),
         dbetal([&](int a) ARITH_INLINE {
-          return vec<T, 3, DN>([&](int b) ARITH_INLINE {
+          return vec<T, 3>([&](int b) ARITH_INLINE {
             return sum<3>([&](int x) ARITH_INLINE {
               return dgamma(a, x)(b) * beta(x) + gamma(a, x) * dbeta(x)(b);
             });
@@ -293,7 +289,7 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
                    });
         }),
         ddtgamma([&](int a, int b) ARITH_INLINE {
-          return vec<T, 3, DN>([&](int c) ARITH_INLINE {
+          return vec<T, 3>([&](int c) ARITH_INLINE {
             return -2 * dalpha(c) * k(a, b)  //
                    - 2 * alpha * dk(a, b)(c) //
                    + sum<3>([&](int x) ARITH_INLINE {
@@ -318,7 +314,7 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
           });
         }),
         ddtbetal([&](int a) ARITH_INLINE {
-          return vec<T, 3, DN>([&](int b) ARITH_INLINE {
+          return vec<T, 3>([&](int b) ARITH_INLINE {
             return sum<3>([&](int x) ARITH_INLINE {
               return ddtgamma(a, x)(b) * beta(x)   //
                      + dgamma(a, x)(b) * dtbeta(x) //
@@ -328,7 +324,7 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
           });
         }),
         ddbetal([&](int a) ARITH_INLINE {
-          return mat<T, 3, DN, DN>([&](int b, int c) ARITH_INLINE {
+          return mat<T, 3>([&](int b, int c) ARITH_INLINE {
             return sum<3>([&](int x) ARITH_INLINE {
               return ddgamma(a, x)(b, c) * beta(x)   //
                      + dgamma(a, x)(b) * dbeta(x)(c) //
@@ -380,7 +376,7 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
         }),
         //
         dg([&](int a, int b) ARITH_INLINE {
-          return vec<T, 4, DN>([&](int c) ARITH_INLINE {
+          return vec<T, 4>([&](int c) ARITH_INLINE {
             if (c == 0) {
               if (a == 0 && b == 0)
                 return dtgtt;
@@ -401,7 +397,7 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
         }),
         //
         ddg([&](int a, int b) ARITH_INLINE {
-          return mat<T, 4, DN, DN>([&](int c, int d) ARITH_INLINE {
+          return mat<T, 4>([&](int c, int d) ARITH_INLINE {
             if (c == 0 && d == 0) {
               if (a == 0 && b == 0)
                 return dt2gtt;
@@ -548,7 +544,7 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
         dl([&](int a) ARITH_INLINE { return (det(a) + der(a)) / sqrt(T(2)); }),
         dn([&](int a) ARITH_INLINE { return (det(a) - der(a)) / sqrt(T(2)); }),
         dm([&](int a) ARITH_INLINE {
-          return vec<cplx<T>, 4, DN>([&](int b) ARITH_INLINE {
+          return vec<cplx<T>, 4>([&](int b) ARITH_INLINE {
             return cplx<T>(detheta(a)(b), dephi(a)(b)) / sqrt(T(2));
           });
         }),
@@ -588,9 +584,9 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
   {}
 
   inline ARITH_INLINE ARITH_DEVICE ARITH_HOST
-  weyl_vars(const vec<T, 4, UP> &coord, //
-            const mat<T, 4, DN, DN> &g, const mat<vec<T, 4, DN>, 4, DN, DN> &dg,
-            const mat<mat<T, 4, DN, DN>, 4, DN, DN> &ddg)
+  weyl_vars(const vec<T, 4> &coord, //
+            const mat<T, 4> &g, const mat<vec<T, 4>, 4> &dg,
+            const mat<mat<T, 4>, 4> &ddg)
       : weyl_vars_noderivs<T>(coord, g),
         //
         k(), dtalpha(), dtbeta(), dgamma(), ddgamma(), dalpha(), dtk(),
@@ -709,7 +705,7 @@ template <typename T> struct weyl_vars : weyl_vars_noderivs<T> {
         dl([&](int a) ARITH_INLINE { return (det(a) + der(a)) / sqrt(T(2)); }),
         dn([&](int a) ARITH_INLINE { return (det(a) - der(a)) / sqrt(T(2)); }),
         dm([&](int a) ARITH_INLINE {
-          return vec<cplx<T>, 4, DN>([&](int b) ARITH_INLINE {
+          return vec<cplx<T>, 4>([&](int b) ARITH_INLINE {
             return cplx<T>(detheta(a)(b), dephi(a)(b)) / sqrt(T(2));
           });
         }),

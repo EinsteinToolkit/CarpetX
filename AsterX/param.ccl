@@ -10,6 +10,12 @@ CCTK_REAL poly_K "Polytropic EOS constant" STEERABLE=always
   0.0:* :: ""
 } 100.0
 
+KEYWORD vector_potential_gauge "Gauge choice of four-vector potential A" STEERABLE=never
+{
+  "algebraic" :: ""
+  "generalized Lorentz" :: ""
+} "generalized Lorentz"
+
 CCTK_REAL lorenz_damp_fac "Damping factor used in the Lorenz Gauge (see Farris et al 2012)"
 {
  0:* :: "should be positive"
@@ -23,13 +29,24 @@ KEYWORD reconstruction_method "Reconstruction method" STEERABLE=never
   "ppm" :: ""
 } "Godunov"
 
+KEYWORD flux_type "Flux solver" STEERABLE=never
+{
+  "LxF" :: ""
+  "HLLE" :: ""
+} "LxF"
+
+
 KEYWORD regrid_method "Regrid method" STEERABLE=never
 {
-  "1st deriv" :: ""
-  "1st deriv of rho" :: ""
-  "2nd deriv of rho" :: ""
-  "1st grad of rho" :: ""
-} "1st deriv"
+  "first derivative" :: ""
+  "second derivative" :: ""
+  "first gradient" :: ""
+} "first gradient"
+
+CCTK_STRING regrid_groups "Groups used for calculating regrid error" STEERABLE=always
+{
+  .* :: "List of full group names"
+} "HydroBase::rho"
 
 CCTK_REAL rho_abs_min "atmosphere density" STEERABLE=never
 {
@@ -42,6 +59,10 @@ CCTK_REAL atmo_tol "atmosphere density tolerance factor" STEERABLE=never
 } 1E-3
 
 BOOLEAN debug_mode "Print debug information if set to yes"
+{
+} no
+
+BOOLEAN unit_test "turn on all the unit tests if set to yes"
 {
 } no
 
@@ -60,9 +81,12 @@ CCTK_REAL c2p_tol "c2p torelance for root finding" STEERABLE=never
   0:* :: "Larger than zero"
 } 1E-10
 
+BOOLEAN interpolate_failed_c2p "Interpolate those grid points where c2p failed."
+{
+} no
 
 CCTK_INT local_spatial_order "Order of spatial finite differencing" STEERABLE=never
 {
   2 :: "Second order finite difference"
   4 :: "Fourth order finite difference"
-} 4
+} 2

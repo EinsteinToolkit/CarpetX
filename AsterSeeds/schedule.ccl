@@ -1,0 +1,19 @@
+# Schedule definitions for thorn AsterSeeds
+
+# Initial conditions
+
+SCHEDULE AsterSeeds_InitializeCenteredAvec AT initial AFTER HydroBase_PostInitial BEFORE AsterX_ComputedBstagFromA
+{
+  LANG: C
+  READS: HydroBase::press(everywhere)
+  WRITES: Avec_x_cent(everywhere) Avec_y_cent(everywhere) Avec_z_cent(everywhere)
+} "Set up initial conditions for the vector potential"
+
+SCHEDULE AsterSeeds_InitializeStagAvec AT initial AFTER AsterSeeds_InitializeCenteredAvec BEFORE AsterX_ComputedBstagFromA
+{
+  LANG: C
+  READS: Avec_x_cent(everywhere) Avec_y_cent(everywhere) Avec_z_cent(everywhere)
+  WRITES: AsterX::Avec_x(everywhere) AsterX::Avec_y(everywhere) AsterX::Avec_z(everywhere)
+  SYNC: Avec_cent
+} "Set up initial conditions for the vector potential"
+

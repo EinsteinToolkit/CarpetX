@@ -3,361 +3,351 @@
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
+
 #include <loop_device.hxx>
 
 #include <cmath>
 
-#include "con2prim.hxx"
-namespace AsterX {
-using namespace std;
-using namespace Loop;
+#include "con2primIdealFluid.hxx"
+#include "utils.hxx"
+#include <boost/math/tools/roots.hpp>
 
-/* Constructor */
-CCTK_HOST CCTK_DEVICE idealFluid::idealFluid(CCTK_REAL gamma,
-                                             CCTK_REAL (&cons)[NCONS],
-                                             CCTK_REAL (&prim)[NPRIMS],
-                                             CCTK_REAL (&g_lo)[4][4],
-                                             CCTK_REAL (&g_up)[4][4]) {
-  GammaIdealFluid = gamma;
+namespace AsterX
+{
+  using namespace std;
+  using namespace Loop;
 
-  PrimitiveVarsSeed[RHO] = prim[RHO];
-  PrimitiveVarsSeed[V1_CON] = prim[V1_CON];
-  PrimitiveVarsSeed[V2_CON] = prim[V2_CON];
-  PrimitiveVarsSeed[V3_CON] = prim[V3_CON];
-  PrimitiveVarsSeed[EPS] = prim[EPS];
+  /***************************************************************************
+  2DNRNoble C2P
+  ------------------------------------
+  2D-NR Noble scheme for c2p.
+  Sources: Noble+2006, Section 3.1 of Siegel+2018,
+  NUMERICAL RECIPES IN C: THE ART OF SCIENTIFIC COMPUTING
+  ****************************************************************************/
+  template <typename typeEoS>
+  CCTK_HOST CCTK_DEVICE void Con2Prim_2DNRNoble(
+      typeEoS &plasma)
+  { // Send con2primFactory object as reference to modify it,
+    // and because we can not instantiate abstract class
 
-  ConservedVars[D] = cons[D];
-  ConservedVars[S1_COV] = cons[S1_COV];
-  ConservedVars[S2_COV] = cons[S2_COV];
-  ConservedVars[S3_COV] = cons[S3_COV];
-  ConservedVars[EPS] = cons[EPS];
-  ConservedVars[B1] = cons[B1];
-  ConservedVars[B2] = cons[B2];
-  ConservedVars[B3] = cons[B3];
+    /* get Lorentz factor seed, calculated by constructor */
+    CCTK_REAL W = plasma.WLorentz_Seed;
 
-  gcov[TT] = g_lo[0][0];
-  gcov[TX] = g_lo[0][1];
-  gcov[TY] = g_lo[0][2];
-  gcov[TZ] = g_lo[0][3];
-  gcov[XX] = g_lo[1][1];
-  gcov[XY] = g_lo[1][2];
-  gcov[XZ] = g_lo[1][3];
-  gcov[YY] = g_lo[2][2];
-  gcov[YZ] = g_lo[2][3];
-  gcov[ZZ] = g_lo[3][3];
+    /* get pressure seed */
+    plasma.get_Press_Seed();
 
-  gcon[TT] = g_up[0][0];
-  gcon[TX] = g_up[0][1];
-  gcon[TY] = g_up[0][2];
-  gcon[TZ] = g_up[0][3];
-  gcon[XX] = g_up[1][1];
-  gcon[XY] = g_up[1][2];
-  gcon[XZ] = g_up[1][3];
-  gcon[YY] = g_up[2][2];
-  gcon[YZ] = g_up[2][3];
-  gcon[ZZ] = g_up[3][3];
+    /* get Z seed */
+    plasma.get_Z_Seed();
 
-  CCTK_REAL alp = sqrt(-1. / gcon[TT]);
+    /* initialize unknowns for c2p, Z and vsq: */
+    CCTK_REAL x[2];
+    CCTK_REAL x_old[2];
+    x[0] = fabs(plasma.Z_Seed);
+    x[1] = (-1.0 + W * W) / (W * W);
 
-  /* B^i S_i */
-  BiSi = ConservedVars[B1] * ConservedVars[S1_COV] +
-         ConservedVars[B2] * ConservedVars[S2_COV] +
-         ConservedVars[B3] * ConservedVars[S3_COV];
-
-  /* Seed Lorentz factor */
-  // covariant Valencia velocity:
-  CCTK_REAL v1_cov = gcov[XX] * PrimitiveVarsSeed[V1_CON] +
-                     gcov[XY] * PrimitiveVarsSeed[V2_CON] +
-                     gcov[XZ] * PrimitiveVarsSeed[V3_CON];
-  CCTK_REAL v2_cov = gcov[XY] * PrimitiveVarsSeed[V1_CON] +
-                     gcov[YY] * PrimitiveVarsSeed[V2_CON] +
-                     gcov[YZ] * PrimitiveVarsSeed[V3_CON];
-  CCTK_REAL v3_cov = gcov[XZ] * PrimitiveVarsSeed[V1_CON] +
-                     gcov[YZ] * PrimitiveVarsSeed[V2_CON] +
-                     gcov[ZZ] * PrimitiveVarsSeed[V3_CON];
-
-  CCTK_REAL vsq = v1_cov * PrimitiveVarsSeed[V1_CON] +
-                  v2_cov * PrimitiveVarsSeed[V2_CON] +
-                  v3_cov * PrimitiveVarsSeed[V3_CON];
-
-  if ((vsq < 0.) && (fabs(vsq) < 1.0e-13)) {
-    vsq = fabs(vsq);
-  }
-
-  if (vsq < 0. || vsq > 1.) {
-    printf(
-        "WARNING: "
-        "vsq is either less than 0.0 or greater than 1.0, having value = %f\n",
-        vsq);
-  }
-
-  W_Seed = 1. / sqrt(1. - vsq);
-
-  // Bsq and bsq:
-  CCTK_REAL B1_cov = gcov[XX] * ConservedVars[B1] +
-                     gcov[XY] * ConservedVars[B2] +
-                     gcov[XZ] * ConservedVars[B3];
-  CCTK_REAL B2_cov = gcov[XY] * ConservedVars[B1] +
-                     gcov[YY] * ConservedVars[B2] +
-                     gcov[YZ] * ConservedVars[B3];
-  CCTK_REAL B3_cov = gcov[XZ] * ConservedVars[B1] +
-                     gcov[YZ] * ConservedVars[B2] +
-                     gcov[ZZ] * ConservedVars[B3];
-
-  Bsq = B1_cov * ConservedVars[B1] + B2_cov * ConservedVars[B2] +
-        B3_cov * ConservedVars[B3];
-
-  CCTK_REAL bt = W_Seed / alp *
-                 (ConservedVars[B1] * v1_cov + ConservedVars[B2] * v2_cov +
-                  ConservedVars[B3] * v3_cov);
-
-  bsq = (Bsq + (alp * bt) * (alp * bt)) / (W_Seed * W_Seed);
-
-  /* update rho seed from D and gamma */
-  // rho consistent with con[D] should be better guess than rho from last
-  // timestep
-  PrimitiveVarsSeed[RHO] = ConservedVars[D] / W_Seed;
-}
-
-/* Called by 2dNRNoble */
-CCTK_HOST CCTK_DEVICE void idealFluid::get_Ssq_Exact() {
-
-  /* calculate S_squared */
-  Ssq = ConservedVars[S1_COV] *
-        (gcon[XX] * ConservedVars[S1_COV] + gcon[XY] * ConservedVars[S2_COV] +
-         gcon[XZ] * ConservedVars[S3_COV]);
-  Ssq += ConservedVars[S2_COV] *
-         (gcon[XY] * ConservedVars[S1_COV] + gcon[YY] * ConservedVars[S2_COV] +
-          gcon[YZ] * ConservedVars[S3_COV]);
-  Ssq += ConservedVars[S3_COV] *
-         (gcon[XZ] * ConservedVars[S1_COV] + gcon[YZ] * ConservedVars[S2_COV] +
-          gcon[ZZ] * ConservedVars[S3_COV]);
-  if ((Ssq < 0.) && (fabs(Ssq) < 1.0e-13)) {
-    Ssq = fabs(Ssq);
-  }
-}
-
-CCTK_HOST CCTK_DEVICE void idealFluid::get_Press_Seed() {
-  Press_Seed =
-      PrimitiveVarsSeed[RHO] * PrimitiveVarsSeed[EPS] * (GammaIdealFluid - 1.0);
-}
-
-CCTK_HOST CCTK_DEVICE void idealFluid::get_Z_Seed() {
-  Z_Seed = (PrimitiveVarsSeed[RHO] +
-            PrimitiveVarsSeed[EPS] * PrimitiveVarsSeed[RHO] + Press_Seed) *
-           W_Seed * W_Seed;
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL idealFluid::get_2DNRNoble_f0(CCTK_REAL Z,
-                                                             CCTK_REAL Vsq) {
-  return (Vsq * (Bsq + Z) * (Bsq + Z) -
-          (BiSi * BiSi * (Bsq + 2.0 * Z)) / (Z * Z) - Ssq);
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL idealFluid::get_2DNRNoble_f1(CCTK_REAL Z,
-                                                             CCTK_REAL Vsq) {
-  CCTK_REAL Press = get_Press_funcZVsq(Z, Vsq);
-  return ConservedVars[TAU] + ConservedVars[D] - Bsq / 2.0 * (1 + Vsq) +
-         BiSi * BiSi / 2.0 / (Z * Z) - Z + Press;
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL idealFluid::get_2DNRNoble_df0dZ(CCTK_REAL Z,
-                                                                CCTK_REAL Vsq) {
-  return (2.0 * Vsq * (Bsq + Z) - 2.0 * BiSi * BiSi / (Z * Z) +
-          2.0 * BiSi * BiSi * (Bsq + 2.0 * Z) / (Z * Z * Z));
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL
-idealFluid::get_2DNRNoble_df0dVsq(CCTK_REAL Z, CCTK_REAL Vsq) {
-  return (Bsq + Z) * (Bsq + Z);
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL idealFluid::get_2DNRNoble_df1dZ(CCTK_REAL Z,
-                                                                CCTK_REAL Vsq) {
-  return (-BiSi * BiSi / (Z * Z * Z) - 1.0 + get_dPdZ_funcZVsq(Z, Vsq));
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL
-idealFluid::get_2DNRNoble_df1dVsq(CCTK_REAL Z, CCTK_REAL Vsq) {
-  return (-Bsq / 2.0 + get_dPdVsq_funcZVsq(Z, Vsq));
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL idealFluid::get_Press_funcZVsq(CCTK_REAL Z,
-                                                               CCTK_REAL Vsq) {
-  return ((Z * (1.0 - Vsq) - ConservedVars[D] * sqrt(1.0 - Vsq)) *
-          (GammaIdealFluid - 1.0) / (GammaIdealFluid));
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL idealFluid::get_dPdZ_funcZVsq(CCTK_REAL Z,
-                                                              CCTK_REAL Vsq) {
-  return ((1.0 - Vsq) * (GammaIdealFluid - 1.0) / GammaIdealFluid);
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_REAL idealFluid::get_dPdVsq_funcZVsq(CCTK_REAL Z,
-                                                                CCTK_REAL Vsq) {
-  return ((-Z + ConservedVars[D] / (2.0 * sqrt(1.0 - Vsq))) *
-          (GammaIdealFluid - 1.0) / GammaIdealFluid);
-}
-
-CCTK_HOST CCTK_DEVICE void idealFluid::WZ2Prim() {
-  CCTK_REAL W_Sol = 1.0 / sqrt(1.0 - vsq_Sol);
-
-  PrimitiveVars[RHO] = ConservedVars[D] / W_Sol;
-
-  PrimitiveVars[V1_CON] =
-      (gcon[XX] * ConservedVars[S1_COV] + gcon[XY] * ConservedVars[S2_COV] +
-       gcon[XZ] * ConservedVars[S3_COV]) /
-      (Z_Sol + Bsq);
-  PrimitiveVars[V1_CON] += BiSi * ConservedVars[B1] / (Z_Sol * (Z_Sol + Bsq));
-
-  PrimitiveVars[V2_CON] =
-      (gcon[XY] * ConservedVars[S1_COV] + gcon[YY] * ConservedVars[S2_COV] +
-       gcon[YZ] * ConservedVars[S3_COV]) /
-      (Z_Sol + Bsq);
-  PrimitiveVars[V2_CON] += BiSi * ConservedVars[B2] / (Z_Sol * (Z_Sol + Bsq));
-
-  PrimitiveVars[V3_CON] =
-      (gcon[XZ] * ConservedVars[S1_COV] + gcon[YZ] * ConservedVars[S2_COV] +
-       gcon[ZZ] * ConservedVars[S3_COV]) /
-      (Z_Sol + Bsq);
-  PrimitiveVars[V3_CON] += BiSi * ConservedVars[B3] / (Z_Sol * (Z_Sol + Bsq));
-
-  PrimitiveVars[EPS] =
-      (Z_Sol * (1. - vsq_Sol) / PrimitiveVars[RHO] - 1.0) / GammaIdealFluid;
-}
-
-/* Destructor */
-CCTK_HOST CCTK_DEVICE idealFluid::~idealFluid() {
-  // How to destruct properly a vector?
-}
-
-/***************************************************************************
-2DNRNoble C2P
-------------------------------------
-2D-NR Noble scheme for c2p.
-Sources: Noble+2006, Section 3.1 of Siegel+2018,
-NUMERICAL RECIPES IN C: THE ART OF SCIENTIFIC COMPUTING
-****************************************************************************/
-template <typename typeEoS>
-CCTK_HOST CCTK_DEVICE void Con2Prim_2DNRNoble(
-    CCTK_INT max_iter, CCTK_REAL tolf,
-    typeEoS &plasma) { // Send con2primFactory object as reference to modify it,
-                       // and because we can not instantiate abstract class
-
-  /* get Lorentz factor seed, calculated by constructor */
-  CCTK_REAL W = plasma.W_Seed;
-
-  /* get Ssq from cons (exact) */
-  plasma.get_Ssq_Exact();
-
-  /* get pressure seed */
-  plasma.get_Press_Seed();
-
-  /* get Z seed */
-  plasma.get_Z_Seed();
-
-  /* initialize unknowns for c2p, Z and vsq: */
-  CCTK_REAL x[2];
-  CCTK_REAL x_old[2];
-  x[0] = fabs(plasma.Z_Seed);
-  x[1] = (-1.0 + W * W) / (W * W);
-
-  /* initialize old values */
-  x_old[0] = x[0];
-  x_old[1] = x[1];
-
-  /* Start Recovery with 2D NR Solver */
-  const CCTK_INT n = 2;
-  const CCTK_REAL dv = (1. - 1.e-15);
-  CCTK_REAL fvec[n];
-  CCTK_REAL dx[n];
-  CCTK_REAL fjac[n][n];
-
-  CCTK_REAL detjac_inv;
-  CCTK_REAL errf;
-  plasma.Failed_2DNRNoble = 1;
-  CCTK_INT k;
-  for (k = 1; k <= max_iter; k++) {
-    fvec[0] = plasma.get_2DNRNoble_f0(x[0], x[1]);
-    fvec[1] = plasma.get_2DNRNoble_f1(x[0], x[1]);
-    fjac[0][0] = plasma.get_2DNRNoble_df0dZ(x[0], x[1]);
-    fjac[0][1] = plasma.get_2DNRNoble_df0dVsq(x[0], x[1]);
-    fjac[1][0] = plasma.get_2DNRNoble_df1dZ(x[0], x[1]);
-    fjac[1][1] = plasma.get_2DNRNoble_df1dVsq(x[0], x[1]);
-    detjac_inv = 1.0 / (fjac[0][0] * fjac[1][1] - fjac[0][1] * fjac[1][0]);
-    dx[0] = -detjac_inv * (fjac[1][1] * fvec[0] - fjac[0][1] * fvec[1]);
-    dx[1] = -detjac_inv * (-fjac[1][0] * fvec[0] + fjac[0][0] * fvec[1]);
-
-    errf = 0.0;
-    for (CCTK_INT i = 0; i < n; i++) {
-      errf += fabs(fvec[i]);
-    }
-    if (errf <= tolf) {
-      plasma.Failed_2DNRNoble = 0;
-      break;
-    }
-    
-    /* save old values before calculating the new */
+    /* initialize old values */
     x_old[0] = x[0];
     x_old[1] = x[1];
 
-    for (CCTK_INT i = 0; i < n; i++) {
-      x[i] += dx[i];
+    /* Start Recovery with 2D NR Solver */
+    const CCTK_INT n = 2;
+    const CCTK_REAL dv = (1. - 1.e-15);
+    CCTK_REAL fvec[n];
+    CCTK_REAL dx[n];
+    CCTK_REAL fjac[n][n];
+
+    CCTK_REAL detjac_inv;
+    CCTK_REAL errf;
+    plasma.Failed_2DNRNoble = 1;
+    CCTK_INT k;
+    for (k = 1; k <= plasma.maxIterations; k++)
+    {
+      fvec[0] = plasma.get_2DNRNoble_f0(x[0], x[1]);
+      fvec[1] = plasma.get_2DNRNoble_f1(x[0], x[1]);
+      fjac[0][0] = plasma.get_2DNRNoble_df0dZ(x[0], x[1]);
+      fjac[0][1] = plasma.get_2DNRNoble_df0dVsq(x[0], x[1]);
+      fjac[1][0] = plasma.get_2DNRNoble_df1dZ(x[0], x[1]);
+      fjac[1][1] = plasma.get_2DNRNoble_df1dVsq(x[0], x[1]);
+      detjac_inv = 1.0 / (fjac[0][0] * fjac[1][1] - fjac[0][1] * fjac[1][0]);
+      dx[0] = -detjac_inv * (fjac[1][1] * fvec[0] - fjac[0][1] * fvec[1]);
+      dx[1] = -detjac_inv * (-fjac[1][0] * fvec[0] + fjac[0][0] * fvec[1]);
+
+      errf = 0.0;
+      for (CCTK_INT i = 0; i < n; i++)
+      {
+        errf += fabs(fvec[i]);
+      }
+      if (errf <= plasma.tolerance)
+      {
+        plasma.Failed_2DNRNoble = 0;
+        break;
+      }
+
+      /* save old values before calculating the new */
+      x_old[0] = x[0];
+      x_old[1] = x[1];
+
+      for (CCTK_INT i = 0; i < n; i++)
+      {
+        x[i] += dx[i];
+      }
     }
-  }
-  plasma.Nit_2DNRNoble = k;
+    plasma.Nit_2DNRNoble = k;
 
-  /* make sure that the new x[] is physical */
-  if (x[0] < 0.0) 
-  { 
-    x[0] = fabs(x[0]); 
-  }
-  else 
-  {
-    if (x[0] > 1e20) 
-    { 
-      x[0] = x_old[0]; 
+    /* make sure that the new x[] is physical */
+    if (x[0] < 0.0)
+    {
+      x[0] = fabs(x[0]);
     }
-  }
-
-  if (x[1] < 0.0) 
-  {
-    x[1] = 0.0; 
-  }
-  else 
-  {
-    if (x[1] >= 1.0) 
-    { 
-      x[1] = dv; 
+    else
+    {
+      if (x[0] > 1e20)
+      {
+        x[0] = x_old[0];
+      }
     }
+
+    if (x[1] < 0.0)
+    {
+      x[1] = 0.0;
+    }
+    else
+    {
+      if (x[1] >= 1.0)
+      {
+        x[1] = dv;
+      }
+    }
+
+    /* Calculate primitives from Z and W */
+    plasma.Z_Sol = x[0];
+    plasma.vsq_Sol = x[1];
   }
 
-  /* Calculate primitives from Z and W */
-  plasma.Z_Sol = x[0];
-  plasma.vsq_Sol = x[1];
-}
+  /***************************************************************************
+  1DBrentPalenzuela C2P
+  ------------------------------------
+  1D-Brent Palenzuela scheme for c2p.
+  Sources: Nielsen+2014, Palenzuela+2015, Section 3.4.1 of Siegel+2018,
+  https://en.wikipedia.org/wiki/Brent%27s_method
+  ****************************************************************************/
+  template <typename F, typename typeEoS>
+  CCTK_HOST CCTK_DEVICE std::pair<CCTK_REAL, CCTK_REAL> brent(F f, int min_bits, int max_iters,
+                                        int &iters, typeEoS &plasma)
+  {
+    using std::abs, std::min, std::max, std::swap;
 
-///
+    CCTK_REAL qPalenzuela =
+        plasma.ConservedVars[TAU] / plasma.ConservedVars[CONS_D];
+    // CCTK_REAL rPalenzuela = plasma.Ssq / pow(plasma.ConservedVars[CONS_D], 2);
+    CCTK_REAL sPalenzuela = plasma.Bsq / plasma.ConservedVars[CONS_D];
+    // CCTK_REAL tPalenzuela = plasma.BiSi / pow(plasma.ConservedVars[CONS_D], 3.
+    // / 2.);
 
-template <typename typeEoS> void AsterX_Con2Prim_typeEoS(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_AsterX_Con2Prim;
-  DECLARE_CCTK_PARAMETERS;
+    CCTK_REAL xPalenzuela_lowerBound = 1.0 + qPalenzuela - sPalenzuela;
+    CCTK_REAL xPalenzuela_upperBound = 2.0 + 2.0 * qPalenzuela - sPalenzuela;
 
-  // Loop over the interior of the grid
-  cctk_grid.loop_int_device<
-      1, 1, 1>(grid.nghostzones, [=] CCTK_DEVICE(
-                                     const PointDesc
-                                         &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+    CCTK_REAL a = xPalenzuela_lowerBound;
+    CCTK_REAL b = xPalenzuela_upperBound;
+    // CCTK_REAL c = xPalenzuela_upperBound;
+
+    auto tol = boost::math::tools::eps_tolerance<CCTK_REAL>(min_bits);
+
+    iters = 0;
+    auto fa = f(a, plasma);
+    auto fb = f(b, plasma);
+    if (abs(fa) < abs(fb))
+    {
+      swap(a, b);
+      swap(fa, fb);
+    }
+    if (fb == 0)
+      return {b, b};
+    if (fa * fb >= 0)
+    {
+      // Root is not bracketed
+      iters = max_iters;
+      return {min(a, b), max(a, b)};
+    }
+    CCTK_REAL c = a;
+    auto fc = fa;
+    bool mflag = true;
+    CCTK_REAL d{};
+
+    while (fb != 0 && !tol(a, b) && iters < max_iters)
+    {
+      CCTK_REAL s;
+      if (fa != fc && fb != fc)
+        // inverse quadratic interpolation
+        s = (a * fb * fc) / ((fa - fb) * (fa - fc)) +
+            (b * fa * fc) / ((fb - fa) * (fb - fc)) +
+            (c * fa * fb) / ((fc - fa) * (fc - fb));
+      else
+        // secant method
+        s = (a + b) / 2 - (fa + fb) / 2 * (b - a) / (fb - fa);
+      CCTK_REAL u = (3 * a + b) / 4;
+      CCTK_REAL v = b;
+      if (u > v)
+        swap(u, v);
+      bool cond1 = !(u <= s && s <= v);
+      bool cond2 = mflag && abs(s - b) >= abs(b - c) / 2;
+      bool cond3 = !mflag && abs(s - b) >= abs(c - d) / 2;
+      bool cond4 = mflag && tol(c, b);
+      bool cond5 = !mflag && tol(c, d);
+      if (cond1 || cond2 || cond3 || cond4 || cond5)
+      {
+        // bisection
+        s = (a + b) / 2;
+        mflag = true;
+      }
+      else
+      {
+        mflag = false;
+      }
+      auto fs = f(s, plasma);
+      // `d` is assigned for the first time here; it won't be used above on the
+      // first iteration because `mflag` is set
+      d = c;
+      c = b;
+      fc = fb;
+      if (fa * fs < 0)
+      {
+        b = s;
+        fb = fs;
+      }
+      else
+      {
+        a = s;
+        fa = fs;
+      }
+      // CCTK_VINFO("iters=%d mflag=%d   a=%.17g b=%.17g c=%.17g d=%.17g fa=%.17g"
+      //            "fb=%.17g fc=%.17g",
+      //            iters, int(mflag), double(a), double(b), double(c), double(d),
+      //            double(fa), double(fb), double(fc));
+      if (fa * fb >= 0)
+      {
+        return {min(a, b), max(a, b)};
+      }
+      if (abs(fa) < abs(fb))
+      {
+        swap(a, b);
+        swap(fa, fb);
+      }
+      ++iters;
+    }
+
+    if (fb == 0)
+      return {b, b};
+    return {min(a, b), max(a, b)};
+  }
+
+  template <typename typeEoS>
+  CCTK_HOST CCTK_DEVICE CCTK_REAL funcRoot_1DPalenzuela(CCTK_REAL x,
+                                                        typeEoS &plasma)
+  {
+
+    // computes f(x) from x and q,r,s,t
+    const CCTK_REAL qPalenzuela =
+        plasma.ConservedVars[TAU] / plasma.ConservedVars[CONS_D];
+    const CCTK_REAL rPalenzuela =
+        plasma.Ssq / pow(plasma.ConservedVars[CONS_D], 2);
+    const CCTK_REAL sPalenzuela = plasma.Bsq / plasma.ConservedVars[CONS_D];
+    const CCTK_REAL tPalenzuela =
+        plasma.BiSi / pow(plasma.ConservedVars[CONS_D], 3. / 2.);
+
+    // (i)
+    CCTK_REAL Wminus2 =
+        1.0 - (x * x * rPalenzuela +
+               (2.0 * x + sPalenzuela) * tPalenzuela * tPalenzuela) /
+                  (x * x * (x + sPalenzuela) * (x + sPalenzuela));
+    Wminus2 = fmin(fmax(Wminus2, 1e-10), 1 - 1e-10);
+    const CCTK_REAL W_loc = pow(Wminus2, -0.5);
+
+    // (ii)
+    CCTK_REAL rho_loc = plasma.ConservedVars[CONS_D] / W_loc;
+
+    // (iii)
+    CCTK_REAL eps_loc = W_loc - 1.0 + (1.0 - W_loc * W_loc) * x / W_loc +
+                        W_loc * (qPalenzuela - sPalenzuela +
+                                 tPalenzuela * tPalenzuela / (2 * x * x) +
+                                 sPalenzuela / (2 * W_loc * W_loc));
+
+    // (iv)
+    CCTK_REAL P_loc = plasma.get_Press_funcRhoEps(rho_loc, eps_loc);
+
+    return (x - (1.0 + eps_loc + P_loc / rho_loc) * W_loc);
+  }
+
+  template <typename typeEoS>
+  CCTK_HOST CCTK_DEVICE void Con2Prim_1DBrentPalenzuela(
+      typeEoS &plasma)
+  { // Send con2primFactory object as reference to modify it,
+    // and because we can not instantiate abstract class
+
+    plasma.Failed_1DBrentPalenzuela = 1;
+
+    // Find x, this is the recovery process
+    const int minbits = std::numeric_limits<CCTK_REAL>::digits - 4;
+    const int maxiters = plasma.maxIterations;
+    int iters;
+    std::pair<CCTK_REAL, CCTK_REAL> result =
+        brent(*funcRoot_1DPalenzuela<typeEoS>, minbits, maxiters, iters, plasma);
+
+    // Pick best solution
+    if (abs(funcRoot_1DPalenzuela(result.first, plasma)) <
+        abs(funcRoot_1DPalenzuela(result.second, plasma)))
+    {
+
+      plasma.xPalenzuela_Sol = result.first;
+    }
+    else
+    {
+      plasma.xPalenzuela_Sol = result.second;
+    }
+
+    // Check solution and calculate primitives
+    if (iters < maxiters &&
+        abs(funcRoot_1DPalenzuela(result.first, plasma)) < plasma.tolerance)
+    {
+      plasma.Failed_1DBrentPalenzuela = 0;
+      plasma.xPalenzuelaToPrim();
+    }
+
+    return;
+  }
+
+  ///
+
+  template <typename typeEoS>
+  void AsterX_Con2Prim_typeEoS(CCTK_ARGUMENTS)
+  {
+    DECLARE_CCTK_ARGUMENTSX_AsterX_Con2Prim;
+    DECLARE_CCTK_PARAMETERS;
+
+    const smat<GF3D2<const CCTK_REAL>, 3> gf_g{gxx, gxy, gxz, gyy, gyz, gzz};
+    const vec<GF3D2<CCTK_REAL>, 6> gf_saved_prims{
+        saved_rho, saved_velx, saved_vely, saved_velz, saved_eps, press};
+    const vec<GF3D2<CCTK_REAL>, 6> gf_prims{rho, velx, vely, velz, eps, press};
+    const vec<GF3D2<CCTK_REAL>, 5> gf_cons{dens, momx, momy, momz, tau};
+
+    // Loop over the interior of the grid
+    cctk_grid.loop_int_device<
+        1, 1, 1>(grid.nghostzones, [=] CCTK_DEVICE(
+                                       const PointDesc
+                                           &p) CCTK_ATTRIBUTE_ALWAYS_INLINE
+                 {
     CCTK_REAL g_up[4][4];
     CCTK_REAL g_lo[4][4];
 
     /* Get covariant metric */
-    g_lo[1][1] = calc_avg_v2c(gxx, p);
-    g_lo[1][2] = calc_avg_v2c(gxy, p);
-    g_lo[1][3] = calc_avg_v2c(gxz, p);
-    g_lo[2][2] = calc_avg_v2c(gyy, p);
-    g_lo[2][3] = calc_avg_v2c(gyz, p);
-    g_lo[3][3] = calc_avg_v2c(gzz, p);
+    const smat<CCTK_REAL, 3> g3_avg(
+        [&](int i, int j) ARITH_INLINE { return calc_avg_v2c(gf_g(i, j), p); });
+    g_lo[1][1] = g3_avg(0, 0);
+    g_lo[1][2] = g3_avg(0, 1);
+    g_lo[1][3] = g3_avg(0, 2);
+    g_lo[2][2] = g3_avg(1, 1);
+    g_lo[2][3] = g3_avg(1, 2);
+    g_lo[3][3] = g3_avg(2, 2);
     CCTK_REAL lapse = calc_avg_v2c(alp, p);
     CCTK_REAL betax_up = calc_avg_v2c(betax, p);
     CCTK_REAL betay_up = calc_avg_v2c(betay, p);
@@ -383,38 +373,19 @@ template <typename typeEoS> void AsterX_Con2Prim_typeEoS(CCTK_ARGUMENTS) {
     g_lo[3][2] = g_lo[2][3];
 
     /* Calculate inverse of 4-dim metric */
-    CCTK_REAL gamma11, gamma12, gamma13, gamma22, gamma23,
-        gamma33; // Inverse components of spatial metric
-
-    CCTK_REAL spatial_detg = -g_lo[1][3] * g_lo[1][3] * g_lo[2][2] +
-                             2 * g_lo[1][2] * g_lo[1][3] * g_lo[2][3] -
-                             g_lo[1][1] * g_lo[2][3] * g_lo[2][3] -
-                             g_lo[1][2] * g_lo[1][2] * g_lo[3][3] +
-                             g_lo[1][1] * g_lo[2][2] * g_lo[3][3];
-
-    gamma11 =
-        (-g_lo[2][3] * g_lo[2][3] + g_lo[2][2] * g_lo[3][3]) / spatial_detg;
-    gamma12 =
-        (g_lo[1][3] * g_lo[2][3] - g_lo[1][2] * g_lo[3][3]) / spatial_detg;
-    gamma13 =
-        (-g_lo[1][3] * g_lo[2][2] + g_lo[1][2] * g_lo[2][3]) / spatial_detg;
-    gamma22 =
-        (-g_lo[1][3] * g_lo[1][3] + g_lo[1][1] * g_lo[3][3]) / spatial_detg;
-    gamma23 =
-        (g_lo[1][2] * g_lo[1][3] - g_lo[1][1] * g_lo[2][3]) / spatial_detg;
-    gamma33 =
-        (-g_lo[1][2] * g_lo[1][2] + g_lo[1][1] * g_lo[2][2]) / spatial_detg;
-
+    const CCTK_REAL spatial_detg = calc_det(g3_avg);
+    const CCTK_REAL sqrtg = sqrt(spatial_detg);
+    const smat<CCTK_REAL, 3> g3inv_avg = calc_inv(g3_avg, spatial_detg);
     g_up[0][0] = -1.0 / (lapse * lapse);
     g_up[0][1] = betax_up / (lapse * lapse);
     g_up[0][2] = betay_up / (lapse * lapse);
     g_up[0][3] = betaz_up / (lapse * lapse);
-    g_up[1][1] = gamma11 - betax_up * betax_up / (lapse * lapse);
-    g_up[1][2] = gamma12 - betax_up * betay_up / (lapse * lapse);
-    g_up[1][3] = gamma13 - betax_up * betaz_up / (lapse * lapse);
-    g_up[2][2] = gamma22 - betay_up * betay_up / (lapse * lapse);
-    g_up[2][3] = gamma23 - betay_up * betaz_up / (lapse * lapse);
-    g_up[3][3] = gamma33 - betaz_up * betaz_up / (lapse * lapse);
+    g_up[1][1] = g3inv_avg(0, 0) - betax_up * betax_up / (lapse * lapse);
+    g_up[1][2] = g3inv_avg(0, 1) - betax_up * betay_up / (lapse * lapse);
+    g_up[1][3] = g3inv_avg(0, 2) - betax_up * betaz_up / (lapse * lapse);
+    g_up[2][2] = g3inv_avg(1, 1) - betay_up * betay_up / (lapse * lapse);
+    g_up[2][3] = g3inv_avg(1, 2) - betay_up * betaz_up / (lapse * lapse);
+    g_up[3][3] = g3inv_avg(2, 2) - betaz_up * betaz_up / (lapse * lapse);
 
     g_up[1][0] = g_up[0][1];
     g_up[2][0] = g_up[0][2];
@@ -423,33 +394,26 @@ template <typename typeEoS> void AsterX_Con2Prim_typeEoS(CCTK_ARGUMENTS) {
     g_up[3][1] = g_up[1][3];
     g_up[3][2] = g_up[2][3];
 
-    // Set to atmosphere if dens below the threshold
-    if (dens(p.I) <= sqrt(spatial_detg) * (rho_abs_min * (1.0 + atmo_tol))) {
-      saved_rho(p.I) = rho_abs_min;
-      saved_velx(p.I) = 0.0;
-      saved_vely(p.I) = 0.0;
-      saved_velz(p.I) = 0.0;
-      saved_eps(p.I) = press(p.I) / ((gamma - 1.0) * rho(p.I));
+    const vec<CCTK_REAL, 3> Bup{dBx(p.I) / sqrtg, dBy(p.I) / sqrtg,
+                                dBz(p.I) / sqrtg};
 
-      dens(p.I) = sqrt(spatial_detg) * saved_rho(p.I);
-      momx(p.I) = 0.0;
-      momy(p.I) = 0.0;
-      momz(p.I) = 0.0;
-      // need to compute bs2; setting here to 0.0
-      CCTK_REAL bs2 = 0.0;
-      tau(p.I) =
-          sqrt(spatial_detg) * (saved_rho(p.I) * (1 + saved_eps(p.I)) + 0.5 * bs2) - dens(p.I);
+    // Set to atmosphere if dens below the threshold
+    if (dens(p.I) <= sqrtg * (rho_abs_min * (1.0 + atmo_tol))) {
+      const vec<CCTK_REAL, 3> Blow = calc_contraction(g3_avg, Bup);
+      const CCTK_REAL Bsq = calc_contraction(Bup, Blow);
+      set_to_atmosphere(rho_abs_min, poly_K, gamma, sqrtg, Bsq, gf_saved_prims,
+                        gf_cons, p);
     }
 
     CCTK_REAL cons[NCONS];
-    cons[D] = dens(p.I) / sqrt(spatial_detg);
-    cons[S1_COV] = momx(p.I) / sqrt(spatial_detg);
-    cons[S2_COV] = momy(p.I) / sqrt(spatial_detg);
-    cons[S3_COV] = momz(p.I) / sqrt(spatial_detg);
-    cons[TAU] = tau(p.I) / sqrt(spatial_detg);
-    cons[B1] = dBx(p.I) / sqrt(spatial_detg);
-    cons[B2] = dBy(p.I) / sqrt(spatial_detg);
-    cons[B3] = dBz(p.I) / sqrt(spatial_detg);
+    cons[CONS_D] = dens(p.I) / sqrtg;
+    cons[S1_COV] = momx(p.I) / sqrtg;
+    cons[S2_COV] = momy(p.I) / sqrtg;
+    cons[S3_COV] = momz(p.I) / sqrtg;
+    cons[TAU] = tau(p.I) / sqrtg;
+    cons[B1] = Bup(0);
+    cons[B2] = Bup(1);
+    cons[B3] = Bup(2);
 
     CCTK_REAL prims[NPRIMS];
     prims[RHO] = saved_rho(p.I);
@@ -457,16 +421,29 @@ template <typename typeEoS> void AsterX_Con2Prim_typeEoS(CCTK_ARGUMENTS) {
     prims[V2_CON] = saved_vely(p.I);
     prims[V3_CON] = saved_velz(p.I);
     prims[EPS] = saved_eps(p.I);
+    prims[B1] = cons[B1];
+    prims[B2] = cons[B2];
+    prims[B3] = cons[B3];
 
     // Construct con2primFactory object:
     typeEoS plasma_0(gamma, cons, prims, g_lo, g_up);
+    plasma_0.tolerance = c2p_tol;
+    plasma_0.maxIterations = max_iter;
 
     // 1) Try 2DNRNoble
-    Con2Prim_2DNRNoble(max_iter, c2p_tol, plasma_0);
-
-    CCTK_INT set_to_atmo = 0;
-
+    Con2Prim_2DNRNoble(plasma_0);
     if (plasma_0.Failed_2DNRNoble) {
+      // 1) Try 1DBrentPalenzuela
+      Con2Prim_1DBrentPalenzuela(plasma_0);
+    } else {
+      plasma_0.WZ2Prim(); // 2DNRNoble to prims
+    }
+
+    if (plasma_0.Failed_2DNRNoble && plasma_0.Failed_1DBrentPalenzuela) {
+      //printf("c2p failed.\n");
+      /* set flag to failure */
+      con2prim_flag(p.I) = 0.0;
+
       if (debug_mode) {
         printf(
             "WARNING: "
@@ -490,11 +467,18 @@ template <typename typeEoS> void AsterX_Con2Prim_typeEoS(CCTK_ARGUMENTS) {
             Avec_y(p.I), Avec_z(p.I));
       }
 
-      set_to_atmo = 1;
-      // CCTK_VWARN(CCTK_WARN_ALERT, "C2P failed, triggering assert(0)..");
+      rho(p.I) = saved_rho(p.I);
+      velx(p.I) = saved_velx(p.I);
+      vely(p.I) = saved_vely(p.I);
+      velz(p.I) = saved_velz(p.I);
+      eps(p.I) = saved_eps(p.I);
+      press(p.I) = (gamma - 1.0) * eps(p.I) * rho(p.I);
+
       // assert(0);
     } else {
-      plasma_0.WZ2Prim();
+      /* set flag to success */
+      con2prim_flag(p.I) = 1.0;
+
       rho(p.I) = plasma_0.PrimitiveVars[RHO];
       velx(p.I) = plasma_0.PrimitiveVars[V1_CON];
       vely(p.I) = plasma_0.PrimitiveVars[V2_CON];
@@ -503,46 +487,31 @@ template <typename typeEoS> void AsterX_Con2Prim_typeEoS(CCTK_ARGUMENTS) {
       press(p.I) = (gamma - 1.0) * eps(p.I) * rho(p.I);
 
       if (rho(p.I) <= rho_abs_min * (1 + atmo_tol)) {
-        set_to_atmo = 1;
-      }
-    }
+        const vec<CCTK_REAL, 3> Blow = calc_contraction(g3_avg, Bup);
+        const CCTK_REAL Bsq = calc_contraction(Bup, Blow);
+        set_to_atmosphere(rho_abs_min, poly_K, gamma, sqrtg, Bsq, gf_prims,
+                          gf_cons, p);
 
-    if (set_to_atmo) {
-      rho(p.I) = rho_abs_min;
-      velx(p.I) = 0.0;
-      vely(p.I) = 0.0;
-      velz(p.I) = 0.0;
-      press(p.I) = poly_K * pow(rho(p.I), gamma);
-      eps(p.I) = press(p.I) / ((gamma - 1.0) * rho(p.I));
-
-      dens(p.I) = sqrt(spatial_detg) * rho(p.I);
-      momx(p.I) = 0.0;
-      momy(p.I) = 0.0;
-      momz(p.I) = 0.0;
-      // need to compute bs2; setting here to 0.0
-      CCTK_REAL bs2 = 0.0;
-      tau(p.I) = sqrt(spatial_detg) * (rho(p.I) * (1 + eps(p.I)) + 0.5 * bs2) -
-                 dens(p.I);
-
-      if (debug_mode) {
-        printf("WARNING: "
-               "Printing cons and prims after set to atmo when dens below "
-               "threshold: \n"
-               "cctk_iteration = %i \n "
-               "x, y, z = %26.16e, %26.16e, %26.16e \n "
-               "dens = %26.16e \n tau = %26.16e \n momx = %26.16e \n "
-               "momy = %26.16e \n momz = %26.16e \n dBx = %26.16e \n "
-               "dBy = %26.16e \n dBz = %26.16e \n "
-               "rho = %26.16e \n eps = %26.16e \n press= %26.16e \n "
-               "velx = %26.16e \n vely = %26.16e \n velz = %26.16e \n "
-               "Bvecx = %26.16e \n Bvecy = %26.16e \n "
-               "Bvecz = %26.16e \n "
-               "Avec_x = %26.16e \n Avec_y = %26.16e \n Avec_z = %26.16e \n ",
-               cctk_iteration, p.x, p.y, p.z, dens(p.I), tau(p.I), momx(p.I),
-               momy(p.I), momz(p.I), dBx(p.I), dBy(p.I), dBz(p.I), rho(p.I),
-               eps(p.I), press(p.I), velx(p.I), vely(p.I), velz(p.I),
-               Bvecx(p.I), Bvecy(p.I), Bvecz(p.I), Avec_x(p.I), Avec_y(p.I),
-               Avec_z(p.I));
+        if (debug_mode) {
+          printf("WARNING: "
+                 "Printing cons and prims after set to atmo when dens below "
+                 "threshold: \n"
+                 "cctk_iteration = %i \n "
+                 "x, y, z = %26.16e, %26.16e, %26.16e \n "
+                 "dens = %26.16e \n tau = %26.16e \n momx = %26.16e \n "
+                 "momy = %26.16e \n momz = %26.16e \n dBx = %26.16e \n "
+                 "dBy = %26.16e \n dBz = %26.16e \n "
+                 "rho = %26.16e \n eps = %26.16e \n press= %26.16e \n "
+                 "velx = %26.16e \n vely = %26.16e \n velz = %26.16e \n "
+                 "Bvecx = %26.16e \n Bvecy = %26.16e \n "
+                 "Bvecz = %26.16e \n "
+                 "Avec_x = %26.16e \n Avec_y = %26.16e \n Avec_z = %26.16e \n ",
+                 cctk_iteration, p.x, p.y, p.z, dens(p.I), tau(p.I), momx(p.I),
+                 momy(p.I), momz(p.I), dBx(p.I), dBy(p.I), dBz(p.I), rho(p.I),
+                 eps(p.I), press(p.I), velx(p.I), vely(p.I), velz(p.I),
+                 Bvecx(p.I), Bvecy(p.I), Bvecz(p.I), Avec_x(p.I), Avec_y(p.I),
+                 Avec_z(p.I));
+        }
       }
     }
 
@@ -553,23 +522,89 @@ template <typename typeEoS> void AsterX_Con2Prim_typeEoS(CCTK_ARGUMENTS) {
     saved_velx(p.I) = velx(p.I);
     saved_vely(p.I) = vely(p.I);
     saved_velz(p.I) = velz(p.I);
-    saved_eps(p.I) = eps(p.I);
-  }); // Loop
-} // AsterX_Con2Prim_2DNRNoble
+    saved_eps(p.I) = eps(p.I); }); // Loop
+  }                    // AsterX_Con2Prim_2DNRNoble
 
-/***************************************************************************
- * AsterX_Con2Prim
- * ---
- *  Routines implemented:
- *   1) 2DNRNoble
- *
- *   Based on con2primFactory (https://github.com/fedelopezar/con2primFactory)
- *   ****************************************************************************/
-extern "C" void AsterX_Con2Prim(CCTK_ARGUMENTS) {
-  if (1) { // Use this if for idealFluid/tabeos
-    AsterX_Con2Prim_typeEoS<idealFluid>(CCTK_PASS_CTOC);
-    // CCTK_PASS_CTOC == cctkGH, and more. Preferred over just cctkGH.
+  /***************************************************************************
+   * AsterX_Con2Prim
+   * ---
+   *  Routines implemented:
+   *   1) 2DNRNoble
+   *
+   *   Based on con2primFactory (https://github.com/fedelopezar/con2primFactory)
+   *   ****************************************************************************/
+  extern "C" void AsterX_Con2Prim(CCTK_ARGUMENTS)
+  {
+    if (1)
+    { // Use this if for idealFluid/tabeos
+      AsterX_Con2Prim_typeEoS<idealFluid>(CCTK_PASS_CTOC);
+      // CCTK_PASS_CTOC == cctkGH, and more. Preferred over just cctkGH.
+    }
   }
-}
+
+  extern "C" void AsterX_Con2Prim_Interpolate_Failed(CCTK_ARGUMENTS)
+  {
+    DECLARE_CCTK_ARGUMENTSX_AsterX_Con2Prim_Interpolate_Failed;
+    DECLARE_CCTK_PARAMETERS;
+
+    const smat<GF3D2<const CCTK_REAL>, 3> gf_g{gxx, gxy, gxz, gyy, gyz, gzz};
+    const vec<GF3D2<CCTK_REAL>, 6> gf_prims{rho, velx, vely, velz, eps, press};
+    const vec<GF3D2<CCTK_REAL>, 5> gf_cons{dens, momx, momy, momz, tau};
+
+    grid.loop_int_device<1, 1, 1>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE
+        {
+          if (con2prim_flag(p.I) == 0.0)
+          {
+
+            const vec<CCTK_REAL, 6> flag_nbs = get_neighbors(con2prim_flag, p);
+            const vec<CCTK_REAL, 6> rho_nbs = get_neighbors(rho, p);
+            const vec<CCTK_REAL, 6> velx_nbs = get_neighbors(velx, p);
+            const vec<CCTK_REAL, 6> vely_nbs = get_neighbors(vely, p);
+            const vec<CCTK_REAL, 6> velz_nbs = get_neighbors(velz, p);
+            const vec<CCTK_REAL, 6> eps_nbs = get_neighbors(eps, p);
+            const vec<CCTK_REAL, 6> saved_rho_nbs = get_neighbors(saved_rho, p);
+            const vec<CCTK_REAL, 6> saved_velx_nbs = get_neighbors(saved_velx, p);
+            const vec<CCTK_REAL, 6> saved_vely_nbs = get_neighbors(saved_vely, p);
+            const vec<CCTK_REAL, 6> saved_velz_nbs = get_neighbors(saved_velz, p);
+            const vec<CCTK_REAL, 6> saved_eps_nbs = get_neighbors(saved_eps, p);
+
+            CCTK_REAL sum_nbs =
+                sum<6>([&](int i) ARITH_INLINE
+                       { return flag_nbs(i); });
+            assert(sum_nbs > 0);
+            rho(p.I) = calc_avg_neighbors(flag_nbs, rho_nbs, saved_rho_nbs);
+            velx(p.I) = calc_avg_neighbors(flag_nbs, velx_nbs, saved_velx_nbs);
+            vely(p.I) = calc_avg_neighbors(flag_nbs, vely_nbs, saved_vely_nbs);
+            velz(p.I) = calc_avg_neighbors(flag_nbs, velz_nbs, saved_velz_nbs);
+            eps(p.I) = calc_avg_neighbors(flag_nbs, eps_nbs, saved_eps_nbs);
+            press(p.I) = (gamma - 1.0) * eps(p.I) * rho(p.I);
+
+            /* reset flag */
+            con2prim_flag(p.I) = 1.0;
+
+            // set to atmos
+            if (rho(p.I) <= rho_abs_min * (1 + atmo_tol))
+            {
+              const smat<CCTK_REAL, 3> g3_avg([&](int i, int j) ARITH_INLINE
+                                              { return calc_avg_v2c(gf_g(i, j), p); });
+              const CCTK_REAL sqrtg = sqrt(calc_det(g3_avg));
+              const vec<CCTK_REAL, 3> Bup{Bvecx(p.I), Bvecy(p.I), Bvecz(p.I)};
+              const vec<CCTK_REAL, 3> Blow = calc_contraction(g3_avg, Bup);
+              const CCTK_REAL Bsq = calc_contraction(Bup, Blow);
+
+              set_to_atmosphere(rho_abs_min, poly_K, gamma, sqrtg, Bsq, gf_prims,
+                                gf_cons, p);
+            };
+
+            saved_rho(p.I) = rho(p.I);
+            saved_velx(p.I) = velx(p.I);
+            saved_vely(p.I) = vely(p.I);
+            saved_velz(p.I) = velz(p.I);
+            saved_eps(p.I) = eps(p.I);
+          }
+        });
+  }
 
 } // namespace AsterX

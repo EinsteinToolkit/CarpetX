@@ -1,0 +1,33 @@
+Cactus Code Thorn WaveToy
+Author(s)    : Erik Schnetter <schnetter@gmail.com>
+Maintainer(s): Erik Schnetter <schnetter@gmail.com>
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+A wave toy using either the Carpet or the CarpetX driver
+
+
+
+2. First-order equations:
+
+Scalar wave equation:
+  phi,tt = phi,xx
+Direct second order discretization:
+  phi_0 = 2 phi_1 - phi_2 + dt^2 phi_1,xx
+
+Introduce new variable:
+  psi_0 = (phi_0 - phi_1) / dt
+
+Some calculations:
+  psi_1 = (phi_1 - phi_2) / dt
+  phi_0 = 2 phi_1 - phi_2 + dt^2 phi_1,xx
+  phi_0 = phi_1 + phi_1 - phi_2 + dt^2 phi_1,xx
+
+  phi_0 = phi_1 + dt psi_1 + dt^2 phi_1,xx
+  psi_0 = (phi_0 - phi_1) / dt
+
+New set of equations:
+  psi_0 = psi_1 + dt phi_1,xx
+  phi_0 = phi_1 + dt psi_0

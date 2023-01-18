@@ -5,7 +5,6 @@
 #include <simd.hxx>
 #include <vec.hxx>
 
-#include <fixmath.hxx> // include this before <cctk.h>
 #include <cctk.h>
 #include <cctk_Arguments.h>
 
@@ -26,7 +25,7 @@ extern "C" void Z4c_Initial1(CCTK_ARGUMENTS) {
   const array<int, dim> indextype = {0, 0, 0};
   const GF3D2layout layout1(cctkGH, indextype);
 
-  const smat<GF3D2<const CCTK_REAL>, 3, DN, DN> gf_g1{
+  const smat<GF3D2<const CCTK_REAL>, 3> gf_g1{
       GF3D2<const CCTK_REAL>(layout1, gxx),
       GF3D2<const CCTK_REAL>(layout1, gxy),
       GF3D2<const CCTK_REAL>(layout1, gxz),
@@ -34,7 +33,7 @@ extern "C" void Z4c_Initial1(CCTK_ARGUMENTS) {
       GF3D2<const CCTK_REAL>(layout1, gyz),
       GF3D2<const CCTK_REAL>(layout1, gzz)};
 
-  const smat<GF3D2<const CCTK_REAL>, 3, DN, DN> gf_K1{
+  const smat<GF3D2<const CCTK_REAL>, 3> gf_K1{
       GF3D2<const CCTK_REAL>(layout1, kxx),
       GF3D2<const CCTK_REAL>(layout1, kxy),
       GF3D2<const CCTK_REAL>(layout1, kxz),
@@ -44,21 +43,21 @@ extern "C" void Z4c_Initial1(CCTK_ARGUMENTS) {
 
   const GF3D2<const CCTK_REAL> gf_alp1(layout1, alp);
 
-  const vec<GF3D2<const CCTK_REAL>, 3, UP> gf_beta1{
+  const vec<GF3D2<const CCTK_REAL>, 3> gf_beta1{
       GF3D2<const CCTK_REAL>(layout1, betax),
       GF3D2<const CCTK_REAL>(layout1, betay),
       GF3D2<const CCTK_REAL>(layout1, betaz)};
 
   const GF3D2<CCTK_REAL> gf_chi1(layout1, chi);
 
-  const smat<GF3D2<CCTK_REAL>, 3, DN, DN> gf_gammat1{
+  const smat<GF3D2<CCTK_REAL>, 3> gf_gammat1{
       GF3D2<CCTK_REAL>(layout1, gammatxx), GF3D2<CCTK_REAL>(layout1, gammatxy),
       GF3D2<CCTK_REAL>(layout1, gammatxz), GF3D2<CCTK_REAL>(layout1, gammatyy),
       GF3D2<CCTK_REAL>(layout1, gammatyz), GF3D2<CCTK_REAL>(layout1, gammatzz)};
 
   const GF3D2<CCTK_REAL> gf_Kh1(layout1, Kh);
 
-  const smat<GF3D2<CCTK_REAL>, 3, DN, DN> gf_At1{
+  const smat<GF3D2<CCTK_REAL>, 3> gf_At1{
       GF3D2<CCTK_REAL>(layout1, Atxx), GF3D2<CCTK_REAL>(layout1, Atxy),
       GF3D2<CCTK_REAL>(layout1, Atxz), GF3D2<CCTK_REAL>(layout1, Atyy),
       GF3D2<CCTK_REAL>(layout1, Atyz), GF3D2<CCTK_REAL>(layout1, Atzz)};
@@ -67,9 +66,9 @@ extern "C" void Z4c_Initial1(CCTK_ARGUMENTS) {
 
   const GF3D2<CCTK_REAL> gf_alphaG1(layout1, alphaG);
 
-  const vec<GF3D2<CCTK_REAL>, 3, UP> gf_betaG1{
-      GF3D2<CCTK_REAL>(layout1, betaGx), GF3D2<CCTK_REAL>(layout1, betaGy),
-      GF3D2<CCTK_REAL>(layout1, betaGz)};
+  const vec<GF3D2<CCTK_REAL>, 3> gf_betaG1{GF3D2<CCTK_REAL>(layout1, betaGx),
+                                           GF3D2<CCTK_REAL>(layout1, betaGy),
+                                           GF3D2<CCTK_REAL>(layout1, betaGz)};
 
   typedef simd<CCTK_REAL> vreal;
   typedef simdl<CCTK_REAL> vbool;
@@ -85,20 +84,19 @@ extern "C" void Z4c_Initial1(CCTK_ARGUMENTS) {
         const GF3D2index index1(layout1, p.I);
 
         // Load
-        const smat<vreal, 3, DN, DN> g =
-            gf_g1(mask, index1, one<smat<int, 3, DN, DN> >()());
-        const smat<vreal, 3, DN, DN> K = gf_K1(mask, index1);
+        const smat<vreal, 3> g = gf_g1(mask, index1, one<smat<int, 3> >()());
+        const smat<vreal, 3> K = gf_K1(mask, index1);
         const vreal alp = gf_alp1(mask, index1, 1);
-        const vec<vreal, 3, UP> beta = gf_beta1(mask, index1);
+        const vec<vreal, 3> beta = gf_beta1(mask, index1);
 
         // Calculate Z4c variables (all except Gammat)
         const vreal detg = calc_det(g);
-        const smat<vreal, 3, UP, UP> gu = calc_inv(g, detg);
+        const smat<vreal, 3> gu = calc_inv(g, detg);
 
         const vreal chi = 1 / cbrt(detg);
 
-        const smat<vreal, 3, DN, DN> gammat(
-            [&](int a, int b) ARITH_INLINE { return chi * g(a, b); });
+        const smat<vreal, 3> gammat([&](int a, int b)
+                                        ARITH_INLINE { return chi * g(a, b); });
 
         const vreal trK = sum_symm<3>(
             [&](int x, int y) ARITH_INLINE { return gu(x, y) * K(x, y); });
@@ -107,14 +105,13 @@ extern "C" void Z4c_Initial1(CCTK_ARGUMENTS) {
 
         const vreal Kh = trK - 2 * Theta;
 
-        const smat<vreal, 3, DN, DN> At([&](int a, int b) ARITH_INLINE {
+        const smat<vreal, 3> At([&](int a, int b) ARITH_INLINE {
           return chi * (K(a, b) - trK / 3 * g(a, b));
         });
 
-        const vreal alphaG = alp;
+        const vreal alphaG = alp - 1;
 
-        const vec<vreal, 3, UP> betaG([&](int a)
-                                          ARITH_INLINE { return beta(a); });
+        const vec<vreal, 3> betaG([&](int a) ARITH_INLINE { return beta(a); });
 
         // Store
         gf_chi1.store(mask, index1, chi);

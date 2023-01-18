@@ -25,9 +25,9 @@
 namespace AHFinder {
 using namespace Arith;
 
-template <typename T> using vec3 = vec<T, 3, UP>;
-template <typename T> using mat3 = mat<T, 3, DN, DN>;
-template <typename T> using smat3 = smat<T, 3, DN, DN>;
+template <typename T> using vec3 = vec<T, 3>;
+template <typename T> using mat3 = mat<T, 3>;
+template <typename T> using smat3 = smat<T, 3>;
 
 template <typename F> auto sum3(F &&f) { return sum<3>(std::forward<F>(f)); }
 

@@ -107,8 +107,8 @@ PatchTransformations::PatchTransformations()
 std::unique_ptr<PatchSystem> the_patch_system;
 
 namespace {
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2>
-CCTK_DEVICE CCTK_HOST inline T det(const vec<vec<T, D, dnup1>, D, dnup2> &A) {
+template <typename T, int D>
+CCTK_DEVICE CCTK_HOST inline T det(const vec<vec<T, D>, D> &A) {
   return A(0)(0) * (A(1)(1) * A(2)(2) - A(1)(2) * A(2)(1)) +
          A(0)(1) * (A(1)(2) * A(2)(0) - A(1)(0) * A(2)(2)) +
          A(0)(2) * (A(1)(0) * A(2)(1) - A(1)(1) * A(2)(0));
@@ -160,7 +160,7 @@ extern "C" void MultiPatch1_GlobalToLocal(
   const auto &global2local = *transformations.global2local;
 
   for (int n = 0; n < npoints; ++n) {
-    const vec<CCTK_REAL, dim, UP> x{globalsx[n], globalsy[n], globalsz[n]};
+    const vec<CCTK_REAL, dim> x{globalsx[n], globalsy[n], globalsz[n]};
     const auto patch_a = global2local(transformations, x);
     const auto patch = std::get<0>(patch_a);
     const auto a = std::get<1>(patch_a);
@@ -250,7 +250,7 @@ extern "C" void MultiPatch_Coordinates_Setup(CCTK_ARGUMENTS) {
       grid.nghostzones,
       [=] ARITH_DEVICE(const Loop::PointDesc &p) ARITH_INLINE {
         const Loop::GF3D2index index(layout_vc, p.I);
-        const vec<CCTK_REAL, dim, UP> a = {p.x, p.y, p.z};
+        const vec<CCTK_REAL, dim> a = {p.x, p.y, p.z};
 
         const auto d2J_tuple = pt.d2local_dglobal2(pt, cctk_patch, a);
         const auto x = std::get<0>(d2J_tuple);
@@ -295,12 +295,11 @@ extern "C" void MultiPatch_Coordinates_Setup(CCTK_ARGUMENTS) {
       grid.nghostzones,
       [=] ARITH_DEVICE(const Loop::PointDesc &p) ARITH_INLINE {
         const Loop::GF3D2index index(layout_cc, p.I);
-        const vec<CCTK_REAL, dim, UP> a = {p.x, p.y, p.z};
-        const std_tuple<vec<CCTK_REAL, dim, UP>,
-                        vec<vec<CCTK_REAL, dim, DN>, dim, UP> >
+        const vec<CCTK_REAL, dim> a = {p.x, p.y, p.z};
+        const std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim> >
             x_dadx = pt.dlocal_dglobal(pt, cctk_patch, a);
-        const vec<CCTK_REAL, dim, UP> &x = std::get<0>(x_dadx);
-        const vec<vec<CCTK_REAL, dim, DN>, dim, UP> &dadx = std::get<1>(x_dadx);
+        const vec<CCTK_REAL, dim> &x = std::get<0>(x_dadx);
+        const vec<vec<CCTK_REAL, dim>, dim> &dadx = std::get<1>(x_dadx);
         const CCTK_REAL det_dadx = det(dadx);
         const CCTK_REAL vol =
             (p.dx * p.dy * p.dz) *

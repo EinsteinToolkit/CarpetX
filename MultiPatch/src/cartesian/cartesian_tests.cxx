@@ -10,7 +10,7 @@ namespace MultiPatch {
 namespace CartesianTests {
 
 std::string local2global(const PatchTransformations &pt,
-                         const vec<CCTK_REAL, dim, UP> &x) {
+                         const vec<CCTK_REAL, dim> &x) {
 
   using namespace MultiPatchTests;
 
@@ -44,7 +44,7 @@ std::string local2global(const PatchTransformations &pt,
 }
 
 std::string global2local(const PatchTransformations &pt,
-                         const vec<CCTK_REAL, dim, UP> &x) {
+                         const vec<CCTK_REAL, dim> &x) {
 
   using namespace MultiPatchTests;
 
@@ -93,7 +93,6 @@ extern "C" void run_cartesian_tests() {
   using MultiPatch::SetupCartesian;
   using MultiPatchTests::random_seed;
 
-  using Arith::UP;
   using Arith::vec;
 
   const auto ps = SetupCartesian();
@@ -106,7 +105,7 @@ extern "C" void run_cartesian_tests() {
                                                  pt.cartesian_ymax);
   uniform_real_distribution<CCTK_REAL> z_distrib(pt.cartesian_zmin,
                                                  pt.cartesian_zmax);
-  auto point = vec<CCTK_REAL, dim, UP>{0.0, 0.0, 0.0};
+  auto point = vec<CCTK_REAL, dim>{0.0, 0.0, 0.0};
 
   CCTK_INFO("Running cartesian patch tests:");
 

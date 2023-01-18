@@ -27,7 +27,7 @@ CCTK_REAL K_hat TYPE=gf TAGS='rhs="K_hat_rhs" dependents="ADMBase::curv"' { Kh }
 CCTK_REAL A_tilde TYPE=gf TAGS='parities={+1 +1 +1   -1 -1 +1   -1 +1 -1   +1 +1 +1   +1 -1 -1   +1 +1 +1} rhs="A_tilde_rhs" dependents="ADMBase::curv"' { Atxx Atxy Atxz Atyy Atyz Atzz } "A-tilde"
 CCTK_REAL Gam_tilde TYPE=gf TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="Gam_tilde_rhs"' { Gamtx Gamty Gamtz } "Gamma-tilde"
 CCTK_REAL Theta TYPE=gf TAGS='rhs="Theta_rhs" dependents="ADMBase::curv"' "Theta"
-CCTK_REAL alphaG TYPE=gf TAGS='dirichlet_values={1.0} rhs="alphaG_rhs" dependents="ADMBase::lapse ADMBase::dtlapse"' "alpha"
+CCTK_REAL alphaG TYPE=gf TAGS='rhs="alphaG_rhs" dependents="ADMBase::lapse ADMBase::dtlapse"' "alpha"
 CCTK_REAL betaG TYPE=gf TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="betaG_rhs" dependents="ADMBase::shift ADMBase::dtshift"' { betaGx betaGy betaGz } "beta"
 
 

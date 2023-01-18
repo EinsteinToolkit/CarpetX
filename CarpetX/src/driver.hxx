@@ -11,7 +11,6 @@
 
 #include <AMReX.H>
 #include <AMReX_AmrCore.H>
-#include <AMReX_FillPatchUtil.H>
 #include <AMReX_FluxRegister.H>
 #include <AMReX_Interpolater.H>
 #include <AMReX_MultiFab.H>
@@ -37,6 +36,8 @@ using rat64 = rational<int64_t>;
 
 // TODO: It seems that AMReX now also has `RB90`, `RB180`, and
 // `PolarB` boundary conditions. Make these available as well.
+
+// Symmetries are domain properties
 enum class symmetry_t {
   none,
   outer_boundary,
@@ -46,12 +47,14 @@ enum class symmetry_t {
 };
 std::ostream &operator<<(std::ostream &os, const symmetry_t symmetry);
 
+// Boundary conditions are group properties. They are valid only for faces where
+// the domain symmetry is `outer_boundary`.
 enum class boundary_t {
   none,
   symmetry_boundary,
   dirichlet,
   linear_extrapolation,
-  von_neumann,
+  neumann,
 };
 std::ostream &operator<<(std::ostream &os, const boundary_t boundary);
 
@@ -61,6 +64,9 @@ static_assert(AMREX_SPACEDIM == dim,
 static_assert(is_same<amrex::Real, CCTK_REAL>::value,
               "AMReX's Real type must be the same as Cactus's CCTK_REAL");
 
+////////////////////////////////////////////////////////////////////////////////
+
+// AMR driver
 class CactusAmrCore final : public amrex::AmrCore {
   int patch;
 
@@ -255,22 +261,23 @@ struct GHExt {
         vector<CCTK_REAL> dirichlet_values;
         amrex::Vector<amrex::BCRec> bcrecs;
 
-        struct apply_physbcs_t {
-          apply_physbcs_t() = delete;
-          apply_physbcs_t(const apply_physbcs_t &) = default;
-          apply_physbcs_t(apply_physbcs_t &&) = default;
-          apply_physbcs_t &operator=(const apply_physbcs_t &) = delete;
-          apply_physbcs_t &operator=(apply_physbcs_t &&) = delete;
-          apply_physbcs_t(const GroupData &groupdata) : groupdata(groupdata) {}
+        // Apply outer (physical) boundary conditions to a MultiFab
+        void apply_boundary_conditions(amrex::MultiFab &mfab) const;
+        // Apply outer (physical) boundary conditions to a FArrayBox
+        void apply_boundary_conditions(int block, const amrex::Box &box,
+                                       amrex::FArrayBox &dest) const;
 
-          const GroupData &groupdata;
-          void operator()(const amrex::Box &box, amrex::FArrayBox &dest,
-                          int dcomp, int numcomp, const amrex::Geometry &geom,
-                          CCTK_REAL time,
-                          const amrex::Vector<amrex::BCRec> &bcr, int bcomp,
-                          int orig_comp) const;
+        // To interpolate boundaries from other patches:
+        struct interp_t {
+          // interpolation points
+          std::vector<std::array<int, dim> > indices; // [cell]
+          // scatter interpolation results for all coords for one varind
+          // TODO: Use better C++ mechanism to iterate over all elements
+          std::vector<std::vector<std::function<void(
+              std::vector<CCTK_REAL>::const_iterator &iter)> > >
+              scatter_data; // [var][iter]
         };
-        std::unique_ptr<amrex::PhysBCFunct<apply_physbcs_t> > physbc;
+        mutable std::vector<interp_t> interp; // [block]
 
         // each amrex::MultiFab has numvars components
         vector<unique_ptr<amrex::MultiFab> > mfab; // [time level]

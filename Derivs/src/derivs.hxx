@@ -331,7 +331,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-    CCTK_DEVICE CCTK_HOST Arith::vec<Arith::simd<T>, Loop::dim, Arith::DN>
+    CCTK_DEVICE CCTK_HOST Arith::vec<Arith::simd<T>, Loop::dim>
     calc_deriv(const Loop::GF3D5<const T> &gf, const Arith::simdl<T> &mask,
                const Loop::GF3D5layout &layout,
                const Arith::vect<int, Loop::dim> &I,
@@ -367,7 +367,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-    CCTK_DEVICE CCTK_HOST Arith::vec<T, Loop::dim, Arith::DN>
+    CCTK_DEVICE CCTK_HOST Arith::vec<T, Loop::dim>
     calc_deriv(const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout &layout,
                const Arith::vect<int, Loop::dim> &I,
                const Arith::vect<T, Loop::dim> &dx) {
@@ -398,8 +398,8 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 }
 
 template <int deriv_order, typename T>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
-    Arith::smat<Arith::simd<T>, Loop::dim, Arith::DN, Arith::DN>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST Arith::smat<Arith::simd<T>, Loop::dim>
     calc_deriv2(const Loop::GF3D5<const T> &gf, const Arith::simdl<T> &mask,
                 const Loop::GF3D5layout &layout,
                 const Arith::vect<int, Loop::dim> &I,
@@ -450,7 +450,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
 
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-    CCTK_DEVICE CCTK_HOST Arith::smat<T, Loop::dim, Arith::DN, Arith::DN>
+    CCTK_DEVICE CCTK_HOST Arith::smat<T, Loop::dim>
     calc_deriv2(const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout &layout,
                 const Arith::vect<int, Loop::dim> &I,
                 const Arith::vect<T, Loop::dim> &dx) {
@@ -501,18 +501,18 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 
 template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs(const Arith::vec<Loop::GF3D5<T>, Loop::dim, Arith::DN> &dgf,
+calc_derivs(const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
             const Loop::GridDescBaseDevice &grid,
             const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout layout,
             const Arith::vect<T, Loop::dim> dx, const int deriv_order);
 
 template <int CI, int CJ, int CK, typename T>
-CCTK_ATTRIBUTE_NOINLINE void calc_derivs2(
-    const Arith::vec<Loop::GF3D5<T>, Loop::dim, Arith::DN> &dgf,
-    const Arith::smat<Loop::GF3D5<T>, Loop::dim, Arith::DN, Arith::DN> &ddgf,
-    const Loop::GridDescBaseDevice &grid, const Loop::GF3D5<const T> &gf,
-    const Loop::GF3D5layout layout, const Arith::vect<T, Loop::dim> dx,
-    const int deriv_order);
+CCTK_ATTRIBUTE_NOINLINE void
+calc_derivs2(const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
+             const Arith::smat<Loop::GF3D5<T>, Loop::dim> &ddgf,
+             const Loop::GridDescBaseDevice &grid,
+             const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout layout,
+             const Arith::vect<T, Loop::dim> dx, const int deriv_order);
 
 } // namespace Derivs
 

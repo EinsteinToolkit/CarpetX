@@ -3,15 +3,18 @@ SHARES: HydroBase
 
 EXTENDS KEYWORD initial_hydro "Initial setup" STEERABLE=never
 {
-  "equilibrium" :: ""
-  "sound wave" :: ""
-  "shock tube" :: ""
-  "spherical shock" :: ""
-  "Balsara1" :: ""
-  "Balsara2" :: ""
-  "Balsara3" :: ""
-  "Balsara4" :: ""
-  "Balsara5" :: ""
+  "equilibrium"              :: ""
+  "sound wave"               :: ""
+  "shock tube"               :: ""
+  "spherical shock"          :: ""
+  "Balsara1"                 :: ""
+  "Balsara2"                 :: ""
+  "Balsara3"                 :: ""
+  "Balsara4"                 :: ""
+  "Balsara5"                 :: ""
+  "cylindrical blast"           :: ""
+  "magnetic rotor"           :: ""
+  "magnetic loop advection"  :: ""
 } 
 
 private:
@@ -30,3 +33,14 @@ CCTK_REAL gamma "EOS parameter" STEERABLE=always
   0.0:* :: ""
 } 1.6666666666666667
 
+CCTK_KEYWORD mag_loop_adv_type "2D or 3D magnetic loop advection" STEERABLE=NEVER
+{
+  "2D" :: "The axis of the magnetic field loop is directed along the z axis"
+  "3D" :: "The axis of the magnetic field loop is NOT directed along the z axis"
+} "2D"
+
+CCTK_KEYWORD mag_loop_adv_axial_vel "Zero or non-zero fluid velocity along the direction of the magnetic loop's axis" STEERABLE=NEVER
+{
+  "zero"     ::     "Zero fluid velocity along the direction of the magnetic loop's axis"
+  "non-zero" :: "Non-zero fluid velocity along the direction of the magnetic loop's axis"
+} "zero"

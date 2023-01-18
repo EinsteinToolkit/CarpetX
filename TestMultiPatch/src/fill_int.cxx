@@ -17,16 +17,16 @@ extern "C" void TestMultiPatch::TestMultiPatch_fill_int(CCTK_ARGUMENTS) {
 
   const Loop::GF3D2<CCTK_REAL> gf_test_gf(layout_vc, test_gf);
 
-  const svec_u<CCTK_REAL> wave_numbers{wave_number[0], wave_number[1],
+  const svec<CCTK_REAL> wave_numbers{wave_number[0], wave_number[1],
                                        wave_number[2]};
-  const qvec_u<CCTK_REAL> offsets{time_offset, space_offset[0], space_offset[1],
+  const qvec<CCTK_REAL> offsets{time_offset, space_offset[0], space_offset[1],
                                   space_offset[2]};
 
   const auto loop_lambda =
       [=] ARITH_DEVICE(const Loop::PointDesc &p) ARITH_INLINE {
         const Loop::GF3D2index index(layout_vc, p.I);
 
-        const qvec_u<CCTK_REAL> coords{
+        const qvec<CCTK_REAL> coords{
             CCTK_REAL{0},
             gf_vcoordx(index),
             gf_vcoordy(index),

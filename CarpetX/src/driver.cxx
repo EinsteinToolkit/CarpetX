@@ -1,5 +1,6 @@
 #include "driver.hxx"
 
+#include "fillpatch.hxx"
 #include "interp.hxx"
 #include "io.hxx"
 #include "logo.hxx"
@@ -15,9 +16,7 @@
 
 #include <AMReX.H>
 #include <AMReX_BCRec.H>
-#include <AMReX_FillPatchUtil.H>
 #include <AMReX_ParmParse.H>
-#include <AMReX_PhysBCFunct.H>
 
 #include <omp.h>
 #include <mpi.h>
@@ -103,8 +102,8 @@ std::ostream &operator<<(std::ostream &os, const boundary_t boundary) {
     return os << "dirichlet";
   case boundary_t::linear_extrapolation:
     return os << "linear_extrapolation";
-  case boundary_t::von_neumann:
-    return os << "von_neumann";
+  case boundary_t::neumann:
+    return os << "neumann";
   default:
     assert(0);
   }
@@ -186,22 +185,22 @@ array<array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
           bool(CCTK_EQUALS(boundary_upper_z, "linear extrapolation")),
       }},
   }};
-  const array<array<bool, 3>, 2> is_von_neumann{{
+  const array<array<bool, 3>, 2> is_neumann{{
       {{
-          bool(CCTK_EQUALS(boundary_x, "von neumann")),
-          bool(CCTK_EQUALS(boundary_y, "von neumann")),
-          bool(CCTK_EQUALS(boundary_z, "von neumann")),
+          bool(CCTK_EQUALS(boundary_x, "neumann")),
+          bool(CCTK_EQUALS(boundary_y, "neumann")),
+          bool(CCTK_EQUALS(boundary_z, "neumann")),
       }},
       {{
-          bool(CCTK_EQUALS(boundary_upper_x, "von neumann")),
-          bool(CCTK_EQUALS(boundary_upper_y, "von neumann")),
-          bool(CCTK_EQUALS(boundary_upper_z, "von neumann")),
+          bool(CCTK_EQUALS(boundary_upper_x, "neumann")),
+          bool(CCTK_EQUALS(boundary_upper_y, "neumann")),
+          bool(CCTK_EQUALS(boundary_upper_z, "neumann")),
       }},
   }};
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
       assert(is_symmetry[f][d] + is_dirichlet[f][d] +
-                 is_linear_extrapolation[f][d] + is_von_neumann[f][d] <=
+                 is_linear_extrapolation[f][d] + is_neumann[f][d] <=
              1);
 
   array<array<boundary_t, dim>, 2> boundaries;
@@ -211,8 +210,8 @@ array<array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
                          : is_dirichlet[f][d] ? boundary_t::dirichlet
                          : is_linear_extrapolation[f][d]
                              ? boundary_t::linear_extrapolation
-                         : is_von_neumann[f][d] ? boundary_t::von_neumann
-                                                : boundary_t::none;
+                         : is_neumann[f][d] ? boundary_t::neumann
+                                            : boundary_t::none;
 
   const auto override_group_boundary = [&](const char *const var_set_string,
                                            const int dir, const int face,
@@ -258,15 +257,12 @@ array<array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
                           boundary_t::linear_extrapolation);
   override_group_boundary(linear_extrapolation_upper_z_vars, 2, 1,
                           boundary_t::linear_extrapolation);
-  override_group_boundary(von_neumann_x_vars, 0, 0, boundary_t::von_neumann);
-  override_group_boundary(von_neumann_y_vars, 1, 0, boundary_t::von_neumann);
-  override_group_boundary(von_neumann_z_vars, 2, 0, boundary_t::von_neumann);
-  override_group_boundary(von_neumann_upper_x_vars, 0, 1,
-                          boundary_t::von_neumann);
-  override_group_boundary(von_neumann_upper_y_vars, 1, 1,
-                          boundary_t::von_neumann);
-  override_group_boundary(von_neumann_upper_z_vars, 2, 1,
-                          boundary_t::von_neumann);
+  override_group_boundary(neumann_x_vars, 0, 0, boundary_t::neumann);
+  override_group_boundary(neumann_y_vars, 1, 0, boundary_t::neumann);
+  override_group_boundary(neumann_z_vars, 2, 0, boundary_t::neumann);
+  override_group_boundary(neumann_upper_x_vars, 0, 1, boundary_t::neumann);
+  override_group_boundary(neumann_upper_y_vars, 1, 1, boundary_t::neumann);
+  override_group_boundary(neumann_upper_z_vars, 2, 1, boundary_t::neumann);
 
   return boundaries;
 }
@@ -966,8 +962,6 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
     }
   }
   bcrecs.resize(numvars, bcrec);
-  physbc = std::make_unique<amrex::PhysBCFunct<apply_physbcs_t> >(
-      geom, bcrecs, apply_physbcs_t(*this));
 
   // Allocate grid hierarchies
   // Note: CarpetX and AMReX use opposite constants for cell/vertex
@@ -1000,6 +994,8 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
     }
   }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void GHExt::PatchData::LevelData::GroupData::init_tmp_mfabs() const {
   assert(next_tmp_mfab == 0);
@@ -1052,15 +1048,137 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
 #endif
 }
 
-void GHExt::PatchData::LevelData::GroupData::apply_physbcs_t::operator()(
-    const amrex::Box &box, amrex::FArrayBox &dest, const int dcomp,
-    const int numcomp, const amrex::Geometry &geom, const CCTK_REAL time,
-    const amrex::Vector<amrex::BCRec> &bcr, const int bcomp,
-    const int orig_comp) const {
+void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
+    amrex::MultiFab &mfab) const {
+  DECLARE_CCTK_PARAMETERS;
+
+  const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(level);
+
+  if (geom.isAllPeriodic())
+    return;
+
+  // Create a grown domain box containing valid + periodic cells
+  const amrex::Box &domain = geom.Domain();
+  amrex::Box gdomain = amrex::convert(domain, mfab.boxArray().ixType());
+  for (int d = 0; d < dim; ++d)
+    if (geom.isPeriodic(d))
+      gdomain.grow(d, mfab.nGrow(d));
+
+  // This is similar to `loop_over_blocks`, but we are looping over a
+  // non-standard MultiFab
+
+  // Choose kernel launch method
+  enum class launch_method_t { serial, openmp, cuda };
+  launch_method_t launch_method;
+  if (CCTK_EQUALS(kernel_launch_method, "serial")) {
+    launch_method = launch_method_t::serial;
+  } else if (CCTK_EQUALS(kernel_launch_method, "openmp")) {
+    launch_method = launch_method_t::openmp;
+  } else if (CCTK_EQUALS(kernel_launch_method, "cuda")) {
+    launch_method = launch_method_t::cuda;
+  } else if (CCTK_EQUALS(kernel_launch_method, "default")) {
+#ifdef AMREX_USE_GPU
+    launch_method = launch_method_t::cuda;
+#else
+    launch_method = launch_method_t::openmp;
+#endif
+  } else {
+    CCTK_ERROR("internal error");
+  }
+
+  switch (launch_method) {
+
+  case launch_method_t::serial: {
+    // No parallelism
+
+    int block = 0;
+    const auto mfitinfo = amrex::MFItInfo().EnableTiling();
+    for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi, ++block) {
+      const MFPointer mfp(mfi);
+      amrex::FArrayBox &dest = mfab[mfp.index()];
+      const amrex::Box &box = mfp.fabbox();
+
+      // If there are cells not in the valid + periodic grown box,
+      // then we need to fill them here
+      if (!gdomain.contains(box))
+        apply_boundary_conditions(block, box, dest);
+    }
+    break;
+  }
+
+  case launch_method_t::openmp: {
+    // OpenMP
+
+    std::vector<std::function<void()> > tasks;
+
+    int block = 0;
+    const auto mfitinfo = amrex::MFItInfo().EnableTiling();
+    for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi, ++block) {
+      const MFPointer mfp(mfi);
+      amrex::FArrayBox &dest = mfab[mfp.index()];
+      const amrex::Box &box = mfp.fabbox();
+      // If there are cells not in the valid + periodic grown box,
+      // then we need to fill them here
+      if (!gdomain.contains(box)) {
+        auto task = [this, block, box, &dest]() {
+          apply_boundary_conditions(block, box, dest);
+        };
+        tasks.push_back(std::move(task));
+      }
+    }
+
+    // run all tasks
+#pragma omp parallel for schedule(dynamic)
+    for (size_t i = 0; i < tasks.size(); ++i)
+      tasks[i]();
+
+    // There is an implicit OpenMP barrier here.
+
+    break;
+  }
+
+  case launch_method_t::cuda: {
+    // CUDA
+
+    // No OpenMP parallelization when using GPUs
+    int block = 0;
+    const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync().EnableTiling();
+    for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi, ++block) {
+      const MFPointer mfp(mfi);
+      amrex::FArrayBox &dest = mfab[mfp.index()];
+      const amrex::Box &box = mfp.fabbox();
+      // If there are cells not in the valid + periodic grown box,
+      // then we need to fill them here
+      if (!gdomain.contains(box))
+        apply_boundary_conditions(block, box, dest);
+    }
+
+    break;
+  }
+
+  default:
+    CCTK_ERROR("internal error");
+  }
+
+#ifdef AMREX_USE_GPU
+  // TODO: Synchronize only if GPU kernels were actually launched
+  // TODO: Switch to streamSynchronizeAll if AMReX is new enough
+  amrex::Gpu::synchronize();
+  // amrex::Gpu::streamSynchronizeAll();
+  AMREX_GPU_ERROR_CHECK();
+#endif
+}
+
+void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
+    const int block, const amrex::Box &box, amrex::FArrayBox &dest) const {
+  const int ncomps = dest.nComp();
+
+  const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(level);
+
   // Check centering
   assert(box.ixType() == dest.box().ixType());
   for (int d = 0; d < dim; ++d)
-    assert((box.type(d) == amrex::IndexType::CELL) == groupdata.indextype[d]);
+    assert((box.type(d) == amrex::IndexType::CELL) == indextype[d]);
 
   // Ensure we have enough ghost zones
   // TODO: Implement this
@@ -1071,10 +1189,9 @@ void GHExt::PatchData::LevelData::GroupData::apply_physbcs_t::operator()(
   const Arith::vect<int, dim> imin{geom.Domain().smallEnd(0),
                                    geom.Domain().smallEnd(1),
                                    geom.Domain().smallEnd(2)};
-  const Arith::vect<int, dim> imax{
-      geom.Domain().bigEnd(0) + 1 + !groupdata.indextype[0],
-      geom.Domain().bigEnd(1) + 1 + !groupdata.indextype[1],
-      geom.Domain().bigEnd(2) + 1 + !groupdata.indextype[2]};
+  const Arith::vect<int, dim> imax{geom.Domain().bigEnd(0) + 1 + !indextype[0],
+                                   geom.Domain().bigEnd(1) + 1 + !indextype[1],
+                                   geom.Domain().bigEnd(2) + 1 + !indextype[2]};
 
   // Region to fill
   const Arith::vect<int, dim> amin{box.smallEnd(0), box.smallEnd(1),
@@ -1095,6 +1212,8 @@ void GHExt::PatchData::LevelData::GroupData::apply_physbcs_t::operator()(
                                    dest.box().bigEnd(2) + 1};
   const GF3D2layout layout(dmin, dmax);
   CCTK_REAL *restrict const destptr = dest.dataPtr();
+
+  // For interpatch boundaries
 
   // Loop over all faces, edges, and corners
   for (int nk = -1; nk <= +1; ++nk) {
@@ -1135,25 +1254,28 @@ void GHExt::PatchData::LevelData::GroupData::apply_physbcs_t::operator()(
         Arith::vect<symmetry_t, dim> symmetries;
         Arith::vect<boundary_t, dim> boundaries;
         for (int d = 0; d < dim; ++d) {
-          symmetries[d] = inormal[d] != 0 ? ghext->patchdata.at(groupdata.patch)
+          symmetries[d] = inormal[d] != 0 ? ghext->patchdata.at(patch)
                                                 .symmetries.at(inormal[d] > 0)
                                                 .at(d)
                                           : symmetry_t::none;
           boundaries[d] = inormal[d] != 0
-                              ? groupdata.boundaries.at(inormal[d] > 0).at(d)
+                              ? this->boundaries.at(inormal[d] > 0).at(d)
                               : boundary_t::none;
         }
 
         if (all(symmetries == symmetry_t::none &&
                 boundaries == boundary_t::none)) {
+          // If there are no boundary conditions to apply, then do
+          // nothing.
 
           // do nothing
 
         } else if (any(boundaries == boundary_t::dirichlet)) {
+          // If we can apply Dirichlet boundary conditions, do so.
+          // They are the easiest and cheapest.
 
-          for (int comp = 0; comp < numcomp; ++comp) {
-            const CCTK_REAL dirichlet_value =
-                groupdata.dirichlet_values.at(comp);
+          for (int comp = 0; comp < ncomps; ++comp) {
+            const CCTK_REAL dirichlet_value = dirichlet_values.at(comp);
             GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
 #ifndef __CUDACC__
 #pragma omp task final(true) untied
@@ -1161,58 +1283,115 @@ void GHExt::PatchData::LevelData::GroupData::apply_physbcs_t::operator()(
             loop_region(
                 [=] CCTK_DEVICE(const Arith::vect<int, dim> &dst)
                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+                      for (int d = 0; d < dim; ++d)
+                        assert(dst[d] >= amin[d] && dst[d] < amax[d]);
+#endif
                       var.store(dst, dirichlet_value);
                     },
                 bmin, bmax);
           }
 
-        } else {
+        } else if (any(symmetries == symmetry_t::interpatch)) {
+          // If there is an inter-patch boundary, then handle it.
 
-          Arith::vect<int, dim> von_neumann_source;
+          // TODO: Handle these cases later
+          assert(all(symmetries == symmetry_t::interpatch ||
+                     boundaries == boundary_t::dirichlet));
+
+          // Collect the coordinates only once per index type
+          std::vector<std::array<int, dim> > &indices =
+              interp.at(block).indices;
+          if (all(imax > imin)) {
+            // Always run on the CPU
+            for (int k = imin[2]; k < imax[2]; ++k) {
+              for (int j = imin[1]; j < imax[1]; ++j) {
+                for (int i = imin[0]; i < imax[0]; ++i) {
+                  indices.push_back({i, j, k});
+                }
+              }
+            }
+          }
+
+          for (int comp = 0; comp < ncomps; ++comp) {
+            interp.at(block).scatter_data.at(comp).emplace_back(
+                [=](std::vector<CCTK_REAL>::const_iterator &iter) {
+                  if (all(imax > imin)) {
+                    // TODO: Run on the GPU
+                    GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
+                    for (int k = imin[2]; k < imax[2]; ++k) {
+                      for (int j = imin[1]; j < imax[1]; ++j) {
+                        for (int i = imin[0]; i < imax[0]; ++i) {
+                          const Arith::vect<int, dim> p{i, j, k};
+                          var.store(p, *iter++);
+                        }
+                      }
+                    }
+                  }
+                });
+          }
+
+        } else {
+          // This is the generic case for applyting boundary
+          // conditions.
+
+          Arith::vect<int, dim> neumann_source;
           for (int d = 0; d < dim; ++d) {
-            if (inormal[d] != 0) {
-              von_neumann_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
-              if (inormal[d] < 0)
-                assert(von_neumann_source[d] < amax[d]);
-              else
-                assert(von_neumann_source[d] >= amin[d]);
+            if (boundaries[d] == boundary_t::neumann) {
+              if (inormal[d] != 0) {
+                neumann_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
+                if (inormal[d] < 0)
+                  assert(neumann_source[d] < amax[d]);
+                else
+                  assert(neumann_source[d] >= amin[d]);
+              }
+            } else {
+              neumann_source[d] = 666666666; // go for a segfault
             }
           }
 
           Arith::vect<int, dim> linear_extrapolation_source;
           for (int d = 0; d < dim; ++d) {
-            if (inormal[d] != 0) {
-              linear_extrapolation_source[d] =
-                  inormal[d] < 0 ? imin[d] : imax[d] - 1;
-              if (inormal[d] < 0) {
-                assert(linear_extrapolation_source[d] < amax[d]);
-                assert(linear_extrapolation_source[d] - inormal[d] < amax[d]);
-              } else {
-                assert(linear_extrapolation_source[d] >= amin[d]);
-                assert(linear_extrapolation_source[d] - inormal[d] >= amin[d]);
+            if (boundaries[d] == boundary_t::linear_extrapolation) {
+              if (inormal[d] != 0) {
+                linear_extrapolation_source[d] =
+                    inormal[d] < 0 ? imin[d] : imax[d] - 1;
+                if (inormal[d] < 0) {
+                  assert(linear_extrapolation_source[d] < amax[d]);
+                  assert(linear_extrapolation_source[d] - inormal[d] < amax[d]);
+                } else {
+                  assert(linear_extrapolation_source[d] >= amin[d]);
+                  assert(linear_extrapolation_source[d] - inormal[d] >=
+                         amin[d]);
+                }
               }
+            } else {
+              linear_extrapolation_source[d] = 666666666; // go for a segfault
             }
           }
 
           Arith::vect<int, dim> reflection_offset;
           for (int d = 0; d < dim; ++d) {
-            if (inormal[d] != 0) {
-              reflection_offset[d] =
-                  inormal[d] < 0
-                      ? 2 * imin[d] - groupdata.indextype.at(d)
-                      : 2 * (imax[d] - 1) + groupdata.indextype.at(d);
-              if (inormal[d] < 0)
-                assert(reflection_offset[d] - bmin[d] < amax[d]);
-              else
-                assert(reflection_offset[d] - (bmax[d] - 1) >= amin[d]);
+            if (symmetries[d] == symmetry_t::reflection) {
+              if (inormal[d] != 0) {
+                reflection_offset[d] =
+                    inormal[d] < 0 ? 2 * imin[d] - indextype.at(d)
+                                   : 2 * (imax[d] - 1) + indextype.at(d);
+                if (inormal[d] < 0)
+                  assert(reflection_offset[d] - bmin[d] < amax[d]);
+                else
+                  assert(reflection_offset[d] - (bmax[d] - 1) >= amin[d]);
+              }
+            } else {
+              reflection_offset[d] = 666666666; // go for a segfault
             }
           }
 
-          for (int comp = 0; comp < numcomp; ++comp) {
+          for (int comp = 0; comp < ncomps; ++comp) {
 
             Arith::vect<bool, dim> reflection_parity;
             for (int d = 0; d < dim; ++d)
-              reflection_parity[d] = groupdata.parities.at(comp).at(d) < 0;
+              reflection_parity[d] = parities.at(comp).at(d) < 0;
 
             GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
 #ifndef __CUDACC__
@@ -1224,31 +1403,32 @@ void GHExt::PatchData::LevelData::GroupData::apply_physbcs_t::operator()(
                       Arith::vect<int, dim> src, delta;
                       bool parity = false;
                       for (int d = 0; d < dim; ++d) {
-                        if (boundaries[d] == boundary_t::von_neumann) {
-                          src[d] = von_neumann_source[d];
+                        if (boundaries[d] == boundary_t::neumann) {
+                          src[d] = neumann_source[d];
                           delta[d] = 0;
                         } else if (boundaries[d] ==
                                    boundary_t::linear_extrapolation) {
                           src[d] = linear_extrapolation_source[d];
                           delta[d] = -inormal[d];
                         } else if (symmetries[d] == symmetry_t::reflection) {
-                          // src[d] = inormal[d] < 0
-                          //              ? dst[d] + 2 * (imin[d] - dst[d]) -
-                          //                    groupdata.indextype.at(d)
-                          //              : dst[d] -
-                          //                    2 * (dst[d] - (imax[d] - 1)) +
-                          //                    groupdata.indextype.at(d);
                           src[d] = reflection_offset[d] - dst[d];
                           delta[d] = 0;
                           parity ^= reflection_parity[d];
-                        } else if (symmetries[d] == symmetry_t::none &&
-                                   boundaries[d] == boundary_t::none) {
+                        } else if ((symmetries[d] == symmetry_t::none &&
+                                    boundaries[d] == boundary_t::none) ||
+                                   (symmetries[d] == symmetry_t::periodic &&
+                                    boundaries[d] ==
+                                        boundary_t::symmetry_boundary)) {
                           src[d] = dst[d];
                           delta[d] = 0;
                         } else {
                           assert(0);
                         }
                       }
+#ifdef CCTK_DEBUG
+                      for (int d = 0; d < dim; ++d)
+                        assert(src[d] >= dmin[d] && src[d] < dmax[d]);
+#endif
                       CCTK_REAL val = var(src);
                       if (any(delta != 0)) {
                         // Calculate gradient
@@ -1257,6 +1437,10 @@ void GHExt::PatchData::LevelData::GroupData::apply_physbcs_t::operator()(
                         val += sqrt(sum(pow2(dst - src)) / sum(pow2(delta))) *
                                grad;
                       }
+#ifdef CCTK_DEBUG
+                      for (int d = 0; d < dim; ++d)
+                        assert(dst[d] >= amin[d] && dst[d] < amax[d]);
+#endif
                       var.store(dst, parity ? -val : val);
                     },
                 bmin, bmax);
@@ -1571,11 +1755,10 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
               coarseleveldata, coarsegroupdata, vi, tl, nan_handling,
               []() { return "MakeNewLevelFromCoarse before prolongation"; });
         }
-        InterpFromCoarseLevel(
-            *groupdata.mfab.at(tl), 0.0, *coarsegroupdata.mfab.at(tl), 0, 0,
-            groupdata.numvars, patchdata.amrcore->Geom(level - 1),
-            patchdata.amrcore->Geom(level), *coarsegroupdata.physbc, 0,
-            *groupdata.physbc, 0, reffact, interpolator, groupdata.bcrecs, 0);
+        FillPatch_NewLevel(
+            groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
+            patchdata.amrcore->Geom(level - 1), patchdata.amrcore->Geom(level),
+            interpolator, groupdata.bcrecs);
         const auto outer_valid = patchdata.all_faces_have_symmetries()
                                      ? make_valid_outer()
                                      : valid_t();
@@ -1717,12 +1900,11 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
     for (int tl = 0; tl < ntls; ++tl) {
       if (tl < prolongate_tl) {
         // Copy from same level and/or prolongate from next coarser level
-        FillPatchTwoLevels(
-            *groupdata.mfab.at(tl), 0.0, {&*coarsegroupdata.mfab.at(tl)}, {0.0},
-            {&*oldgroupdata.mfab.at(tl)}, {0.0}, 0, 0, groupdata.numvars,
-            patchdata.amrcore->Geom(level - 1), patchdata.amrcore->Geom(level),
-            *coarsegroupdata.physbc, 0, *groupdata.physbc, 0, reffact,
-            interpolator, groupdata.bcrecs, 0);
+        FillPatch_RemakeLevel(
+            groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
+            *oldgroupdata.mfab.at(tl), patchdata.amrcore->Geom(level - 1),
+            patchdata.amrcore->Geom(level), interpolator, groupdata.bcrecs);
+
         for (int vi = 0; vi < groupdata.numvars; ++vi)
           groupdata.valid.at(tl).at(vi) =
               why_valid_t(make_valid_int() | make_valid_ghosts() | outer_valid,

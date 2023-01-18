@@ -13,10 +13,8 @@ template <typename T, typename U> constexpr bool eq(const T &x, const U &y) {
   return x == y || (isnan(x) && isnan(y));
 }
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3,
-          symm_t symm>
-constexpr bool eqm(const gten3<T, D, dnup1, dnup2, dnup3, symm> &x,
-                   const gten3<T, D, dnup1, dnup2, dnup3, symm> &y) {
+template <typename T, int D, symm_t symm>
+constexpr bool eqm(const gten3<T, D, symm> &x, const gten3<T, D, symm> &y) {
   return all(fmap([](const auto &a, const auto &b) { return eq(a, b); }, x, y));
 }
 
@@ -25,22 +23,21 @@ constexpr bool eqm(const gten3<T, D, dnup1, dnup2, dnup3, symm> &x,
 void TestTen3() {
   // nvcc V11.1.74 doesn't accept this as "constexpr" values
 #ifndef __CUDACC__
-  using T3D = sten3<CCTK_REAL, 3, DN, DN, DN>;
+  using T3D = sten3<CCTK_REAL, 3>;
 
   constexpr CCTK_REAL N = nan<CCTK_REAL>();
-  static_assert(eq(sten3<CCTK_REAL, 3, DN, DN, DN>()(0, 0, 0), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, DN, DN, DN>()(0, 0, 1), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, DN, DN, DN>()(0, 0, 2), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, UP, UP, UP>()(0, 1, 1), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, UP, UP, UP>()(0, 1, 2), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, UP, UP, UP>()(0, 2, 2), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, UP, UP, UP>()(1, 1, 1), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, UP, UP, UP>()(1, 1, 2), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, UP, UP, UP>()(1, 2, 2), N));
-  static_assert(eq(sten3<CCTK_REAL, 3, UP, UP, UP>()(2, 2, 2), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(0, 0, 0), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(0, 0, 1), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(0, 0, 2), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(0, 1, 1), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(0, 1, 2), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(0, 2, 2), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(1, 1, 1), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(1, 1, 2), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(1, 2, 2), N));
+  static_assert(eq(sten3<CCTK_REAL, 3>()(2, 2, 2), N));
 
-  constexpr auto t3 =
-      sten3<CCTK_REAL, 3, DN, DN, DN>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+  constexpr auto t3 = sten3<CCTK_REAL, 3>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
   static_assert(eq(t3(0, 0, 0), 1));
   static_assert(eq(t3(0, 0, 1), 2));
   static_assert(eq(t3(0, 0, 2), 3));
@@ -113,98 +110,98 @@ void TestTen3() {
 
   // TODO: Complete this test
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 0, 0),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 0, 0),
          1));
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 0, 1),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 0, 1),
          2));
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 0, 2),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 0, 2),
          3));
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 1, 0),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 1, 0),
          4));
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 1, 1),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 1, 1),
          5));
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 1, 2),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 1, 2),
          6));
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 2, 0),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 2, 0),
          7));
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 2, 1),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 2, 1),
          8));
   static_assert(
-      eq(ten3<CCTK_REAL, 3, DN, DN, DN>(
-             {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
-              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 2, 2),
+      eq(ten3<CCTK_REAL, 3>({1,  2,  3,  4,  5,  6,  7,  8,  9,
+                             10, 11, 12, 13, 14, 15, 16, 17, 18,
+                             19, 20, 21, 22, 23, 24, 25, 26, 27})(0, 2, 2),
          9));
 
-  static_assert(eqm(ten3<CCTK_REAL, 3, DN, DN, DN>::iota1(),
+  static_assert(eqm(ten3<CCTK_REAL, 3>::iota1(),
                     {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
                      1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2}));
-  static_assert(eqm(ten3<CCTK_REAL, 3, DN, DN, DN>::iota2(),
+  static_assert(eqm(ten3<CCTK_REAL, 3>::iota2(),
                     {0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1,
                      1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2}));
-  static_assert(eqm(ten3<CCTK_REAL, 3, DN, DN, DN>::iota3(),
+  static_assert(eqm(ten3<CCTK_REAL, 3>::iota3(),
                     {0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1,
                      2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2}));
 
   // TODO: Convert this test to 4D
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 0, 0), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 0, 1), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 0, 2), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 1, 0), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 1, 1), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 1, 2), 1));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 2, 0), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 2, 1), -1));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(0, 2, 2), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 0, 0), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 0, 1), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 0, 2), -1));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 1, 0), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 1, 1), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 1, 2), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 2, 0), 1));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 2, 1), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(1, 2, 2), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 0, 0), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 0, 1), 1));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 0, 2), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 1, 0), -1));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 1, 1), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 1, 2), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 2, 0), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 2, 1), 0));
-  static_assert(eq(aten3<CCTK_REAL, 3, DN, DN, DN>({1})(2, 2, 2), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 0, 0), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 0, 1), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 0, 2), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 1, 0), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 1, 1), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 1, 2), 1));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 2, 0), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 2, 1), -1));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(0, 2, 2), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 0, 0), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 0, 1), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 0, 2), -1));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 1, 0), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 1, 1), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 1, 2), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 2, 0), 1));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 2, 1), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(1, 2, 2), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 0, 0), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 0, 1), 1));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 0, 2), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 1, 0), -1));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 1, 1), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 1, 2), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 2, 0), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 2, 1), 0));
+  static_assert(eq(aten3<CCTK_REAL, 3>({1})(2, 2, 2), 0));
 
-  static_assert(eqm(aten3<CCTK_REAL, 3, DN, DN, DN>::iota1(), {0}));
-  static_assert(eqm(aten3<CCTK_REAL, 3, DN, DN, DN>::iota2(), {1}));
-  static_assert(eqm(aten3<CCTK_REAL, 3, DN, DN, DN>::iota3(), {2}));
+  static_assert(eqm(aten3<CCTK_REAL, 3>::iota1(), {0}));
+  static_assert(eqm(aten3<CCTK_REAL, 3>::iota2(), {1}));
+  static_assert(eqm(aten3<CCTK_REAL, 3>::iota3(), {2}));
 #endif
 
-  static_assert(sten3<CCTK_REAL, 4, DN, DN, DN>().size() == 20);
-  static_assert(ten3<CCTK_REAL, 4, DN, DN, DN>().size() == 64);
-  static_assert(aten3<CCTK_REAL, 4, DN, DN, DN>().size() == 4);
+  static_assert(sten3<CCTK_REAL, 4>().size() == 20);
+  static_assert(ten3<CCTK_REAL, 4>().size() == 64);
+  static_assert(aten3<CCTK_REAL, 4>().size() == 4);
 }
 
 } // namespace Arith

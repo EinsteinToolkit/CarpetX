@@ -582,6 +582,13 @@ template <typename T, int D> struct vect {
     return fold([](const T &a, const T &b) { return a + b; }, zero<T>()(), x);
   }
 
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T
+  sumabs(const vect &x) {
+    using std::abs;
+    return fold([](const T &a, const T &b) { return a + abs(b); }, zero<T>()(),
+                x);
+  }
+
   friend ostream &operator<<(ostream &os, const vect &x) {
     os << "[";
     for (int d = 0; d < D; ++d) {

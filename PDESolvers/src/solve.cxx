@@ -1,7 +1,8 @@
 #include "pdesolvers.hxx"
 
-// TODO: Don't include files from other thorn; create a proper interface
+// TODO: Don't include files from other thorns; create a proper interface
 #include "../../CarpetX/src/driver.hxx"
+#include "../../CarpetX/src/fillpatch.hxx"
 #include "../../CarpetX/src/reduction.hxx"
 #include "../../CarpetX/src/schedule.hxx"
 
@@ -245,9 +246,7 @@ void define_point_type() {
       const int level = leveldata.level;
       const auto &groupdata = *leveldata.groupdata.at(gi_ind);
       amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
-      FillPatchSingleLevel(mfab_ind, 0.0, {&mfab_ind}, {0.0}, 0, 0, 1 /*nvars*/,
-                           patchdata.amrcore->Geom(level), *groupdata.physbc,
-                           0);
+      FillPatch_Sync(groupdata, mfab_ind, patchdata.amrcore->Geom(level));
     }
   }
 
@@ -311,11 +310,10 @@ void define_point_type() {
       const amrex::IntVect reffact{2, 2, 2};
       amrex::Interpolater *const interpolator =
           CarpetX::get_interpolator(std::array<int, 3>(indextype));
-      FillPatchTwoLevels(
-          mfab_ind, 0.0, {&coarsemfab_ind}, {0.0}, {&mfab_ind}, {0.0}, 0, 0,
-          1 /*nvars*/, patchdata.amrcore->Geom(level - 1),
-          patchdata.amrcore->Geom(level), *coarsegroupdata.physbc, 0,
-          *groupdata.physbc, 0, reffact, interpolator, groupdata.bcrecs, 0);
+      FillPatch_ProlongateGhosts(groupdata, mfab_ind, coarsemfab_ind,
+                                 patchdata.amrcore->Geom(level - 1),
+                                 patchdata.amrcore->Geom(level), interpolator,
+                                 groupdata.bcrecs);
     }
   }
 
@@ -622,9 +620,7 @@ void enumerate_points(
       const int level = leveldata.level;
       const auto &groupdata = *leveldata.groupdata.at(gi_idx);
       amrex::MultiFab &mfab_idx = *groupdata.mfab.at(tl);
-      FillPatchSingleLevel(mfab_idx, 0.0, {&mfab_idx}, {0.0}, 0, 0, 1 /*nvars*/,
-                           patchdata.amrcore->Geom(level), *groupdata.physbc,
-                           0);
+      FillPatch_Sync(groupdata, mfab_idx, patchdata.amrcore->Geom(level));
     }
   }
 

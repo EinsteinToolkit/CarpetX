@@ -21,7 +21,7 @@ namespace CakeTests {
  * @return A string indicating the test status.
  */
 std::string patch_owner_test(const PatchTransformations &pt,
-                             const MultiPatch::Cake::svec_u &x,
+                             const MultiPatch::Cake::svec &x,
                              MultiPatch::Cake::patch_piece expected) {
 
   using namespace MultiPatch::Cake;
@@ -51,7 +51,7 @@ std::string patch_owner_test(const PatchTransformations &pt,
  * @return A string indicating the test status.
  */
 std::string global_identity_test(const PatchTransformations &pt,
-                                 const MultiPatch::Cake::svec_u &global_vars) {
+                                 const MultiPatch::Cake::svec &global_vars) {
 
   using MultiPatchTests::colored;
   using MultiPatchTests::isapprox;
@@ -101,7 +101,7 @@ std::string global_identity_test(const PatchTransformations &pt,
  * @return A string indicating the test status.
  */
 std::string local_identity_test(const PatchTransformations &pt, int patch,
-                                const MultiPatch::Cake::svec_u &local_point) {
+                                const MultiPatch::Cake::svec &local_point) {
 
   using MultiPatch::Cake::patch_piece;
   using MultiPatch::Cake::piece_name;
@@ -163,11 +163,11 @@ std::string local_identity_test(const PatchTransformations &pt, int patch,
  * @return A string indicating the test status.
  */
 std::string jacobian_test(const PatchTransformations &pt, int patch,
-                          const MultiPatch::Cake::svec_u &global_point) {
+                          const MultiPatch::Cake::svec &global_point) {
 
   using MultiPatch::Cake::patch_piece;
   using MultiPatch::Cake::piece_name;
-  using MultiPatch::Cake::svec_u;
+  using MultiPatch::Cake::svec;
   using MultiPatchTests::colored;
   using MultiPatchTests::fd_4;
   using MultiPatchTests::fd_comp_tol;
@@ -190,16 +190,16 @@ std::string jacobian_test(const PatchTransformations &pt, int patch,
   const auto &J = std::get<1>(J_data);
 
   // Compute the second derivative of local2global by finite differencing
-  const auto g2l_wrapper = [&](const svec_u &point) -> svec_u {
+  const auto g2l_wrapper = [&](const svec &point) -> svec {
     return std::get<1>(pt.global2local(pt, point));
   };
 
   const auto expected_dx =
-      fd_4<fd_direction::x, svec_u>(g2l_wrapper, global_point);
+      fd_4<fd_direction::x, svec>(g2l_wrapper, global_point);
   const auto expected_dy =
-      fd_4<fd_direction::y, svec_u>(g2l_wrapper, global_point);
+      fd_4<fd_direction::y, svec>(g2l_wrapper, global_point);
   const auto expected_dz =
-      fd_4<fd_direction::z, svec_u>(g2l_wrapper, global_point);
+      fd_4<fd_direction::z, svec>(g2l_wrapper, global_point);
 
   const bool test1 = isapprox(expected_dx(0), J(0)(0), fd_comp_tol);
   const bool test2 = isapprox(expected_dx(1), J(1)(0), fd_comp_tol);
@@ -270,11 +270,11 @@ std::string jacobian_test(const PatchTransformations &pt, int patch,
 }
 
 std::string djacobian_test(const PatchTransformations &pt, int patch,
-                           const MultiPatch::Cake::svec_u &global_point) {
+                           const MultiPatch::Cake::svec &global_point) {
 
   using MultiPatch::Cake::patch_piece;
   using MultiPatch::Cake::piece_name;
-  using MultiPatch::Cake::svec_u;
+  using MultiPatch::Cake::svec;
   using MultiPatchTests::colored;
   using MultiPatchTests::fd2_4;
   using MultiPatchTests::fd_4;
@@ -298,22 +298,22 @@ std::string djacobian_test(const PatchTransformations &pt, int patch,
   const auto &dJ = std::get<2>(J_data);
 
   // Compute the derivative of the jacobian by finite differencing
-  const auto g2l_wrapper = [&](const svec_u &point) -> svec_u {
+  const auto g2l_wrapper = [&](const svec &point) -> svec {
     return std::get<1>(pt.global2local(pt, point));
   };
 
-  const auto expected_dxdx = fd2_4<fd_direction::x, fd_direction::x, svec_u>(
-      g2l_wrapper, global_point);
-  const auto expected_dxdy = fd2_4<fd_direction::x, fd_direction::y, svec_u>(
-      g2l_wrapper, global_point);
-  const auto expected_dxdz = fd2_4<fd_direction::x, fd_direction::z, svec_u>(
-      g2l_wrapper, global_point);
-  const auto expected_dydy = fd2_4<fd_direction::y, fd_direction::y, svec_u>(
-      g2l_wrapper, global_point);
-  const auto expected_dydz = fd2_4<fd_direction::y, fd_direction::z, svec_u>(
-      g2l_wrapper, global_point);
-  const auto expected_dzdz = fd2_4<fd_direction::z, fd_direction::z, svec_u>(
-      g2l_wrapper, global_point);
+  const auto expected_dxdx =
+      fd2_4<fd_direction::x, fd_direction::x, svec>(g2l_wrapper, global_point);
+  const auto expected_dxdy =
+      fd2_4<fd_direction::x, fd_direction::y, svec>(g2l_wrapper, global_point);
+  const auto expected_dxdz =
+      fd2_4<fd_direction::x, fd_direction::z, svec>(g2l_wrapper, global_point);
+  const auto expected_dydy =
+      fd2_4<fd_direction::y, fd_direction::y, svec>(g2l_wrapper, global_point);
+  const auto expected_dydz =
+      fd2_4<fd_direction::y, fd_direction::z, svec>(g2l_wrapper, global_point);
+  const auto expected_dzdz =
+      fd2_4<fd_direction::z, fd_direction::z, svec>(g2l_wrapper, global_point);
 
   const bool test1 = isapprox(expected_dxdx(0), dJ(0)(0, 0), fd_comp_tol);
   const bool test2 = isapprox(expected_dxdx(1), dJ(1)(0, 0), fd_comp_tol);
@@ -462,7 +462,7 @@ extern "C" void run_cake_tests() {
   using MultiPatch::Cake::get_owner_patch;
   using MultiPatch::Cake::patch_piece;
   using MultiPatch::Cake::piece_name;
-  using MultiPatch::Cake::svec_u;
+  using MultiPatch::Cake::svec;
 
   using MultiPatch::dim;
   using MultiPatch::SetupCake;
@@ -484,54 +484,54 @@ extern "C" void run_cake_tests() {
   /*
    * Fixed point tests
    */
-  const std::array<std::pair<svec_u, patch_piece>, 27> owner_test_data = {
+  const std::array<std::pair<svec, patch_piece>, 27> owner_test_data = {
       // Cartesian cube interior
-      std::make_pair(svec_u{cube_midpoint, cube_midpoint, cube_midpoint},
+      std::make_pair(svec{cube_midpoint, cube_midpoint, cube_midpoint},
                      patch_piece::cartesian),
-      std::make_pair(svec_u{-cube_midpoint, cube_midpoint, cube_midpoint},
+      std::make_pair(svec{-cube_midpoint, cube_midpoint, cube_midpoint},
                      patch_piece::cartesian),
-      std::make_pair(svec_u{cube_midpoint, -cube_midpoint, cube_midpoint},
+      std::make_pair(svec{cube_midpoint, -cube_midpoint, cube_midpoint},
                      patch_piece::cartesian),
-      std::make_pair(svec_u{cube_midpoint, cube_midpoint, -cube_midpoint},
+      std::make_pair(svec{cube_midpoint, cube_midpoint, -cube_midpoint},
                      patch_piece::cartesian),
 
       // Cartesian cube corners
-      std::make_pair(svec_u{r0, r0, r0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{-r0, r0, r0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{r0, -r0, r0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{r0, r0, -r0}, patch_piece::inner_boundary),
+      std::make_pair(svec{r0, r0, r0}, patch_piece::inner_boundary),
+      std::make_pair(svec{-r0, r0, r0}, patch_piece::inner_boundary),
+      std::make_pair(svec{r0, -r0, r0}, patch_piece::inner_boundary),
+      std::make_pair(svec{r0, r0, -r0}, patch_piece::inner_boundary),
 
       // Middle of the +x patch
-      std::make_pair(svec_u{r0, 0.0, 0.0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{patch_midpoint, 0.0, 0.0}, patch_piece::plus_x),
-      std::make_pair(svec_u{r1, 0.0, 0.0}, patch_piece::outer_boundary),
+      std::make_pair(svec{r0, 0.0, 0.0}, patch_piece::inner_boundary),
+      std::make_pair(svec{patch_midpoint, 0.0, 0.0}, patch_piece::plus_x),
+      std::make_pair(svec{r1, 0.0, 0.0}, patch_piece::outer_boundary),
 
       // Middle of the -x patch
-      std::make_pair(svec_u{-r0, 0.0, 0.0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{-patch_midpoint, 0.0, 0.0}, patch_piece::minus_x),
-      std::make_pair(svec_u{-r1, 0.0, 0.0}, patch_piece::outer_boundary),
+      std::make_pair(svec{-r0, 0.0, 0.0}, patch_piece::inner_boundary),
+      std::make_pair(svec{-patch_midpoint, 0.0, 0.0}, patch_piece::minus_x),
+      std::make_pair(svec{-r1, 0.0, 0.0}, patch_piece::outer_boundary),
 
       // Middle of the +y patch
-      std::make_pair(svec_u{0.0, r0, 0.0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{0.0, patch_midpoint, 0.0}, patch_piece::plus_y),
-      std::make_pair(svec_u{0.0, r1, 0.0}, patch_piece::outer_boundary),
+      std::make_pair(svec{0.0, r0, 0.0}, patch_piece::inner_boundary),
+      std::make_pair(svec{0.0, patch_midpoint, 0.0}, patch_piece::plus_y),
+      std::make_pair(svec{0.0, r1, 0.0}, patch_piece::outer_boundary),
 
       // Middle of the -y patch
-      std::make_pair(svec_u{0.0, -r0, 0.0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{0.0, -patch_midpoint, 0.0}, patch_piece::minus_y),
-      std::make_pair(svec_u{0.0, -r1, 0.0}, patch_piece::outer_boundary),
+      std::make_pair(svec{0.0, -r0, 0.0}, patch_piece::inner_boundary),
+      std::make_pair(svec{0.0, -patch_midpoint, 0.0}, patch_piece::minus_y),
+      std::make_pair(svec{0.0, -r1, 0.0}, patch_piece::outer_boundary),
 
       // Middle of the +z patch
-      std::make_pair(svec_u{0.0, 0.0, r0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{0.0, 0.0, patch_midpoint}, patch_piece::plus_z),
-      std::make_pair(svec_u{0.0, 0.0, r1}, patch_piece::outer_boundary),
+      std::make_pair(svec{0.0, 0.0, r0}, patch_piece::inner_boundary),
+      std::make_pair(svec{0.0, 0.0, patch_midpoint}, patch_piece::plus_z),
+      std::make_pair(svec{0.0, 0.0, r1}, patch_piece::outer_boundary),
 
       // Middle of the -z patch
-      std::make_pair(svec_u{0.0, 0.0, -r0}, patch_piece::inner_boundary),
-      std::make_pair(svec_u{0.0, 0.0, -patch_midpoint}, patch_piece::minus_z),
-      std::make_pair(svec_u{0.0, 0.0, -r1}, patch_piece::outer_boundary),
+      std::make_pair(svec{0.0, 0.0, -r0}, patch_piece::inner_boundary),
+      std::make_pair(svec{0.0, 0.0, -patch_midpoint}, patch_piece::minus_z),
+      std::make_pair(svec{0.0, 0.0, -r1}, patch_piece::outer_boundary),
 
-      std::make_pair(svec_u{r1 + 1.0, r1 + 1.0, r1 + 1.0},
+      std::make_pair(svec{r1 + 1.0, r1 + 1.0, r1 + 1.0},
                      patch_piece::exterior)};
 
   // Tests if the patch owner is correct.
@@ -554,8 +554,8 @@ extern "C" void run_cake_tests() {
 
   uniform_int_distribution<int> patch_distrib(0, 6);
 
-  auto global_point = svec_u{0.0, 0.0, 0.0};
-  auto local_point = svec_u{0.0, 0.0, 0.0};
+  auto global_point = svec{0.0, 0.0, 0.0};
+  auto local_point = svec{0.0, 0.0, 0.0};
   double r = 0.0, theta = 0.0, phi = 0.0;
   int patch = 0;
 

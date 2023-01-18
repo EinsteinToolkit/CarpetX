@@ -36,12 +36,12 @@ CarpetX::ncells_y = $ncells
 CarpetX::ncells_z = 8 #$ncells
 
 #flat bc
-CarpetX::von_neumann_x =  yes
-CarpetX::von_neumann_y =  yes
-CarpetX::von_neumann_z =  yes
-CarpetX::von_neumann_upper_x =  yes
-CarpetX::von_neumann_upper_y =  yes
-CarpetX::von_neumann_upper_z =  yes
+CarpetX::neumann_x =  yes
+CarpetX::neumann_y =  yes
+CarpetX::neumann_z =  yes
+CarpetX::neumann_upper_x =  yes
+CarpetX::neumann_upper_y =  yes
+CarpetX::neumann_upper_z =  yes
 
 CarpetX::max_num_levels         = $nlevels
 CarpetX::regrid_every           = 16

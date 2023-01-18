@@ -6,7 +6,6 @@
 #include <div.hxx>
 #include <vect.hxx>
 
-#include <fixmath.hxx>
 #include <CactusBase/IOUtil/src/ioutil_CheckpointRecovery.h>
 #include <cctk.h>
 #include <cctk_Arguments.h>

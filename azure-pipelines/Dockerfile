@@ -21,6 +21,7 @@ RUN apt-get update && \
         hdf5-tools \
         libboost-all-dev \
         libfftw3-dev \
+        libgit2-dev \
         libgsl-dev \
         libhdf5-dev \
         libhwloc-dev \
@@ -48,7 +49,7 @@ RUN pip install jinja2==3.0.3 && \
     pip install bokeh==2.0.1 && \
     pip install matplotlib && \
     pip install requests && \
-    pip install pygit2
+    pip install pygit2==1.0.3
 
 # Install cmake
 # We need a modern cmake to build AMReX
@@ -64,9 +65,9 @@ RUN mkdir dist && \
 # ADIOS2 is a parallel I/O library, comparable to HDF5
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.8.1.tar.gz && \
-    tar xzf v2.8.1.tar.gz && \
-    cd ADIOS2-2.8.1 && \
+    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.8.3.tar.gz && \
+    tar xzf v2.8.3.tar.gz && \
+    cd ADIOS2-2.8.3 && \
     mkdir build && \
     cd build && \
     cmake .. && \
@@ -177,9 +178,9 @@ RUN mkdir src && \
 # - Install this last because it changes most often
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/22.07.tar.gz && \
-    tar xzf 22.07.tar.gz && \
-    cd amrex-22.07 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/22.11.tar.gz && \
+    tar xzf 22.11.tar.gz && \
+    cd amrex-22.11 && \
     mkdir build && \
     cd build && \
     cmake \

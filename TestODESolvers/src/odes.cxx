@@ -76,6 +76,10 @@ extern "C" void TestODESolvers_RHS(CCTK_ARGUMENTS) {
   }
 }
 
+extern "C" void TestODESolvers_PostStep(CCTK_ARGUMENTS) {
+  // Do nothing
+}
+
 extern "C" void TestODESolvers_Error(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_TestODESolvers_Error;
   DECLARE_CCTK_PARAMETERS;

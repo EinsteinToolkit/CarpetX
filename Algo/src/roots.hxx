@@ -1,6 +1,10 @@
 #ifndef ALGO_HXX
 #define ALGO_HXX
 
+#include <mat.hxx>
+#include <sum.hxx>
+#include <vec.hxx>
+
 #include <fixmath.hxx> // include this before <cctk.h>
 #include <cctk.h>
 
@@ -118,6 +122,7 @@ std::pair<T, T> brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
   return {min(a, b), max(a, b)};
 }
 
+// Requires function and its derivative
 template <typename F, typename T>
 T newton_raphson(F f, T guess, T min, T max, int min_bits, int max_iters,
                  int &iters) {
@@ -126,6 +131,55 @@ T newton_raphson(F f, T guess, T min, T max, int min_bits, int max_iters,
       std::forward<F>(f), guess, min, max, min_bits, max_iter);
   iters = max_iter;
   return res;
+}
+
+// Requires function and first two derivatives
+template <typename F, typename T>
+T halley(F f, T guess, T min, T max, int min_bits, int max_iters, int &iters) {
+  std::uintmax_t max_iter = max_iters;
+  auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess, min,
+                                                max, min_bits, max_iter);
+  iters = max_iter;
+  return res;
+}
+
+// Requires function and first two derivatives
+template <typename F, typename T>
+T schroder(F f, T guess, T min, T max, int min_bits, int max_iters,
+           int &iters) {
+  std::uintmax_t max_iter = max_iters;
+  auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess, min,
+                                                max, min_bits, max_iter);
+  iters = max_iter;
+  return res;
+}
+
+template <typename F, typename T, int N>
+Arith::vec<T, N> newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
+                                   const Arith::vec<T, N> &min,
+                                   const Arith::vec<T, N> &max, int min_bits,
+                                   int max_iters, int &iters, bool &failed) {
+  using vec = Arith::vec<T, N>;
+  using mat = Arith::mat<T, N>;
+  failed = false;
+  auto tolfx = boost::math::tools::eps_tolerance<T>(min_bits);
+  vec x = guess;
+  for (iters = 1; iters <= max_iters; ++iters) {
+    const auto [fx0, jac0] = f(x);
+    const vec fx = fx0;
+    const mat jac = jac0;
+    const T errfx = sumabs(fx);
+    if (tolfx(1 + errfx, 1))
+      return x;
+    const T det_jac = calc_det(jac);
+    const mat inv_jac = calc_inv(jac, det_jac);
+    const vec dx([&](int i) {
+      return -Arith::sum<2>([&](int j) { return inv_jac(i, j) * fx(j); });
+    });
+    x += dx;
+  }
+  failed = true;
+  return x;
 }
 
 } // namespace Algo

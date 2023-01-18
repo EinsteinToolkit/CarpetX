@@ -13,19 +13,16 @@ template <typename T, typename U> constexpr bool eq(const T &x, const U &y) {
   return equal_to<CCTK_REAL>()(x, y) || (isnan(x) && isnan(y));
 }
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3,
-          dnup_t dnup4>
-constexpr bool eqm(const rten<T, D, dnup1, dnup2, dnup2, dnup4> &x,
-                   const rten<T, D, dnup1, dnup2, dnup3, dnup4> &y) {
+template <typename T, int D>
+constexpr bool eqm(const rten<T, D> &x, const rten<T, D> &y) {
   using std::isnan;
-  return equal_to<rten<T, D, dnup1, dnup2, dnup3, dnup4> >()(x, y) ||
-         (isnan(x) && isnan(y));
+  return equal_to<rten<T, D> >()(x, y) || (isnan(x) && isnan(y));
 }
 
 // This function is compiled, but not executed. The tests are "run" at
 // compile time. If this function compiles, the tests pass.
 void TestRten() {
-  using R4 = rten<CCTK_REAL, 4, DN, DN, DN, DN>;
+  using R4 = rten<CCTK_REAL, 4>;
 
   // i j   k l   ij   kl    n
   // 0 1   0 1    0    0    0

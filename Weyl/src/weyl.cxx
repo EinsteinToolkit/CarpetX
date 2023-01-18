@@ -51,7 +51,7 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
   const GF3D5layout layout0(imin, imax);
   const GF3D5layout layout5(cctkGH, indextype);
 
-  const smat<GF3D2<const CCTK_REAL>, 3, DN, DN> gf_gamma1{
+  const smat<GF3D2<const CCTK_REAL>, 3> gf_gamma1{
       GF3D2<const CCTK_REAL>(layout1, gxx),
       GF3D2<const CCTK_REAL>(layout1, gxy),
       GF3D2<const CCTK_REAL>(layout1, gxz),
@@ -61,12 +61,12 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
   const GF3D2<const CCTK_REAL> gf_alpha1(layout1, alp);
 
-  const vec<GF3D2<const CCTK_REAL>, 3, UP> gf_beta1{
+  const vec<GF3D2<const CCTK_REAL>, 3> gf_beta1{
       GF3D2<const CCTK_REAL>(layout1, betax),
       GF3D2<const CCTK_REAL>(layout1, betay),
       GF3D2<const CCTK_REAL>(layout1, betaz)};
 
-  const smat<GF3D2<const CCTK_REAL>, 3, DN, DN> gf_k1{
+  const smat<GF3D2<const CCTK_REAL>, 3> gf_k1{
       GF3D2<const CCTK_REAL>(layout1, kxx),
       GF3D2<const CCTK_REAL>(layout1, kxy),
       GF3D2<const CCTK_REAL>(layout1, kxz),
@@ -76,12 +76,12 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
   const GF3D2<const CCTK_REAL> gf_dtalpha1(layout1, dtalp);
 
-  const vec<GF3D2<const CCTK_REAL>, 3, UP> gf_dtbeta1{
+  const vec<GF3D2<const CCTK_REAL>, 3> gf_dtbeta1{
       GF3D2<const CCTK_REAL>(layout1, dtbetax),
       GF3D2<const CCTK_REAL>(layout1, dtbetay),
       GF3D2<const CCTK_REAL>(layout1, dtbetaz)};
 
-  const smat<GF3D2<const CCTK_REAL>, 3, DN, DN> gf_dtk1{
+  const smat<GF3D2<const CCTK_REAL>, 3> gf_dtk1{
       GF3D2<const CCTK_REAL>(layout1, dtkxx),
       GF3D2<const CCTK_REAL>(layout1, dtkxy),
       GF3D2<const CCTK_REAL>(layout1, dtkxz),
@@ -91,7 +91,7 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
   const GF3D2<const CCTK_REAL> gf_dt2alpha1(layout1, dt2alp);
 
-  const vec<GF3D2<const CCTK_REAL>, 3, UP> gf_dt2beta1{
+  const vec<GF3D2<const CCTK_REAL>, 3> gf_dt2beta1{
       GF3D2<const CCTK_REAL>(layout1, dt2betax),
       GF3D2<const CCTK_REAL>(layout1, dt2betay),
       GF3D2<const CCTK_REAL>(layout1, dt2betaz)};
@@ -104,11 +104,10 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
   const auto make_gf = [&]() { return GF3D5<CCTK_REAL>(tmps(itmp++)); };
   const auto make_vec = [&](const auto &f) {
-    return vec<result_of_t<decltype(f)()>, 3, DN>([&](int) { return f(); });
+    return vec<result_of_t<decltype(f)()>, 3>([&](int) { return f(); });
   };
   const auto make_mat = [&](const auto &f) {
-    return smat<result_of_t<decltype(f)()>, 3, DN, DN>(
-        [&](int, int) { return f(); });
+    return smat<result_of_t<decltype(f)()>, 3>([&](int, int) { return f(); });
   };
   const auto make_vec_gf = [&]() { return make_vec(make_gf); };
   const auto make_mat_gf = [&]() { return make_mat(make_gf); };
@@ -117,37 +116,34 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
   const auto make_mat_vec_gf = [&]() { return make_mat(make_vec_gf); };
   const auto make_mat_mat_gf = [&]() { return make_mat(make_mat_gf); };
 
-  const smat<GF3D5<CCTK_REAL>, 3, DN, DN> gf_gamma0(make_mat_gf());
-  const smat<vec<GF3D5<CCTK_REAL>, 3, DN>, 3, DN, DN> gf_dgamma0(
-      make_mat_vec_gf());
-  const smat<smat<GF3D5<CCTK_REAL>, 3, DN, DN>, 3, DN, DN> gf_ddgamma0(
-      make_mat_mat_gf());
+  const smat<GF3D5<CCTK_REAL>, 3> gf_gamma0(make_mat_gf());
+  const smat<vec<GF3D5<CCTK_REAL>, 3>, 3> gf_dgamma0(make_mat_vec_gf());
+  const smat<smat<GF3D5<CCTK_REAL>, 3>, 3> gf_ddgamma0(make_mat_mat_gf());
   calc_derivs2(cctkGH, gf_gamma1, gf_gamma0, gf_dgamma0, gf_ddgamma0, layout0);
 
   const GF3D5<CCTK_REAL> gf_alpha0(make_gf());
-  const vec<GF3D5<CCTK_REAL>, 3, DN> gf_dalpha0(make_vec_gf());
-  const smat<GF3D5<CCTK_REAL>, 3, DN, DN> gf_ddalpha0(make_mat_gf());
+  const vec<GF3D5<CCTK_REAL>, 3> gf_dalpha0(make_vec_gf());
+  const smat<GF3D5<CCTK_REAL>, 3> gf_ddalpha0(make_mat_gf());
   calc_derivs2(cctkGH, gf_alpha1, gf_alpha0, gf_dalpha0, gf_ddalpha0, layout0);
 
-  const vec<GF3D5<CCTK_REAL>, 3, UP> gf_beta0(make_vec_gf());
-  const vec<vec<GF3D5<CCTK_REAL>, 3, DN>, 3, UP> gf_dbeta0(make_vec_vec_gf());
-  const vec<smat<GF3D5<CCTK_REAL>, 3, DN, DN>, 3, UP> gf_ddbeta0(
-      make_vec_mat_gf());
+  const vec<GF3D5<CCTK_REAL>, 3> gf_beta0(make_vec_gf());
+  const vec<vec<GF3D5<CCTK_REAL>, 3>, 3> gf_dbeta0(make_vec_vec_gf());
+  const vec<smat<GF3D5<CCTK_REAL>, 3>, 3> gf_ddbeta0(make_vec_mat_gf());
   calc_derivs2(cctkGH, gf_beta1, gf_beta0, gf_dbeta0, gf_ddbeta0, layout0);
 
-  const smat<GF3D5<CCTK_REAL>, 3, DN, DN> gf_k0(make_mat_gf());
-  const smat<vec<GF3D5<CCTK_REAL>, 3, DN>, 3, DN, DN> gf_dk0(make_mat_vec_gf());
+  const smat<GF3D5<CCTK_REAL>, 3> gf_k0(make_mat_gf());
+  const smat<vec<GF3D5<CCTK_REAL>, 3>, 3> gf_dk0(make_mat_vec_gf());
   calc_derivs(cctkGH, gf_k1, gf_k0, gf_dk0, layout0);
 
   const GF3D5<CCTK_REAL> gf_dtalpha0(make_gf());
-  const vec<GF3D5<CCTK_REAL>, 3, DN> gf_ddtalpha0(make_vec_gf());
+  const vec<GF3D5<CCTK_REAL>, 3> gf_ddtalpha0(make_vec_gf());
   calc_derivs(cctkGH, gf_dtalpha1, gf_dtalpha0, gf_ddtalpha0, layout0);
 
-  const vec<GF3D5<CCTK_REAL>, 3, UP> gf_dtbeta0(make_vec_gf());
-  const vec<vec<GF3D5<CCTK_REAL>, 3, DN>, 3, UP> gf_ddtbeta0(make_vec_vec_gf());
+  const vec<GF3D5<CCTK_REAL>, 3> gf_dtbeta0(make_vec_gf());
+  const vec<vec<GF3D5<CCTK_REAL>, 3>, 3> gf_ddtbeta0(make_vec_vec_gf());
   calc_derivs(cctkGH, gf_dtbeta1, gf_dtbeta0, gf_ddtbeta0, layout0);
 
-  const smat<GF3D5<CCTK_REAL>, 3, DN, DN> gf_dtk0(make_mat_gf());
+  const smat<GF3D5<CCTK_REAL>, 3> gf_dtk0(make_mat_gf());
   calc_copy(cctkGH, gf_dtk1, gf_dtk0, layout0);
 
   if (itmp != ntmps)
@@ -157,7 +153,7 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
   //
 
-  const smat<GF3D2<CCTK_REAL>, 4, DN, DN> gf_g41{
+  const smat<GF3D2<CCTK_REAL>, 4> gf_g41{
       GF3D2<CCTK_REAL>(layout1, g4tt), GF3D2<CCTK_REAL>(layout1, g4tx),
       GF3D2<CCTK_REAL>(layout1, g4ty), GF3D2<CCTK_REAL>(layout1, g4tz),
       GF3D2<CCTK_REAL>(layout1, g4xx), GF3D2<CCTK_REAL>(layout1, g4xy),
@@ -277,19 +273,19 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
   //
 
-  // const vec<GF3D2<CCTK_REAL>, 4, UP> gf_l1{
+  // const vec<GF3D2<CCTK_REAL>, 4> gf_l1{
   //     GF3D2<CCTK_REAL>(layout1, lt), GF3D2<CCTK_REAL>(layout1, lx),
   //     GF3D2<CCTK_REAL>(layout1, ly), GF3D2<CCTK_REAL>(layout1, lz)};
 
-  // const vec<GF3D2<CCTK_REAL>, 4, UP> gf_n1{
+  // const vec<GF3D2<CCTK_REAL>, 4> gf_n1{
   //     GF3D2<CCTK_REAL>(layout1, nt), GF3D2<CCTK_REAL>(layout1, nx),
   //     GF3D2<CCTK_REAL>(layout1, ny), GF3D2<CCTK_REAL>(layout1, nz)};
 
-  // const vec<GF3D2<CCTK_REAL>, 4, UP> gf_mre1{
+  // const vec<GF3D2<CCTK_REAL>, 4> gf_mre1{
   //     GF3D2<CCTK_REAL>(layout1, mret), GF3D2<CCTK_REAL>(layout1, mrex),
   //     GF3D2<CCTK_REAL>(layout1, mrey), GF3D2<CCTK_REAL>(layout1, mrez)};
 
-  // const vec<GF3D2<CCTK_REAL>, 4, UP> gf_mim1{
+  // const vec<GF3D2<CCTK_REAL>, 4> gf_mim1{
   //     GF3D2<CCTK_REAL>(layout1, mimt), GF3D2<CCTK_REAL>(layout1, mimx),
   //     GF3D2<CCTK_REAL>(layout1, mimy), GF3D2<CCTK_REAL>(layout1, mimz)};
 
@@ -348,13 +344,12 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
   //
 
-  const smat<GF3D5<CCTK_REAL>, 4, DN, DN> gf_g45(
-      std::array<GF3D5<CCTK_REAL>, 10>{
-          GF3D5<CCTK_REAL>(layout5, g4tt), GF3D5<CCTK_REAL>(layout5, g4tx),
-          GF3D5<CCTK_REAL>(layout5, g4ty), GF3D5<CCTK_REAL>(layout5, g4tz),
-          GF3D5<CCTK_REAL>(layout5, g4xx), GF3D5<CCTK_REAL>(layout5, g4xy),
-          GF3D5<CCTK_REAL>(layout5, g4xz), GF3D5<CCTK_REAL>(layout5, g4yy),
-          GF3D5<CCTK_REAL>(layout5, g4yz), GF3D5<CCTK_REAL>(layout5, g4zz)});
+  const smat<GF3D5<CCTK_REAL>, 4> gf_g45(std::array<GF3D5<CCTK_REAL>, 10>{
+      GF3D5<CCTK_REAL>(layout5, g4tt), GF3D5<CCTK_REAL>(layout5, g4tx),
+      GF3D5<CCTK_REAL>(layout5, g4ty), GF3D5<CCTK_REAL>(layout5, g4tz),
+      GF3D5<CCTK_REAL>(layout5, g4xx), GF3D5<CCTK_REAL>(layout5, g4xy),
+      GF3D5<CCTK_REAL>(layout5, g4xz), GF3D5<CCTK_REAL>(layout5, g4yy),
+      GF3D5<CCTK_REAL>(layout5, g4yz), GF3D5<CCTK_REAL>(layout5, g4zz)});
 
   const GF3D5<CCTK_REAL> gf_Psi0re5(layout5, Psi0re);
   const GF3D5<CCTK_REAL> gf_Psi0im5(layout5, Psi0im);
@@ -387,9 +382,9 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
           // Load and calculate
 
-          const auto id3 = one<smat<int, 3, DN, DN> >()();
+          const auto id3 = one<smat<int, 3> >()();
 
-          const vec<vreal, 3, UP> coord3(
+          const vec<vreal, 3> coord3(
               [&](int d) { return p.X[d] + iota<vreal>() * p.DX[d]; });
 
           const weyl_vars<vreal> vars(
@@ -577,7 +572,7 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         // Load and calculate
 
-        const vec3<CCTK_REAL, UP> coord3{p.x, p.y, p.z};
+        const vec3<CCTK_REAL> coord3{p.x, p.y, p.z};
 
         const weyl_vars<CCTK_REAL> vars(
             cctk_time, coord3, //
@@ -763,10 +758,9 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
 #else
 
-  const mat4<GF3D5<CCTK_REAL>, DN, DN> gf_g0(make_mat_gf());
-  const mat4<vec4<GF3D5<CCTK_REAL>, DN>, DN, DN> gf_dg0(make_mat_vec_gf());
-  const mat4<smat4<GF3D5<CCTK_REAL>, DN, DN>, DN, DN> gf_ddg0(
-      make_mat_mat_gf());
+  const mat4<GF3D5<CCTK_REAL> > gf_g0(make_mat_gf());
+  const mat4<vec4<GF3D5<CCTK_REAL> > > gf_dg0(make_mat_vec_gf());
+  const mat4<smat4<GF3D5<CCTK_REAL> > > gf_ddg0(make_mat_mat_gf());
 
   const Loop::GridDescBaseDevice grid(cctkGH);
   grid.loop_int_device<0, 0, 0>(
@@ -776,7 +770,7 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
         // Load and calculate
 
-        const vec3<CCTK_REAL, UP> coord3{p.x, p.y, p.z};
+        const vec3<CCTK_REAL> coord3{p.x, p.y, p.z};
 
         const weyl_vars<CCTK_REAL> vars(
             cctk_time, coord3, //
@@ -815,18 +809,18 @@ extern "C" void Weyl_Weyl(CCTK_ARGUMENTS) {
 
         // Load and calculate
 
-        const vec4<CCTK_REAL, UP> coord{cctk_time, p.x, p.y, p.z};
+        const vec4<CCTK_REAL> coord{cctk_time, p.x, p.y, p.z};
 
         const weyl_vars<CCTK_REAL> vars(
             coord, //
-            mat4<CCTK_REAL, DN, DN>(
+            mat4<CCTK_REAL>(
                 [&](int a, int b) { return gf_g0(a, b)(layout0, p.I); }),
-            mat4<vec4<CCTK_REAL, DN>, DN, DN>([&](int a, int b) {
-              return vec4<CCTK_REAL, DN>(
+            mat4<vec4<CCTK_REAL> >([&](int a, int b) {
+              return vec4<CCTK_REAL>(
                   [&](int c) { return gf_dg0(a, b)(c)(layout0, p.I); });
             }),
-            mat4<smat4<CCTK_REAL, DN, DN>, DN, DN>([&](int a, int b) {
-              return mat4<CCTK_REAL, DN, DN>([&](int c, int d) {
+            mat4<smat4<CCTK_REAL> >([&](int a, int b) {
+              return mat4<CCTK_REAL>([&](int c, int d) {
                 return gf_ddg0(a, b)(c, d)(layout0, p.I);
               });
             }));

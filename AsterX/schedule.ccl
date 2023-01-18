@@ -6,6 +6,22 @@ STORAGE: densrhs momrhs taurhs Avec_x_rhs Avec_y_rhs Avec_z_rhs Psi_rhs
 STORAGE: ADMBase::metric ADMBase::lapse ADMBase::shift ADMBase::curv
 STORAGE: Aux_in_RHSof_A_Psi
 
+
+if(unit_test)
+{
+  SCHEDULE AsterX_Test AT wragh
+  {
+    LANG: C
+    OPTIONS: meta
+  } "Self-test"
+}
+
+SCHEDULE AsterX_EstimateError_Setup AT wragh
+{
+  LANG: C
+  OPTIONS: GLOBAL
+} "set up for calculating regrid error"
+
 # Initial conditions
 
 SCHEDULE AsterX_ComputedBstagFromA AT initial AFTER HydroBase_PostInitial BEFORE AsterX_ComputedBFromdBstag
@@ -87,12 +103,37 @@ SCHEDULE AsterX_Con2Prim IN ODESolvers_RHS BEFORE AsterX_EstimateError
   READS: dens(interior) tau(interior) mom(interior) dB(interior)
   READS: saved_prims(interior)
   READS: Avec_x(interior) Avec_y(interior) Avec_z(interior)
+  WRITES: con2prim_flag(interior)
   WRITES: HydroBase::rho(interior) HydroBase::vel(interior) HydroBase::eps(interior) HydroBase::press(interior) HydroBase::Bvec(interior)
   WRITES: saved_prims(interior)
   WRITES: dens(interior) tau(interior) mom(interior)
+  SYNC: con2prim_flag
   SYNC: HydroBase::rho HydroBase::vel HydroBase::eps HydroBase::press HydroBase::Bvec
   SYNC: saved_prims
+  SYNC: dens tau mom
 } "Calculate primitive variables from conservative variables"
+
+if (interpolate_failed_c2p)
+{
+  SCHEDULE AsterX_Con2Prim_Interpolate_Failed IN ODESolvers_RHS BEFORE AsterX_Fluxes
+  AFTER AsterX_Con2Prim
+  {
+    LANG: C
+    READS: ADMBase::metric(interior)
+    READS: con2prim_flag(interior)
+    READS: HydroBase::rho(interior) HydroBase::vel(interior) HydroBase::eps(interior) HydroBase::press(interior) HydroBase::Bvec(interior)
+    READS: saved_prims(interior)
+    READS: dens(interior) tau(interior) mom(interior)
+    WRITES: con2prim_flag(interior)
+    WRITES: HydroBase::rho(interior) HydroBase::vel(interior) HydroBase::eps(interior) HydroBase::press(interior)
+    WRITES: saved_prims(interior)
+    WRITES: dens(interior) tau(interior) mom(interior)
+    SYNC: con2prim_flag
+    SYNC: HydroBase::rho HydroBase::vel HydroBase::eps HydroBase::press
+    SYNC: saved_prims
+    SYNC: dens tau mom
+  } "Interpolate those grid points where con2prim failed"
+}
   
 SCHEDULE AsterX_Fluxes IN ODESolvers_RHS AFTER AsterX_Con2Prim
 {
@@ -119,7 +160,8 @@ SCHEDULE AsterX_SourceTerms IN ODESolvers_RHS AFTER AsterX_Fluxes
   READS: ADMBase::curv(everywhere)
   READS: HydroBase::rho(everywhere) HydroBase::vel(everywhere) HydroBase::press(everywhere) HydroBase::eps(everywhere)
   READS: HydroBase::Bvec(everywhere)
-  WRITES: densrhs(everywhere) taurhs(everywhere) momrhs(everywhere)
+  WRITES: densrhs(interior) taurhs(interior) momrhs(interior)
+  SYNC: densrhs taurhs momrhs
 } "Calculate the source terms and compute the RHS of the hydro equations"
 
 SCHEDULE AsterX_RHS IN ODESolvers_RHS AFTER AsterX_SourceTerms
@@ -139,5 +181,5 @@ SCHEDULE AsterX_Sync IN ODESolvers_PostStep
 {
   LANG: C
   OPTIONS: global
-  SYNC: dens tau mom
+  SYNC: dens tau mom Avec_x Avec_y Avec_z Psi
 } "Synchronize"

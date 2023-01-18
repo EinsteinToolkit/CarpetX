@@ -1,7 +1,6 @@
 #ifndef IO_ADIOS2_HXX
 #define IO_ADIOS2_HXX
 
-#include <fixmath.hxx>
 #include <cctk.h>
 
 #ifdef HAVE_CAPABILITY_ADIOS2

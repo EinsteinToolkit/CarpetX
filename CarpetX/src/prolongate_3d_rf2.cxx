@@ -1,7 +1,6 @@
 #include "prolongate_3d_rf2.hxx"
 #include "timer.hxx"
 
-#include <fixmath.hxx>
 #include <cctk.h>
 #include <cctk_Parameters.h>
 
@@ -658,19 +657,19 @@ prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
                                      const amrex::IntVect &ratio) {
 #warning "TODO"
 #if 0
-  bool error=false;
+  bool error = false;
   for (int d = 0; d < dim; ++d)
     error |= !(fine.type(d) == (indextype()[d] == 0 ? amrex::IndexType::NODE
-                                : amrex::IndexType::CELL));
-  if(error)
-    CCTK_VERROR("CENT:%d%d%d CONS:%d%d%d ORDER:%d%d%d fine.type:%d%d%d indextype:%d%d%d",
-                int(CENTI),int(CENTJ),int(CENTK),
-                int(CONSI),int(CONSJ),int(CONSK),
-                int(ORDERI),int(ORDERJ),int(ORDERK),
-                int(fine.type(0)==amrex::IndexType::CELL),
-                int(fine.type(1)==amrex::IndexType::CELL),
-                int(fine.type(2)==amrex::IndexType::CELL),
-                int(indextype()[0]),int(indextype()[1]),int(indextype()[2]));
+                                                    : amrex::IndexType::CELL));
+  if (error)
+    CCTK_VERROR("CENT:%d%d%d CONS:%d%d%d ORDER:%d%d%d fine.type:%d%d%d "
+                "indextype:%d%d%d",
+                int(CENTI), int(CENTJ), int(CENTK), int(CONSI), int(CONSJ),
+                int(CONSK), int(ORDERI), int(ORDERJ), int(ORDERK),
+                int(fine.type(0) == amrex::IndexType::CELL),
+                int(fine.type(1) == amrex::IndexType::CELL),
+                int(fine.type(2) == amrex::IndexType::CELL),
+                int(indextype()[0]), int(indextype()[1]), int(indextype()[2]));
   for (int d = 0; d < dim; ++d)
     assert(fine.type(d) == (indextype()[d] == 0 ? amrex::IndexType::NODE
                                                 : amrex::IndexType::CELL));
@@ -720,7 +719,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
 
   for (int d = 0; d < dim; ++d)
     assert(ratio.getVect()[d] == 2);
-    // ??? assert(gpu_or_cpu == RunOn::Cpu);
+  // ??? assert(gpu_or_cpu == RunOn::Cpu);
 
   assert(actual_comp == 0);  // ???
   assert(actual_state == 0); // ???

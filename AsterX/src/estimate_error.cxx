@@ -3,111 +3,116 @@
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
+#include <util_Table.h>
 
 #include <algorithm>
 #include <cmath>
 
+#include "estimate_error.hxx"
+
 namespace AsterX {
 using namespace std;
-using namespace Loop;
 
-enum class regrid_t {
-  first_deriv_all,
-  first_deriv_rho,
-  second_deriv_rho,
-  first_grad_rho
-};
+enum class regrid_t { first_deriv, second_deriv, first_grad };
+regrid_t regridMethod;
+vector<int> regridVarsI;
+vector<array<int, Loop::dim> > indextypeRegridVars;
 
-/* calculate max of d(var)/(dx) * hx in all dirs */
-template <typename T>
-CCTK_DEVICE CCTK_HOST const T calc_grad_1st(const GF3D2<const T> &gf,
-                                            const PointDesc &p) {
-  constexpr auto DI = PointDesc::DI;
-  CCTK_REAL err{0}, errp{0}, errm{0};
-  for (int d = 0; d < dim; ++d) {
-    auto varm = gf(p.I - DI[d]);
-    auto var0 = gf(p.I);
-    auto varp = gf(p.I + DI[d]);
-    errp += (varp - var0) * (varp - var0);
-    errm += (var0 - varm) * (var0 - varm);
+extern "C" void AsterX_EstimateError_Setup(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_PARAMETERS;
+
+  vector<string> regridGroups;
+  istringstream groupStream(regrid_groups);
+  read_stream(regridGroups, groupStream);
+  regridVarsI.clear();
+  indextypeRegridVars.clear();
+  for (size_t g = 0; g < regridGroups.size(); g++) {
+    const int firstVarI = CCTK_FirstVarIndex(regridGroups[g].c_str());
+    const int numVars = CCTK_NumVarsInGroup(regridGroups[g].c_str());
+    const int gi = CCTK_GroupIndex(regridGroups[g].c_str());
+    assert(firstVarI >= 0);
+    assert(numVars >= 0);
+    for (int i = 0; i < numVars; i++) {
+      regridVarsI.push_back(firstVarI + i);
+      indextypeRegridVars.push_back(get_group_indextype(gi));
+    }
   }
-  err = max({errp, errm});
-  return sqrt(err);
-}
 
-/* calculate max of d(var)/(dx) * hx in all dirs */
-template <typename T>
-CCTK_DEVICE CCTK_HOST const T calc_deriv_1st(const GF3D2<const T> &gf,
-                                             const PointDesc &p) {
-  constexpr auto DI = PointDesc::DI;
-  CCTK_REAL err{0};
-  for (int d = 0; d < dim; ++d) {
-    auto varm = gf(p.I - DI[d]);
-    auto var0 = gf(p.I);
-    auto varp = gf(p.I + DI[d]);
-    err = max({err, fabs(var0 - varm), fabs(varp - var0)});
+  /* check refinement method */
+  if (CCTK_EQUALS(regrid_method, "first derivative"))
+    regridMethod = regrid_t::first_deriv;
+  else if (CCTK_EQUALS(regrid_method, "second derivative"))
+    regridMethod = regrid_t::second_deriv;
+  else if (CCTK_EQUALS(regrid_method, "first gradient"))
+    regridMethod = regrid_t::first_grad;
+  else
+    CCTK_ERROR("Unknown value for parameter \"regrid_method\"");
+
+  /* print infos about regird error calculation */
+  CCTK_VInfo(CCTK_THORNSTRING,
+             "Regrid error will be calculated based on %ld vars (method %d):",
+             regridVarsI.size(), int(regridMethod));
+  ostringstream buf;
+  for (size_t i = 0; i < regridVarsI.size(); i++) {
+    buf << "  " << CCTK_VarName(regridVarsI[i]);
+    CCTK_VInfo(CCTK_THORNSTRING, buf.str().c_str());
+    buf.str("");
+    buf.clear();
   }
-  return err;
 }
-
-/* calculate max of d^2(var)/(dx^2) * hx^2 in all dirs */
-template <typename T>
-CCTK_DEVICE CCTK_HOST const T calc_deriv_2nd(const GF3D2<const T> &gf,
-                                             const PointDesc &p) {
-  constexpr auto DI = PointDesc::DI;
-  CCTK_REAL err{0};
-  for (int d = 0; d < dim; ++d) {
-    auto varm = gf(p.I - DI[d]);
-    auto var0 = gf(p.I);
-    auto varp = gf(p.I + DI[d]);
-    err = max({err, fabs(varp + varm - 2.0 * var0)});
-  }
-  return err;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 extern "C" void AsterX_EstimateError(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_AsterX_EstimateError;
   DECLARE_CCTK_PARAMETERS;
 
-  regrid_t regrid;
-  if (CCTK_EQUALS(regrid_method, "1st deriv"))
-    regrid = regrid_t::first_deriv_all;
-  else if (CCTK_EQUALS(regrid_method, "1st deriv of rho"))
-    regrid = regrid_t::first_deriv_rho;
-  else if (CCTK_EQUALS(regrid_method, "2nd deriv of rho"))
-    regrid = regrid_t::second_deriv_rho;
-  else if (CCTK_EQUALS(regrid_method, "1st grad of rho"))
-    regrid = regrid_t::first_grad_rho;
-  else
-    CCTK_ERROR("Unknown value for parameter \"regrid_method\"");
+  Loop::GF3D2<const CCTK_REAL> *regridVars =
+      (Loop::GF3D2<const CCTK_REAL> *)amrex::The_Arena()->alloc(
+          regridVarsI.size() * sizeof(Loop::GF3D2<const CCTK_REAL>));
 
+  const int tl = 0;
+  const int maxNregridVars = 10;
+  //array<Loop::GF3D2<const CCTK_REAL>, maxNregridVars> regridVars = {
+  //    rho, rho, rho, rho, rho, rho, rho, rho, rho, rho};
+  const int NregridVars = regridVarsI.size();
+  assert(NregridVars < maxNregridVars);
+  for (int i = 0; i < NregridVars; i++) {
+    const Loop::GF3D2layout layout(cctkGH, indextypeRegridVars[i]);
+    const Loop::GF3D2<const CCTK_REAL> gf(
+        layout,
+        static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, tl, regridVarsI[i])));
+    regridVars[i] = gf;
+  }
+
+  auto regridMethod_local = regridMethod;
   grid.loop_int_device<1, 1, 1>(
       grid.nghostzones,
-      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        switch (regrid) {
+      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        switch (regridMethod_local) {
 
-        case regrid_t::first_deriv_all: {
-          regrid_error(p.I) =
-              max({calc_deriv_1st(rho, p), calc_deriv_1st(velx, p),
-                   calc_deriv_1st(vely, p), calc_deriv_1st(velz, p),
-                   calc_deriv_1st(eps, p), calc_deriv_1st(press, p)});
+        case regrid_t::first_deriv: {
+          regrid_error(p.I) = 0.0;
+          for (int i = 0; i < NregridVars; i++) {
+            regrid_error(p.I) =
+                max({regrid_error(p.I), calc_deriv_1st(regridVars[i], p)});
+          }
           break;
         }
 
-        case regrid_t::first_deriv_rho: {
-          regrid_error(p.I) = calc_deriv_1st(rho, p);
+        case regrid_t::second_deriv: {
+          regrid_error(p.I) = 0.0;
+          for (int i = 0; i < NregridVars; i++) {
+            regrid_error(p.I) =
+                max({regrid_error(p.I), calc_deriv_2nd(regridVars[i], p)});
+          }
           break;
         }
 
-        case regrid_t::second_deriv_rho: {
-          regrid_error(p.I) = calc_deriv_2nd(rho, p);
-          break;
-        }
-
-        case regrid_t::first_grad_rho: {
-          regrid_error(p.I) = calc_grad_1st(rho, p);
+        case regrid_t::first_grad: {
+          regrid_error(p.I) = 0.0;
+          for (int i = 0; i < NregridVars; i++) {
+            regrid_error(p.I) =
+                max({regrid_error(p.I), calc_grad_1st(regridVars[i], p)});
+          }
           break;
         }
 
@@ -115,6 +120,9 @@ extern "C" void AsterX_EstimateError(CCTK_ARGUMENTS) {
           assert(0);
         }
       });
+
+  amrex::Gpu::Device::streamSynchronize();
+  amrex::The_Arena()->free(regridVars);
 }
 
 } // namespace AsterX

@@ -77,41 +77,40 @@ struct PatchTransformations {
   PatchTransformations &operator=(const PatchTransformations &) = default;
   PatchTransformations &operator=(PatchTransformations &&) = default;
 
-  std_tuple<int, vec<CCTK_REAL, dim, UP> > (*global2local)(
-      const PatchTransformations &pt, const vec<CCTK_REAL, dim, UP> &x) = 0;
+  std_tuple<int, vec<CCTK_REAL, dim> > (*global2local)(
+      const PatchTransformations &pt, const vec<CCTK_REAL, dim> &x) = 0;
 
-  vec<CCTK_REAL, dim, UP> (*local2global)(const PatchTransformations &pt,
-                                          int patch,
-                                          const vec<CCTK_REAL, dim, UP> &a) = 0;
+  vec<CCTK_REAL, dim> (*local2global)(const PatchTransformations &pt, int patch,
+                                      const vec<CCTK_REAL, dim> &a) = 0;
 
   // Calculating global derivatives d/dx from local derivatives d/da
   // requires the Jacobian da/dx, and also its derivative d^2/dx^2 for
   // second derivatives
 
   // da/dx[i,j] = da[i] / dx[j]
-  std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP> > (
+  std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim> > (
       *dlocal_dglobal)(const PatchTransformations &pt, int patch,
-                       const vec<CCTK_REAL, dim, UP> &a) = 0;
+                       const vec<CCTK_REAL, dim> &a) = 0;
 
   // d^2a/dx^2[i,j,k] = d^2a[i] / dx^2[j,k]
-  std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP>,
-            vec<smat<CCTK_REAL, dim, DN, DN>, dim, UP> > (*d2local_dglobal2)(
+  std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim>,
+            vec<smat<CCTK_REAL, dim>, dim> > (*d2local_dglobal2)(
       const PatchTransformations &pt, int patch,
-      const vec<CCTK_REAL, dim, UP> &a) = 0;
+      const vec<CCTK_REAL, dim> &a) = 0;
 
   // Device functions mirroring the function above
-  std_tuple<int, vec<CCTK_REAL, dim, UP> > (*global2local_device)(
-      const PatchTransformations &pt, const vec<CCTK_REAL, dim, UP> &x) = 0;
-  vec<CCTK_REAL, dim, UP> (*local2global_device)(
-      const PatchTransformations &pt, int patch,
-      const vec<CCTK_REAL, dim, UP> &a) = 0;
-  std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP> > (
+  std_tuple<int, vec<CCTK_REAL, dim> > (*global2local_device)(
+      const PatchTransformations &pt, const vec<CCTK_REAL, dim> &x) = 0;
+  vec<CCTK_REAL, dim> (*local2global_device)(const PatchTransformations &pt,
+                                             int patch,
+                                             const vec<CCTK_REAL, dim> &a) = 0;
+  std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim> > (
       *dlocal_dglobal_device)(const PatchTransformations &pt, int patch,
-                              const vec<CCTK_REAL, dim, UP> &a) = 0;
-  std_tuple<vec<CCTK_REAL, dim, UP>, vec<vec<CCTK_REAL, dim, DN>, dim, UP>,
-            vec<smat<CCTK_REAL, dim, DN, DN>, dim, UP> > (
-      *d2local_dglobal2_device)(const PatchTransformations &pt, int patch,
-                                const vec<CCTK_REAL, dim, UP> &a) = 0;
+                              const vec<CCTK_REAL, dim> &a) = 0;
+  std_tuple<vec<CCTK_REAL, dim>, vec<vec<CCTK_REAL, dim>, dim>,
+            vec<smat<CCTK_REAL, dim>, dim> > (*d2local_dglobal2_device)(
+      const PatchTransformations &pt, int patch,
+      const vec<CCTK_REAL, dim> &a) = 0;
 };
 
 struct PatchSystem {

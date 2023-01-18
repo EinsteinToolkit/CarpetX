@@ -1,0 +1,132 @@
+###############################
+# Simple test of magnetised TOV neutron star
+# Same neutron star as the gallery example
+# K=100, rho_c = 1.28e-3 => M = 1.4, M_b = 1.506
+# evolve for t = 48.82 M
+##############################
+ActiveThorns = "
+    ADIOS
+    ADMBase
+    CarpetX
+    HydroBase
+    IOUtil
+    ODESolvers
+    SystemTopology
+    TimerReport
+    TmunuBase
+    AsterX
+    AsterSeeds
+"
+
+$nlevels	= 1
+$ncells 	=  101
+#$max_p		=  100
+#$max_m 		=  0
+
+CarpetX::verbose = no
+
+Cactus::presync_mode = "mixed-error"
+CarpetX::poison_undefined_values = no
+
+CarpetX::xmin = -15
+CarpetX::ymin = -15
+CarpetX::zmin = -15
+
+CarpetX::xmax = 15
+CarpetX::ymax = 15
+CarpetX::zmax = 15
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::boundary_x =  "neumann"
+CarpetX::boundary_y =  "neumann"
+CarpetX::boundary_z =  "neumann"
+CarpetX::boundary_upper_x =  "neumann"
+CarpetX::boundary_upper_y =  "neumann"
+CarpetX::boundary_upper_z =  "neumann"
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 100000
+CarpetX::blocking_factor_x = 1
+CarpetX::blocking_factor_y = 1
+CarpetX::blocking_factor_z = 1
+
+
+# the regrid_error_threshold should be in the same units of the 
+# parameter in comparison, see AsterX/src/estimate_error.cxx 
+# for which parameter to use
+CarpetX::regrid_error_threshold = 5.0e-5
+
+CarpetX::prolongation_type = "ddf"
+CarpetX::ghost_size = 2
+CarpetX::dtfac = 0.25
+
+#ADMBase::set_adm_variables_during_evolution = "yes"
+ADMBase::initial_data       = "tov"
+ADMBase::initial_lapse      = "tov"
+ADMBase::initial_shift      = "tov"
+ADMBase::initial_dtlapse    = "zero"
+ADMBase::initial_dtshift    = "zero"
+
+HydroBase::initial_hydro = "tov"
+
+ActiveThorns = "TOVSolver"
+TOVSolver::TOV_Rho_Central[0] = 1.28e-3
+TOVSolver::TOV_Gamma          = 2.0
+TOVSolver::TOV_K              = 100.0
+#TOVSolver::TOV_save_to_datafile = "save.txt"
+TOVSolver::TOV_Cowling = yes
+
+#AsterSeeds::Afield_config = "internal dipole"
+#AsterSeeds::Ab = 100.0
+#AsterSeeds::press_cut = 0.04
+#AsterSeeds::press_max = 1.638e-4
+#AsterSeeds::Avec_kappa = 2.0
+
+AsterSeeds::Afield_config = "external dipole"
+AsterSeeds::B0 = 1e-7
+AsterSeeds::r0 = 5.0
+
+AsterX::gamma = 2.0
+AsterX::poly_K = 100.0
+AsterX::rho_abs_min = 1e-11
+AsterX::atmo_tol = 1e-3
+AsterX::reconstruction_method = "minmod"
+AsterX::max_iter = 100
+AsterX::c2p_tol = 1e-10
+
+Cactus::terminate = "iteration"
+Cactus::cctk_itlast = 10000000
+ODESolvers::method = "RK4"
+
+IO::out_dir = $parfile
+IO::out_every = 10
+CarpetX::out_silo_vars = "
+#    AsterX::Avec_x
+#    AsterX::Avec_y
+#    AsterX::Avec_z
+    AsterX::dB
+    HydroBase::Bvec
+    HydroBase::rho
+    HydroBase::vel
+    HydroBase::eps
+    HydroBase::press
+    CarpetX::regrid_error
+    ADMBase::lapse
+    ADMBase::shift
+    ADMBase::metric
+"
+CarpetX::out_tsv_vars = "
+    AsterX::dB
+    HydroBase::Bvec
+    HydroBase::eps
+    HydroBase::press
+    CarpetX::regrid_error
+"
+TimerReport::out_every = 100
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_all_timers_together = yes
+TimerReport::output_all_timers_readable = yes
+TimerReport::n_top_timers = 50

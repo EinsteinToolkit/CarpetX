@@ -5,7 +5,7 @@
 #include "simd.hxx"
 #include "vect.hxx"
 
-#include "vec.hxx" // for dnup_t, symm_t
+#include "vec.hxx" // for symm_t
 
 #include <fixmath.hxx> // include this before <cctk.h>
 #include <cctk.h>
@@ -25,10 +25,7 @@ using namespace std;
 // A matrix, i.e. a rank-2 tensor. It can have no symmetry (full
 // storage), or be symmetric, or anti-symmetric.
 // Elements are stored in row-major order (standard C order).
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, symm_t symm>
-struct gmat {
-  static_assert(symm == symm_t::full || dnup1 == dnup2, "");
-
+template <typename T, int D, symm_t symm> struct gmat {
   constexpr static int Nfull = D * D;
   constexpr static int Nsymm = D * (D + 1) / 2;
   constexpr static int Nanti = D * (D - 1) / 2;
@@ -98,8 +95,7 @@ public:
   constexpr ARITH_INLINE gmat &operator=(gmat &&) = default;
 
   template <typename U>
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-  gmat(gmat<U, D, dnup1, dnup2, symm> x)
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(gmat<U, D, symm> x)
       : elts(std::move(x.elts)) {}
 
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(initializer_list<T> x)
@@ -146,61 +142,51 @@ public:
     return r;
   }
 
-  static constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<int, D, dnup1, dnup2, symm>
-      iota() {
-    gmat<int, D, dnup1, dnup2, symm> r;
-    gmat<int, D, dnup1, dnup2, symm>::loop([&](int i, int j) {
-      r(i, j) = {i, j};
-    });
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<int, D, symm>
+  iota() {
+    gmat<int, D, symm> r;
+    gmat<int, D, symm>::loop([&](int i, int j) { r(i, j) = {i, j}; });
     return r;
   }
-  static constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<int, D, dnup1, dnup2, symm>
-      iota1() {
-    gmat<int, D, dnup1, dnup2, symm> r;
-    gmat<int, D, dnup1, dnup2, symm>::loop(
-        [&](int i, int j) { r.set(i, j, i); });
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<int, D, symm>
+  iota1() {
+    gmat<int, D, symm> r;
+    gmat<int, D, symm>::loop([&](int i, int j) { r.set(i, j, i); });
     return r;
   }
-  static constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<int, D, dnup1, dnup2, symm>
-      iota2() {
-    gmat<int, D, dnup1, dnup2, symm> r;
-    gmat<int, D, dnup1, dnup2, symm>::loop(
-        [&](int i, int j) { r.set(i, j, j); });
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<int, D, symm>
+  iota2() {
+    gmat<int, D, symm> r;
+    gmat<int, D, symm>::loop([&](int i, int j) { r.set(i, j, j); });
     return r;
   }
 
   template <typename F, typename... Args,
             typename R =
                 remove_cv_t<remove_reference_t<result_of_t<F(T, Args...)> > > >
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, dnup1, dnup2, symm>
-      fmap(const F &f, const gmat &x,
-           const gmat<Args, D, dnup1, dnup2, symm> &...args) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, symm>
+  fmap(const F &f, const gmat &x, const gmat<Args, D, symm> &...args) {
     return fmap(f, x.elts, args.elts...);
   }
   template <typename F, typename... Args>
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST void
-  fmap_(const F &f, const gmat &x,
-        const gmat<Args, D, dnup1, dnup2, symm> &...args) {
+  fmap_(const F &f, const gmat &x, const gmat<Args, D, symm> &...args) {
     fmap_(f, x.elts, args.elts...);
   }
 
   template <
       typename... Args,
       typename R = remove_cv_t<remove_reference_t<result_of_t<T(Args...)> > > >
-  ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, dnup1, dnup2, symm>
+  ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, symm>
   operator()(const Args &...args) const {
     return fmap([&](const T &var) { return var(args...); }, *this);
   }
   template <typename Arg1, typename Arg2, typename U, typename T1 = T,
             typename R = remove_cv_t<
                 remove_reference_t<result_of_t<T(Arg1, Arg2, U)> > > >
-  ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, dnup1, dnup2, symm>
+  ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, symm>
   operator()(const Arg1 &arg1, const Arg2 &arg2,
-             const gmat<U, D, dnup1, dnup2, symm> &val) const {
+             const gmat<U, D, symm> &val) const {
     return fmap([&](const T &var, const U &x) { return var(arg1, arg2, x); },
                 *this, val);
   }
@@ -208,7 +194,7 @@ public:
   //           typename = decltype(declval<T1>().store(declval<Args>()...,
   //                                                   declval<U>()))>
   // ARITH_INLINE ARITH_DEVICE ARITH_HOST void store(const Args &...args,
-  //                         const gmat<U, D, dnup1, dnup2, symm> &val) const {
+  //                         const gmat<U, D, symm> &val) const {
   //   fmap_([&](const auto &var, const auto &x) { return var.store(args..., x);
   //   },
   //        val);
@@ -217,8 +203,7 @@ public:
             typename = decltype(declval<T1>().store(
                 declval<Arg1>(), declval<Arg2>(), declval<U>()))>
   ARITH_INLINE ARITH_DEVICE ARITH_HOST void
-  store(const Arg1 &arg1, const Arg2 &arg2,
-        const gmat<U, D, dnup1, dnup2, symm> &val) const {
+  store(const Arg1 &arg1, const Arg2 &arg2, const gmat<U, D, symm> &val) const {
     fmap_([&](const T &var, const U &x) { return var.store(arg1, arg2, x); },
           *this, val);
   }
@@ -248,46 +233,36 @@ public:
     return elts[ind(i, j)];
   }
 
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, dnup1, dnup2, symm>
-      operator+(const gmat<T, D, dnup1, dnup2, symm> &x) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, symm>
+  operator+(const gmat<T, D, symm> &x) {
     return {+x.elts};
   }
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, dnup1, dnup2, symm>
-      operator-(const gmat<T, D, dnup1, dnup2, symm> &x) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, symm>
+  operator-(const gmat<T, D, symm> &x) {
     return {-x.elts};
   }
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, dnup1, dnup2, symm>
-      operator+(const gmat<T, D, dnup1, dnup2, symm> &x,
-                const gmat<T, D, dnup1, dnup2, symm> &y) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, symm>
+  operator+(const gmat<T, D, symm> &x, const gmat<T, D, symm> &y) {
     return {x.elts + y.elts};
   }
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, dnup1, dnup2, symm>
-      operator-(const gmat<T, D, dnup1, dnup2, symm> &x,
-                const gmat<T, D, dnup1, dnup2, symm> &y) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, symm>
+  operator-(const gmat<T, D, symm> &x, const gmat<T, D, symm> &y) {
     return {x.elts - y.elts};
   }
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, dnup1, dnup2, symm>
-      operator*(const T &a, const gmat<T, D, dnup1, dnup2, symm> &x) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, symm>
+  operator*(const T &a, const gmat<T, D, symm> &x) {
     return {a * x.elts};
   }
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, dnup1, dnup2, symm>
-      operator*(const gmat<T, D, dnup1, dnup2, symm> &x, const T &a) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, symm>
+  operator*(const gmat<T, D, symm> &x, const T &a) {
     return {x.elts * a};
   }
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, dnup1, dnup2, symm>
-      operator/(const gmat<T, D, dnup1, dnup2, symm> &x, const T &a) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, symm>
+  operator/(const gmat<T, D, symm> &x, const T &a) {
     return {x.elts / a};
   }
-  friend constexpr
-      ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, dnup1, dnup2, symm>
-      operator%(const gmat<T, D, dnup1, dnup2, symm> &x, const T &a) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<T, D, symm>
+  operator%(const gmat<T, D, symm> &x, const T &a) {
     return {x.elts % a};
   }
 
@@ -310,13 +285,11 @@ public:
   }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator==(const gmat<T, D, dnup1, dnup2, symm> &x,
-             const gmat<T, D, dnup1, dnup2, symm> &y) {
+  operator==(const gmat<T, D, symm> &x, const gmat<T, D, symm> &y) {
     return all(x.elts == y.elts);
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator!=(const gmat<T, D, dnup1, dnup2, symm> &x,
-             const gmat<T, D, dnup1, dnup2, symm> &y) {
+  operator!=(const gmat<T, D, symm> &x, const gmat<T, D, symm> &y) {
     return !(x == y);
   }
 
@@ -340,8 +313,8 @@ public:
     return anyisnan(x.elts);
   }
 
-  friend constexpr ARITH_INLINE ARITH_DEVICE
-      ARITH_HOST auto /*gmat<bool, D, dnup1, dnup2, symm>*/
+  friend constexpr
+      ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*gmat<bool, D, symm>*/
       isnan(const gmat &x) {
     return isnan(x.elts);
   }
@@ -351,9 +324,13 @@ public:
     return maxabs(x.elts);
   }
 
-  friend ostream &operator<<(ostream &os,
-                             const gmat<T, D, dnup1, dnup2, symm> &x) {
-    os << "(" << dnup1 << dnup2 << symm << ")[";
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T
+  sumabs(const gmat &x) {
+    return sumabs(x.elts);
+  }
+
+  friend ostream &operator<<(ostream &os, const gmat<T, D, symm> &x) {
+    os << "[";
     for (int j = 0; j < D; ++j) {
       if (j > 0)
         os << ",";
@@ -370,11 +347,9 @@ public:
   }
 };
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, symm_t symm>
-struct zero<gmat<T, D, dnup1, dnup2, symm> > {
-  typedef gmat<T, D, dnup1, dnup2, symm> value_type;
-  static constexpr value_type value =
-      gmat<T, D, dnup1, dnup2, symm>::pure(zero<T>::value);
+template <typename T, int D, symm_t symm> struct zero<gmat<T, D, symm> > {
+  typedef gmat<T, D, symm> value_type;
+  static constexpr value_type value = gmat<T, D, symm>::pure(zero<T>::value);
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
     return value;
   }
@@ -384,10 +359,9 @@ struct zero<gmat<T, D, dnup1, dnup2, symm> > {
 };
 
 // Full and symmetric gmatrices have a unit, antisymmetric gmatrices don't
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2>
-struct one<gmat<T, D, dnup1, dnup2, symm_t::full> > {
-  typedef gmat<T, D, dnup1, dnup2, symm_t::full> value_type;
-  static constexpr value_type value = gmat<T, D, dnup1, dnup2, symm_t::full>(
+template <typename T, int D> struct one<gmat<T, D, symm_t::full> > {
+  typedef gmat<T, D, symm_t::full> value_type;
+  static constexpr value_type value = gmat<T, D, symm_t::full>(
       [](int i, int j) { return i == j ? one<T>()() : zero<T>()(); });
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
     return value;
@@ -396,82 +370,72 @@ struct one<gmat<T, D, dnup1, dnup2, symm_t::full> > {
     return value;
   }
 };
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2>
-struct one<gmat<T, D, dnup1, dnup2, symm_t::symm> > {
-  typedef gmat<T, D, dnup1, dnup2, symm_t::symm> value_type;
-  // static constexpr value_type value = gmat<T, D, dnup1, dnup2, symm_t::symm>(
+template <typename T, int D> struct one<gmat<T, D, symm_t::symm> > {
+  typedef gmat<T, D, symm_t::symm> value_type;
+  // static constexpr value_type value = gmat<T, D, symm_t::symm>(
   //     [](int i, int j) { return i == j; });
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
-    return gmat<T, D, dnup1, dnup2, symm_t::symm>(
+    return gmat<T, D, symm_t::symm>(
         [](int i, int j) { return i == j ? one<T>()() : zero<T>()(); });
   }
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST value_type operator()() const {
-    return gmat<T, D, dnup1, dnup2, symm_t::symm>(
+    return gmat<T, D, symm_t::symm>(
         [](int i, int j) { return i == j ? one<T>()() : zero<T>()(); });
   }
 };
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, symm_t symm>
-struct nan<gmat<T, D, dnup1, dnup2, symm> > {
-  typedef gmat<T, D, dnup1, dnup2, symm> value_type;
+template <typename T, int D, symm_t symm> struct nan<gmat<T, D, symm> > {
+  typedef gmat<T, D, symm> value_type;
   // static constexpr value_type value =
-  //     gmat<T, D, dnup1, dnup2, symm>::pure(nan<T>::value);
+  //     gmat<T, D, symm>::pure(nan<T>::value);
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
-    return gmat<T, D, dnup1, dnup2, symm>::pure(nan<T>());
+    return gmat<T, D, symm>::pure(nan<T>());
   }
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST value_type operator()() const {
-    return gmat<T, D, dnup1, dnup2, symm>::pure(nan<T>());
+    return gmat<T, D, symm>::pure(nan<T>());
   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2>
-using mat = gmat<T, D, dnup1, dnup2, symm_t::full>;
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2>
-using smat = gmat<T, D, dnup1, dnup2, symm_t::symm>;
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2>
-using amat = gmat<T, D, dnup1, dnup2, symm_t::anti>;
+template <typename T, int D> using mat = gmat<T, D, symm_t::full>;
+template <typename T, int D> using smat = gmat<T, D, symm_t::symm>;
+template <typename T, int D> using amat = gmat<T, D, symm_t::anti>;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, symm_t symm>
-constexpr gmat<simd<T>, D, dnup1, dnup2, symm>
-if_else(const simdl<T> &cond, const gmat<simd<T>, D, dnup1, dnup2, symm> &x,
-        const gmat<simd<T>, D, dnup1, dnup2, symm> &y) {
+template <typename T, int D, symm_t symm>
+constexpr gmat<simd<T>, D, symm> if_else(const simdl<T> &cond,
+                                         const gmat<simd<T>, D, symm> &x,
+                                         const gmat<simd<T>, D, symm> &y) {
   return fmap([&](const auto &x, const auto &y) { return if_else(cond, x, y); },
               x, y);
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const smat<T, 0, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const smat<T, 0> &g) {
   return one<T>();
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const smat<T, 1, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const smat<T, 1> &g) {
   return g(0, 0);
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const smat<T, 2, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const smat<T, 2> &g) {
   return g(0, 0) * g(1, 1) - pow2(g(0, 1));
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const smat<T, 3, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const smat<T, 3> &g) {
   return 2 * g(0, 1) * g(0, 2) * g(1, 2) - g(2, 2) * pow2(g(0, 1)) -
          g(1, 1) * pow2(g(0, 2)) +
          g(0, 0) * (g(1, 1) * g(2, 2) - pow2(g(1, 2)));
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const smat<T, 4, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const smat<T, 4> &g) {
   return 2 * g(0, 0) * g(1, 2) * g(1, 3) * g(2, 3) -
          2 * g(0, 3) *
              (g(0, 2) * (g(1, 2) * g(1, 3) - g(1, 1) * g(2, 3)) +
@@ -485,35 +449,30 @@ calc_det(const smat<T, 4, dnup1, dnup2> &g) {
          g(0, 0) * g(1, 1) * pow2(g(2, 3)) + pow2(g(0, 1)) * pow2(g(2, 3));
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const mat<T, 0, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const mat<T, 0> &g) {
   return one<T>();
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const mat<T, 1, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const mat<T, 1> &g) {
   return g(0, 0);
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const mat<T, 2, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const mat<T, 2> &g) {
   return -(g(0, 1) * g(1, 0)) + g(0, 0) * g(1, 1);
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const mat<T, 3, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const mat<T, 3> &g) {
   return g(0, 2) * (-(g(1, 1) * g(2, 0)) + g(1, 0) * g(2, 1)) +
          g(0, 1) * (g(1, 2) * g(2, 0) - g(1, 0) * g(2, 2)) +
          g(0, 0) * (-(g(1, 2) * g(2, 1)) + g(1, 1) * g(2, 2));
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T
-calc_det(const mat<T, 4, dnup1, dnup2> &g) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr T calc_det(const mat<T, 4> &g) {
   return g(0, 1) * g(1, 3) * g(2, 2) * g(3, 0) -
          g(0, 1) * g(1, 2) * g(2, 3) * g(3, 0) -
          g(0, 0) * g(1, 3) * g(2, 2) * g(3, 1) +
@@ -534,25 +493,24 @@ calc_det(const mat<T, 4, dnup1, dnup2> &g) {
                     g(1, 0) * (-(g(2, 3) * g(3, 1)) + g(2, 1) * g(3, 3)));
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 0, !dnup1, !dnup2>
-calc_inv(const smat<T, 0, dnup1, dnup2> &g, const T &detg) {
-  return smat<T, 0, !dnup1, !dnup2>([&](int i, int j)
-                                        ARITH_INLINE { return one<T>()(); });
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 0>
+calc_inv(const smat<T, 0> &g, const T &detg) {
+  return smat<T, 0>([&](int i, int j) ARITH_INLINE { return one<T>()(); });
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 1, !dnup1, !dnup2>
-calc_inv(const smat<T, 1, dnup1, dnup2> &g, const T &detg) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 1>
+calc_inv(const smat<T, 1> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return smat<T, 1, !dnup1, !dnup2>{detg1};
+  return smat<T, 1>{detg1};
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 2, !dnup1, !dnup2>
-calc_inv(const smat<T, 2, dnup1, dnup2> &g, const T &detg) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 2>
+calc_inv(const smat<T, 2> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return detg1 * smat<T, 2, !dnup1, !dnup2>{
+  return detg1 * smat<T, 2>{
                      g(1, 1),
                      -g(0, 1),
 
@@ -560,11 +518,11 @@ calc_inv(const smat<T, 2, dnup1, dnup2> &g, const T &detg) {
                  };
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 3, !dnup1, !dnup2>
-calc_inv(const smat<T, 3, dnup1, dnup2> &g, const T &detg) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 3>
+calc_inv(const smat<T, 3> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return detg1 * smat<T, 3, !dnup1, !dnup2>{
+  return detg1 * smat<T, 3>{
                      g(1, 1) * g(2, 2) - pow2(g(1, 2)),
                      g(0, 2) * g(1, 2) - g(0, 1) * g(2, 2),
                      -(g(0, 2) * g(1, 1)) + g(0, 1) * g(1, 2),
@@ -574,11 +532,11 @@ calc_inv(const smat<T, 3, dnup1, dnup2> &g, const T &detg) {
                  };
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 4, !dnup1, !dnup2>
-calc_inv(const smat<T, 4, dnup1, dnup2> &g, const T &detg) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr smat<T, 4>
+calc_inv(const smat<T, 4> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return detg1 * smat<T, 4, !dnup1, !dnup2>{
+  return detg1 * smat<T, 4>{
                      2 * g(1, 2) * g(1, 3) * g(2, 3) - g(3, 3) * pow2(g(1, 2)) -
                          g(2, 2) * pow2(g(1, 3)) +
                          g(1, 1) * (g(2, 2) * g(3, 3) - pow2(g(2, 3))),
@@ -618,25 +576,24 @@ calc_inv(const smat<T, 4, dnup1, dnup2> &g, const T &detg) {
                  };
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 0, !dnup1, !dnup2>
-calc_inv(const mat<T, 0, dnup1, dnup2> &g, const T &detg) {
-  return mat<T, 0, !dnup1, !dnup2>([&](int i, int j)
-                                       ARITH_INLINE { return one<T>()(); });
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 0>
+calc_inv(const mat<T, 0> &g, const T &detg) {
+  return mat<T, 0>([&](int i, int j) ARITH_INLINE { return one<T>()(); });
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 1, !dnup1, !dnup2>
-calc_inv(const mat<T, 1, dnup1, dnup2> &g, const T &detg) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 1>
+calc_inv(const mat<T, 1> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return mat<T, 1, !dnup1, !dnup2>{detg1};
+  return mat<T, 1>{detg1};
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 2, !dnup1, !dnup2>
-calc_inv(const mat<T, 2, dnup1, dnup2> &g, const T &detg) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 2>
+calc_inv(const mat<T, 2> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return detg1 * mat<T, 2, !dnup1, !dnup2>{
+  return detg1 * mat<T, 2>{
                      g(1, 1),
                      -g(0, 1),
 
@@ -645,11 +602,11 @@ calc_inv(const mat<T, 2, dnup1, dnup2> &g, const T &detg) {
                  };
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 3, !dnup1, !dnup2>
-calc_inv(const mat<T, 3, dnup1, dnup2> &g, const T &detg) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 3>
+calc_inv(const mat<T, 3> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return detg1 * mat<T, 3, !dnup1, !dnup2>{
+  return detg1 * mat<T, 3>{
                      -(g(1, 2) * g(2, 1)) + g(1, 1) * g(2, 2),
                      g(0, 2) * g(2, 1) - g(0, 1) * g(2, 2),
                      -(g(0, 2) * g(1, 1)) + g(0, 1) * g(1, 2),
@@ -664,11 +621,11 @@ calc_inv(const mat<T, 3, dnup1, dnup2> &g, const T &detg) {
                  };
 }
 
-template <typename T, dnup_t dnup1, dnup_t dnup2>
-ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 4, !dnup1, !dnup2>
-calc_inv(const mat<T, 4, dnup1, dnup2> &g, const T &detg) {
+template <typename T>
+ARITH_INLINE ARITH_DEVICE ARITH_HOST constexpr mat<T, 4>
+calc_inv(const mat<T, 4> &g, const T &detg) {
   const T detg1 = 1 / detg;
-  return detg1 * mat<T, 4, !dnup1, !dnup2>{
+  return detg1 * mat<T, 4>{
                      g(1, 3) * (-(g(2, 2) * g(3, 1)) + g(2, 1) * g(3, 2)) +
                          g(1, 2) * (g(2, 3) * g(3, 1) - g(2, 1) * g(3, 3)) +
                          g(1, 1) * (-(g(2, 3) * g(3, 2)) + g(2, 2) * g(3, 3)),

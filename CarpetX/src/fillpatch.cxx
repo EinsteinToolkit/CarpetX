@@ -2,34 +2,34 @@
 
 #include <utility>
 
+#include <AMReX_FillPatchUtil.H>
+
 namespace CarpetX {
 
 using namespace amrex;
 
 namespace {
-void do_nothing() {}
-std::function<void()> do_nothing2() { return do_nothing; }
+using task0 = void;
+using task1 = std::function<task0()>;
+using task2 = std::function<task1()>;
+task0 do_nothing1() {}
+task1 do_nothing2() { return do_nothing1; }
 } // namespace
 
-std::function<std::function<void()>()> FillPatch_Sync(
-    MultiFab &mfab, const Geometry &geom,
-    PhysBCFunct<GHExt::PatchData::LevelData::GroupData::apply_physbcs_t> &bc) {
+task2 FillPatch_Sync(const GHExt::PatchData::LevelData::GroupData &groupdata,
+                     MultiFab &mfab, const Geometry &geom) {
   mfab.FillBoundary_nowait(0, mfab.nComp(), mfab.nGrowVect(),
                            geom.periodicity());
-  return [&mfab, &bc]() -> std::function<void()> {
+  return [&groupdata, &mfab]() -> task1 {
     mfab.FillBoundary_finish();
-    bc(mfab, 0, mfab.nComp(), mfab.nGrowVect(), 0.0, 0);
-    return do_nothing;
+    groupdata.apply_boundary_conditions(mfab);
+    return do_nothing1;
   };
 }
 
-std::function<std::function<void()>()> FillPatch_ProlongateGhosts(
-    MultiFab &mfab, const MultiFab &cmfab, const Geometry &cgeom,
-    const Geometry &fgeom,
-    amrex::PhysBCFunct<GHExt::PatchData::LevelData::GroupData::apply_physbcs_t>
-        &cbc,
-    amrex::PhysBCFunct<GHExt::PatchData::LevelData::GroupData::apply_physbcs_t>
-        &fbc,
+task2 FillPatch_ProlongateGhosts(
+    const GHExt::PatchData::LevelData::GroupData &groupdata, MultiFab &mfab,
+    const MultiFab &cmfab, const Geometry &cgeom, const Geometry &fgeom,
     Interpolater *const mapper, const Vector<BCRec> &bcrecs) {
   const IntVect &nghosts = mfab.nGrowVect();
   if (nghosts.max() == 0)
@@ -50,11 +50,11 @@ std::function<std::function<void()>()> FillPatch_ProlongateGhosts(
 
   if (fpc.ba_crse_patch.empty()) {
 
-    return [&mfab, &fbc]() -> std::function<void()> {
+    return [&groupdata, &mfab]() -> task1 {
       // Finish synchronizing
       mfab.FillBoundary_finish();
-      fbc(mfab, 0, mfab.nComp(), mfab.nGrowVect(), 0.0, 0);
-      return do_nothing;
+      groupdata.apply_boundary_conditions(mfab);
+      return do_nothing1;
     };
 
   } else {
@@ -70,8 +70,8 @@ std::function<std::function<void()>()> FillPatch_ProlongateGhosts(
                                         mfab_crse_patch.nGrowVect(),
                                         cgeom.periodicity());
 
-    return [&mfab, &cgeom, &fgeom, &cbc, &fbc, mapper, &bcrecs, &fpc,
-            mfab_crse_patch_ptr]() -> std::function<void()> {
+    return [&groupdata, &mfab, &cgeom, &fgeom, mapper, &bcrecs, &fpc,
+            mfab_crse_patch_ptr]() -> task1 {
       const IntVect &nghosts = mfab.nGrowVect();
       const int ncomps = mfab.nComp();
       const IntVect ratio{2, 2, 2};
@@ -79,11 +79,11 @@ std::function<std::function<void()>()> FillPatch_ProlongateGhosts(
 
       // Finish synchronizing
       mfab.FillBoundary_finish();
-      fbc(mfab, 0, mfab.nComp(), mfab.nGrowVect(), 0.0, 0);
+      groupdata.apply_boundary_conditions(mfab);
 
       // Finish copying parts of coarse grid into temporary buffer
       mfab_crse_patch.ParallelCopy_finish();
-      cbc(mfab_crse_patch, 0, ncomps, mfab_crse_patch.nGrowVect(), 0.0, 0);
+      groupdata.apply_boundary_conditions(mfab_crse_patch);
 
       MultiFab *const mfab_fine_patch_ptr =
           new MultiFab(make_mf_fine_patch<MultiFab>(fpc, ncomps));
@@ -111,14 +111,56 @@ std::function<std::function<void()>()> FillPatch_ProlongateGhosts(
   }
 }
 
-void FillPatch_Regrid(
-    MultiFab &mfab, const MultiFab &cmfab, const MultiFab &fmfab,
-    const Geometry &cgeom, const Geometry &fgeom,
-    amrex::PhysBCFunct<GHExt::PatchData::LevelData::GroupData::apply_physbcs_t>
-        &cbc,
-    amrex::PhysBCFunct<GHExt::PatchData::LevelData::GroupData::apply_physbcs_t>
-        &fbc,
-    Interpolater *const mapper, const Vector<BCRec> &bcrecs) {
+void FillPatch_NewLevel(const GHExt::PatchData::LevelData::GroupData &groupdata,
+                        MultiFab &mfab, const MultiFab &cmfab,
+                        const Geometry &cgeom, const Geometry &fgeom,
+                        Interpolater *const mapper,
+                        const Vector<BCRec> &bcrecs) {
+
+  const int ncomps = mfab.nComp();
+  const IntVect ratio{2, 2, 2};
+  const IntVect &nghosts = mfab.nGrowVect();
+  // const EB2::IndexSpace *const index_space = nullptr;
+
+  const InterpolaterBoxCoarsener &coarsener = mapper->BoxCoarsener(ratio);
+
+  const BoxArray &ba = mfab.boxArray();
+  const DistributionMapping &dm = mfab.DistributionMap();
+
+  const IndexType &ixtype = ba.ixType();
+  assert(ixtype == cmfab.boxArray().ixType());
+
+  // Suffix `_g` is for "with ghosts added"
+  Box fdomain_g(amrex::convert(fgeom.Domain(), mfab.ixType()));
+  for (int d = 0; d < dim; ++d)
+    if (fgeom.isPeriodic(d))
+      fdomain_g.grow(d, nghosts[d]);
+
+  const int nboxes = ba.size();
+  BoxArray cba_g(nboxes);
+  for (int i = 0; i < nboxes; ++i) {
+    Box box = amrex::convert(amrex::grow(ba[i], nghosts), ixtype);
+    box &= fdomain_g;
+    cba_g.set(i, coarsener.doit(box));
+  }
+  MultiFab cmfab_g(cba_g, dm, ncomps, 0);
+  mf_set_domain_bndry(cmfab_g, cgeom);
+
+  cmfab_g.ParallelCopy(cmfab, 0, 0, ncomps, cgeom.periodicity());
+
+  groupdata.apply_boundary_conditions(cmfab_g);
+
+  FillPatchInterp(mfab, 0, cmfab_g, 0, ncomps, nghosts, cgeom, fgeom, fdomain_g,
+                  ratio, mapper, bcrecs, 0);
+
+  groupdata.apply_boundary_conditions(mfab);
+}
+
+void FillPatch_RemakeLevel(
+    const GHExt::PatchData::LevelData::GroupData &groupdata, MultiFab &mfab,
+    const MultiFab &cmfab, const MultiFab &fmfab, const Geometry &cgeom,
+    const Geometry &fgeom, Interpolater *const mapper,
+    const Vector<BCRec> &bcrecs) {
   const int ncomps = mfab.nComp();
   const IntVect ratio{2, 2, 2};
   const IntVect &nghosts = mfab.nGrowVect();
@@ -135,7 +177,7 @@ void FillPatch_Regrid(
 
     mfab_crse_patch.ParallelCopy(cmfab, 0, 0, ncomps, IntVect{0}, nghosts,
                                  cgeom.periodicity());
-    cbc(mfab_crse_patch, 0, ncomps, nghosts, 0.0, 0);
+    groupdata.apply_boundary_conditions(mfab_crse_patch);
 
     MultiFab mfab_fine_patch = make_mf_fine_patch<MultiFab>(fpc, ncomps);
 
@@ -152,7 +194,7 @@ void FillPatch_Regrid(
 
   mfab.ParallelCopy(fmfab, 0, 0, ncomps, IntVect{0}, nghosts,
                     fgeom.periodicity());
-  fbc(mfab, 0, ncomps, nghosts, 0.0, 0);
+  groupdata.apply_boundary_conditions(mfab);
 }
 
 } // namespace CarpetX

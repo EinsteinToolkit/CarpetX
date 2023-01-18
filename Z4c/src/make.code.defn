@@ -9,7 +9,6 @@ SRCS =						\
 	initial1.cxx				\
 	initial2.cxx				\
 	rhs.cxx					\
-        sync.cxx				\
 	test.cxx
 
 # Subdirectories containing source files

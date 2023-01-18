@@ -40,12 +40,12 @@ CarpetX::ymax = +0.5
 CarpetX::zmax = +0.5
 
 #flat bc
-CarpetX::von_neumann_x =  yes
-CarpetX::von_neumann_y =  yes
-CarpetX::von_neumann_z =  yes
-CarpetX::von_neumann_upper_x =  yes
-CarpetX::von_neumann_upper_y =  yes
-CarpetX::von_neumann_upper_z =  yes
+CarpetX::neumann_x =  yes
+CarpetX::neumann_y =  yes
+CarpetX::neumann_z =  yes
+CarpetX::neumann_upper_x =  yes
+CarpetX::neumann_upper_y =  yes
+CarpetX::neumann_upper_z =  yes
 
 
 CarpetX::ncells_x = $ncells

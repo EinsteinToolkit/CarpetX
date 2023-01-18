@@ -1,7 +1,6 @@
-#include <fixmath.hxx>
-#include <loop_device.hxx>
-
 #include "schedule.hxx"
+
+#include <loop_device.hxx>
 
 #include <cctk.h>
 #include <cctk_Arguments.h>

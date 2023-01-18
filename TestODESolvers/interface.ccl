@@ -4,13 +4,13 @@ IMPLEMENTS: TestODESolvers
 
 
 
-CCTK_REAL state TYPE=gf CENTERING={CCC} TAGS='rhs="TestODESolvers::rhs"' "State vector"
+CCTK_REAL state TYPE=gf CENTERING={CCC} TAGS='rhs="TestODESolvers::rhs" dependents="TestODESolvers::error TestODESolvers::corder"' "State vector"
 
 CCTK_REAL rhs TYPE=gf CENTERING={CCC} "RHS of state vector"
 
 CCTK_REAL error TYPE=gf CENTERING={CCC} "Error in state vector"
 
-CCTK_REAL state2 TYPE=gf CENTERING={CCC} TAGS='rhs="TestODESolvers::rhs2"' "State vector, stepped with twice the timestep"
+CCTK_REAL state2 TYPE=gf CENTERING={CCC} TAGS='rhs="TestODESolvers::rhs2" dependents="TestODESolvers::error2 TestODESolvers::corder"' "State vector, stepped with twice the timestep"
 
 CCTK_REAL rhs2 TYPE=gf CENTERING={CCC} "RHS of state vector"
 

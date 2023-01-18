@@ -34,10 +34,10 @@ CarpetX::ncells_z = 2
 CarpetX::blocking_factor_z = 2
 
 CarpetX::periodic_x = yes
-CarpetX::von_neumann_y = yes
-CarpetX::von_neumann_z = yes
-CarpetX::von_neumann_upper_y = yes
-CarpetX::von_neumann_upper_z = yes
+CarpetX::neumann_y = yes
+CarpetX::neumann_z = yes
+CarpetX::neumann_upper_y = yes
+CarpetX::neumann_upper_z = yes
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 10

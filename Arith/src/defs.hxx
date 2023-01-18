@@ -213,6 +213,12 @@ inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T maxabs(const T &x) {
   return abs(x);
 }
 
+template <typename T>
+inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T sumabs(const T &x) {
+  using std::abs;
+  return abs(x);
+}
+
 // A min function that returns nan when any argument is nan
 template <typename T>
 inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T min1(const T &x, const T &y) {

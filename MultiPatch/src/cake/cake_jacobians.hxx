@@ -6,7 +6,7 @@ namespace Cake {
 
 CCTK_DEVICE CCTK_HOST inline std_tuple<jac_t, djac_t>
 cake_jacs(const PatchTransformations &pt, int patch,
-          const svec_u &global_vars) {
+          const svec &global_vars) {
   using std::pow;
   using std::sqrt;
 

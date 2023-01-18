@@ -10,9 +10,9 @@ import sys
 domain_size = 128.0
 domain_spacing = 1.0
 fine_box_size = 2.0
-#TODO fine_box_spacing = 1/16.0
+# fine_box_spacing = 1/16.0
 fine_box_spacing = 1/24.0
-#TODO fine_box_spacing = 1/32.0
+# fine_box_spacing = 1/32.0
 
 dtfac = 1/4.0
 
@@ -26,7 +26,7 @@ ncells = int(round(2.0 * domain_size / domain_spacing))
 large_box_size = fine_box_size * 2 ** (nlevels - 2)
 error_threshold = 1.0 / large_box_size
 
-out_every = 16   #TODO int(round(1.0 / dtfac * 2 ** (nlevels - 1)))
+out_every = int(round(1.0 / dtfac * 2 ** (nlevels - 1)))
 
 try:
     run_test = int("@RUN_TEST@")
@@ -54,6 +54,7 @@ ActiveThorns = "
     TwoPunctures
     Weyl
     Z4c
+    #TODO Z4cNRPy
 "
 
 # domain_size = $domain_size
@@ -66,15 +67,18 @@ Cactus::cctk_show_schedule = no
 
 Cactus::presync_mode = "mixed-error"
 
-Cactus::terminate = "time"
+Cactus::terminate = "any"
+Cactus::cctk_itlast = 1000000000
 Cactus::cctk_final_time = $final_time
+# Cactus::max_runtime = 30   # minutes
+Cactus::max_runtime = 23*60+30   # minutes
 
 CarpetX::verbose = no
 CarpetX::poison_undefined_values = no
 
 CarpetX::xmin = $xmin
 CarpetX::ymin = $xmin
-CarpetX::zmin = $xmin
+CarpetX::zmin = 0.0
 
 CarpetX::xmax = $xmax
 CarpetX::ymax = $xmax
@@ -82,21 +86,19 @@ CarpetX::zmax = $xmax
 
 CarpetX::ncells_x = $ncells
 CarpetX::ncells_y = $ncells
-CarpetX::ncells_z = $ncells
+CarpetX::ncells_z = $ncells / 2
 
 CarpetX::max_tile_size_x = 1024000
 CarpetX::max_tile_size_y = 4
 CarpetX::max_tile_size_z = 4
 
-CarpetX::periodic_x = no
-CarpetX::periodic_y = no
-CarpetX::periodic_z = no
-# CarpetX::reflection_x = yes
-# CarpetX::reflection_y = yes
-# CarpetX::reflection_z = yes
-# CarpetX::reflection_upper_x = yes
-# CarpetX::reflection_upper_y = yes
-# CarpetX::reflection_upper_z = yes
+CarpetX::reflection_z = yes
+
+CarpetX::boundary_x = "dirichlet"
+CarpetX::boundary_y = "dirichlet"
+CarpetX::boundary_upper_x = "dirichlet"
+CarpetX::boundary_upper_y = "dirichlet"
+CarpetX::boundary_upper_z = "dirichlet"
 
 CarpetX::ghost_size = 3
 
@@ -110,6 +112,7 @@ ErrorEstimator::scale_by_resolution = yes
 CarpetX::prolongation_type = "ddf"
 CarpetX::prolongation_order = 5
 
+ODESolvers::verbose = no
 ODESolvers::method = "RK4"
 CarpetX::dtfac = $dtfac
 
@@ -138,12 +141,27 @@ Z4c::chi_floor = 1.0e-6
 Z4c::alphaG_floor = 1.0e-8
 Z4c::epsdiss = 0.32
 
+#TODO # Z4cNRPy::chi_floor = 1.0e-6
+#TODO # Z4cNRPy::alphaG_floor = 1.0e-8
+#TODO # Z4cNRPy::eps_diss = 0.32
+
 IO::out_dir = $$parfile
 IO::out_every = $out_every
-IO::out_mode = "np"
+IO::out_mode = "np"                       # "proc", "np", "onefile"
 IO::out_proc_every = 1
 
-CarpetX::out_plotfile_groups = ""
+IO::checkpoint_dir = "../checkpoints"
+IO::checkpoint_ID = yes
+IO::checkpoint_every = 0
+IO::checkpoint_every_walltime_hours = 1.0
+IO::checkpoint_on_terminate = yes
+CarpetX::checkpoint_method = "openpmd"
+
+IO::recover_dir = "../checkpoints"
+IO::recover = "autoprobe"
+CarpetX::recover_method = "openpmd"
+
+CarpetX::out_metadata = yes
 
 CarpetX::out_silo_vars = "
     ADMBase::metric
@@ -152,29 +170,34 @@ CarpetX::out_silo_vars = "
     ADMBase::shift
     Weyl::Psi4re
     Weyl::Psi4im
-    # Z4c::chi
-    # Z4c::gamma_tilde
-    # Z4c::K_hat
-    # Z4c::A_tilde
-    # Z4c::Gam_tilde
-    # Z4c::Theta
-    # Z4c::alphaG
-    # Z4c::betaG
-    # Z4c::chi_rhs
-    # Z4c::gamma_tilde_rhs
-    # Z4c::K_hat_rhs
-    # Z4c::A_tilde_rhs
-    # Z4c::Gam_tilde_rhs
-    # Z4c::Theta_rhs
-    # Z4c::alphaG_rhs
-    # Z4c::betaG_rhs
-    # Z4c::ZtC
-    # Z4c::HC
-    # Z4c::MtC
     Z4c::allC
+    #TODO Z4cNRPy::allCGF
+    CarpetX::regrid_error
 "
 
-CarpetX::out_tsv = no
+CarpetX::out_openpmd_vars = "
+    ADMBase::metric
+    ADMBase::curv
+    ADMBase::lapse
+    ADMBase::shift
+    Weyl::Psi4re
+    Weyl::Psi4im
+    Z4c::allC
+    #TODO Z4cNRPy::allCGF
+    CarpetX::regrid_error
+"
+
+CarpetX::out_tsv_vars = "
+    ADMBase::metric
+    ADMBase::curv
+    ADMBase::lapse
+    ADMBase::shift
+    Weyl::Psi4re
+    Weyl::Psi4im
+    Z4c::allC
+    #TODO Z4cNRPy::allCGF
+    CarpetX::regrid_error
+"
 
 TimerReport::out_every = $out_every
 TimerReport::out_filename = "TimerReport"

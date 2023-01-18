@@ -34,22 +34,18 @@ extern "C" void Z4c_Test(CCTK_ARGUMENTS) {
     for (int a = 0; a < 3; ++a)
       for (int b = 0; b < 3; ++b)
         arr[a][b] = rand10();
-    return smat<double, 3, DN, DN>(
+    return smat<double, 3>(
         [&](int a, int b) { return arr[min(a, b)][max(a, b)]; });
   }};
 
-  const smat<double, 3, DN, DN> Z([&](int a, int b) { return double(0); });
-  const smat<double, 3, DN, DN> I([&](int a, int b) { return double(a == b); });
+  const smat<double, 3> Z([&](int a, int b) { return double(0); });
+  const smat<double, 3> I([&](int a, int b) { return double(a == b); });
   assert(I != Z);
-  const smat<double, 3, UP, UP> Zup([&](int a, int b) { return double(0); });
-  const smat<double, 3, UP, UP> Iup(
-      [&](int a, int b) { return double(a == b); });
-  assert(Iup != Zup);
 
   for (int n = 0; n < 100; ++n) {
-    const smat<double, 3, DN, DN> A = randmat10();
-    const smat<double, 3, DN, DN> B = randmat10();
-    const smat<double, 3, DN, DN> C = randmat10();
+    const smat<double, 3> A = randmat10();
+    const smat<double, 3> B = randmat10();
+    const smat<double, 3> C = randmat10();
     const double a = rand10();
     const double b = rand10();
 
@@ -79,8 +75,8 @@ extern "C" void Z4c_Test(CCTK_ARGUMENTS) {
     assert(calc_det(I) == 1);
     assert(calc_det(a * A) == pown(a, 3) * calc_det(A));
 
-    assert(calc_inv(Z, 1.0) == Zup);
-    assert(calc_inv(I, 1.0) == Iup);
+    assert(calc_inv(Z, 1.0) == Z);
+    assert(calc_inv(I, 1.0) == I);
 
     // DNUP assert(mul(A.inv(1), A) == A.det() * Iup);
     // DNUP assert(mul(A, A.inv(1)) == A.det() * Iup);

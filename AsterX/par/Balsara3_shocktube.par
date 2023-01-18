@@ -1,6 +1,6 @@
 ActiveThorns = "
     CarpetX
-    Formaline
+    #Formaline
     IOUtil
     ODESolvers
     SystemTopology
@@ -18,6 +18,7 @@ $ncells = 400
 Cactus::cctk_show_schedule = yes
 
 Cactus::presync_mode = "mixed-error"
+CarpetX::poison_undefined_values = "no"
 
 Cactus::terminate = "time"
 Cactus::cctk_final_time = 0.40
@@ -31,24 +32,23 @@ ADMBase::initial_dtshift         = "none"
 CarpetX::verbose = no
 
 CarpetX::xmin = -0.5
-CarpetX::ymin = -0.5
-CarpetX::zmin = -0.5
+CarpetX::ymin = -0.05
+CarpetX::zmin = -0.05
 
 CarpetX::xmax = +0.5
-CarpetX::ymax = +0.5
-CarpetX::zmax = +0.5
+CarpetX::ymax = +0.05
+CarpetX::zmax = +0.05
 
 CarpetX::boundary_x = "linear extrapolation"
 CarpetX::boundary_y = "linear extrapolation"
 CarpetX::boundary_z = "linear extrapolation"
-
 CarpetX::boundary_upper_x = "linear extrapolation"
 CarpetX::boundary_upper_y = "linear extrapolation"
 CarpetX::boundary_upper_z = "linear extrapolation"
 
 CarpetX::ncells_x = $ncells
-CarpetX::ncells_y = 2
-CarpetX::ncells_z = 2
+CarpetX::ncells_y = 4
+CarpetX::ncells_z = 4
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 100000
@@ -67,25 +67,32 @@ AsterX::gamma = 1.66666666666667
 AsterX::reconstruction_method = "minmod"
 AsterX::max_iter = 500
 AsterX::c2p_tol = 1e-8
+AsterX::vector_potential_gauge = "algebraic"
+#AsterX::debug_mode = yes
+AsterX::interpolate_failed_c2p = "yes"
 
-ODESolvers::method = "RK4"
+ODESolvers::method = "SSPRK3"
 
 IO::out_dir = $parfile
 IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
 CarpetX::out_silo_vars = "
+    CarpetX::regrid_error
     HydroBase::rho
     HydroBase::vel
     HydroBase::eps
     HydroBase::press
-    CarpetX::regrid_error
+    HydroBase::Bvec
+    AsterX::con2prim_flag
 "
 
 CarpetX::out_tsv_vars = "
+    CarpetX::regrid_error
     HydroBase::rho
     HydroBase::vel
     HydroBase::eps
     HydroBase::press
-    CarpetX::regrid_error
+    HydroBase::Bvec
+    AsterX::con2prim_flag
 "
 
 TimerReport::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32

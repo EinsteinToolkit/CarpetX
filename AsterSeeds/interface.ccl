@@ -1,0 +1,15 @@
+# Interface definition for thorn AsterSeeds
+
+IMPLEMENTS: AsterSeeds
+INHERITS: HydroBase AsterX
+
+USES INCLUDE HEADER: fixmath.hxx
+USES INCLUDE HEADER: loop_device.hxx
+
+CCTK_REAL Avec_cent TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"'
+{
+  Avec_x_cent
+  Avec_y_cent
+  Avec_z_cent
+} "Cell-centered vector potential components"
+

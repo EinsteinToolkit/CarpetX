@@ -1,7 +1,6 @@
 #ifndef IO_NORM_HXX
 #define IO_NORM_HXX
 
-#include <fixmath.hxx>
 #include <cctk.h>
 
 namespace CarpetX {

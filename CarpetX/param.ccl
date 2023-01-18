@@ -110,7 +110,7 @@ KEYWORD boundary_x "Boundary condition at lower x boundary"
   "none" :: "don't apply any boundary"
   "dirichlet" :: "Dirichlet"
   "linear extrapolation" :: "Linear extrapolation"
-  "von neumann" :: "von Neumann"
+  "neumann" :: "Neumann"
 } "none"
 
 KEYWORD boundary_y "Boundary condition at lower y boundary"
@@ -118,7 +118,7 @@ KEYWORD boundary_y "Boundary condition at lower y boundary"
   "none" :: "don't apply any boundary"
   "dirichlet" :: "Dirichlet"
   "linear extrapolation" :: "Linear extrapolation"
-  "von neumann" :: "von Neumann"
+  "neumann" :: "Neumann"
 } "none"
 
 KEYWORD boundary_z "Boundary condition at lower z boundary"
@@ -126,7 +126,7 @@ KEYWORD boundary_z "Boundary condition at lower z boundary"
   "none" :: "don't apply any boundary"
   "dirichlet" :: "Dirichlet"
   "linear extrapolation" :: "Linear extrapolation"
-  "von neumann" :: "von Neumann"
+  "neumann" :: "Neumann"
 } "none"
 
 KEYWORD boundary_upper_x "Boundary condition at upper x boundary"
@@ -134,7 +134,7 @@ KEYWORD boundary_upper_x "Boundary condition at upper x boundary"
   "none" :: "don't apply any boundary"
   "dirichlet" :: "Dirichlet"
   "linear extrapolation" :: "Linear extrapolation"
-  "von neumann" :: "von Neumann"
+  "neumann" :: "Neumann"
 } "none"
 
 KEYWORD boundary_upper_y "Boundary condition at upper y boundary"
@@ -142,7 +142,7 @@ KEYWORD boundary_upper_y "Boundary condition at upper y boundary"
   "none" :: "don't apply any boundary"
   "dirichlet" :: "Dirichlet"
   "linear extrapolation" :: "Linear extrapolation"
-  "von neumann" :: "von Neumann"
+  "neumann" :: "Neumann"
 } "none"
 
 KEYWORD boundary_upper_z "Boundary condition at upper z boundary"
@@ -150,7 +150,7 @@ KEYWORD boundary_upper_z "Boundary condition at upper z boundary"
   "none" :: "don't apply any boundary"
   "dirichlet" :: "Dirichlet"
   "linear extrapolation" :: "Linear extrapolation"
-  "von neumann" :: "von Neumann"
+  "neumann" :: "Neumann"
 } "none"
 
 
@@ -219,32 +219,32 @@ STRING linear_extrapolation_upper_z_vars "Override boundary condition at upper z
 
 
 
-STRING von_neumann_x_vars "Override boundary condition at lower x boundary"
+STRING neumann_x_vars "Override boundary condition at lower x boundary"
 {
   ".*" :: ""
 } ""
 
-STRING von_neumann_y_vars "Override boundary condition at lower y boundary"
+STRING neumann_y_vars "Override boundary condition at lower y boundary"
 {
   ".*" :: ""
 } ""
 
-STRING von_neumann_z_vars "Override boundary condition at lower z boundary"
+STRING neumann_z_vars "Override boundary condition at lower z boundary"
 {
   ".*" :: ""
 } ""
 
-STRING von_neumann_upper_x_vars "Override boundary condition at upper x boundary"
+STRING neumann_upper_x_vars "Override boundary condition at upper x boundary"
 {
   ".*" :: ""
 } ""
 
-STRING von_neumann_upper_y_vars "Override boundary condition at upper y boundary"
+STRING neumann_upper_y_vars "Override boundary condition at upper y boundary"
 {
   ".*" :: ""
 } ""
 
-STRING von_neumann_upper_z_vars "Override boundary condition at upper z boundary"
+STRING neumann_upper_z_vars "Override boundary condition at upper z boundary"
 {
   ".*" :: ""
 } ""
@@ -384,15 +384,6 @@ BOOLEAN do_restrict "Automatically restrict fine to coarse grid functions"
 BOOLEAN restrict_during_sync "Restrict fine to coarse grid functions when syncing"
 {
 } yes
-
-
-
-KEYWORD fillpatch "Which FillPatch implementation to use (EXPERIMENTAL)" STEERABLE=always
-{
-  "amrex" :: "Standard AMReX AmrCore"
-  "amrex-vector" :: "Vectorized AMReX AmrCore"
-  "carpetx" :: "CarpetX implementation calling AMReX Base"
-} "amrex"
 
 
 

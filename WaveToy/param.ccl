@@ -1,0 +1,58 @@
+# Parameter definitions for thorn WaveToy
+
+
+
+CCTK_REAL mass "Scalar field mass"
+{
+  0:* :: ""
+} 0.0
+
+
+
+CCTK_REAL central_point_charge "Scalar piont charge located at origin"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL central_point_radius "Radius of point charge"
+{
+  (*:* :: ""
+} 1.0
+
+
+
+KEYWORD initial_condition "Initial condition"
+{
+  "standing wave" :: ""
+  "periodic Gaussian" :: ""
+  "Gaussian" :: ""
+  "central potential" :: ""
+} "standing wave"
+
+CCTK_REAL spatial_frequency_x "spatial frequency"
+{
+  *:* :: ""
+} 0.5
+
+CCTK_REAL spatial_frequency_y "spatial frequency"
+{
+  *:* :: ""
+} 0.5
+
+CCTK_REAL spatial_frequency_z "spatial frequency"
+{
+  *:* :: ""
+} 0.5
+
+CCTK_REAL width "width"
+{
+  (0.0:* :: ""
+} 0.1
+
+
+
+KEYWORD boundary_condition "Boundary condition"
+{
+  "none" :: ""
+  "initial" :: ""
+} "none"

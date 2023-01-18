@@ -7,8 +7,8 @@ import sys
 
 ################################################################################
 
-domain_size = 128.0
-domain_spacing = 1.0
+domain_size = 2.0   #TODO 128.0
+domain_spacing = 1/16.0   #TODO 1.0
 fine_box_size = 1.0
 fine_box_spacing = 1/16.0
 
@@ -36,6 +36,7 @@ ActiveThorns = "
     IOUtil
     ODESolvers
     TimerReport
+    TmunuBase
     Z4c
 "
 
@@ -45,10 +46,14 @@ ActiveThorns = "
 # fine_box_spacing = $fine_box_spacing
 # dtfac = $dtfac
 
-Cactus::cctk_show_schedule = yes
+Cactus::cctk_show_schedule = no
 
-Cactus::terminate = "time"
+Cactus::presync_mode = "mixed-error"
+
+Cactus::terminate = "any"
+Cactus::cctk_itlast = 0   #TODO 1000000000
 Cactus::cctk_final_time = 100.0
+Cactus::max_runtime = 45   # minutes
 
 CarpetX::verbose = no
 CarpetX::poison_undefined_values = no
@@ -119,6 +124,14 @@ CarpetX::out_silo_vars = "
     Z4c::HC
     Z4c::MtC
     Z4c::allC
+     Z4c::chi_rhs
+     Z4c::gamma_tilde_rhs
+     Z4c::K_hat_rhs
+     Z4c::A_tilde_rhs
+     Z4c::Gam_tilde_rhs
+     Z4c::Theta_rhs
+     Z4c::alphaG_rhs
+     Z4c::betaG_rhs
 "
 
 CarpetX::out_tsv = no

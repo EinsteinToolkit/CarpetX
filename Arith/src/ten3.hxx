@@ -6,7 +6,7 @@
 #include "tuple.hxx"
 #include "vect.hxx"
 
-#include "vec.hxx" // for dnup_t, symm_t
+#include "vec.hxx" // for symm_t
 
 #include <fixmath.hxx> // include this before <cctk.h>
 #include <cctk.h>
@@ -24,11 +24,7 @@ namespace Arith {
 using namespace std;
 
 // A rank-3 tensor with various symmetries
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3,
-          symm_t symm>
-struct gten3 {
-  static_assert(symm == symm_t::full || (dnup1 == dnup2 && dnup1 == dnup3), "");
-
+template <typename T, int D, symm_t symm> struct gten3 {
   constexpr static int Nfull = D * D * D;
   constexpr static int Nsymm = D * (D + 1) * (D + 2) / 6;
   constexpr static int Nanti = D * (D - 1) * (D - 2) / 6;
@@ -116,8 +112,7 @@ public:
   constexpr ARITH_INLINE gten3 &operator=(gten3 &&) = default;
 
   template <typename U>
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-  gten3(gten3<U, D, dnup1, dnup2, dnup3, symm> x)
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(gten3<U, D, symm> x)
       : elts(std::move(x.elts)) {}
 
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(initializer_list<T> x)
@@ -167,69 +162,59 @@ public:
     return r;
   }
 
-  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-      gten3<int, D, dnup1, dnup2, dnup3, symm>
-      iota() {
-    gten3<int, D, dnup1, dnup2, dnup3, symm> r;
-    gten3<int, D, dnup1, dnup2, dnup3, symm>::loop([&](int i, int j, int k) {
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<int, D, symm>
+  iota() {
+    gten3<int, D, symm> r;
+    gten3<int, D, symm>::loop([&](int i, int j, int k) {
       r(i, j, k) = {i, j, k};
     });
     return r;
   }
-  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-      gten3<int, D, dnup1, dnup2, dnup3, symm>
-      iota1() {
-    gten3<int, D, dnup1, dnup2, dnup3, symm> r;
-    gten3<int, D, dnup1, dnup2, dnup3, symm>::loop(
-        [&](int i, int j, int k) { r.set(i, j, k, i); });
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<int, D, symm>
+  iota1() {
+    gten3<int, D, symm> r;
+    gten3<int, D, symm>::loop([&](int i, int j, int k) { r.set(i, j, k, i); });
     return r;
   }
-  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-      gten3<int, D, dnup1, dnup2, dnup3, symm>
-      iota2() {
-    gten3<int, D, dnup1, dnup2, dnup3, symm> r;
-    gten3<int, D, dnup1, dnup2, dnup3, symm>::loop(
-        [&](int i, int j, int k) { r.set(i, j, k, j); });
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<int, D, symm>
+  iota2() {
+    gten3<int, D, symm> r;
+    gten3<int, D, symm>::loop([&](int i, int j, int k) { r.set(i, j, k, j); });
     return r;
   }
-  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-      gten3<int, D, dnup1, dnup2, dnup3, symm>
-      iota3() {
-    gten3<int, D, dnup1, dnup2, dnup3, symm> r;
-    gten3<int, D, dnup1, dnup2, dnup3, symm>::loop(
-        [&](int i, int j, int k) { r.set(i, j, k, k); });
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<int, D, symm>
+  iota3() {
+    gten3<int, D, symm> r;
+    gten3<int, D, symm>::loop([&](int i, int j, int k) { r.set(i, j, k, k); });
     return r;
   }
 
   template <typename F, typename... Args,
             typename R =
                 remove_cv_t<remove_reference_t<result_of_t<F(T, Args...)> > > >
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-      gten3<R, D, dnup1, dnup2, dnup3, symm>
-      fmap(const F &f, const gten3 &x,
-           const gten3<Args, D, dnup1, dnup2, dnup3, symm> &...args) {
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<R, D, symm>
+  fmap(const F &f, const gten3 &x, const gten3<Args, D, symm> &...args) {
     return fmap(f, x.elts, args.elts...);
   }
   template <typename F, typename... Args>
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST void
-  fmap_(const F &f, const gten3 &x,
-        const gten3<Args, D, dnup1, dnup2, dnup3, symm> &...args) {
+  fmap_(const F &f, const gten3 &x, const gten3<Args, D, symm> &...args) {
     fmap_(f, x.elts, args.elts...);
   }
 
   template <
       typename... Args,
       typename R = remove_cv_t<remove_reference_t<result_of_t<T(Args...)> > > >
-  ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<R, D, dnup1, dnup2, dnup3, symm>
+  ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<R, D, symm>
   operator()(const Args &...args) const {
     return fmap([&](const T &var) { return var(args...); }, *this);
   }
   template <typename Arg1, typename Arg2, typename U, typename T1 = T,
             typename R = remove_cv_t<
                 remove_reference_t<result_of_t<T(Arg1, Arg2, U)> > > >
-  ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<R, D, dnup1, dnup2, dnup3, symm>
+  ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<R, D, symm>
   operator()(const Arg1 &arg1, const Arg2 &arg2,
-             const gten3<U, D, dnup1, dnup2, dnup3, symm> &val) const {
+             const gten3<U, D, symm> &val) const {
     return fmap([&](const T &var, const U &x) { return var(arg1, arg2, x); },
                 *this, val);
   }
@@ -237,7 +222,7 @@ public:
   //           typename = decltype(declval<T1>().store(declval<Args>()...,
   //                                                   declval<U>()))>
   // ARITH_INLINE ARITH_DEVICE ARITH_HOST void store(const Args &...args,
-  //                         const gten3<U, D, dnup1, dnup2, dnup3, symm> &val)
+  //                         const gten3<U, D, symm> &val)
   //                         const {
   //   fmap_([&](const auto &var, const auto &x) { return var.store(args..., x);
   //   },
@@ -248,7 +233,7 @@ public:
                 declval<Arg1>(), declval<Arg2>(), declval<U>()))>
   ARITH_INLINE ARITH_DEVICE ARITH_HOST void
   store(const Arg1 &arg1, const Arg2 &arg2,
-        const gten3<U, D, dnup1, dnup2, dnup3, symm> &val) const {
+        const gten3<U, D, symm> &val) const {
     fmap_([&](const T &var, const U &x) { return var.store(arg1, arg2, x); },
           *this, val);
   }
@@ -359,8 +344,8 @@ public:
     return anyisnan(x.elts);
   }
 
-  friend constexpr ARITH_INLINE ARITH_DEVICE
-      ARITH_HOST auto /*gten3<bool, D, dnup1, dnup2, symm>*/
+  friend constexpr
+      ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*gten3<bool, D, symm>*/
       isnan(const gten3 &x) {
     return isnan(x.elts);
   }
@@ -370,8 +355,13 @@ public:
     return maxabs(x.elts);
   }
 
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T
+  sumabs(const gten3 &x) {
+    return sumabs(x.elts);
+  }
+
   friend ostream &operator<<(ostream &os, const gten3 &x) {
-    os << "(" << dnup1 << dnup2 << dnup3 << symm << ")[";
+    os << "[";
     for (int k = 0; k < D; ++k) {
       if (k > 0)
         os << ",";
@@ -394,12 +384,9 @@ public:
   }
 };
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3,
-          symm_t symm>
-struct zero<gten3<T, D, dnup1, dnup2, dnup3, symm> > {
-  typedef gten3<T, D, dnup1, dnup2, dnup3, symm> value_type;
-  static constexpr value_type value =
-      gten3<T, D, dnup1, dnup2, dnup3, symm>::pure(zero<T>::value);
+template <typename T, int D, symm_t symm> struct zero<gten3<T, D, symm> > {
+  typedef gten3<T, D, symm> value_type;
+  static constexpr value_type value = gten3<T, D, symm>::pure(zero<T>::value);
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
     return value;
   }
@@ -408,37 +395,30 @@ struct zero<gten3<T, D, dnup1, dnup2, dnup3, symm> > {
   }
 };
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3,
-          symm_t symm>
-struct nan<gten3<T, D, dnup1, dnup2, dnup3, symm> > {
-  typedef gten3<T, D, dnup1, dnup2, dnup3, symm> value_type;
+template <typename T, int D, symm_t symm> struct nan<gten3<T, D, symm> > {
+  typedef gten3<T, D, symm> value_type;
   // static constexpr value_type value =
-  //     gten3<T, D, dnup1, dnup2, dnup3, symm>::pure(nan<T>::value);
+  //     gten3<T, D, symm>::pure(nan<T>::value);
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
-    return gten3<T, D, dnup1, dnup2, dnup3, symm>::pure(nan<T>());
+    return gten3<T, D, symm>::pure(nan<T>());
   }
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST value_type operator()() const {
-    return gten3<T, D, dnup1, dnup2, dnup3, symm>::pure(nan<T>());
+    return gten3<T, D, symm>::pure(nan<T>());
   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3>
-using ten3 = gten3<T, D, dnup1, dnup2, dnup3, symm_t::full>;
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3>
-using sten3 = gten3<T, D, dnup1, dnup2, dnup3, symm_t::symm>;
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3>
-using aten3 = gten3<T, D, dnup1, dnup2, dnup3, symm_t::anti>;
+template <typename T, int D> using ten3 = gten3<T, D, symm_t::full>;
+template <typename T, int D> using sten3 = gten3<T, D, symm_t::symm>;
+template <typename T, int D> using aten3 = gten3<T, D, symm_t::anti>;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <typename T, int D, dnup_t dnup1, dnup_t dnup2, dnup_t dnup3,
-          symm_t symm>
-constexpr gten3<simd<T>, D, dnup1, dnup2, dnup3, symm>
-if_else(const simdl<T> &cond,
-        const gten3<simd<T>, D, dnup1, dnup2, dnup3, symm> &x,
-        const gten3<simd<T>, D, dnup1, dnup2, dnup3, symm> &y) {
+template <typename T, int D, symm_t symm>
+constexpr gten3<simd<T>, D, symm> if_else(const simdl<T> &cond,
+                                          const gten3<simd<T>, D, symm> &x,
+                                          const gten3<simd<T>, D, symm> &y) {
   return fmap([&](const auto &x, const auto &y) { return if_else(cond, x, y); },
               x, y);
 }

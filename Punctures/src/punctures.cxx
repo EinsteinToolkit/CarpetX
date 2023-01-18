@@ -56,24 +56,23 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_REAL epsilon(int a, int b, int c) {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void fcalc(const PointDesc &p, const T &u,
-                                               T &alpha, mat<T, 3, DN, DN> &K,
-                                               T &rhs, T &psi) {
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+fcalc(const PointDesc &p, const T &u, T &alpha, mat<T, 3> &K, T &rhs, T &psi) {
   DECLARE_CCTK_PARAMETERS;
 
   T alpha1 = 0;
-  const mat<CCTK_REAL, 3, DN, DN> g([](int a, int b) { return a == b; });
-  K = mat<T, 3, DN, DN>();
+  const mat<CCTK_REAL, 3> g([](int a, int b) { return a == b; });
+  K = mat<T, 3>();
   for (int i = 0; i < npunctures; ++i) {
-    const vec<T, 3, UP> x{posx[i], posy[i], posz[i]};
-    const vec<T, 3, UP> P{momx[i], momy[i], momz[i]};
-    const vec<T, 3, UP> S{amomx[i], amomy[i], amomz[i]};
+    const vec<T, 3> x{posx[i], posy[i], posz[i]};
+    const vec<T, 3> P{momx[i], momy[i], momz[i]};
+    const vec<T, 3> S{amomx[i], amomy[i], amomz[i]};
     const T r = sqrt(sum<3>([&](int a) { return pow(p.X[a] - x(a), 2); }));
-    const vec<T, 3, UP> n([&](int a) { return r < rmin ? 0 : x(a) / r; });
+    const vec<T, 3> n([&](int a) { return r < rmin ? 0 : x(a) / r; });
 
     alpha1 += mass[i] / (2 * fmax(rmin, r));
 
-    K += mat<T, 3, DN, DN>([&](int a, int b) {
+    K += mat<T, 3>([&](int a, int b) {
       return 3 / (2 * pow(fmax(rmin, r), 2)) *
                  (P(a) * n(b) + P(b) * n(a) -
                   (g(a, b) - n(a) * n(b)) *
@@ -96,7 +95,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE void fcalc(const PointDesc &p, const T &u,
   if (alpha == 0) {
     assert(0); // handled by rmin
     // At a puncture
-    K = mat<T, 3, DN, DN>();
+    K = mat<T, 3>();
     rhs = 0;
     psi = INFINITY;
     return;
@@ -111,7 +110,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE void fcalc(const PointDesc &p, const T &u,
 
 template <typename T> T frhs(const PointDesc &p, const T &u) {
   T alpha;
-  mat<T, 3, DN, DN> K;
+  mat<T, 3> K;
   T rhs;
   T psi;
   fcalc(p, u, alpha, K, rhs, psi);
@@ -123,16 +122,16 @@ template <typename T> T fbnd(const PointDesc &p) { return 1; }
 
 template <typename T> T fpsi(const PointDesc &p, const T &u) {
   T alpha;
-  mat<T, 3, DN, DN> K;
+  mat<T, 3> K;
   T rhs;
   T psi;
   fcalc(p, u, alpha, K, rhs, psi);
   return psi;
 }
 
-template <typename T> mat<T, 3, DN, DN> fK(const PointDesc &p, const T &u) {
+template <typename T> mat<T, 3> fK(const PointDesc &p, const T &u) {
   T alpha;
-  mat<T, 3, DN, DN> K;
+  mat<T, 3> K;
   T rhs;
   T psi;
   fcalc(p, u, alpha, K, rhs, psi);
@@ -269,10 +268,10 @@ extern "C" void Punctures_ADMBase(CCTK_ARGUMENTS) {
 
   loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) {
     const CCTK_REAL psi = fpsi(p, usol_(p.I));
-    const mat<CCTK_REAL, 3, DN, DN> g([](int a, int b) { return a == b; });
-    const mat<CCTK_REAL, 3, DN, DN> K = fK(p, usol_(p.I));
-    const mat<CCTK_REAL, 3, DN, DN> gph = pow(psi, 4) * g;
-    const mat<CCTK_REAL, 3, DN, DN> Kph = pow(psi, -2) * K;
+    const mat<CCTK_REAL, 3> g([](int a, int b) { return a == b; });
+    const mat<CCTK_REAL, 3> K = fK(p, usol_(p.I));
+    const mat<CCTK_REAL, 3> gph = pow(psi, 4) * g;
+    const mat<CCTK_REAL, 3> Kph = pow(psi, -2) * K;
     gxx_(p.I) = gph(0, 0);
     gxy_(p.I) = gph(0, 1);
     gxz_(p.I) = gph(0, 2);

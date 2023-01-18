@@ -6,7 +6,6 @@
 #include "io_openpmd.hxx"
 #include "io_silo.hxx"
 #include "io_tsv.hxx"
-#include "reduction.hxx"
 #include "schedule.hxx"
 #include "timer.hxx"
 
