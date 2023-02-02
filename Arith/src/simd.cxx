@@ -27,7 +27,9 @@ std::size_t get_memop_count() {
 
 void TestSIMD() {
   // nvcc V11.1.74 doesn't accept this as "constexpr" values
-#ifndef __CUDACC__
+  // clang in HIP mode does not have constexpr for isnan
+  // https://sep5.readthedocs.io/en/latest/Programming_Guides/HIP-porting-guide.html
+#if(!defined(__CUDACC__) && !defined(__clang__))
   typedef simd<CCTK_REAL> realv;
 
   realv x;
