@@ -1,5 +1,0 @@
-# Interface definition for thorn Silo
-
-IMPLEMENTS: Silo
-
-INCLUDES HEADER: silo.hxx IN silo.hxx

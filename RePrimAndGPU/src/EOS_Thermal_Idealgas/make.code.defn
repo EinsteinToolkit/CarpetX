@@ -1,3 +1,0 @@
-SRCS =						\
-	eos_idealgas.cc				\
-	eos_idealgas_file.cc

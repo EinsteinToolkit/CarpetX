@@ -1,7 +1,0 @@
-# Configuration definitions for thorn RePrimAndGPU
-
-PROVIDES RePrimAndGPU
-{
-}
-
-REQUIRES GSL BOOST HDF5

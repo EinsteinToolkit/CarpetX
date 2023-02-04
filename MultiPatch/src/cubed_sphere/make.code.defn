@@ -1,4 +1,0 @@
-# make.code.defn file for the Cubed sphere patch system definition and tests
-
-# Source files in this directory
-SRCS = cubed_sphere.cxx

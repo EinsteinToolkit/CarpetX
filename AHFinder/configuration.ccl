@@ -1,5 +1,0 @@
-# Configuration definition for thorn AHFinder
-
-REQUIRES ssht
-
-REQUIRES Arith

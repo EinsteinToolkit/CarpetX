@@ -1,5 +1,0 @@
-# Interface definition for thorn SHTOOLS
-
-IMPLEMENTS: SHTOOLS
-
-INCLUDES HEADER: shtools.h IN shtools.h

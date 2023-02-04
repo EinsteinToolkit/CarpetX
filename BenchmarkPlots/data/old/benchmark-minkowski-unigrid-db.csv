@@ -1,4 +1,0 @@
-system,time,iter,size,nodes,cores_node,threads,threads_process,blocking_factor,max_grid_size,max_tile_size_x,max_tile_size_y,max_tile_size_z
-db,26.6424,9999,256,4,48,192,12,8,128,1024000,16,32
-db,41.0511,9999,256,2,48,96,12,8,128,1024000,16,32
-db,70.0367,9999,256,1,48,48,12,8,128,1024000,16,32

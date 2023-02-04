@@ -1,3 +1,0 @@
-#! /bin/bash
-cd @SOURCEDIR@
-exec @SIMFACTORY@ run @SIMULATION_NAME@ --machine=@MACHINE@ --restart-id=@RESTART_ID@ @FROM_RESTART_COMMAND@ </dev/null 2>&1 | tee @RUNDIR@/@SIMULATION_NAME@.log

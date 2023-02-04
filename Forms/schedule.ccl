@@ -1,9 +1,0 @@
-# Schedule definitions for thorn Forms
-
-if (test_forms) {
-  SCHEDULE TestForms_Test AT basegrid
-  {
-    LANG: C
-    OPTIONS: meta
-  } "Test Forms"
-}

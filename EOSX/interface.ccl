@@ -1,5 +1,0 @@
-# Interface definition for thorn EOSX
-
-implements: EOSX
-INCLUDES HEADER: eos.hxx IN eos.hxx
-INCLUDES HEADER: eos_idealgas.hxx IN eos_idealgas.hxx

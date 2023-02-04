@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn TestMultiPatch
-
-# Source files in this directory
-SRCS = initialize.cxx
-
-# Subdirectories containing source files
-SUBDIRS =

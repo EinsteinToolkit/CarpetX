@@ -1,6 +1,0 @@
-machine,time,iter,nlevels,size_x,size_y,size_z,nodes,cores_node,threads,threads_process,blocking_factor,max_grid_size,max_tile_size_x,max_tile_size_y,max_tile_size_z
-symmetry,442.12,0000,1,1024,512,512,16,40,640,40,8,128,1024000,4,2
-symmetry,351.928,0000,1,256,256,256,1,40,40,40,8,128,1024000,4,2
-symmetry,385.469,0000,1,512,256,256,2,40,80,40,8,128,1024000,4,2
-symmetry,398.962,0000,1,512,512,256,4,40,160,40,8,128,1024000,4,2
-symmetry,416.477,0000,1,512,512,512,8,40,320,40,8,128,1024000,4,2

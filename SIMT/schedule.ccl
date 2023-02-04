@@ -1,6 +1,0 @@
-# Schedule definitions for thorn SIMT
-
-SCHEDULE SIMT_Test at WRAGH
-{
-  LANG: C
-} "Test SIMT implementation"

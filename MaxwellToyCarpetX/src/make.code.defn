@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn MaxwellToyCarpetX
-
-# Source files in this directory
-SRCS = maxwelltoy.cxx
-
-# Subdirectories containing source files
-SUBDIRS = 

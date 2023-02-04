@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn NewRad
-
-# Source files in this directory
-SRCS = extrap.cxx newrad.cxx
-
-# Subdirectories containing source files
-SUBDIRS =

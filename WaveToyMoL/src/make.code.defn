@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn WaveToyMoL
-
-# Source files in this directory
-SRCS = wavetoy.cxx
-
-# Subdirectories containing source files
-SUBDIRS = 

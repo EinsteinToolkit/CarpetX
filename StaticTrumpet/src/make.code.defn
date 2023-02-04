@@ -1,4 +1,0 @@
-# Main make.code.defn file for thorn StaticTrumpet
-
-# Source files in this directory
-SRCS = StaticTrumpet.cxx

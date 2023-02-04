@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn Silo
-
-# Source files in this directory
-SRCS = silo.cxx
-
-# Subdirectories containing source files
-SUBDIRS = 

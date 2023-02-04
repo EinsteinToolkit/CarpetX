@@ -1,7 +1,0 @@
-# Interface definition for thorn BrillLindquist
-
-IMPLEMENTS: BrillLindquist
-
-USES INCLUDE HEADER: loop.hxx
-
-INHERITS: ADMBase

@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn BrillLindquist
-
-# Source files in this directory
-SRCS = brill-lindquist.cxx
-
-# Subdirectories containing source files
-SUBDIRS =

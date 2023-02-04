@@ -1,1 +1,0 @@
-rfm_struct rfmstruct;

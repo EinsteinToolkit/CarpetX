@@ -1,5 +1,0 @@
-# Parameter definitions for thorn Forms
-
-BOOLEAN test_forms "Test Forms at startup"
-{
-} "no"

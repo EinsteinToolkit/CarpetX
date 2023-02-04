@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn Weyl
-
-# Source files in this directory
-SRCS = curvature.cxx metric.cxx scalars.cxx weyl.cxx
-
-# Subdirectories containing source files
-SUBDIRS =

@@ -1,8 +1,0 @@
-version: '2'
-
-services:
-  cactus-amrex:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: einsteintoolkit/cactus-amrex

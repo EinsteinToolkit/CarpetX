@@ -1,5 +1,0 @@
-IMPLEMENTS: StaticTrumpet
-
-INHERITS: ADMBase
-
-USES INCLUDE HEADER: loop.hxx

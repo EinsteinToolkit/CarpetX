@@ -1,6 +1,0 @@
-# Configuration definitions for thorn HydroToyCarpetX
-
-# REQUIRES Kokkos
-# REQUIRES NSIMD
-# REQUIRES Vectors
-REQUIRES Loop

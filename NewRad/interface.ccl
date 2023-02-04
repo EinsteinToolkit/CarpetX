@@ -1,9 +1,0 @@
-# Interface definition for thorn NewRad
-
-IMPLEMENTS: NewRad
-
-INHERITS: BaikalX
-
-
-
-USES INCLUDE HEADER: loop.hxx

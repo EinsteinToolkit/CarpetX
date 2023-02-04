@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn CartGrid3D
-# $Header$
-
-# Source files in this directory
-SRCS = Startup.c ParamCheck.c DecodeSymParameters.c CartGrid3D.c              \
-       GetSymmetry.c SetSymmetry.c Symmetry.c RegisterSymmetries.c
-

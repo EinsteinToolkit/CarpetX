@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn TwoPunctures
-
-# Source files in this directory
-SRCS = CoordTransf.c Equations.c FuncAndJacobian.c Newton.c TwoPunctures.c TP_utilities.c ParamCheck.c Metadata.cc
-
-# Subdirectories containing source files
-SUBDIRS = 

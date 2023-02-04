@@ -1,8 +1,0 @@
-# Configuration definitions for thorn CUDA
-
-PROVIDES CUDA
-{
-  SCRIPT configure.sh
-  LANG bash
-  OPTIONS CUDA_DIR CUDA_INC_DIRS CUDA_LIB_DIRS CUDA_LIBS
-}

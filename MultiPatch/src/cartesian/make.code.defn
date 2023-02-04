@@ -1,4 +1,0 @@
-# make.code.defn file for the Cartesian patch system definition and tests
-
-# Source files in this directory
-SRCS = cartesian.cxx cartesian_tests.cxx
