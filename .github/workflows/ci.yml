@@ -1,0 +1,29 @@
+name: ci
+run-name: CarpetX tests
+on: [push]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install packages
+        run: |
+          sudo apt install -y \
+              build-essential \
+              curl \
+              g++ \
+              gfortran \
+              git \
+              libmpich-dev \
+              python \
+              subversion \
+              wget
+      - name: Download Cactus
+        run: |
+          wget https://raw.githubusercontent.com/gridaphobe/CRL/ET_2022_11/GetComponents
+          chmod a+x GetComponents
+          ./GetComponents --parallel https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2022_11/einsteintoolkit.th
+          mv CarpetX Cactus/repos
+      # - name: Cache build products
+      # - name: Build Cactus
+      # - name: Run Cactus tests
