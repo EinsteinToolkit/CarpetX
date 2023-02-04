@@ -48,12 +48,11 @@ jobs:
         run: |
           # We need a modern cmake to build AMReX
           mkdir cmake
-          cd cmake
+          pushd cmake
           wget https://github.com/Kitware/CMake/releases/download/v3.25.2/cmake-3.25.2-linux-x86_64.tar.gz
           tar xzf cmake-3.25.2-linux-x86_64.tar.gz
           rsync -r cmake-3.25.2-linux-x86_64/ /usr/local
           popd
-          rm -rf cmake
       - name: Install ADIOS2
         run: |
           # ADIOS2 is a parallel I/O library, comparable to HDF5
@@ -68,7 +67,6 @@ jobs:
           make -j$(nproc)
           make -j$(nproc) install
           popd
-          rm -rf adios2
       - name: Install NSIMD
         run: |
           # NSIMD allows writing explicitly SIMD-vectorized code
@@ -90,7 +88,6 @@ jobs:
           make -j$(nproc)
           make -j$(nproc) install
           popd
-          rm -rf nsimd
       - name: Install openPMD-api
         run: |
           # openPMD-api defines a standard for laying out AMR data in a file
@@ -106,7 +103,6 @@ jobs:
           make -j$(nproc)
           make -j$(nproc) install
           popd
-          rm -rf openPMD-api
       - name: Install Silo
         run: |
           # Silo defines a standard for laying out AMR data in a file
@@ -125,7 +121,6 @@ jobs:
           make -j$(nproc)
           make -j$(nproc) install
           popd
-          rm -rf silo
       - name: Install yaml-cpp
         run: |
           # Install yaml-cpp
@@ -141,7 +136,6 @@ jobs:
           make -j$(nproc)
           make -j$(nproc) install
           popd
-          rm -rf yaml-cpp
       - name: Install AMReX
         run: |
           # Install AMReX
