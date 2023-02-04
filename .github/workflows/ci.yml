@@ -18,6 +18,9 @@ jobs:
               python \
               subversion \
               wget
+      # - name: Install dependencies
+      #   run: |
+      #     sudo apt install -y \
       - name: Download Cactus
         run: |
           wget https://raw.githubusercontent.com/gridaphobe/CRL/ET_2022_11/GetComponents
