@@ -10,6 +10,6 @@ block-structured AMR (adaptive mesh refinement). CarpetX is intended
 for the [Einstein Toolkit](https://einsteintoolkit.org/).
 
 * [![GitHub
-  CI](https://github.com/eschnett/CarpetX/workflows/CI/badge.svg)](https://github.com/eschnett/CarpetX/actions)
+  CI](https://github.com/eschnett/CarpetX/workflows/ci/badge.svg)](https://github.com/eschnett/CarpetX/actions)
 
 ## Overview
