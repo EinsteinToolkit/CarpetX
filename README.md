@@ -1,6 +1,6 @@
 # [CarpetX](https://github.com/eschnett/CarpetX)
 
-<img src="https://https://github.com/eschnett/CarpetX/figures/carpetx.png" width="200" />
+<img src="https://github.com/eschnett/CarpetX/figures/carpetx.png" width="200" />
 
 **CarpetX** is a [Cactus](https://cactuscode.org/) driver based on
 [AMReX](https://amrex-codes.github.io), a software framework for
