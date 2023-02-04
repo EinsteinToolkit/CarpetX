@@ -15,7 +15,7 @@ jobs:
               gfortran \
               git \
               libmpich-dev \
-              python \
+              python3 \
               subversion \
               wget
       # - name: Install dependencies
