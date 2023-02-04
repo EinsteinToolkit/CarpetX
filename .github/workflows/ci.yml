@@ -8,7 +8,9 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install packages
         run: |
-          sudo apt install -y \
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get --no-install-recommends --yes install \
               build-essential \
               ca-certificates \
               g++ \
@@ -38,6 +40,7 @@ jobs:
       - name: Restore dependencies
         uses: actions/cache@v3
         with:
+          # Note: Change this key if the dependencies change, e.g. if we install newer versions
           key: dependencies-1
           path: |
             /usr/local
