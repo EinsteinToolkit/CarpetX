@@ -99,7 +99,8 @@ jobs:
           cd openPMD-api-0.14.5
           mkdir build
           cd build
-          cmake ..
+          # We need to disable testing because there is a bug in the enclosed `catch2` library
+          cmake .. -DBUILD_TESTING=OFF
           make -j$(nproc)
           sudo make -j$(nproc) install
           popd
