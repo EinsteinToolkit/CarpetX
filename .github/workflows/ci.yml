@@ -103,9 +103,9 @@ jobs:
           cmake .. -DBUILD_TESTING=OFF
           make -j$(nproc)
           sudo make -j$(nproc) install
-          ls -l /usr/local/bin/openpmd-pipe || true
-          chmod a+rwx /usr/local/bin/openpmd-pipe
-          ls -l /usr/local/bin/openpmd-pipe || true
+          ls -l /usr/local/bin || true
+          sudo chmod a+rx /usr/local/bin/openpmd-pipe
+          ls -l /usr/local/bin || true
           popd
       - name: Install Silo
         run: |
