@@ -46,7 +46,7 @@ jobs:
         with:
           # Note: Change this key if the dependencies change, e.g. if we install newer versions
           # Update the respective file name in `install_dependencies.sh` as well
-          key: dependencies-1
+          key: dependencies-2
           path: |
             /usr/local
       - name: Install dependencies
