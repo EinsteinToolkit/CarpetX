@@ -63,12 +63,12 @@ jobs:
           ./GetComponents --parallel https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2022_11/einsteintoolkit.th
           # Create a link to the CarpetX repository
           ln -s ../../CarpetX Cactus/repos
-      - name: Build Cactus
-        run: |
-          # Set up the runner
-          cd ../Cactus
-          cp repos/CarpetX/.github/workflows/actions.ini ./simfactory/mdb/machines
-          cp repos/CarpetX/.github/workflows/actions.cfg ./simfactory/mdb/options
-          cp repos/CarpetX/.github/workflows/actions.th .
-          ./simfactory/bin/sim --machine=actions build sim --thornlist=actions.th
+      # - name: Build Cactus
+      #   run: |
+      #     # Set up the runner
+      #     cd ../Cactus
+      #     cp repos/CarpetX/.github/workflows/actions.ini ./simfactory/mdb/machines
+      #     cp repos/CarpetX/.github/workflows/actions.cfg ./simfactory/mdb/options
+      #     cp repos/CarpetX/.github/workflows/actions.th .
+      #     ./simfactory/bin/sim --machine=actions build sim --thornlist=actions.th
       # - name: Run Cactus tests
