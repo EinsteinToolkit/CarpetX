@@ -118,5 +118,5 @@ sudo make -j$(nproc) install
 popd
 
 # Remember that we installed the dependencies
-mkdir -p /usr/local/etc
-: >/usr/local/etc/HAVE-DEPENDENCIES-1
+sudo mkdir -p /usr/local/etc
+sudo cp /dev/null /usr/local/etc/HAVE-DEPENDENCIES-1
