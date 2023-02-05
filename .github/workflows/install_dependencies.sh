@@ -2,9 +2,6 @@
 
 set -euxo pipefail
 
-# Don't install dependencies if they already exist
-test -d /usr/local/etc/HAVE-DEPENDENCIES-1 && exit 0
-
 # Install cmake
 # We need a modern cmake to build AMReX
 mkdir cmake
@@ -116,7 +113,3 @@ cmake                                           \
 make -j$(nproc)
 sudo make -j$(nproc) install
 popd
-
-# Remember that we installed the dependencies
-sudo mkdir -p /usr/local/etc
-sudo cp /dev/null /usr/local/etc/HAVE-DEPENDENCIES-1
