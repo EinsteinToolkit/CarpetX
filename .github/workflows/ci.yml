@@ -37,6 +37,9 @@ jobs:
               subversion \
               wget \
               zlib1g-dev
+      - name: Prepare /usr/local
+        run: |
+          sudo chmod a+rwx /usr/local
       - name: Restore dependencies
         uses: actions/cache@v3
         id: cache-dependencies

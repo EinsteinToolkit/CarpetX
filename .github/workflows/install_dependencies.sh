@@ -22,7 +22,7 @@ mkdir build
 cd build
 cmake ..
 make -j$(nproc)
-sudo make -j$(nproc) install
+make -j$(nproc) install
 popd
 
 # Install NSIMD
@@ -43,7 +43,7 @@ cmake                                           \
     -DCMAKE_INSTALL_PREFIX=/usr/local           \
     ..
 make -j$(nproc)
-sudo make -j$(nproc) install
+make -j$(nproc) install
 popd
 
 # Install openPMD-api
@@ -59,8 +59,8 @@ cd build
 # We need to disable testing because there is a bug in the enclosed `catch2` library
 cmake .. -DBUILD_TESTING=OFF
 make -j$(nproc)
-sudo make -j$(nproc) install
-sudo chmod a+rx /usr/local/bin/openpmd-pipe
+make -j$(nproc) install
+chmod a+rx /usr/local/bin/openpmd-pipe
 popd
 
 # Install Silo
@@ -78,7 +78,7 @@ cd build
     --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial/include,/usr/lib/x86_64-linux-gnu/hdf5/serial/lib \
     --prefix=/usr/local
 make -j$(nproc)
-sudo make -j$(nproc) install
+make -j$(nproc) install
 popd
 
 # Install yaml-cpp
@@ -92,7 +92,7 @@ mkdir build
 cd build
 cmake ..
 make -j$(nproc)
-sudo make -j$(nproc) install
+make -j$(nproc) install
 popd
 
 # Install AMReX
@@ -111,5 +111,5 @@ cmake                                           \
     -DCMAKE_INSTALL_PREFIX=/usr/local           \
     ..
 make -j$(nproc)
-sudo make -j$(nproc) install
+make -j$(nproc) install
 popd
