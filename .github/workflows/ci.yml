@@ -47,7 +47,7 @@ jobs:
             /usr/local
       - name: Install dependencies
         run: |
-          .github/ci/install_dependencies.sh
+          .github/workflows/install_dependencies.sh
       # - name: Download Cactus
       #   run: |
       #     # /home/runner/work/CarpetX/CarpetX
