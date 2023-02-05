@@ -103,6 +103,9 @@ jobs:
           cmake .. -DBUILD_TESTING=OFF
           make -j$(nproc)
           sudo make -j$(nproc) install
+          ls -l /usr/local/bin/openpmd-pipe || true
+          chmod a+rwx /usr/local/bin/openpmd-pipe
+          ls -l /usr/local/bin/openpmd-pipe || true
           popd
       - name: Install Silo
         run: |
@@ -161,10 +164,17 @@ jobs:
           popd
       - name: Download Cactus
         run: |
+          # /home/runner/work/CarpetX
+          pwd
+          ls -l
           wget https://raw.githubusercontent.com/gridaphobe/CRL/ET_2022_11/GetComponents
           chmod a+x GetComponents
           ./GetComponents --parallel https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2022_11/einsteintoolkit.th
           mv CarpetX Cactus/repos
-      # - name: Cache build products
-      # - name: Build Cactus
+          cp CarpetX/.github/workflows/actions.ini Cactus/simfactory/mdb/machines
+          cp CarpetX/.github/workflows/actions.cfg Cactus/simfactory/mdb/options
+      - name: Build Cactus
+        run: |
+          cd Cactus
+          ./simfactory/bin/sim --machine=actions build sim
       # - name: Run Cactus tests
