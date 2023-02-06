@@ -72,6 +72,7 @@ jobs:
           cp repos/CarpetX/.github/workflows/actions.run ./simfactory/mdb/runscripts
           cp repos/CarpetX/.github/workflows/actions.sub ./simfactory/mdb/submitscripts
           cp repos/CarpetX/.github/workflows/actions.th .
+          cp repos/CarpetX/.github/workflows/defs.local.ini ./simfactory/etc
           # Build
-          ./simfactory/bin/sim --machine=actions build sim --thornlist=actions.th
+          ./simfactory/bin/sim --machine=actions build sim
       # - name: Run Cactus tests
