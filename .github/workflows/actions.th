@@ -59,7 +59,7 @@ CactusUtils/Vectors
 # Additional Cactus thorns
 # ExternalLibraries/BLAS
 # ExternalLibraries/LAPACK
-ExternalLibraries/ADIOS
+ExternalLibraries/ADIOS2
 ExternalLibraries/AMReX
 ExternalLibraries/Boost
 ExternalLibraries/FFTW3
