@@ -37,7 +37,7 @@ jobs:
               subversion \
               wget \
               zlib1g-dev
-      - name: Restore dependencies
+      - name: Restore dependencies from cache
         uses: actions/cache@v3
         id: cache-dependencies
         with:
@@ -47,7 +47,7 @@ jobs:
           path: |
             /home/runner/opt
       - name: Install dependencies
-        if: ${{steps.cache-dependencies.npm.outputs.cache-hit != 'true'}}
+        if: ${{steps.cache-dependencies.outputs.cache-hit != 'true'}}
         run: |
           .github/workflows/install_dependencies.sh
       - name: Download Cactus
