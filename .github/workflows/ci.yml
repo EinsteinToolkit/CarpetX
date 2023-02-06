@@ -61,6 +61,7 @@ jobs:
           chmod a+x GetComponents
           # Download Cactus thorns
           ./GetComponents --parallel https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2022_11/einsteintoolkit.th
+          cd Cactus
 
           # Download old CarpetX thorns for the external libraries there
           pushd repos
