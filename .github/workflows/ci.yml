@@ -67,7 +67,7 @@ jobs:
         run: |
           # Set up SimFactory
           cd ../Cactus
-          cp repos/CarpetX/.github/workflows/actions.cfg ./simfactory/mdb/options
+          cp repos/CarpetX/.github/workflows/actions.cfg ./simfactory/mdb/optionlists
           cp repos/CarpetX/.github/workflows/actions.ini ./simfactory/mdb/machines
           cp repos/CarpetX/.github/workflows/actions.run ./simfactory/mdb/runscripts
           cp repos/CarpetX/.github/workflows/actions.sub ./simfactory/mdb/submitscripts
