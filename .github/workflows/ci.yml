@@ -78,7 +78,7 @@ jobs:
           popd
 
           # Create a link to the CarpetX repository
-          ln -s ../../CarpetX Cactus/repos
+          ln -s ../../CarpetX repos
           # Create links for the CarpetX thorns
           mkdir -p arrangements/CarpetX
           pushd arrangements/CarpetX
