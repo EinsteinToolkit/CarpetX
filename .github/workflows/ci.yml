@@ -50,6 +50,15 @@ jobs:
         if: ${{steps.cache-dependencies.outputs.cache-hit != 'true'}}
         run: |
           .github/workflows/install_dependencies.sh
+      - name: Check PETSc
+        run: |
+          ls -l /usr/include
+          ls -l /usr/lib
+          ls -l /usr/lib/petscdir
+          ls -l /usr/lib/petscdir/3.15.5
+          ls -l /usr/lib/petscdir/3.15.5/x86_64-linux-gnu-real
+          ls -l /usr/lib/petscdir/3.15.5/x86_64-linux-gnu-real/include
+          ls -l /usr/lib/petscdir/3.15.5/x86_64-linux-gnu-real/lib
       - name: Download Cactus
         run: |
           # Working directory starts out as
