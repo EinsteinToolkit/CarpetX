@@ -52,13 +52,16 @@ jobs:
           .github/workflows/install_dependencies.sh
       - name: Check PETSc
         run: |
+          echo ls -l /usr/include
           ls -l /usr/include
+          echo ls -l /usr/lib
           ls -l /usr/lib
-          ls -l /usr/lib/petscdir
-          ls -l /usr/lib/petscdir/3.15.5
-          ls -l /usr/lib/petscdir/3.15.5/x86_64-linux-gnu-real
-          ls -l /usr/lib/petscdir/3.15.5/x86_64-linux-gnu-real/include
-          ls -l /usr/lib/petscdir/3.15.5/x86_64-linux-gnu-real/lib
+          echo ls -l /usr/lib/petsc
+          ls -l /usr/lib/petsc
+          echo ls -l /usr/lib/petsc/include
+          ls -l /usr/lib/petsc/include
+          echo ls -l /usr/lib/petsc/lib
+          ls -l /usr/lib/petsc/lib
       - name: Download Cactus
         run: |
           # Working directory starts out as
