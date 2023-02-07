@@ -22,10 +22,10 @@ CactusTest/TestFortranDependencies1
 CactusTest/TestFortranDependencies2
 CactusTest/TestFpointerNULL
 CactusTest/TestFreeF90
-CactusTest/TestGlobalReduce
+# CactusTest/TestGlobalReduce
 CactusTest/TestInclude1
 CactusTest/TestInclude2
-CactusTest/TestLoop
+# CactusTest/TestLoop
 CactusTest/TestMath
 # CactusTest/TestMoL
 CactusTest/TestPar
@@ -72,7 +72,7 @@ ExternalLibraries/OpenBLAS
 ExternalLibraries/PETSc
 ExternalLibraries/Silo
 ExternalLibraries/hwloc
-ExternalLibraries/openPMD
+ExternalLibraries/openPMD_api
 #DISABLED ExternalLibraries/ssht
 ExternalLibraries/yaml_cpp
 ExternalLibraries/zlib

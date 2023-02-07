@@ -73,7 +73,7 @@ jobs:
           ln -s ../../repos/cactusamrex/Boost .
           ln -s ../../repos/cactusamrex/NSIMD .
           ln -s ../../repos/cactusamrex/Silo .
-          ln -s ../../repos/cactusamrex/openPMD .
+          ln -s ../../repos/cactusamrex/openPMD_api .
           ln -s ../../repos/cactusamrex/yaml_cpp .
           popd
 
