@@ -50,6 +50,18 @@ jobs:
         if: ${{steps.cache-dependencies.outputs.cache-hit != 'true'}}
         run: |
           .github/workflows/install_dependencies.sh
+      - name: Check PETSc
+        run: |
+          echo ls -l /usr/include
+          ls -l /usr/include
+          echo ls -l /usr/lib
+          ls -l /usr/lib
+          echo ls -l /usr/lib/hdf5
+          ls -l /usr/lib/hdf5
+          echo ls -l /usr/lib/hdf5/include
+          ls -l /usr/lib/hdf5/include
+          echo ls -l /usr/lib/hdf5/lib
+          ls -l /usr/lib/hdf5/lib
       - name: Download Cactus
         run: |
           # Working directory starts out as
