@@ -50,15 +50,6 @@ jobs:
         if: ${{steps.cache-dependencies.outputs.cache-hit != 'true'}}
         run: |
           .github/workflows/install_dependencies.sh
-      - name: Find HDF5
-        run: |
-          set +exu
-          ls -l /usr/lib
-          ls -l /usr/lib/x86_64-linux-gnu
-          ls -l /usr/lib/x86_64-linux-gnu/hdf5
-          ls -l /usr/lib/x86_64-linux-gnu/hdf5/serial
-          ls -l /usr/lib/x86_64-linux-gnu/hdf5/serial/include
-          ls -l /usr/lib/x86_64-linux-gnu/hdf5/serial/lib
       - name: Download Cactus
         run: |
           # Working directory starts out as
