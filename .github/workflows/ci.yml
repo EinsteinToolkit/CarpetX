@@ -97,6 +97,7 @@ jobs:
           ./simfactory/bin/sim --machine=actions build sim
       - name: Run Cactus tests
         run : |
+          cd ../Cactus
           mkdir $HOME/simulations
           ./exe/cactus_sim
           mpirun -np 2 -x OMP_NUM_THREADS=2 ./exe/cactus_sim
