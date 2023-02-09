@@ -42,14 +42,13 @@ jobs:
         id: cache-dependencies
         with:
           # Note: Change this key if the dependencies change, e.g. if we install newer versions
-          # Update the respective file name in `install_dependencies.sh` as well
           key: dependencies-3
           path: |
             /home/runner/opt
       - name: Install dependencies
         if: ${{steps.cache-dependencies.outputs.cache-hit != 'true'}}
         run: |
-          .github/workflows/install_dependencies.sh
+          .github/workflows/install-dependencies.sh
       - name: Download Cactus
         run: |
           # Working directory starts out as
@@ -96,4 +95,8 @@ jobs:
           cp repos/CarpetX/.github/workflows/defs.local.ini ./simfactory/etc
           # Build
           ./simfactory/bin/sim --machine=actions build sim
-      # - name: Run Cactus tests
+        - name: Run Cactus tests
+          run : |
+            mkdir $HOME/simulations
+            ./exe/cactus_sim
+            mpirun -np 2 -x OMP_NUM_THREADS=2 ./exe/cactus_sim
