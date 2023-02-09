@@ -95,8 +95,8 @@ jobs:
           cp repos/CarpetX/.github/workflows/defs.local.ini ./simfactory/etc
           # Build
           ./simfactory/bin/sim --machine=actions build sim
-        - name: Run Cactus tests
-          run : |
-            mkdir $HOME/simulations
-            ./exe/cactus_sim
-            mpirun -np 2 -x OMP_NUM_THREADS=2 ./exe/cactus_sim
+      - name: Run Cactus tests
+        run : |
+          mkdir $HOME/simulations
+          ./exe/cactus_sim
+          mpirun -np 2 -x OMP_NUM_THREADS=2 ./exe/cactus_sim
