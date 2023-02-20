@@ -2,13 +2,8 @@
 
 set -ex
 
-pwd
-echo $PWD
-ls -l
-ls -l $PWD/CarpetX
-
-export CARPETXSPACE="$PWD/CarpetX"
-export WORKSPACE="$PWD/workspace"
+export CARPETXSPACE="$PWD"
+export WORKSPACE="$PWD/../workspace"
 mkdir -p "$WORKSPACE"
 cd "$WORKSPACE"
 
