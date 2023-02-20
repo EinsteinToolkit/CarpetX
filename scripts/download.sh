@@ -2,9 +2,13 @@
 
 set -ex
 
+pwd
+echo $PWD
+ls -l
+ls -l $PWD/CarpetX
+
 export CARPETXSPACE="$PWD/CarpetX"
 export WORKSPACE="$PWD/workspace"
-export PAGESSPACE="$PWD/gh-pages"
 mkdir -p "$WORKSPACE"
 cd "$WORKSPACE"
 
@@ -12,6 +16,14 @@ cd "$WORKSPACE"
 wget https://raw.githubusercontent.com/gridaphobe/CRL/master/GetComponents
 chmod a+x GetComponents
 ./GetComponents --no-parallel --shallow https://bitbucket.org/einsteintoolkit/manifest/raw/master/einsteintoolkit.th
+
+# Unshallow Carpetx
+pushd "$CARPETXSPACE"
+git fetch --unshallow
+echo "At git ref: $(git rev-parse HEAD)"
+popd
+
+cd Cactus
 
 # Download old CarpetX thorns for the external libraries there
 # TODO: Move these into ExternalLibraries
@@ -34,10 +46,4 @@ ln -s "$CARPETXSPACE" repos
 mkdir -p arrangements/CarpetX
 pushd arrangements/CarpetX
 ln -s ../../repos/CarpetX/* .
-popd
-
-# Unshallow Carpetx
-pushd Cactus/repos/CarpetX
-git fetch --unshallow
-echo "At git ref: $(git rev-parse HEAD)"
 popd
