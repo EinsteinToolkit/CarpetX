@@ -32,7 +32,14 @@ jobs:
         run: echo ${{github.event.client_payload.trigger}}
 
       - name: Download Cactus
-        run: /bin/bash $GITHUB_WORKSPACE/scripts/download.sh
+        run: |
+          pwd
+          ls -l
+          echo $GITHUB_WORKSPACE
+          ls -l $GITHUB_WORKSPACE
+          ls -l $GITHUB_WORKSPACE/scripts
+          ls -l $GITHUB_WORKSPACE/scripts/download.sh
+          /bin/bash $GITHUB_WORKSPACE/scripts/download.sh
 
       #TODO - name: Build Cactus
       #TODO   run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/build.sh
