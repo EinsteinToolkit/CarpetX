@@ -10,12 +10,14 @@ cd "$WORKSPACE"
 # Check out Cactus
 wget https://raw.githubusercontent.com/gridaphobe/CRL/master/GetComponents
 chmod a+x GetComponents
+# TODO: Don't check out all Cactus thorns, use a thorn list instead
 ./GetComponents --no-parallel --shallow https://bitbucket.org/einsteintoolkit/manifest/raw/master/einsteintoolkit.th
 
 cd Cactus
 
 # Download old CarpetX thorns for the external libraries there
-# TODO: Move these into ExternalLibraries
+# TODO: Move these thorns into ExternalLibraries
+# TODO: Move these instructions into the thorn list
 pushd repos
 git clone https://bitbucket.org/eschnett/cactusamrex
 popd

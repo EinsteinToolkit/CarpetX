@@ -29,12 +29,12 @@ jobs:
       - name: Download Cactus
         run: /bin/bash $GITHUB_WORKSPACE/scripts/download.sh
 
-      #TODO - name: Build Cactus
-      #TODO   run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/build.sh
-      #TODO 
-      #TODO - name: Test Cactus
-      #TODO   run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/test.sh
-      #TODO 
+      - name: Build Cactus
+        run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/build.sh
+      
+      - name: Test Cactus
+        run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/test.sh
+      
       #TODO # Set exit code based on test status
       #TODO - name: Exit code
       #TODO   if: ${{env.TESTS_FAILED == 'True'}}
