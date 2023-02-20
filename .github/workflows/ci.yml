@@ -12,21 +12,21 @@ concurrency:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
+  # This workflow contains a single job
+  download-build-test:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     container: einsteintoolkit/carpetx:latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
-      - uses: actions/checkout@v3
+      # # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
+      # - uses: actions/checkout@v3
 
-      - uses: actions/checkout@v3
-        with:
-          ref: gh-pages
-          path: gh-pages
+      #TODO - uses: actions/checkout@v3
+      #TODO   with:
+      #TODO     ref: gh-pages
+      #TODO     path: gh-pages
           
       - name: Log the triggering commit
         run: echo ${{github.event.client_payload.trigger}}
@@ -34,13 +34,13 @@ jobs:
       - name: Download Cactus
         run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/download.sh
 
-      # - name: Build Cactus
-      #   run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/build.sh
-      # 
-      # - name: Test Cactus
-      #   run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/test.sh
-      # 
-      # # Set exit code based on test status
-      # - name: Exit code
-      #   if: ${{env.TESTS_FAILED == 'True'}}
-      #   run: exit 1
+      #TODO - name: Build Cactus
+      #TODO   run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/build.sh
+      #TODO 
+      #TODO - name: Test Cactus
+      #TODO   run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/test.sh
+      #TODO 
+      #TODO # Set exit code based on test status
+      #TODO - name: Exit code
+      #TODO   if: ${{env.TESTS_FAILED == 'True'}}
+      #TODO   run: exit 1
