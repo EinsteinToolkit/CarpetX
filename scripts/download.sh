@@ -12,12 +12,6 @@ wget https://raw.githubusercontent.com/gridaphobe/CRL/master/GetComponents
 chmod a+x GetComponents
 ./GetComponents --no-parallel --shallow https://bitbucket.org/einsteintoolkit/manifest/raw/master/einsteintoolkit.th
 
-# Unshallow Carpetx
-pushd "$CARPETXSPACE"
-git fetch --unshallow
-echo "At git ref: $(git rev-parse HEAD)"
-popd
-
 cd Cactus
 
 # Download old CarpetX thorns for the external libraries there
