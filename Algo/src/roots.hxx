@@ -18,6 +18,14 @@
 namespace Algo {
 
 namespace {
+template <typename T> constexpr void swap1(T &x, T &y) {
+  T z = std::move(x);
+  x = std::move(y);
+  y = std::move(z);
+}
+} // namespace
+
+namespace {
 template <typename T> constexpr T ldexp1(const T &x, const int n) {
   using std::ldexp;
   return ldexp(x, n);
@@ -31,8 +39,8 @@ public:
   constexpr eps_tolerance() : eps(10 * std::numeric_limits<T>::epsilon()) {}
   constexpr eps_tolerance(const int min_bits) : eps(ldexp1(T(1), -min_bits)) {}
   constexpr bool operator()(const T &x, const T &y) const {
-    using std::fabs, std::min;
-    return fabs(x - y) <= eps * min(fabs(x), fabs(y));
+    using std::abs, std::min;
+    return abs(x - y) <= eps * min(abs(x), abs(y));
   }
 };
 
@@ -63,7 +71,7 @@ std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
 // See <https://en.wikipedia.org/wiki/Brent%27s_method>
 template <typename F, typename T>
 std::pair<T, T> brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
-  using std::abs, std::min, std::max, std::swap;
+  using std::abs, std::min, std::max;
 
   // auto tol = boost::math::tools::eps_tolerance<T>(min_bits);
   const auto tol = eps_tolerance<T>(min_bits);
@@ -72,8 +80,8 @@ std::pair<T, T> brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
   auto fa = f(a);
   auto fb = f(b);
   if (abs(fa) < abs(fb)) {
-    swap(a, b);
-    swap(fa, fb);
+    swap1(a, b);
+    swap1(fa, fb);
   }
   if (fb == 0)
     return {b, b};
@@ -100,7 +108,7 @@ std::pair<T, T> brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
     T u = (3 * a + b) / 4;
     T v = b;
     if (u > v)
-      swap(u, v);
+      swap1(u, v);
     bool cond1 = !(u <= s && s <= v);
     bool cond2 = mflag && abs(s - b) >= abs(b - c) / 2;
     bool cond3 = !mflag && abs(s - b) >= abs(c - d) / 2;
@@ -132,8 +140,8 @@ std::pair<T, T> brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
     //            double(fa), double(fb), double(fc));
     assert(fa * fb <= 0);
     if (abs(fa) < abs(fb)) {
-      swap(a, b);
-      swap(fa, fb);
+      swap1(a, b);
+      swap1(fa, fb);
     }
     ++iters;
   }
