@@ -12,9 +12,29 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 namespace Algo {
+
+namespace {
+template <typename T> constexpr T ldexp1(const T &x, const int n) {
+  using std::ldexp;
+  return ldexp(x, n);
+}
+} // namespace
+
+template <typename T> class eps_tolerance {
+  T eps;
+
+public:
+  constexpr eps_tolerance() : eps(10 * std::numeric_limits<T>::epsilon()) {}
+  constexpr eps_tolerance(const int min_bits) : eps(ldexp1(T(1), -min_bits)) {}
+  constexpr bool operator()(const T &x, const T &y) const {
+    using std::fabs, std::min;
+    return fabs(x - y) <= eps * min(fabs(x), fabs(y));
+  }
+};
 
 template <typename F, typename T>
 std::pair<T, T> bisect(F &&f, T min, T max, int min_bits, int max_iters,
@@ -34,7 +54,8 @@ std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
   std::uintmax_t max_iter = max_iters;
   auto res = boost::math::tools::bracket_and_solve_root(
       std::forward<F>(f), guess, factor, rising,
-      boost::math::tools::eps_tolerance<double>(min_bits), max_iter);
+      // boost::math::tools::eps_tolerance<double>(min_bits),
+      eps_tolerance<T>(min_bits), max_iter);
   iters = max_iter;
   return res;
 }
@@ -44,7 +65,8 @@ template <typename F, typename T>
 std::pair<T, T> brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
   using std::abs, std::min, std::max, std::swap;
 
-  auto tol = boost::math::tools::eps_tolerance<T>(min_bits);
+  // auto tol = boost::math::tools::eps_tolerance<T>(min_bits);
+  const auto tol = eps_tolerance<T>(min_bits);
 
   iters = 0;
   auto fa = f(a);
@@ -161,7 +183,8 @@ Arith::vec<T, N> newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
   using vec = Arith::vec<T, N>;
   using mat = Arith::mat<T, N>;
   failed = false;
-  auto tolfx = boost::math::tools::eps_tolerance<T>(min_bits);
+  // auto tolfx = boost::math::tools::eps_tolerance<T>(min_bits);
+  const auto tolfx = eps_tolerance<T>(min_bits);
   vec x = guess;
   for (iters = 1; iters <= max_iters; ++iters) {
     const auto [fx0, jac0] = f(x);
