@@ -22,24 +22,12 @@ jobs:
     steps:
       # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
       - uses: actions/checkout@v3
-
-      #TODO - uses: actions/checkout@v3
-      #TODO   with:
-      #TODO     ref: gh-pages
-      #TODO     path: gh-pages
           
       - name: Log the triggering commit
         run: echo ${{github.event.client_payload.trigger}}
 
       - name: Download Cactus
-        run: |
-          pwd
-          ls -l
-          echo $GITHUB_WORKSPACE
-          ls -l $GITHUB_WORKSPACE
-          ls -l $GITHUB_WORKSPACE/scripts
-          ls -l $GITHUB_WORKSPACE/scripts/download.sh
-          /bin/bash $GITHUB_WORKSPACE/scripts/download.sh
+        run: /bin/bash $GITHUB_WORKSPACE/scripts/download.sh
 
       #TODO - name: Build Cactus
       #TODO   run: /bin/bash $GITHUB_WORKSPACE/CarpetX/scripts/build.sh
