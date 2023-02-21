@@ -1,105 +1,47 @@
-name: ci
-run-name: CarpetX tests
-on: [push]
+name: CI
+
+# Control when the workflow will run
+on:
+  push:
+  # Allow running this workflow manually from the Actions tab
+  workflow_dispatch:
+
+concurrency:
+  group: carpetx
+  cancel-in-progress: false
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  build-and-test:
+  # This workflow contains a single job
+  download-build-test:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
+    container: einsteintoolkit/carpetx:latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
       - uses: actions/checkout@v3
-      - name: Install packages
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get update
-          sudo apt-get --no-install-recommends --yes install \
-              build-essential \
-              ca-certificates \
-              g++ \
-              gfortran \
-              git \
-              hdf5-tools \
-              libboost-all-dev \
-              libfftw3-dev \
-              libgit2-dev \
-              libgsl-dev \
-              libhdf5-dev \
-              libhwloc-dev \
-              libopenblas-dev \
-              libopenmpi-dev \
-              libpetsc-real-dev \
-              libudev-dev \
-              perl \
-              pkg-config \
-              python2 \
-              python3 \
-              python3-pip \
-              python3-requests \
-              rsync \
-              subversion \
-              wget \
-              zlib1g-dev
-      - name: Restore dependencies from cache
-        uses: actions/cache@v3
-        id: cache-dependencies
+          
+      # Check out the documentation and test results
+      - uses: actions/checkout@v3
         with:
-          # Note: Change this key if the dependencies change, e.g. if we install newer versions
-          key: dependencies-3
-          path: |
-            /home/runner/opt
-      - name: Install dependencies
-        if: ${{steps.cache-dependencies.outputs.cache-hit != 'true'}}
-        run: |
-          .github/workflows/install-dependencies.sh
+          ref: gh-pages
+          path: gh-pages
+          
+      - name: Log the triggering commit
+        run: echo ${{github.event.client_payload.trigger}}
+
       - name: Download Cactus
-        run: |
-          # Working directory starts out as
-          # `/home/runner/work/CarpetX/CarpetX`, inside the CarpetX
-          # repo
-          cd ..
-          # Download the Cactus installer
-          wget https://raw.githubusercontent.com/gridaphobe/CRL/ET_2022_11/GetComponents
-          chmod a+x GetComponents
-          # Download Cactus thorns
-          ./GetComponents --parallel https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2022_11/einsteintoolkit.th
-          cd Cactus
+        run: /bin/bash $GITHUB_WORKSPACE/scripts/download.sh
 
-          # Download old CarpetX thorns for the external libraries there
-          pushd repos
-          git clone https://bitbucket.org/eschnett/cactusamrex
-          popd
-          pushd arrangements/ExternalLibraries
-          ln -s ../../repos/cactusamrex/ADIOS2 .
-          ln -s ../../repos/cactusamrex/AMReX .
-          ln -s ../../repos/cactusamrex/Boost .
-          ln -s ../../repos/cactusamrex/NSIMD .
-          ln -s ../../repos/cactusamrex/Silo .
-          ln -s ../../repos/cactusamrex/openPMD_api .
-          ln -s ../../repos/cactusamrex/yaml_cpp .
-          popd
-
-          # Create a link to the CarpetX repository
-          ln -s ../../CarpetX repos
-          # Create links for the CarpetX thorns
-          mkdir -p arrangements/CarpetX
-          pushd arrangements/CarpetX
-          ln -s ../../repos/CarpetX/* .
-          popd
       - name: Build Cactus
-        run: |
-          # Set up SimFactory
-          cd ../Cactus
-          cp repos/CarpetX/.github/workflows/actions.cfg ./simfactory/mdb/optionlists
-          cp repos/CarpetX/.github/workflows/actions.ini ./simfactory/mdb/machines
-          cp repos/CarpetX/.github/workflows/actions.run ./simfactory/mdb/runscripts
-          cp repos/CarpetX/.github/workflows/actions.sub ./simfactory/mdb/submitscripts
-          cp repos/CarpetX/.github/workflows/actions.th .
-          cp repos/CarpetX/.github/workflows/defs.local.ini ./simfactory/etc
-          # Build
-          ./simfactory/bin/sim --machine=actions build sim
-      - name: Run Cactus tests
-        run : |
-          cd ../Cactus
-          mkdir $HOME/simulations
-          ./exe/cactus_sim -v || { echo F; true; }
-          mpirun -np 2 -x OMP_NUM_THREADS=2 ./exe/cactus_sim -v || { echo F; true; }
-          :> empty.par
-          mpirun -np 2 -x OMP_NUM_THREADS=2 ./exe/cactus_sim empty.par || { echo F; true; }
+        run: /bin/bash $GITHUB_WORKSPACE/scripts/build.sh
+      
+      - name: Test Cactus
+        run: /bin/bash $GITHUB_WORKSPACE/scripts/test.sh
+      
+      #TODO # Set exit code based on test status
+      #TODO - name: Exit code
+      #TODO   if: ${{env.TESTS_FAILED == 'True'}}
+      #TODO   run: exit 1
