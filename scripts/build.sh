@@ -24,8 +24,4 @@ git config --global user.name "Github Actions"
 # Build
 # The build log needs to be stored for later.
 time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build -j $(nproc) sim 2>&1 |
-    tee "build-$ACCELERATOR-$REAL_PRECISION".log || true
-
-ls -l configs/sim/config-data/config.log
-cat configs/sim/config-data/config.log
-false
+    tee "build-$ACCELERATOR-$REAL_PRECISION".log
