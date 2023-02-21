@@ -291,9 +291,8 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
                     if (io_verbose)
                       CCTK_VINFO("      Defining variable %s...",
                                  varname.c_str());
-                    const adios2::Variable<CCTK_REAL> var =
-                        io.DefineVariable<CCTK_REAL>(varname, {}, {},
-                                                     {1, 1, 1});
+                    // const adios2::Variable<CCTK_REAL> var =
+                    io.DefineVariable<CCTK_REAL>(varname, {}, {}, {1, 1, 1});
                   } // for local_component
 
                 } else { // if combine_components
@@ -303,8 +302,8 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
                   if (io_verbose)
                     CCTK_VINFO("      Defining variable %s...",
                                varname.c_str());
-                  const adios2::Variable<CCTK_REAL> var =
-                      io.DefineVariable<CCTK_REAL>(varname, {}, {}, {1});
+                  // const adios2::Variable<CCTK_REAL> var =
+                  io.DefineVariable<CCTK_REAL>(varname, {}, {}, {1});
 
                 } // if combine_components
 
@@ -360,18 +359,17 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
             // const amrex::IntVect &ngrow = mfab.nGrowVect();
             // const amrex::DistributionMapping &dm = mfab.DistributionMap();
 
-            const amrex::Geometry &geom = patchdata.amrcore->Geom(leveldata.level);
-            const double *const xlo = geom.ProbLo();
-            const double *const xhi = geom.ProbHi();
-            const box_t<CCTK_REAL, 3> rdomain{
-              lo : {xlo[0], xlo[1], xlo[2]},
-              hi : {xhi[0], xhi[1], xhi[2]}
-            };
+            const amrex::Geometry &geom =
+                patchdata.amrcore->Geom(leveldata.level);
+            const amrex::Real *const xlo = geom.ProbLo();
+            const amrex::Real *const xhi = geom.ProbHi();
+            const box_t<CCTK_REAL, 3> rdomain{.lo = {xlo[0], xlo[1], xlo[2]},
+                                              .hi = {xhi[0], xhi[1], xhi[2]}};
             const amrex::Box &dom = geom.Domain();
             const box_t<int, 3> idomain{
-              lo : {dom.smallEnd(0), dom.smallEnd(1), dom.smallEnd(2)},
-              hi : {dom.bigEnd(0) + 1, dom.bigEnd(1) + 1, dom.bigEnd(2) + 1}
-            };
+                .lo = {dom.smallEnd(0), dom.smallEnd(1), dom.smallEnd(2)},
+                .hi = {dom.bigEnd(0) + 1, dom.bigEnd(1) + 1,
+                       dom.bigEnd(2) + 1}};
             const std::array<bool, 3> is_cell_centred{
                 indextype.cellCentered(0), indextype.cellCentered(1),
                 indextype.cellCentered(2)};
@@ -383,18 +381,16 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
               const int component = mfab.IndexArray().at(local_component);
               const amrex::Box &fabbox = mfab.fabbox(component); // exterior
               grids.at(local_component) = box_t<int, 3>{
-                lo : {fabbox.smallEnd(0), fabbox.smallEnd(1),
-                      fabbox.smallEnd(2)},
-                hi : {fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
-                      fabbox.bigEnd(2) + 1}
-              };
+                  .lo = {fabbox.smallEnd(0), fabbox.smallEnd(1),
+                         fabbox.smallEnd(2)},
+                  .hi = {fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
+                         fabbox.bigEnd(2) + 1}};
             } // for local_component
-            levels.at(leveldata.level) = level_t<CCTK_REAL, int, 3>{
-              rdomain : rdomain,
-              is_cell_centred : is_cell_centred,
-              idomain : idomain,
-              grids : std::move(grids)
-            };
+            levels.at(leveldata.level) =
+                level_t<CCTK_REAL, int, 3>{.rdomain = rdomain,
+                                           .is_cell_centred = is_cell_centred,
+                                           .idomain = idomain,
+                                           .grids = std::move(grids)};
             const level_t<CCTK_REAL, int, 3> &level =
                 levels.at(leveldata.level);
             const auto offsets_sizes = level.offsets_sizes();
@@ -494,13 +490,11 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
       assert(!levels.empty());
       const auto rdomain = levels.front().rdomain;
       patches.at(patchdata.patch) = patch_t<CCTK_REAL, int, 3>{
-        rdomain : rdomain,
-        levels : std::move(levels)
-      };
+          .rdomain = rdomain, .levels = std::move(levels)};
     } // for patchdata
     assert(!patches.empty());
-    const grid_structure_t<CCTK_REAL, int, 3>
-    grid_structure{patches : std::move(patches)};
+    const grid_structure_t<CCTK_REAL, int, 3> grid_structure{
+        .patches = std::move(patches)};
 
     if (io_verbose)
       CCTK_VINFO("  Performing puts...");
