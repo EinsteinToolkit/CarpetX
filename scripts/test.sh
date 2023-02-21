@@ -15,10 +15,10 @@ export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
 export OMPI_ALLOW_RUN_AS_ROOT=1
 export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
-time ./simfactory/bin/sim create-run TestJob01_temp_1 --cores 1 --num-threads 2 --testsuite --select-tests=CarpetX
+time ./simfactory/bin/sim --machine=actions create-run TestJob01_temp_1 --cores 1 --num-threads 2 --testsuite --select-tests=CarpetX
 ONEPROC_DIR="$(./simfactory/bin/sim --machine=actions get-output-dir TestJob01_temp_1)/TEST/sim"
 
-time ./simfactory/bin/sim create-run TestJob01_temp_2 --cores 2 --num-threads 1 --testsuite --select-tests=CarpetX
+time ./simfactory/bin/sim --machine=actions create-run TestJob01_temp_2 --cores 2 --num-threads 1 --testsuite --select-tests=CarpetX
 TWOPROC_DIR="$(./simfactory/bin/sim --machine=actions get-output-dir TestJob01_temp_2)/TEST/sim"
 
 #TODO # parse results, generate plots
