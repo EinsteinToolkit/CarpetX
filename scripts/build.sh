@@ -14,8 +14,8 @@ cp "$CARPETXSPACE/scripts/actions-$REAL_PRECISION.cfg" ./simfactory/mdb/optionli
 cp "$CARPETXSPACE/scripts/actions-$REAL_PRECISION.ini" ./simfactory/mdb/machines
 cp "$CARPETXSPACE/scripts/actions-$REAL_PRECISION.run" ./simfactory/mdb/runscripts
 cp "$CARPETXSPACE/scripts/actions-$REAL_PRECISION.sub" ./simfactory/mdb/submitscripts
-cp "$CARPETXSPACE/scripts/carpetx-$REAL_PRECISION.th" .
-cp "$CARPETXSPACE/scripts/defs.local-$REAL_PRECISION.ini" ./simfactory/etc/defs.local.ini
+cp "$CARPETXSPACE/scripts/carpetx.th" .
+cp "$CARPETXSPACE/scripts/defs.local.ini" ./simfactory/etc
 
 # For Formaline
 git config --global user.email "carpetx@einsteintoolkit.org"

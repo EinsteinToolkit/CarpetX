@@ -30,11 +30,11 @@ jobs:
       # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
       - uses: actions/checkout@v3
           
-      # Check out the documentation and test results
-      - uses: actions/checkout@v3
-        with:
-          ref: gh-pages
-          path: gh-pages
+      #TODO # Check out the documentation and test results
+      #TODO - uses: actions/checkout@v3
+      #TODO   with:
+      #TODO     ref: gh-pages
+      #TODO     path: gh-pages
           
       - name: Log the triggering commit
         run: echo ${{github.event.client_payload.trigger}}
