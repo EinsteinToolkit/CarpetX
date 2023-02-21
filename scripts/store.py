@@ -71,7 +71,7 @@ def store_commit_id(version):
     dst=f"./records/version_{version}/id.txt"
     # TODO: use pygit2 for this
     # id=f"{REPO}/.git/refs/heads/master"
-    id=os.open(f"git --git-dir {REPO}/.git rev-parse HEAD").read().strip())
+    id=os.open(f"git --git-dir {REPO}/.git rev-parse HEAD").read().strip()
     shutil.copy(id,dst)
 
 def get_version():
