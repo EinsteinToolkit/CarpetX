@@ -57,10 +57,10 @@ def copy_compile_log(version):
     '''
         This copies the compilation logs for future use
     '''
-    global REPO
+    GITHUB_WORKSPACE=os.environ["GITHUB_WORKSPACE"]
     dst=f"./records/version_{version}/build_{version}.log"
-    # TODO: fix this to not be relative to repo anymore
-    build=f"{REPO}/../../build.log"
+    # This must match the build command in `build.sh`
+    build=f"{GITHUB_WORKSPACE}/../workspace/Cactus/build.log"
     shutil.copy(build,dst)
 
 def store_commit_id(version):
