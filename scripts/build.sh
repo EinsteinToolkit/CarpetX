@@ -14,7 +14,7 @@ cp "$CARPETXSPACE/scripts/actions.cfg" ./simfactory/mdb/optionlists
 cp "$CARPETXSPACE/scripts/actions.ini" ./simfactory/mdb/machines
 cp "$CARPETXSPACE/scripts/actions.run" ./simfactory/mdb/runscripts
 cp "$CARPETXSPACE/scripts/actions.sub" ./simfactory/mdb/submitscripts
-cp "$CARPETXSPACE/scripts/actions.th" .
+cp "$CARPETXSPACE/scripts/carpetx.th" .
 cp "$CARPETXSPACE/scripts/defs.local.ini" ./simfactory/etc
 
 # # For Formaline
