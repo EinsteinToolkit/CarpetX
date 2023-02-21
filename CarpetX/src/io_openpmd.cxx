@@ -547,8 +547,8 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
       patchdata.amrcore->SetGeometry(level, geom);
     }
 
-    amrex::BoxList boxlist(move(levboxes));
-    amrex::BoxArray boxarray(move(boxlist));
+    amrex::BoxList boxlist(std::move(levboxes));
+    amrex::BoxArray boxarray(std::move(boxlist));
     patchdata.amrcore->SetBoxArray(level, boxarray);
 
     amrex::DistributionMapping dm(boxarray);
@@ -702,25 +702,23 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
       const int *const nghosts = cctkGH->cctk_nghostzones;
       const amrex::Geometry &geom = patchdata.amrcore->Geom(leveldata.level);
-      const double *const xlo = geom.ProbLo();
-      const double *const xhi = geom.ProbHi();
-      const double *const dx = geom.CellSize();
+      const amrex::Real *const xlo = geom.ProbLo();
+      const amrex::Real *const xhi = geom.ProbHi();
+      const amrex::Real *const dx = geom.CellSize();
       const box_t<CCTK_REAL, 3> rdomain{
-        lo : {xlo[0] - nghosts[0] * dx[0], xlo[1] - nghosts[1] * dx[1],
-              xlo[2] - nghosts[2] * dx[2]},
-        hi : {xhi[0] + nghosts[0] * dx[0], xhi[1] + nghosts[1] * dx[1],
-              xhi[2] + nghosts[2] * dx[2]}
-      };
+          .lo = {xlo[0] - nghosts[0] * dx[0], xlo[1] - nghosts[1] * dx[1],
+                 xlo[2] - nghosts[2] * dx[2]},
+          .hi = {xhi[0] + nghosts[0] * dx[0], xhi[1] + nghosts[1] * dx[1],
+                 xhi[2] + nghosts[2] * dx[2]}};
       const amrex::Box &dom = geom.Domain();
       const amrex::IntVect &ilo = dom.smallEnd();
       const amrex::IntVect &ihi = dom.bigEnd();
       // The domain is always vertex centred. The tensor components are
       // then staggered if necessary.
       const box_t<int, 3> idomain{
-        lo : {ilo[0] - nghosts[0], ilo[1] - nghosts[1], ilo[2] - nghosts[2]},
-        hi : {ihi[0] + nghosts[0] + 1 + 1, ihi[1] + nghosts[1] + 1 + 1,
-              ihi[2] + nghosts[2] + 1 + 1}
-      };
+          .lo = {ilo[0] - nghosts[0], ilo[1] - nghosts[1], ilo[2] - nghosts[2]},
+          .hi = {ihi[0] + nghosts[0] + 1 + 1, ihi[1] + nghosts[1] + 1 + 1,
+                 ihi[2] + nghosts[2] + 1 + 1}};
       if (io_verbose) {
         CCTK_VINFO("Level: %d", leveldata.level);
         CCTK_VINFO("  xmin: [%f,%f,%f]", double(rdomain.lo[0]),
@@ -808,18 +806,17 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
             const amrex::Box &fabbox =
                 mfab.fabbox(component); // exterior (with ghosts)
             const box_t<int, 3> extbox{
-              lo : {fabbox.smallEnd(0), fabbox.smallEnd(1), fabbox.smallEnd(2)},
-              hi : {fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
-                    fabbox.bigEnd(2) + 1}
-            };
+                .lo = {fabbox.smallEnd(0), fabbox.smallEnd(1),
+                       fabbox.smallEnd(2)},
+                .hi = {fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
+                       fabbox.bigEnd(2) + 1}};
             const amrex::Box &validbox =
                 mfab.box(component); // interior (without ghosts)
             const box_t<int, 3> intbox{
-              lo : {validbox.smallEnd(0), validbox.smallEnd(1),
-                    validbox.smallEnd(2)},
-              hi : {validbox.bigEnd(0) + 1, validbox.bigEnd(1) + 1,
-                    validbox.bigEnd(2) + 1}
-            };
+                .lo = {validbox.smallEnd(0), validbox.smallEnd(1),
+                       validbox.smallEnd(2)},
+                .hi = {validbox.bigEnd(0) + 1, validbox.bigEnd(1) + 1,
+                       validbox.bigEnd(2) + 1}};
             const box_t<int, 3> &box = output_ghosts ? extbox : intbox;
 
             const openPMD::Offset start =
@@ -1081,25 +1078,23 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
       const int *const nghosts = cctkGH->cctk_nghostzones;
       const amrex::Geometry &geom = patchdata.amrcore->Geom(leveldata.level);
-      const double *const xlo = geom.ProbLo();
-      const double *const xhi = geom.ProbHi();
-      const double *const dx = geom.CellSize();
+      const amrex::Real *const xlo = geom.ProbLo();
+      const amrex::Real *const xhi = geom.ProbHi();
+      const amrex::Real *const dx = geom.CellSize();
       const box_t<CCTK_REAL, 3> rdomain{
-        lo : {xlo[0] - nghosts[0] * dx[0], xlo[1] - nghosts[1] * dx[1],
-              xlo[2] - nghosts[2] * dx[2]},
-        hi : {xhi[0] + nghosts[0] * dx[0], xhi[1] + nghosts[1] * dx[1],
-              xhi[2] + nghosts[2] * dx[2]}
-      };
+          .lo = {xlo[0] - nghosts[0] * dx[0], xlo[1] - nghosts[1] * dx[1],
+                 xlo[2] - nghosts[2] * dx[2]},
+          .hi = {xhi[0] + nghosts[0] * dx[0], xhi[1] + nghosts[1] * dx[1],
+                 xhi[2] + nghosts[2] * dx[2]}};
       const amrex::Box &dom = geom.Domain();
       const amrex::IntVect &ilo = dom.smallEnd();
       const amrex::IntVect &ihi = dom.bigEnd();
       // The domain is always vertex centred. The tensor components are
       // then staggered if necessary.
       const box_t<int, 3> idomain{
-        lo : {ilo[0] - nghosts[0], ilo[1] - nghosts[1], ilo[2] - nghosts[2]},
-        hi : {ihi[0] + nghosts[0] + 1 + 1, ihi[1] + nghosts[1] + 1 + 1,
-              ihi[2] + nghosts[2] + 1 + 1}
-      };
+          .lo = {ilo[0] - nghosts[0], ilo[1] - nghosts[1], ilo[2] - nghosts[2]},
+          .hi = {ihi[0] + nghosts[0] + 1 + 1, ihi[1] + nghosts[1] + 1 + 1,
+                 ihi[2] + nghosts[2] + 1 + 1}};
       if (io_verbose) {
         CCTK_VINFO("Patch: %d, Level: %d", patchdata.patch, leveldata.level);
         CCTK_VINFO("  xmin: [%f,%f,%f]", double(rdomain.lo[0]),
@@ -1236,18 +1231,17 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             const amrex::Box &fabbox =
                 mfab.fabbox(component); // exterior (with ghosts)
             const box_t<int, 3> extbox{
-              lo : {fabbox.smallEnd(0), fabbox.smallEnd(1), fabbox.smallEnd(2)},
-              hi : {fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
-                    fabbox.bigEnd(2) + 1}
-            };
+                .lo = {fabbox.smallEnd(0), fabbox.smallEnd(1),
+                       fabbox.smallEnd(2)},
+                .hi = {fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
+                       fabbox.bigEnd(2) + 1}};
             const amrex::Box &validbox =
                 mfab.box(component); // interior (without ghosts)
             const box_t<int, 3> intbox{
-              lo : {validbox.smallEnd(0), validbox.smallEnd(1),
-                    validbox.smallEnd(2)},
-              hi : {validbox.bigEnd(0) + 1, validbox.bigEnd(1) + 1,
-                    validbox.bigEnd(2) + 1}
-            };
+                .lo = {validbox.smallEnd(0), validbox.smallEnd(1),
+                       validbox.smallEnd(2)},
+                .hi = {validbox.bigEnd(0) + 1, validbox.bigEnd(1) + 1,
+                       validbox.bigEnd(2) + 1}};
             // It seems that openPMD assumes that chunks do not have
             // ghost zones
             assert(!output_ghosts);
