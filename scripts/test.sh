@@ -4,6 +4,7 @@ set -ex
 
 export CARPETXSPACE="$PWD"
 export WORKSPACE="$PWD/../workspace"
+export PAGESSPACE="$PWD/gh-pages"
 mkdir -p "$WORKSPACE"
 cd "$WORKSPACE"
 
@@ -21,18 +22,13 @@ ONEPROC_DIR="$(./simfactory/bin/sim --machine=actions get-output-dir TestJob01_t
 time ./simfactory/bin/sim --machine=actions create-run TestJob01_temp_2 --cores 2 --num-threads 1 --testsuite --select-tests=CarpetX
 TWOPROC_DIR="$(./simfactory/bin/sim --machine=actions get-output-dir TestJob01_temp_2)/TEST/sim"
 
-#TODO # parse results, generate plots
-#TODO cd $PAGESSPACE
-#TODO python3 $SCRIPTSPACE/bin/store.py $WORKSPACE/Cactus/repos/cactusamrex $ONEPROC_DIR $TWOPROC_DIR
-#TODO 
-#TODO python3 $SCRIPTSPACE/bin/logpage.py $WORKSPACE/Cactus/repos/cactusamrex
-#TODO 
-#TODO # store HTML results
-#TODO git add docs
-#TODO git add records
-#TODO git add test_nums.csv
-#TODO if git commit -m "updated html file"; then
-#TODO     git config --local user.email "maintainers@einsteintoolkit.org"
-#TODO     git config --local user.name "github runner"
-#TODO     git push
-#TODO fi
+# Pdparse results and generate plots
+cd "$PAGESSPACE"
+python3 "$CARPETXSPACE/scripts/store.py" "$WORKSPACE/Cactus/repos/CarpetX" "$ONEPROC_DIR" "$TWOPROC_DIR"
+python3 "$CARPETXSPACE/scripts/logpage.py" "$WORKSPACE/Cactus/repos/CarpetX"
+ 
+# Store HTML results
+git add docs
+git add records
+git add test_nums.csv
+git commit -m "Add new test result" && git push
