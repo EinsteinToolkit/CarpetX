@@ -10,12 +10,12 @@ cd "$WORKSPACE"
 cd Cactus
 
 # Set up SimFactory
-cp "$SCRIPTSPACE/scripts/actions.cfg" ./simfactory/mdb/optionlists
-cp "$SCRIPTSPACE/scripts/actions.ini" ./simfactory/mdb/machines
-cp "$SCRIPTSPACE/scripts/actions.run" ./simfactory/mdb/runscripts
-cp "$SCRIPTSPACE/scripts/actions.sub" ./simfactory/mdb/submitscripts
-cp "$SCRIPTSPACE/scripts/actions.th" .
-cp "$SCRIPTSPACE/scripts/defs.local.ini" ./simfactory/etc
+cp "$CARPETXSPACE/scripts/actions.cfg" ./simfactory/mdb/optionlists
+cp "$CARPETXSPACE/scripts/actions.ini" ./simfactory/mdb/machines
+cp "$CARPETXSPACE/scripts/actions.run" ./simfactory/mdb/runscripts
+cp "$CARPETXSPACE/scripts/actions.sub" ./simfactory/mdb/submitscripts
+cp "$CARPETXSPACE/scripts/actions.th" .
+cp "$CARPETXSPACE/scripts/defs.local.ini" ./simfactory/etc
 
 # # For Formaline
 # git config --global user.email "carpetx@einsteintoolkit.org"
