@@ -14,9 +14,14 @@ concurrency:
 jobs:
   # This workflow contains a single job
   download-build-test:
+    matrix:
+      real-precision: [32, 64]
+    env:
+      REAL_PRECISION: ${{matrix.real-precision}}
+
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    container: einsteintoolkit/carpetx:latest
+    container: einsteintoolkit/carpetx-${{matrix.real-precision}}:latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:

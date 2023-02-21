@@ -1,6 +1,10 @@
 # How to build this Docker image:
-#     docker build --tag einsteintoolkit/carpetx .
-#     docker push einsteintoolkit/carpetx
+
+#     docker build --file carpetx.dockerfile --tag einsteintoolkit/carpetx-64 .
+#     docker push einsteintoolkit/carpetx-64
+
+#     docker build --build-arg real_precision=32 --file carpetx.dockerfile --tag einsteintoolkit/carpetx-32 .
+#     docker push einsteintoolkit/carpetx-32
 
 FROM ubuntu:20.04
 
@@ -164,11 +168,13 @@ RUN mkdir src && \
     true) && \
     rm -rf src
 
+ARG real_precision=64
+
 # Install AMReX
 # AMReX provides adaptive mesh refinement
 # - Enable Fortran for `docker/Dockerfile`
-# - Keep AMReX source tree around for debugging
 # - Install this last because it changes most often
+# Should we  keep AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
     wget https://github.com/AMReX-Codes/amrex/archive/23.02.tar.gz && \
@@ -176,12 +182,19 @@ RUN mkdir src && \
     cd amrex-23.02 && \
     mkdir build && \
     cd build && \
+    case $real_precision in \
+        32) precision=SINGLE;; \
+        64) precision=DOUBLE;; \
+        *) exit 1;; \
+    esac && \
     cmake \
         -DCMAKE_BUILD_TYPE=Debug \
         -DAMReX_OMP=ON \
         -DAMReX_PARTICLES=ON \
+        -DAMReX_PRECISION="$precision" \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         .. && \
     make -j$(nproc) && \
     make -j$(nproc) install && \
-    true)
+    true) && \
+    rm -rf src

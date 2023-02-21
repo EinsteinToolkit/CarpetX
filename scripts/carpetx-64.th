@@ -1,0 +1,101 @@
+# CactusBase thorns
+CactusBase/Boundary
+# CactusBase/CartGrid3D
+CactusBase/CoordBase
+CactusBase/Fortran
+CactusBase/InitBase
+# CactusBase/IOASCII
+# CactusBase/IOBasic
+CactusBase/IOUtil
+CactusBase/SymBase
+CactusBase/Time
+
+
+
+# CactusTest thorns
+CactusTest/TestAllTypes
+CactusTest/TestArrays
+CactusTest/TestComplex
+# CactusTest/TestCoordinates
+CactusTest/TestFortranCrayPointers
+CactusTest/TestFortranDependencies1
+CactusTest/TestFortranDependencies2
+CactusTest/TestFpointerNULL
+CactusTest/TestFreeF90
+# CactusTest/TestGlobalReduce
+CactusTest/TestInclude1
+CactusTest/TestInclude2
+# CactusTest/TestLoop
+CactusTest/TestMath
+# CactusTest/TestMoL
+CactusTest/TestPar
+# CactusTest/TestReadWrite
+CactusTest/TestReduce
+CactusTest/TestSchedule
+CactusTest/TestStrings
+CactusTest/TestTable
+CactusTest/TestTimers
+CactusTest/TestTypes
+
+
+
+# CactusUtils thorns
+CactusUtils/Formaline
+# CactusUtils/MemSpeed
+# CactusUtils/NaNCatcher
+# CactusUtils/NaNChecker
+# CactusUtils/Nice
+# CactusUtils/NoMPI
+# CactusUtils/SystemStatistics
+CactusUtils/SystemTopology
+CactusUtils/TerminationTrigger
+CactusUtils/TimerReport
+# CactusUtils/Trigger
+CactusUtils/Vectors
+# CactusUtils/WatchDog
+
+
+
+# Additional Cactus thorns
+# ExternalLibraries/BLAS
+# ExternalLibraries/LAPACK
+ExternalLibraries/ADIOS2
+ExternalLibraries/AMReX
+ExternalLibraries/Boost
+ExternalLibraries/FFTW3
+ExternalLibraries/GSL
+ExternalLibraries/HDF5
+#DISABLED ExternalLibraries/LORENE
+ExternalLibraries/MPI
+ExternalLibraries/NSIMD
+ExternalLibraries/OpenBLAS
+ExternalLibraries/PETSc
+ExternalLibraries/Silo
+ExternalLibraries/hwloc
+ExternalLibraries/openPMD_api
+#DISABLED ExternalLibraries/ssht
+ExternalLibraries/yaml_cpp
+ExternalLibraries/zlib
+
+
+
+# CarpetX thorns
+CarpetX/ADMBase
+CarpetX/Algo
+CarpetX/Arith
+CarpetX/CarpetX
+CarpetX/Coordinates
+CarpetX/Derivs
+CarpetX/ErrorEstimator
+CarpetX/HydroBase
+CarpetX/Loop
+CarpetX/ODESolvers
+CarpetX/PDESolvers
+CarpetX/TestArrayGroup
+CarpetX/TestInterpolate
+CarpetX/TestNorms
+CarpetX/TestODESolvers
+CarpetX/TestODESolvers2
+CarpetX/TestProlongate
+CarpetX/TestSymmetries
+CarpetX/TmunuBase
