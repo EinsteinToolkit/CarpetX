@@ -12,13 +12,15 @@ concurrency:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  matrix:
-    real-precision: [32, 64]
-  env:
-    REAL_PRECISION: ${{matrix.real-precision}}
-
   # This workflow contains a single job
   download-build-test:
+    strategy:
+      matrix:
+        real-precision: [32, 64]
+    env:
+      REAL_PRECISION: ${{matrix.real-precision}}
+
+
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     container: einsteintoolkit/carpetx-${{matrix.real-precision}}:latest
