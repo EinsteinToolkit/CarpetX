@@ -8,11 +8,18 @@ mkdir -p "$WORKSPACE"
 cd "$WORKSPACE"
 
 cd Cactus
-./simfactory/bin/sim setup-silent --optionlist "$CARPETXSPACE/scripts/debian.cfg"
 
-# for Formaline
-git config --global user.email "carpetx@einsteintoolkit.org"
-git config --global user.name "Github Actions"
+# Set up SimFactory
+cp "$SCRIPTSPACE/scripts/actions.cfg" ./simfactory/mdb/optionlists
+cp "$SCRIPTSPACE/scripts/actions.ini" ./simfactory/mdb/machines
+cp "$SCRIPTSPACE/scripts/actions.run" ./simfactory/mdb/runscripts
+cp "$SCRIPTSPACE/scripts/actions.sub" ./simfactory/mdb/submitscripts
+cp "$SCRIPTSPACE/scripts/actions.th" .
+cp "$SCRIPTSPACE/scripts/defs.local.ini" ./simfactory/etc
 
-NCPUS=$(nproc)
-time ./simfactory/bin/sim build -j$NCPUS --thornlist repos/cactusamrex/azure-pipelines/carpetx.th 2>&1 | tee build.log
+# # For Formaline
+# git config --global user.email "carpetx@einsteintoolkit.org"
+# git config --global user.name "Github Actions"
+
+# Build
+time ./simfactory/bin/sim --machine=actions build -j $(nproc) sim
