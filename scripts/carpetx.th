@@ -99,3 +99,5 @@ CarpetX/TestODESolvers2
 CarpetX/TestProlongate
 CarpetX/TestSymmetries
 CarpetX/TmunuBase
+
+# TODO: Add Poisson2 as test thorn
