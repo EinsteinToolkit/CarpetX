@@ -12,10 +12,10 @@ concurrency:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-    matrix:
-      real-precision: [32, 64]
-    env:
-      REAL_PRECISION: ${{matrix.real-precision}}
+  matrix:
+    real-precision: [32, 64]
+  env:
+    REAL_PRECISION: ${{matrix.real-precision}}
 
   # This workflow contains a single job
   download-build-test:
