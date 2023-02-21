@@ -61,8 +61,9 @@ constexpr openPMD::Format format = openPMD::Format::ADIOS2;
 
 // - fileBased: One file per iteration. Needs templated file name to encode
 //   iteration number.
-// - groupBased: Multiple iterations per file?
-// - variableBased: ???
+// - groupBased: Multiple iterations per file
+// - variableBased: Multiple iterations stored per variable. Need
+//   special support in the backend.
 constexpr openPMD::IterationEncoding iterationEncoding =
     openPMD::IterationEncoding::fileBased;
 
