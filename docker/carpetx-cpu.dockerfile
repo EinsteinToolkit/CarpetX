@@ -1,10 +1,10 @@
 # How to build this Docker image:
 
-#     docker build --file carpetx.dockerfile --tag einsteintoolkit/carpetx-64 .
-#     docker push einsteintoolkit/carpetx-64
+#     docker build --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx-cpu-real64 .
+#     docker push einsteintoolkit/carpetx-cpu-real64
 
-#     docker build --build-arg real_precision=32 --file carpetx.dockerfile --tag einsteintoolkit/carpetx-32 .
-#     docker push einsteintoolkit/carpetx-32
+#     docker build --build-arg real_precision=real32 --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx-cpu-real32 .
+#     docker push einsteintoolkit/carpetx-cpu-real32
 
 FROM ubuntu:20.04
 
@@ -13,7 +13,6 @@ WORKDIR /cactus
 
 # Install system packages
 # - Boost on Ubuntu requires OpenMPI
-# TODO: Add CVS to check out Lorene
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get --yes --no-install-recommends install \
@@ -168,7 +167,7 @@ RUN mkdir src && \
     true) && \
     rm -rf src
 
-ARG real_precision=64
+ARG real_precision=real64
 
 # Install AMReX
 # AMReX provides adaptive mesh refinement
@@ -183,8 +182,8 @@ RUN mkdir src && \
     mkdir build && \
     cd build && \
     case $real_precision in \
-        32) precision=SINGLE;; \
-        64) precision=DOUBLE;; \
+        real32) precision=SINGLE;; \
+        real64) precision=DOUBLE;; \
         *) exit 1;; \
     esac && \
     cmake \
