@@ -22,4 +22,5 @@ git config --global user.email "carpetx@einsteintoolkit.org"
 git config --global user.name "Github Actions"
 
 # Build
-time ./simfactory/bin/sim --machine=actions build -j $(nproc) sim
+# The build log needs to be stored for later.
+time ./simfactory/bin/sim --machine=actions build -j $(nproc) sim 2>&1 | tee build.log
