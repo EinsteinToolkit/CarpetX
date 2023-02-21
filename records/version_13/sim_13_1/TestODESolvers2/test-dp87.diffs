@@ -1,0 +1,29 @@
+   testodesolvers2-error.it000000.x.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+   testodesolvers2-error.it000000.y.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+   testodesolvers2-error.it000000.z.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+   testodesolvers2-order.it000000.x.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+   testodesolvers2-order.it000000.y.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+   testodesolvers2-order.it000000.z.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+   testodesolvers2-state.it000000.x.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+   testodesolvers2-state.it000000.y.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+   testodesolvers2-state.it000000.z.tsv: substantial differences
+      significant differences on 1 (out of 1) lines
+
+
+   testodesolvers2-error.it000001.x.tsv: not created in test
+   testodesolvers2-error.it000001.y.tsv: not created in test
+   testodesolvers2-error.it000001.z.tsv: not created in test
+   testodesolvers2-order.it000001.x.tsv: not created in test
+   testodesolvers2-order.it000001.y.tsv: not created in test
+   testodesolvers2-order.it000001.z.tsv: not created in test
+   testodesolvers2-state.it000001.x.tsv: not created in test
+   testodesolvers2-state.it000001.y.tsv: not created in test
+   testodesolvers2-state.it000001.z.tsv: not created in test

@@ -1,0 +1,2364 @@
+Using configuration: sim
+Reconfiguring sim
+Writing configuration to: /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/OptionList
+Cactus - version: 4.12.0
+Reconfiguring sim.
+Using configuration options from configure line
+  Setting auth to '3,4 --'
+End of options from configure line
+Adding configuration options from '/__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/OptionList'...
+  Setting VERSION to 'debian-2020-02-18'
+  Setting CPP to 'cpp'
+  Setting FPP to 'cpp'
+  Setting CC to 'gcc'
+  Setting CXX to 'g++'
+  Setting F77 to 'gfortran'
+  Setting F90 to 'gfortran'
+  Setting CPPFLAGS to '-DMPICH_IGNORE_CXX_SEEK'
+  Setting FPPFLAGS to '-traditional'
+  Setting CFLAGS to '-pipe -g3 -march=native -std=gnu11 -I/usr/lib/x86_64-linux-gnu/openmpi/include'
+  Setting CXXFLAGS to '-pipe -g3 -march=native -std=gnu++17 -I/usr/lib/x86_64-linux-gnu/openmpi/include'
+  Setting F77FLAGS to '-pipe -g3 -march=native -fcray-pointer -ffixed-line-length-none -fno-range-check'
+  Setting F90FLAGS to '-pipe -g3 -march=native -fcray-pointer -ffixed-line-length-none -fno-range-check'
+  Setting LDFLAGS to '-rdynamic'
+  Setting LIBDIRS to ''
+  Setting C_LINE_DIRECTIVES to 'yes'
+  Setting F_LINE_DIRECTIVES to 'yes'
+  Setting DEBUG to 'no'
+  Setting CPP_DEBUG_FLAGS to '-DCARPET_DEBUG'
+  Setting FPP_DEBUG_FLAGS to '-DCARPET_DEBUG'
+  Setting C_DEBUG_FLAGS to '-O0'
+  Setting CXX_DEBUG_FLAGS to '-O0'
+  Setting F77_DEBUG_FLAGS to '-O0'
+  Setting F90_DEBUG_FLAGS to '-O0'
+  Setting OPTIMISE to 'yes'
+  Setting CPP_OPTIMISE_FLAGS to '-DKRANC_VECTORS'
+  Setting FPP_OPTIMISE_FLAGS to ''
+  Setting C_OPTIMISE_FLAGS to '-O2 -ffast-math -fno-finite-math-only'
+  Setting CXX_OPTIMISE_FLAGS to '-O2 -ffast-math -fno-finite-math-only'
+  Setting F77_OPTIMISE_FLAGS to '-O2 -ffast-math -fno-finite-math-only'
+  Setting F90_OPTIMISE_FLAGS to '-O2 -ffast-math -fno-finite-math-only'
+  Setting PROFILE to 'no'
+  Setting CPP_PROFILE_FLAGS to ''
+  Setting FPP_PROFILE_FLAGS to ''
+  Setting C_PROFILE_FLAGS to '-pg'
+  Setting CXX_PROFILE_FLAGS to '-pg'
+  Setting F77_PROFILE_FLAGS to '-pg'
+  Setting F90_PROFILE_FLAGS to '-pg'
+  Setting OPENMP to 'yes'
+  Setting CPP_OPENMP_FLAGS to '-fopenmp'
+  Setting FPP_OPENMP_FLAGS to '-fopenmp'
+  Setting C_OPENMP_FLAGS to '-fopenmp'
+  Setting CXX_OPENMP_FLAGS to '-fopenmp'
+  Setting F77_OPENMP_FLAGS to '-fopenmp'
+  Setting F90_OPENMP_FLAGS to '-fopenmp'
+  Setting WARN to 'yes'
+  Setting CPP_WARN_FLAGS to '-Wall'
+  Setting FPP_WARN_FLAGS to '-Wall'
+  Setting C_WARN_FLAGS to '-Wall'
+  Setting CXX_WARN_FLAGS to '-Wall'
+  Setting F77_WARN_FLAGS to '-Wall'
+  Setting F90_WARN_FLAGS to '-Wall'
+  Setting ADIOS2_DIR to '/usr/local'
+  Setting AMREX_DIR to '/usr/local'
+  Setting BLAS_DIR to '/usr'
+  Setting LAPACK_DIR to '/usr'
+  Setting BOOST_DIR to '/usr'
+  Setting FFTW3_DIR to '/usr'
+  Setting GSL_DIR to '/usr'
+  Setting MPI_DIR to '/usr'
+  Setting NSIMD_DIR to '/usr/local'
+  Setting NSIMD_ARCH to 'SSE2'
+  Setting NSIMD_OPTIONS to ''
+  Setting OPENBLAS_DIR to '/usr'
+  Setting OPENPMD_API_DIR to '/usr/local'
+  Setting PETSC_DIR to '/usr'
+  Setting PETSC_ARCH_LIBS to 'm'
+  Setting PTHREADS_DIR to 'NO_BUILD'
+  Setting SILO_DIR to '/usr/local'
+  Setting SSHT_DIR to '/usr/local'
+  Setting YAML_CPP_DIR to '/usr/local'
+  Setting ZLIB_DIR to '/usr'
+End of options from '/__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/OptionList'.
+creating cache ./config.cache
+checking host system type... x86_64-pc-linux-gnu
+checking for mawk... mawk
+checking whether make sets ${MAKE}... yes
+checking whether the C compiler (gcc -pipe -g3 -march=native -std=gnu11 -I/usr/lib/x86_64-linux-gnu/openmpi/include -rdynamic) works... yes
+checking whether the C compiler (gcc -pipe -g3 -march=native -std=gnu11 -I/usr/lib/x86_64-linux-gnu/openmpi/include -rdynamic) is a cross-compiler... no
+checking whether we are using GNU C... yes
+checking whether the C++ compiler (g++ -pipe -g3 -march=native -std=gnu++17 -I/usr/lib/x86_64-linux-gnu/openmpi/include -rdynamic) works... yes
+checking whether the C++ compiler (g++ -pipe -g3 -march=native -std=gnu++17 -I/usr/lib/x86_64-linux-gnu/openmpi/include -rdynamic) is a cross-compiler... no
+checking whether we are using GNU C++... yes
+checking for nvcc... no
+checking for ranlib... ranlib
+checking for perl... perl
+checking for gtar... no
+checking for tar... tar
+checking for xargs... xargs
+checking for gzip... gzip
+checking for gpatch... no
+checking for patch... patch
+checking for git... git
+checking for ar... ar
+checking for mkdir... mkdir
+checking for bash... /bin/sh
+checking whether the Fortran compiler (gfortran -pipe -g3 -march=native -fcray-pointer -ffixed-line-length-none -fno-range-check ) works... yes
+checking whether the Fortran compiler (gfortran -pipe -g3 -march=native -fcray-pointer -ffixed-line-length-none -fno-range-check ) is a cross-compiler... no
+checking whether the Fortran compiler (gfortran -pipe -g3 -march=native -fcray-pointer -ffixed-line-length-none -fno-range-check ) supports TYPE(*) for CCTK_PointerTo... yes
+checking how to run the C preprocessor... cpp
+checking for ANSI C header files... yes
+checking for C99 features... yes
+checking for M_PI... yes
+checking for C strdup... yes
+checking for C++ strdup... yes
+checking whether byte ordering is bigendian... no
+checking size of long long... 8
+checking size of long int... 8
+checking size of int... 4
+checking size of short int... 2
+checking size of long double... 16
+checking size of double... 8
+checking size of float... 4
+checking size of char *... 8
+checking for the null device... /dev/null
+checking for gethostbyname... yes
+checking whether mode_t is defined... yes
+checking for availability of gettimeofday timing... yes
+checking if gettimeofday needs timezone... yes
+checking for availability of getrusage timing... yes
+checking for availability of _ftime timing... no
+checking for time.h... yes
+checking for sys/time.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for string.h... yes
+checking for assert.h... yes
+checking for tgmath.h... yes
+checking for sys/stat.h... yes
+checking for getopt.h... yes
+checking for dirent.h... yes
+checking for c_asm.h... no
+checking for intrinsics.h... no
+checking for mach/mach_time.h... no
+checking for regex.h... yes
+checking for sys/filio.h... no
+checking for sys/ioctl.h... yes
+checking for sys/socket.h... yes
+checking for netinet/in.h... yes
+checking for netdb.h... yes
+checking for arpa/inet.h... yes
+checking for winsock2.h... no
+checking for crypt.h... yes
+checking for signal.h... yes
+checking for malloc.h... yes
+checking for sched.h... yes
+checking for execinfo.h... yes
+checking whether time.h and sys/time.h may both be included... yes
+checking whether socklen_t is defined... yes
+checking whether SOCKET is defined... no
+checking for hrtime_t... no
+checking for gethrtime... no
+checking for read_real_time... no
+checking for time_base_to_time... no
+checking for clock_gettime... yes
+checking for mach_absolute_time... no
+checking for _rtc intrinsic... no
+checking for mallinfo... yes
+checking for mallopt... yes
+checking for malloc_info... yes
+checking whether M_MMAP_THRESHOLD is defined... yes
+checking for sched_getaffinity... yes
+checking for getpid... yes
+checking if __int64 is defined... no
+checking if __int128 is defined... yes
+checking for vector... yes
+checking for vector.h... no
+checking if Intel compiler has broken restrict... no
+checking if compiler has broken omp collapse... no
+checking for getopt_long_only... yes
+checking for working const... yes
+checking for C inline... inline
+checking for C static inline... static inline
+checking for C restrict... restrict
+checking for C++ restrict... __restrict__
+checking for C++ copysign... std::copysign
+checking for C++ fpclassify... std::fpclassify
+checking for C++ isfinite... std::isfinite
+checking for C++ isinf... std::isinf
+checking for C++ isnan... std::isnan
+checking for C++ isnormal... std::isnormal
+checking for C++ signbit... std::signbit
+checking for C _Pragma... yes
+checking for C function __attribute__((__const__))... yes
+checking for C++ function __attribute__((__const__))... yes
+checking for C++ member function __attribute__((__const__))... yes
+checking for C function __attribute__((__pure__))... yes
+checking for C++ function __attribute__((__pure__))... yes
+checking for C++ member function __attribute__((__pure__))... yes
+checking for C data __attribute__((__common__))... yes
+checking for C+ data __attribute__((__common__))... yes
+checking for C function __attribute__((__noinline__))... yes
+checking for C++ function __attribute__((__noinline__))... yes
+checking for C++ member function __attribute__((__noinline__))... yes
+checking for C function __attribute__((__always_inline__))... yes
+checking for C++ function __attribute__((__always_inline__))... yes
+checking for C++ member function __attribute__((__always_inline__))... yes
+checking for C __attribute__((__unused__))... yes
+checking for C++ __attribute__((__unused__))... yes
+checking for C __attribute__((__aligned__(...)))... yes
+checking for C++ __attribute__((__aligned__(...)))... yes
+checking for C __attribute__((__cold__))... yes
+checking for C++ __attribute__((__cold__))... yes
+checking for C __attribute__((__hot__))... yes
+checking for C++ __attribute__((__hot__))... yes
+checking for C __attribute__((__format__(printf, 1, 2)))... yes
+checking for C++ __attribute__((__format__(printf, 1, 2)))... yes
+checking for C __attribute__((__noreturn__))... yes
+checking for C++ __attribute__((__noreturn__))... yes
+checking for C __attribute__((__nonnull__))... yes
+checking for C++ __attribute__((__nonnull__))... yes
+checking for C __attribute__((__returns_nonnull__))... yes
+checking for C++ __attribute__((__returns_nonnull__))... yes
+checking for C __builtin_expect... yes
+checking for C++ __builtin_expect... yes
+checking for C __builtin_trap... yes
+checking for C++ __builtin_trap... yes
+checking for C __builtin_unreachable... yes
+checking for C++ __builtin_unreachable... yes
+checking for C __builtin_assume_aligned... yes
+checking for C++ __builtin_assume_aligned... yes
+checking for C++ static_assert... yes
+checking for C++ auto specifier... yes
+checking for C++ lambda expressions... yes
+checking for C++ range-based for statements... yes
+checking for Fortran REAL*4... yes
+checking for Fortran REAL*8... yes
+checking for Fortran REAL*16... yes
+checking for Fortran COMPLEX*8... yes
+checking for Fortran COMPLEX*16... yes
+checking for Fortran COMPLEX*32... yes
+checking for cxxabi.h... yes
+checking for __cxa_demangle... yes
+checking for Dl_info.dli_sname... yes
+checking for dladdr... no
+checking for dladdr in library dl... yes
+checking for backtrace... yes
+checking for backtrace_symbols... yes
+checking for crypt... no
+checking for crypt in library crypt... yes
+checking for finite in header math.h and library m... yes
+checking for copysign in header math.h and library m... yes
+checking for fpclassify in header math.h and library m... yes
+checking for isfinite in header math.h and library m... yes
+checking for isinf in header math.h and library m... yes
+checking for isnan in header math.h and library m... yes
+checking for isnormal in header math.h and library m... yes
+checking for signbit in header math.h and library m... yes
+checking for mkstemp... yes
+checking for va_copy... yes
+checking whether linker supports --whole-archive... yes
+checking whether linker supports -filelist... no
+creating cctk_Archdefs.h
+creating make.arch.defn
+creating cctk_Extradefs.h
+creating make.extra.defn
+updating cache ./config.cache
+creating ./config.status
+creating make.config.defn
+creating make.config.deps
+creating make.config.rules
+creating cctk_Config.h
+Determining number of fortran underscores...
+Compiling test file with gfortran -pipe -g3 -march=native -fcray-pointer -ffixed-line-length-none -fno-range-check ...
+Lowercase - One trailing underscore
+Compiling test file with gfortran -pipe -g3 -march=native -fcray-pointer -ffixed-line-length-none -fno-range-check ...
+Lowercase - One trailing underscore
+Use make sim to build the configuration.
+Complete rebuild required
+Cleaning sim
+Cleaning configuration sim
+Deleting all built files in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim
+Warning: default submit script contents have changed
+Updated script file for configuration sim
+Warning: default run script contents have changed
+Updated runscript file for configuration sim
+Warning: default thorn list contents have changed
+Updated thorn list for configuration sim
+Building sim
+Cactus - version: 4.12.0
+Building configuration sim
+Processing CCL files
+Reading ThornList...
+Parsing configuration files...
+   ADIOS2
+           Provides:          ADIOS2 
+           Requires:          MPI 
+   ADMBase
+           Requires:          Loop 
+   AMReX
+           Provides:          AMReX 
+           Optional:          CUDA 
+   Algo
+           Provides:          Algo 
+           Requires:          Boost 
+   Arith
+           Provides:          Arith 
+           Requires:          NSIMD 
+           Optional:          yaml_cpp 
+   AsterX
+           Requires:          Loop 
+   Boost
+           Provides:          Boost 
+           Requires:          MPI 
+   Boundary
+           Provides:          Boundary 
+   BrillLindquist
+           Requires:          Loop 
+   Cactus
+           Optional:          MPI 
+   CarpetX
+           Provides:          CarpetX 
+           Requires:          AMReX MPI yaml_cpp zlib Arith Loop 
+           Optional:          ADIOS2 CUDA openPMD_api Silo 
+   CoordBase
+           Provides:          CoordBase 
+   Coordinates
+           Requires:          Loop 
+   DGCoordinates
+           Requires:          Loop 
+   DGWaveToy
+           Requires:          Loop 
+   ErrorEstimator
+           Requires:          Loop 
+   FFTW3
+           Provides:          FFTW3 
+           Requires:          FFTW3 
+   Formaline
+           Optional:          MPI PTHREADS 
+   Fortran
+           Provides:          Fortran 
+           Requires:          Fortran 
+   GSL
+           Provides:          GSL 
+           Requires:          GSL 
+   HDF5
+           Provides:          HDF5 
+           Requires:          HDF5 zlib 
+           Optional:          MPI 
+   Hydro
+           Requires:          Loop 
+   HydroBase
+           Requires:          Loop 
+   HydroInitial
+           Requires:          Loop 
+   HydroToyCarpetX
+           Requires:          Loop 
+   IOUtil
+           Provides:          IOUTIL 
+   InitBase
+   KHInitial
+           Requires:          Loop 
+   Loop
+           Provides:          Loop 
+           Requires:          AMReX Arith Loop 
+   MPI
+           Provides:          MPI 
+           Requires:          MPI 
+           Optional:          hwloc 
+   Maxwell
+           Requires:          Loop 
+   MaxwellToyCarpetX
+           Requires:          Loop 
+   MultiPatch
+           Requires:          Arith Loop 
+   NSIMD
+           Provides:          NSIMD 
+   ODESolvers
+           Requires:          AMReX CarpetX 
+   OpenBLAS
+           Provides:          OpenBLAS BLAS LAPACK 
+           Requires:          OpenBLAS 
+   Poisson
+           Requires:          Arith AMReX 
+   Punctures
+           Requires:          Arith AMReX 
+   Silo
+           Provides:          Silo 
+           Requires:          HDF5 Silo 
+   StaticTrumpet
+           Requires:          Loop 
+   SymBase
+   SystemTopology
+           Requires:          hwloc MPI 
+   TerminationTrigger
+   TestArrayGroup
+           Provides:          TestArrayGroup 
+           Requires:          Loop 
+   TestODESolvers
+   TestODESolvers2
+           Requires:          Loop 
+   TestProlongate
+           Requires:          CarpetX 
+   TestSymmetries
+           Requires:          CarpetX 
+   Time
+   TimerReport
+           Optional:          MPI 
+   TmunuBase
+           Requires:          Loop 
+   TwoPunctures
+           Requires:          GSL 
+   Vectors
+           Provides:          Vectors 
+           Requires:          Vectors 
+   WaveToyCPU
+           Requires:          Loop 
+   WaveToyCarpetX
+           Requires:          Loop 
+   WaveToyGPU
+           Requires:          Loop 
+   WaveToyMoL
+   Weyl
+           Requires:          Arith Loop 
+   Z4c
+           Requires:          Arith Loop 
+   hwloc
+           Provides:          hwloc 
+           Requires:          zlib hwloc 
+           Optional:          pciutils 
+   openPMD
+           Provides:          openPMD_api 
+           Requires:          MPI 
+   ssht
+           Provides:          ssht 
+           Requires:          FFTW3 MPI 
+   yaml_cpp
+           Provides:          yaml_cpp 
+   zlib
+           Provides:          zlib 
+Parsing interface files...
+   ADIOS2
+           Implements: ADIOS2
+           0 Public, 0 Protected, 0 Private variable groups
+   ADMBase
+           Implements: ADMBase
+           10 Public, 0 Protected, 0 Private variable groups
+   AMReX
+           Implements: AMReX
+           0 Public, 0 Protected, 0 Private variable groups
+   Algo
+           Implements: Algo
+           0 Public, 0 Protected, 0 Private variable groups
+   Arith
+           Implements: Arith
+           0 Public, 0 Protected, 0 Private variable groups
+   AsterX
+           Implements: AsterX
+           Inherits:  CarpetX ADMBase HydroBase 
+           0 Public, 0 Protected, 23 Private variable groups
+   Boost
+           Implements: Boost
+           0 Public, 0 Protected, 0 Private variable groups
+   Boundary
+           Implements: boundary
+           0 Public, 0 Protected, 0 Private variable groups
+   BrillLindquist
+           Implements: BrillLindquist
+           Inherits:  ADMBase 
+           0 Public, 0 Protected, 0 Private variable groups
+   Cactus
+           Implements: Cactus
+           0 Public, 0 Protected, 0 Private variable groups
+   CarpetX
+           Implements: CarpetX
+           Inherits:  IO 
+           2 Public, 0 Protected, 0 Private variable groups
+   CoordBase
+           Implements: CoordBase
+           0 Public, 0 Protected, 0 Private variable groups
+   Coordinates
+           Implements: Coordinates
+           4 Public, 0 Protected, 0 Private variable groups
+   DGCoordinates
+           Implements: DGCoordinates
+           3 Public, 0 Protected, 0 Private variable groups
+   DGWaveToy
+           Implements: DGWaveToy
+           Inherits:  DGCoordinates 
+           8 Public, 0 Protected, 0 Private variable groups
+   ErrorEstimator
+           Implements: ErrorEstimator
+           Inherits:  CarpetX 
+           0 Public, 0 Protected, 0 Private variable groups
+   FFTW3
+           Implements: FFTW3
+           0 Public, 0 Protected, 0 Private variable groups
+   Formaline
+           Implements: Formaline
+           0 Public, 0 Protected, 0 Private variable groups
+   Fortran
+           Implements: Fortran
+           0 Public, 0 Protected, 0 Private variable groups
+   GSL
+           Implements: GSL
+           0 Public, 0 Protected, 0 Private variable groups
+   HDF5
+           Implements: HDF5
+           0 Public, 0 Protected, 0 Private variable groups
+   Hydro
+           Implements: Hydro
+           Inherits:  CarpetX 
+           0 Public, 0 Protected, 7 Private variable groups
+   HydroBase
+           Implements: HydroBase
+           6 Public, 0 Protected, 0 Private variable groups
+   HydroInitial
+           Implements: HydroInitial
+           Inherits:  CarpetX ADMBase HydroBase 
+           0 Public, 0 Protected, 0 Private variable groups
+   HydroToyCarpetX
+           Implements: HydroToyCarpetX
+           Inherits:  CarpetX 
+           0 Public, 0 Protected, 6 Private variable groups
+   IOUtil
+           Implements: IO
+           0 Public, 0 Protected, 0 Private variable groups
+   InitBase
+           Implements: InitBase
+           0 Public, 0 Protected, 0 Private variable groups
+   KHInitial
+           Implements: KHInitial
+           Inherits:  CarpetX ADMBase HydroBase 
+           0 Public, 0 Protected, 0 Private variable groups
+   Loop
+           Implements: Loop
+           0 Public, 0 Protected, 0 Private variable groups
+   MPI
+           Implements: MPI
+           0 Public, 0 Protected, 0 Private variable groups
+   Maxwell
+           Implements: Maxwell
+           0 Public, 0 Protected, 17 Private variable groups
+   MaxwellToyCarpetX
+           Implements: MaxwellToyCarpetX
+           Inherits:  CarpetX 
+           0 Public, 0 Protected, 31 Private variable groups
+   MultiPatch
+           Implements: MultiPatch
+           Inherits:  Coordinates 
+           0 Public, 0 Protected, 0 Private variable groups
+   NSIMD
+           Implements: NSIMD
+           0 Public, 0 Protected, 0 Private variable groups
+   ODESolvers
+           Implements: ODESolvers
+           0 Public, 0 Protected, 0 Private variable groups
+   OpenBLAS
+           Implements: OpenBLAS
+           0 Public, 0 Protected, 0 Private variable groups
+   Poisson
+           Implements: Poisson
+           0 Public, 0 Protected, 7 Private variable groups
+   Punctures
+           Implements: Punctures
+           Inherits:  ADMBase 
+           0 Public, 0 Protected, 4 Private variable groups
+   Silo
+           Implements: Silo
+           0 Public, 0 Protected, 0 Private variable groups
+   StaticTrumpet
+           Implements: StaticTrumpet
+           Inherits:  ADMBase 
+           0 Public, 0 Protected, 0 Private variable groups
+   SymBase
+           Implements: SymBase
+           0 Public, 0 Protected, 0 Private variable groups
+   SystemTopology
+           Implements: SystemTopology
+           0 Public, 0 Protected, 0 Private variable groups
+   TerminationTrigger
+           Implements: TerminationTrigger
+           0 Public, 0 Protected, 3 Private variable groups
+   TestArrayGroup
+           Implements: TestArrayGroup
+           0 Public, 0 Protected, 4 Private variable groups
+   TestODESolvers
+           Implements: TestODESolvers
+           0 Public, 0 Protected, 8 Private variable groups
+   TestODESolvers2
+           Implements: TestODESolvers2
+           0 Public, 0 Protected, 5 Private variable groups
+   TestProlongate
+           Implements: TestProlongate
+           Inherits:  CarpetX 
+           0 Public, 0 Protected, 11 Private variable groups
+   TestSymmetries
+           Implements: TestSymmetries
+           0 Public, 0 Protected, 17 Private variable groups
+   Time
+           Implements: time
+           2 Public, 0 Protected, 2 Private variable groups
+   TimerReport
+           Implements: timerreport
+           0 Public, 0 Protected, 0 Private variable groups
+   TmunuBase
+           Implements: TmunuBase
+           4 Public, 0 Protected, 0 Private variable groups
+   TwoPunctures
+           Implements: TwoPunctures
+           Inherits:  ADMBase Coordinates 
+           0 Public, 0 Protected, 6 Private variable groups
+   Vectors
+           Implements: Vectors
+           0 Public, 0 Protected, 2 Private variable groups
+   WaveToyCPU
+           Implements: WaveToyCPU
+           Inherits:  CarpetX 
+           0 Public, 0 Protected, 5 Private variable groups
+   WaveToyCarpetX
+           Implements: WaveToyCarpetX
+           Inherits:  CarpetX 
+           0 Public, 0 Protected, 4 Private variable groups
+   WaveToyGPU
+           Implements: WaveToyGPU
+           Inherits:  CarpetX 
+           0 Public, 0 Protected, 5 Private variable groups
+   WaveToyMoL
+           Implements: WaveToyMoL
+           0 Public, 0 Protected, 5 Private variable groups
+   Weyl
+           Implements: Weyl
+           Inherits:  ADMBase 
+           0 Public, 0 Protected, 3 Private variable groups
+   Z4c
+           Implements: Z4c
+           Inherits:  ADMBase TmunuBase 
+           0 Public, 0 Protected, 21 Private variable groups
+   hwloc
+           Implements: hwloc
+           0 Public, 0 Protected, 0 Private variable groups
+   openPMD
+           Implements: openPMD_api
+           0 Public, 0 Protected, 0 Private variable groups
+   ssht
+           Implements: ssht
+           0 Public, 0 Protected, 0 Private variable groups
+   yaml_cpp
+           Implements: yaml_cpp
+           0 Public, 0 Protected, 0 Private variable groups
+   zlib
+           Implements: zlib
+           0 Public, 0 Protected, 0 Private variable groups
+Parsing parameter files...
+   ADIOS2
+          0 Global, 0 Restricted, 0 Private parameters
+   ADMBase
+          0 Global, 6 Restricted, 3 Private parameters
+   AMReX
+          0 Global, 0 Restricted, 0 Private parameters
+   Algo
+          0 Global, 0 Restricted, 0 Private parameters
+   Arith
+          0 Global, 0 Restricted, 0 Private parameters
+   AsterX
+          0 Global, 2 Restricted, 2 Private parameters
+   Boost
+          0 Global, 0 Restricted, 0 Private parameters
+   Boundary
+           Shares: CACTUS
+          0 Global, 8 Restricted, 0 Private parameters
+   BrillLindquist
+           Shares: ADMBASE
+          0 Global, 0 Restricted, 5 Private parameters
+   Cactus
+          0 Global, 7 Restricted, 13 Private parameters
+   CarpetX
+           Shares: CACTUS IO
+          0 Global, 3 Restricted, 68 Private parameters
+   CoordBase
+          0 Global, 0 Restricted, 44 Private parameters
+   Coordinates
+          0 Global, 0 Restricted, 0 Private parameters
+   DGCoordinates
+          0 Global, 1 Restricted, 0 Private parameters
+   DGWaveToy
+           Shares: DGCOORDINATES
+          0 Global, 0 Restricted, 0 Private parameters
+   ErrorEstimator
+          0 Global, 0 Restricted, 3 Private parameters
+   FFTW3
+          0 Global, 0 Restricted, 0 Private parameters
+   Formaline
+           Shares: IO
+          0 Global, 0 Restricted, 28 Private parameters
+   Fortran
+          0 Global, 0 Restricted, 1 Private parameters
+   GSL
+          0 Global, 0 Restricted, 0 Private parameters
+   HDF5
+          0 Global, 0 Restricted, 0 Private parameters
+   Hydro
+          0 Global, 0 Restricted, 5 Private parameters
+   HydroBase
+          0 Global, 1 Restricted, 0 Private parameters
+   HydroInitial
+           Shares: HYDROBASE
+          0 Global, 0 Restricted, 3 Private parameters
+   HydroToyCarpetX
+          0 Global, 0 Restricted, 6 Private parameters
+   IOUtil
+          0 Global, 59 Restricted, 2 Private parameters
+   InitBase
+          0 Global, 1 Restricted, 0 Private parameters
+   KHInitial
+           Shares: HYDROBASE
+          0 Global, 0 Restricted, 8 Private parameters
+   Loop
+          0 Global, 0 Restricted, 0 Private parameters
+   MPI
+          0 Global, 0 Restricted, 0 Private parameters
+   Maxwell
+          0 Global, 0 Restricted, 9 Private parameters
+   MaxwellToyCarpetX
+          0 Global, 0 Restricted, 7 Private parameters
+   MultiPatch
+          0 Global, 0 Restricted, 24 Private parameters
+   NSIMD
+          0 Global, 0 Restricted, 0 Private parameters
+   ODESolvers
+          0 Global, 0 Restricted, 2 Private parameters
+   OpenBLAS
+          0 Global, 0 Restricted, 0 Private parameters
+   Poisson
+          0 Global, 0 Restricted, 0 Private parameters
+   Punctures
+           Shares: ADMBASE
+          0 Global, 0 Restricted, 13 Private parameters
+   Silo
+          0 Global, 0 Restricted, 0 Private parameters
+   StaticTrumpet
+           Shares: ADMBASE
+          0 Global, 0 Restricted, 0 Private parameters
+   SymBase
+          0 Global, 0 Restricted, 1 Private parameters
+   SystemTopology
+          0 Global, 0 Restricted, 2 Private parameters
+   TerminationTrigger
+           Shares: IO
+          0 Global, 0 Restricted, 10 Private parameters
+   TestArrayGroup
+          0 Global, 0 Restricted, 0 Private parameters
+   TestODESolvers
+          0 Global, 0 Restricted, 1 Private parameters
+   TestODESolvers2
+          0 Global, 0 Restricted, 1 Private parameters
+   TestProlongate
+          0 Global, 0 Restricted, 2 Private parameters
+   TestSymmetries
+          0 Global, 0 Restricted, 0 Private parameters
+   Time
+           Shares: CACTUS
+          0 Global, 2 Restricted, 5 Private parameters
+   TimerReport
+           Shares: IO
+          0 Global, 0 Restricted, 11 Private parameters
+   TmunuBase
+          0 Global, 0 Restricted, 0 Private parameters
+   TwoPunctures
+           Shares: ADMBASE IO
+          0 Global, 32 Restricted, 0 Private parameters
+   Vectors
+          0 Global, 0 Restricted, 2 Private parameters
+   WaveToyCPU
+          0 Global, 0 Restricted, 10 Private parameters
+   WaveToyCarpetX
+          0 Global, 0 Restricted, 12 Private parameters
+   WaveToyGPU
+          0 Global, 0 Restricted, 11 Private parameters
+   WaveToyMoL
+          0 Global, 0 Restricted, 9 Private parameters
+   Weyl
+          0 Global, 0 Restricted, 0 Private parameters
+   Z4c
+          0 Global, 0 Restricted, 12 Private parameters
+   hwloc
+          0 Global, 0 Restricted, 0 Private parameters
+   openPMD
+          0 Global, 0 Restricted, 0 Private parameters
+   ssht
+          0 Global, 0 Restricted, 0 Private parameters
+   yaml_cpp
+          0 Global, 0 Restricted, 0 Private parameters
+   zlib
+          0 Global, 0 Restricted, 0 Private parameters
+Parsing schedule files...
+   ADIOS2
+          0 schedule blocks.
+   ADMBase
+          19 schedule blocks.
+   AMReX
+          0 schedule blocks.
+   Algo
+          1 schedule blocks.
+   Arith
+          2 schedule blocks.
+   AsterX
+          9 schedule blocks.
+   Boost
+          0 schedule blocks.
+   Boundary
+          6 schedule blocks.
+   BrillLindquist
+          2 schedule blocks.
+   Cactus
+          24 schedule blocks.
+   CarpetX
+          7 schedule blocks.
+   CoordBase
+          1 schedule blocks.
+   Coordinates
+          1 schedule blocks.
+   DGCoordinates
+          1 schedule blocks.
+   DGWaveToy
+          6 schedule blocks.
+   ErrorEstimator
+          2 schedule blocks.
+   FFTW3
+          0 schedule blocks.
+   Formaline
+          10 schedule blocks.
+   Fortran
+          1 schedule blocks.
+   GSL
+          0 schedule blocks.
+   HDF5
+          0 schedule blocks.
+   Hydro
+          12 schedule blocks.
+   HydroBase
+          8 schedule blocks.
+   HydroInitial
+          1 schedule blocks.
+   HydroToyCarpetX
+          10 schedule blocks.
+   IOUtil
+          4 schedule blocks.
+   InitBase
+          0 schedule blocks.
+   KHInitial
+          1 schedule blocks.
+   Loop
+          0 schedule blocks.
+   MPI
+          0 schedule blocks.
+   Maxwell
+          7 schedule blocks.
+   MaxwellToyCarpetX
+          12 schedule blocks.
+   MultiPatch
+          5 schedule blocks.
+   NSIMD
+          0 schedule blocks.
+   ODESolvers
+          12 schedule blocks.
+   OpenBLAS
+          0 schedule blocks.
+   Poisson
+          5 schedule blocks.
+   Punctures
+          7 schedule blocks.
+   Silo
+          0 schedule blocks.
+   StaticTrumpet
+          1 schedule blocks.
+   SymBase
+          5 schedule blocks.
+   SystemTopology
+          1 schedule blocks.
+   TerminationTrigger
+          9 schedule blocks.
+   TestArrayGroup
+          3 schedule blocks.
+   TestODESolvers
+          4 schedule blocks.
+   TestODESolvers2
+          3 schedule blocks.
+   TestProlongate
+          9 schedule blocks.
+   TestSymmetries
+          6 schedule blocks.
+   Time
+          7 schedule blocks.
+   TimerReport
+          3 schedule blocks.
+   TmunuBase
+          6 schedule blocks.
+   TwoPunctures
+          4 schedule blocks.
+   Vectors
+          2 schedule blocks.
+   WaveToyCPU
+          13 schedule blocks.
+   WaveToyCarpetX
+          18 schedule blocks.
+   WaveToyGPU
+          15 schedule blocks.
+   WaveToyMoL
+          8 schedule blocks.
+   Weyl
+          1 schedule blocks.
+   Z4c
+          18 schedule blocks.
+   hwloc
+          2 schedule blocks.
+   openPMD
+          0 schedule blocks.
+   ssht
+          0 schedule blocks.
+   yaml_cpp
+          0 schedule blocks.
+   zlib
+          0 schedule blocks.
+Running any thorn-provided configuration scripts...
+
+********************************************************************************
+Running configuration script for thorn AMREX:
+Found AMReX version 22.07
+Finished running configuration script for thorn AMREX.
+
+********************************************************************************
+Running configuration script for thorn FFTW3:
+Finished running configuration script for thorn FFTW3.
+
+********************************************************************************
+Running configuration script for thorn FORTRAN:
+Found a traditional Fortran cpp
+Finished running configuration script for thorn FORTRAN.
+
+********************************************************************************
+Running configuration script for thorn GSL:
+GSL selected, and /usr selected.
+GSL found.
+Finished running configuration script for thorn GSL.
+
+********************************************************************************
+Running configuration script for thorn NSIMD:
+Finished running configuration script for thorn NSIMD.
+
+********************************************************************************
+Running configuration script for thorn OPENBLAS:
+Finished running configuration script for thorn OPENBLAS.
+
+********************************************************************************
+Running configuration script for thorn VECTORS:
+Finished running configuration script for thorn VECTORS.
+
+********************************************************************************
+Running configuration script for thorn YAML_CPP:
+Finished running configuration script for thorn YAML_CPP.
+
+********************************************************************************
+Running configuration script for thorn ZLIB:
+Finished running configuration script for thorn ZLIB.
+
+********************************************************************************
+Running configuration script for thorn HWLOC:
+hwloc selected, but HWLOC_DIR not set. Checking some places...
+Found hwloc in NO_BUILD
+Finished running configuration script for thorn HWLOC.
+
+********************************************************************************
+Running configuration script for thorn MPI:
+Found MPI compiler wrapper at /usr/bin/mpic++!
+Successfully configured MPI.
+Finished running configuration script for thorn MPI.
+
+********************************************************************************
+Running configuration script for thorn OPENPMD:
+Finished running configuration script for thorn OPENPMD.
+
+********************************************************************************
+Running configuration script for thorn SSHT:
+Finished running configuration script for thorn SSHT.
+
+********************************************************************************
+Running configuration script for thorn ADIOS2:
+Finished running configuration script for thorn ADIOS2.
+
+********************************************************************************
+Running configuration script for thorn BOOST:
+Finished running configuration script for thorn BOOST.
+
+********************************************************************************
+Running configuration script for thorn HDF5:
+Additional requested language support:  Fortran
+HDF5 selected, but HDF5_DIR not set. Checking pkg-config ...
+HDF5 found: /usr
+Finished running configuration script for thorn HDF5.
+
+********************************************************************************
+Running configuration script for thorn SILO:
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 7)
+  -> Scheduling routine WaveToyMoL_Setup from thorn WaveToyMoL in non-existent group or timebin MoL_Register
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 23)
+  -> Scheduling routine WaveToyMoL_Sync from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 30)
+  -> Scheduling routine WaveToyMoL_Boundaries from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 37)
+  -> Scheduling routine ApplyBCs from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 43)
+  -> Scheduling routine WaveToyMoL_RHS from thorn WaveToyMoL in non-existent group or timebin MoL_CalcRHS
+
+Finished running configuration script for thorn SILO.
+Checking consistency...
+    Scheduling routine WaveToyMoL_Setup from thorn WaveToyMoL in non-existent group or timebin MoL_Register
+    Scheduling routine WaveToyMoL_Sync from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+    Scheduling routine WaveToyMoL_Boundaries from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+    Scheduling routine ApplyBCs from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+    Scheduling routine WaveToyMoL_RHS from thorn WaveToyMoL in non-existent group or timebin MoL_CalcRHS
+
+
+------------------------------------------------------
+Warnings were generated during execution of the CST
+------------------------------------------------------
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 7)
+  -> Scheduling routine WaveToyMoL_Setup from thorn WaveToyMoL in non-existent group or timebin MoL_Register
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 23)
+  -> Scheduling routine WaveToyMoL_Sync from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 30)
+  -> Scheduling routine WaveToyMoL_Boundaries from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 37)
+  -> Scheduling routine ApplyBCs from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 43)
+  -> Scheduling routine WaveToyMoL_RHS from thorn WaveToyMoL in non-existent group or timebin MoL_CalcRHS
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+------------------------------------------------------
+
+Creating Thorn-Flesh bindings...
+   Creating implementation bindings...
+   Creating parameter bindings...
+   Creating variable bindings...
+   Creating schedule bindings...
+   Creating function bindings...
+Generating arguments...
+
+
+------------------------------------------------------
+Warnings were generated during execution of the CST
+------------------------------------------------------
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 7)
+  -> Scheduling routine WaveToyMoL_Setup from thorn WaveToyMoL in non-existent group or timebin MoL_Register
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 23)
+  -> Scheduling routine WaveToyMoL_Sync from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 30)
+  -> Scheduling routine WaveToyMoL_Boundaries from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 37)
+  -> Scheduling routine ApplyBCs from thorn WaveToyMoL in non-existent group or timebin MoL_PostStep
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+
+CST warning in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/WaveToyMoL/schedule.ccl (at 43)
+  -> Scheduling routine WaveToyMoL_RHS from thorn WaveToyMoL in non-existent group or timebin MoL_CalcRHS
+     HINT: If this routine should be scheduled check the spelling of the group or timebin name. Note that scheduling IN must be used to schedule a routine to run in a thorn-defined schedule group, whereas scheduling AT is used for a usual timebin. (Schedule IN may also be used with the usual timebins, but in this case the full name of the bin must be used, e.g. CCTK_EVOL and not EVOL)
+
+------------------------------------------------------
+
+CST finished.
+Checking status of thorn zlib
+Checking status of thorn AMReX
+COMPILING configs/sim/bindings/build/zlib/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_zlib.a
+COMPILING configs/sim/bindings/build/AMReX/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_AMReX.a
+Checking status of thorn NSIMD
+Checking status of thorn yaml_cpp
+COMPILING configs/sim/bindings/build/NSIMD/cctk_ThornBindings.c
+COMPILING configs/sim/bindings/build/yaml_cpp/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_NSIMD.a
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_yaml_cpp.a
+Checking status of thorn Boundary
+Checking status of thorn CoordBase
+COMPILING CactusBase/CoordBase/src/Domain.c
+COMPILING CactusBase/Boundary/src/ScalarBoundary.c
+COMPILING CactusBase/CoordBase/src/CoordBase.c
+COMPILING CactusBase/CoordBase/src/GHExtension.c
+COMPILING configs/sim/bindings/build/CoordBase/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_CoordBase.a
+COMPILING configs/sim/bindings/build/Boundary/cctk_ThornBindings.c
+Checking status of thorn FFTW3
+COMPILING configs/sim/bindings/build/FFTW3/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_FFTW3.a
+Checking status of thorn Fortran
+COMPILING CactusBase/Boundary/src/StaticBoundary.c
+COMPILING CactusBase/Boundary/src/CopyBoundary.c
+COMPILING CactusBase/Boundary/src/FlatBoundary.c
+COMPILING CactusBase/Boundary/src/RadiationBoundary.c
+COMPILING CactusBase/Fortran/src/cctk_ActiveThorns.F90
+COMPILING CactusBase/Fortran/src/cctk_Banner.F90
+COMPILING CactusBase/Fortran/src/cctk_Comm.F90
+COMPILING CactusBase/Fortran/src/cctk_CommandLine.F90
+COMPILING CactusBase/Fortran/src/cctk_Complex.F90
+COMPILING CactusBase/Fortran/src/cctk_Constants.F90
+COMPILING CactusBase/Fortran/src/cctk_Coord.F90
+COMPILING CactusBase/Fortran/src/cctk_DebugDefines.F90
+COMPILING CactusBase/Fortran/src/cctk_Faces.F90
+COMPILING CactusBase/Fortran/src/cctk_File.F90
+COMPILING CactusBase/Fortran/src/cctk_Flesh.F90
+COMPILING CactusBase/Fortran/src/cctk_FortranString1.F90
+COMPILING CactusBase/Fortran/src/cctk_FortranWrappers.F90
+COMPILING CactusBase/Fortran/src/cctk_GHExtensions.F90
+COMPILING CactusBase/Fortran/src/cctk_GNU.F90
+COMPILING CactusBase/Fortran/src/cctk_Groups.F90
+COMPILING CactusBase/Fortran/src/cctk_GroupsOnGH.F90
+COMPILING CactusBase/Fortran/src/cctk_IO.F90
+COMPILING CactusBase/Fortran/src/cctk_IOMethods.F90
+COMPILING CactusBase/Fortran/src/cctk_Interp.F90
+COMPILING CactusBase/Fortran/src/cctk_Main.F90
+COMPILING CactusBase/Fortran/src/cctk_Malloc1.F90
+COMPILING CactusBase/Fortran/src/cctk_Math.F90
+COMPILING CactusBase/Fortran/src/cctk_MemAlloc.F90
+COMPILING CactusBase/Fortran/src/cctk_Misc.F90
+COMPILING CactusBase/Fortran/src/cctk_ParamCheck.F90
+COMPILING CactusBase/Fortran/src/cctk_Parameter.F90
+COMPILING CactusBase/Fortran/src/cctk_Reduction.F90
+COMPILING CactusBase/Fortran/src/cctk_Schedule.F90
+COMPILING CactusBase/Fortran/src/cctk_Sync.F90
+COMPILING CactusBase/Fortran/src/cctk_Termination.F90
+COMPILING CactusBase/Fortran/src/cctk_Timers.F90
+COMPILING CactusBase/Fortran/src/cctk_Types.F90
+COMPILING CactusBase/Fortran/src/cctk_Version.F90
+COMPILING CactusBase/Fortran/src/cctk_WarnLevel.F90
+COMPILING CactusBase/Fortran/src/util_Table.F90
+COMPILING CactusBase/Boundary/src/RobinBoundary.c
+COMPILING CactusBase/Fortran/src/paramcheck.F90
+COMPILING CactusBase/Fortran/src/cctk.F90
+COMPILING configs/sim/bindings/build/Fortran/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Fortran.a
+Checking status of thorn GSL
+COMPILING configs/sim/bindings/build/GSL/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_GSL.a
+Checking status of thorn IOUtil
+COMPILING CactusBase/IOUtil/src/Startup.c
+COMPILING CactusBase/IOUtil/src/CheckpointRecovery.cc
+COMPILING CactusBase/Boundary/src/NoneBoundary.c
+COMPILING CactusBase/Boundary/src/Boundary.c
+COMPILING CactusBase/Boundary/src/Register.c
+COMPILING CactusBase/Boundary/src/Check.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Boundary.a
+COMPILING CactusBase/IOUtil/src/AdvertisedFiles.c
+COMPILING CactusBase/IOUtil/src/Utils.c
+Checking status of thorn InitBase
+COMPILING configs/sim/bindings/build/IOUtil/cctk_ThornBindings.c
+COMPILING configs/sim/bindings/build/InitBase/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_IOUtil.a
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_InitBase.a
+Checking status of thorn OpenBLAS
+Checking status of thorn SymBase
+COMPILING ExternalLibraries/OpenBLAS/src/blas.F90
+COMPILING ExternalLibraries/OpenBLAS/src/lapack.F90
+COMPILING configs/sim/bindings/build/OpenBLAS/cctk_ThornBindings.c
+COMPILING CactusBase/SymBase/src/Check.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_OpenBLAS.a
+Checking status of thorn TerminationTrigger
+COMPILING CactusBase/SymBase/src/Faces.c
+COMPILING CactusBase/SymBase/src/Handles.c
+COMPILING CactusUtils/TerminationTrigger/src/file.c
+COMPILING CactusBase/SymBase/src/Interpolation.c
+COMPILING CactusUtils/TerminationTrigger/src/paramcheck.c
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/TerminationTrigger/src/paramcheck.c: In function ‘TerminationTrigger_ParamCheck’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/TerminationTrigger/src/paramcheck.c:4:6: warning: type of ‘CCTK_ARGUMENTS’ defaults to ‘int’ [-Wimplicit-int]
+    4 | void TerminationTrigger_ParamCheck(CCTK_ARGUMENTS) {
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+COMPILING CactusUtils/TerminationTrigger/src/signal.c
+COMPILING CactusBase/SymBase/src/Startup.c
+COMPILING CactusUtils/TerminationTrigger/src/trigger.c
+COMPILING CactusBase/SymBase/src/Statistics.c
+COMPILING CactusUtils/TerminationTrigger/src/walltime.c
+COMPILING CactusBase/SymBase/src/Table.c
+COMPILING configs/sim/bindings/build/TerminationTrigger/cctk_ThornBindings.c
+COMPILING configs/sim/bindings/build/SymBase/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TerminationTrigger.a
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_SymBase.a
+Checking status of thorn TestODESolvers
+Checking status of thorn Time
+COMPILING CarpetX/TestODESolvers/src/odes.cxx
+COMPILING CactusBase/Time/src/Courant.c
+COMPILING CactusBase/Time/src/Given.c
+COMPILING CactusBase/Time/src/Initialise.c
+COMPILING CactusBase/Time/src/Simple.c
+COMPILING configs/sim/bindings/build/Time/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Time.a
+Checking status of thorn TwoPunctures
+COMPILING configs/sim/bindings/build/TestODESolvers/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TestODESolvers.a
+Checking status of thorn Vectors
+COMPILING CarpetX/TwoPunctures/src/CoordTransf.c
+COMPILING CarpetX/TwoPunctures/src/Equations.c
+COMPILING CarpetX/TwoPunctures/src/FuncAndJacobian.c
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/FuncAndJacobian.c: In function ‘F_of_v’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/FuncAndJacobian.c:240:30: warning: variable ‘psi7’ set but not used [-Wunused-but-set-variable]
+  240 |   CCTK_REAL psi, psi2, psi4, psi7, r_plus, r_minus;
+      |                              ^~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/FuncAndJacobian.c: In function ‘SetMatrix_JFD’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/FuncAndJacobian.c:552:66: warning: variable ‘N3’ set but not used [-Wunused-but-set-variable]
+  552 |   int i, i1, i_0, i_1, j, j1, j_0, j_1, k, k1, k_0, k_1, N1, N2, N3, ivar,
+      |                                                                  ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/FuncAndJacobian.c: In function ‘F_of_v’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/FuncAndJacobian.c:314:34: warning: ‘indx’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+  314 |                   (double)sources[indx]
+      |                                  ^
+COMPILING CarpetX/TwoPunctures/src/Newton.c
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c: In function ‘TestRelax’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:244:36: warning: passing argument 6 of ‘resid’ from incompatible pointer type [-Wincompatible-pointer-types]
+  244 |   resid(res, ntotal, dv, F, ncols, cols, JFD);
+      |                                    ^~~~
+      |                                    |
+      |                                    int **
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:64:61: note: expected ‘const int * const restrict* const restrict’ but argument is of type ‘int **’
+   64 |                   int const *restrict const *restrict const cols,
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:244:42: warning: passing argument 7 of ‘resid’ from incompatible pointer type [-Wincompatible-pointer-types]
+  244 |   resid(res, ntotal, dv, F, ncols, cols, JFD);
+      |                                          ^~~
+      |                                          |
+      |                                          CCTK_REAL8 ** {aka double **}
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:65:67: note: expected ‘const CCTK_REAL8 * const restrict* const restrict’ {aka ‘const double * const restrict* const restrict’} but argument is of type ‘CCTK_REAL8 **’ {aka ‘double **’}
+   65 |                   CCTK_REAL const *restrict const *restrict const JFD) {
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:248:43: warning: passing argument 8 of ‘relax’ from incompatible pointer type [-Wincompatible-pointer-types]
+  248 |     relax(dv, nvar, n1, n2, n3, F, ncols, cols, JFD); /* solves JFD*sh = s*/
+      |                                           ^~~~
+      |                                           |
+      |                                           int **
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:183:61: note: expected ‘const int * const restrict* const restrict’ but argument is of type ‘int **’
+  183 |                   int const *restrict const *restrict const cols,
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:248:49: warning: passing argument 9 of ‘relax’ from incompatible pointer type [-Wincompatible-pointer-types]
+  248 |     relax(dv, nvar, n1, n2, n3, F, ncols, cols, JFD); /* solves JFD*sh = s*/
+      |                                                 ^~~
+      |                                                 |
+      |                                                 CCTK_REAL8 ** {aka double **}
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:184:67: note: expected ‘const CCTK_REAL8 * const restrict* const restrict’ {aka ‘const double * const restrict* const restrict’} but argument is of type ‘CCTK_REAL8 **’ {aka ‘double **’}
+  184 |                   CCTK_REAL const *restrict const *restrict const JFD) {
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:250:40: warning: passing argument 6 of ‘resid’ from incompatible pointer type [-Wincompatible-pointer-types]
+  250 |       resid(res, ntotal, dv, F, ncols, cols, JFD);
+      |                                        ^~~~
+      |                                        |
+      |                                        int **
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:64:61: note: expected ‘const int * const restrict* const restrict’ but argument is of type ‘int **’
+   64 |                   int const *restrict const *restrict const cols,
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:250:46: warning: passing argument 7 of ‘resid’ from incompatible pointer type [-Wincompatible-pointer-types]
+  250 |       resid(res, ntotal, dv, F, ncols, cols, JFD);
+      |                                              ^~~
+      |                                              |
+      |                                              CCTK_REAL8 ** {aka double **}
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:65:67: note: expected ‘const CCTK_REAL8 * const restrict* const restrict’ {aka ‘const double * const restrict* const restrict’} but argument is of type ‘CCTK_REAL8 **’ {aka ‘double **’}
+   65 |                   CCTK_REAL const *restrict const *restrict const JFD) {
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:256:36: warning: passing argument 6 of ‘resid’ from incompatible pointer type [-Wincompatible-pointer-types]
+  256 |   resid(res, ntotal, dv, F, ncols, cols, JFD);
+      |                                    ^~~~
+      |                                    |
+      |                                    int **
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:64:61: note: expected ‘const int * const restrict* const restrict’ but argument is of type ‘int **’
+   64 |                   int const *restrict const *restrict const cols,
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:256:42: warning: passing argument 7 of ‘resid’ from incompatible pointer type [-Wincompatible-pointer-types]
+  256 |   resid(res, ntotal, dv, F, ncols, cols, JFD);
+      |                                          ^~~
+      |                                          |
+      |                                          CCTK_REAL8 ** {aka double **}
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:65:67: note: expected ‘const CCTK_REAL8 * const restrict* const restrict’ {aka ‘const double * const restrict* const restrict’} but argument is of type ‘CCTK_REAL8 **’ {aka ‘double **’}
+   65 |                   CCTK_REAL const *restrict const *restrict const JFD) {
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c: In function ‘bicgstab’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:351:48: warning: passing argument 8 of ‘relax’ from incompatible pointer type [-Wincompatible-pointer-types]
+  351 |       relax(ph.d0, nvar, n1, n2, n3, p, ncols, cols, JFD);
+      |                                                ^~~~
+      |                                                |
+      |                                                int **
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:183:61: note: expected ‘const int * const restrict* const restrict’ but argument is of type ‘int **’
+  183 |                   int const *restrict const *restrict const cols,
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:351:54: warning: passing argument 9 of ‘relax’ from incompatible pointer type [-Wincompatible-pointer-types]
+  351 |       relax(ph.d0, nvar, n1, n2, n3, p, ncols, cols, JFD);
+      |                                                      ^~~
+      |                                                      |
+      |                                                      CCTK_REAL8 ** {aka double **}
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:184:67: note: expected ‘const CCTK_REAL8 * const restrict* const restrict’ {aka ‘const double * const restrict* const restrict’} but argument is of type ‘CCTK_REAL8 **’ {aka ‘double **’}
+  184 |                   CCTK_REAL const *restrict const *restrict const JFD) {
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:378:48: warning: passing argument 8 of ‘relax’ from incompatible pointer type [-Wincompatible-pointer-types]
+  378 |       relax(sh.d0, nvar, n1, n2, n3, s, ncols, cols, JFD);
+      |                                                ^~~~
+      |                                                |
+      |                                                int **
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:183:61: note: expected ‘const int * const restrict* const restrict’ but argument is of type ‘int **’
+  183 |                   int const *restrict const *restrict const cols,
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:378:54: warning: passing argument 9 of ‘relax’ from incompatible pointer type [-Wincompatible-pointer-types]
+  378 |       relax(sh.d0, nvar, n1, n2, n3, s, ncols, cols, JFD);
+      |                                                      ^~~
+      |                                                      |
+      |                                                      CCTK_REAL8 ** {aka double **}
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:184:67: note: expected ‘const CCTK_REAL8 * const restrict* const restrict’ {aka ‘const double * const restrict* const restrict’} but argument is of type ‘CCTK_REAL8 **’ {aka ‘double **’}
+  184 |                   CCTK_REAL const *restrict const *restrict const JFD) {
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c: In function ‘Newton’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/Newton.c:442:37: warning: variable ‘ii’ set but not used [-Wunused-but-set-variable]
+  442 |   int ntotal = n1 * n2 * n3 * nvar, ii, it;
+      |                                     ^~
+COMPILING CarpetX/TwoPunctures/src/TwoPunctures.c
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/TwoPunctures.c: In function ‘TwoPunctures’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/TwoPunctures.c:102:31: warning: ‘i3D’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+  102 |           rx3_To_xyz(nvar, s_x[i3D], r, phi, &(s_y[indx]), &(s_z[indx]), U);
+      |                               ^
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/TwoPunctures.c:35:27: note: ‘i3D’ was declared here
+   35 |   CCTK_INT ivar, i, j, k, i3D, indx;
+      |                           ^~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/TwoPunctures.c:143:11: warning: ‘phi’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+  143 |           rx3_To_xyz(nvar, s_x[i3D], r, phi, &(s_y[indx]), &(s_z[indx]), U);
+      |           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/TwoPunctures/src/TwoPunctures.c:34:32: note: ‘phi’ was declared here
+   34 |   CCTK_REAL al, A, Am1, be, B, phi, R, r, X;
+      |                                ^~~
+COMPILING CactusUtils/Vectors/src/vectors.cc
+COMPILING CarpetX/TwoPunctures/src/TP_utilities.c
+COMPILING CarpetX/TwoPunctures/src/ParamCheck.c
+COMPILING CarpetX/TwoPunctures/src/Metadata.cc
+COMPILING CactusUtils/Vectors/src/test.cc
+COMPILING configs/sim/bindings/build/TwoPunctures/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TwoPunctures.a
+COMPILING CactusUtils/Vectors/src/test-vectors-4-AVX.cc
+COMPILING CactusUtils/Vectors/src/test-vectors-4-AVX_AVX2.cc
+COMPILING configs/sim/bindings/build/Vectors/cctk_ThornBindings.c
+Checking status of thorn WaveToyMoL
+COMPILING CarpetX/WaveToyMoL/src/wavetoy.cxx
+COMPILING CactusUtils/Vectors/src/test-vectors-4-AVX_FMA4.cc
+COMPILING CactusUtils/Vectors/src/test-vectors-4-Altivec.cc
+COMPILING configs/sim/bindings/build/WaveToyMoL/cctk_ThornBindings.c
+COMPILING CactusUtils/Vectors/src/test-vectors-4-SSE.cc
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_WaveToyMoL.a
+Checking status of thorn CactusBindings
+COMPILING configs/sim/bindings/Functions/AliasedFunctions.c
+COMPILING CactusUtils/Vectors/src/test-vectors-4-SSE_SSE41.cc
+COMPILING configs/sim/bindings/Functions/IsFunctionAliased.c
+COMPILING configs/sim/bindings/Functions/RegisterThornFunctions.c
+COMPILING configs/sim/bindings/Functions/Boundary_Functions.c
+COMPILING configs/sim/bindings/Functions/CarpetX_Functions.c
+COMPILING configs/sim/bindings/Functions/CoordBase_Functions.c
+COMPILING configs/sim/bindings/Functions/Formaline_Functions.c
+COMPILING configs/sim/bindings/Functions/IOUtil_Functions.c
+COMPILING configs/sim/bindings/Functions/MultiPatch_Functions.c
+COMPILING configs/sim/bindings/Functions/ODESolvers_Functions.c
+COMPILING configs/sim/bindings/Functions/Poisson_Functions.c
+COMPILING configs/sim/bindings/Functions/Punctures_Functions.c
+COMPILING configs/sim/bindings/Functions/SymBase_Functions.c
+COMPILING configs/sim/bindings/Functions/SystemTopology_Functions.c
+COMPILING configs/sim/bindings/Functions/TimerReport_Functions.c
+COMPILING configs/sim/bindings/Functions/TwoPunctures_Functions.c
+COMPILING CactusUtils/Vectors/src/test-vectors-4-SSE_SSE4A.cc
+COMPILING configs/sim/bindings/Functions/WaveToyMoL_Functions.c
+COMPILING configs/sim/bindings/Functions/Weyl_Functions.c
+COMPILING configs/sim/bindings/Functions/Z4c_Functions.c
+COMPILING configs/sim/bindings/Implementations/ImplementationBindings.c
+COMPILING CactusUtils/Vectors/src/test-vectors-4-SSE_FMA4.cc
+COMPILING CactusUtils/Vectors/src/test-vectors-4-default.cc
+COMPILING configs/sim/bindings/Parameters/BindingsParameters.c
+COMPILING configs/sim/bindings/Parameters/Global.c
+COMPILING configs/sim/bindings/Parameters/ADIOS2_Parameters.c
+COMPILING configs/sim/bindings/Parameters/ADMBase_Parameters.c
+COMPILING configs/sim/bindings/Parameters/AMReX_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Algo_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Arith_Parameters.c
+COMPILING configs/sim/bindings/Parameters/AsterX_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Boost_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Boundary_Parameters.c
+COMPILING configs/sim/bindings/Parameters/BrillLindquist_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Cactus_Parameters.c
+COMPILING configs/sim/bindings/Parameters/CarpetX_Parameters.c
+COMPILING configs/sim/bindings/Parameters/CoordBase_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Coordinates_Parameters.c
+COMPILING configs/sim/bindings/Parameters/DGCoordinates_Parameters.c
+COMPILING configs/sim/bindings/Parameters/DGWaveToy_Parameters.c
+COMPILING configs/sim/bindings/Parameters/ErrorEstimator_Parameters.c
+COMPILING configs/sim/bindings/Parameters/FFTW3_Parameters.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-AVX.cc
+COMPILING configs/sim/bindings/Parameters/Formaline_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Fortran_Parameters.c
+COMPILING configs/sim/bindings/Parameters/GSL_Parameters.c
+COMPILING configs/sim/bindings/Parameters/HDF5_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Hydro_Parameters.c
+COMPILING configs/sim/bindings/Parameters/HydroBase_Parameters.c
+COMPILING configs/sim/bindings/Parameters/HydroInitial_Parameters.c
+COMPILING configs/sim/bindings/Parameters/HydroToyCarpetX_Parameters.c
+COMPILING configs/sim/bindings/Parameters/IOUtil_Parameters.c
+COMPILING configs/sim/bindings/Parameters/InitBase_Parameters.c
+COMPILING configs/sim/bindings/Parameters/KHInitial_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Loop_Parameters.c
+COMPILING configs/sim/bindings/Parameters/MPI_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Maxwell_Parameters.c
+COMPILING configs/sim/bindings/Parameters/MaxwellToyCarpetX_Parameters.c
+COMPILING configs/sim/bindings/Parameters/MultiPatch_Parameters.c
+COMPILING configs/sim/bindings/Parameters/NSIMD_Parameters.c
+COMPILING configs/sim/bindings/Parameters/ODESolvers_Parameters.c
+COMPILING configs/sim/bindings/Parameters/OpenBLAS_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Poisson_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Punctures_Parameters.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-AVX_AVX2.cc
+COMPILING configs/sim/bindings/Parameters/Silo_Parameters.c
+COMPILING configs/sim/bindings/Parameters/StaticTrumpet_Parameters.c
+COMPILING configs/sim/bindings/Parameters/SymBase_Parameters.c
+COMPILING configs/sim/bindings/Parameters/SystemTopology_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TerminationTrigger_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TestArrayGroup_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TestODESolvers_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TestODESolvers2_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TestProlongate_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TestSymmetries_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Time_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TimerReport_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TmunuBase_Parameters.c
+COMPILING configs/sim/bindings/Parameters/TwoPunctures_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Vectors_Parameters.c
+COMPILING configs/sim/bindings/Parameters/WaveToyCPU_Parameters.c
+COMPILING configs/sim/bindings/Parameters/WaveToyCarpetX_Parameters.c
+COMPILING configs/sim/bindings/Parameters/WaveToyGPU_Parameters.c
+COMPILING configs/sim/bindings/Parameters/WaveToyMoL_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Weyl_Parameters.c
+COMPILING configs/sim/bindings/Parameters/Z4c_Parameters.c
+COMPILING configs/sim/bindings/Parameters/hwloc_Parameters.c
+COMPILING configs/sim/bindings/Parameters/openPMD_Parameters.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-AVX_FMA4.cc
+COMPILING configs/sim/bindings/Parameters/ssht_Parameters.c
+COMPILING configs/sim/bindings/Parameters/yaml_cpp_Parameters.c
+COMPILING configs/sim/bindings/Parameters/zlib_Parameters.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-AVX512.cc
+COMPILING CactusUtils/Vectors/src/test-vectors-8-AVX512_AVX512ER.cc
+COMPILING CactusUtils/Vectors/src/test-vectors-8-MIC.cc
+COMPILING configs/sim/bindings/Variables/BindingsVariables.c
+COMPILING configs/sim/bindings/Variables/ADIOS2.c
+COMPILING configs/sim/bindings/Variables/ADMBase.c
+COMPILING configs/sim/bindings/Variables/AMReX.c
+COMPILING configs/sim/bindings/Variables/Algo.c
+COMPILING configs/sim/bindings/Variables/Arith.c
+COMPILING configs/sim/bindings/Variables/AsterX.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-SSE2.cc
+COMPILING configs/sim/bindings/Variables/Boost.c
+COMPILING configs/sim/bindings/Variables/Boundary.c
+COMPILING configs/sim/bindings/Variables/BrillLindquist.c
+COMPILING configs/sim/bindings/Variables/Cactus.c
+COMPILING configs/sim/bindings/Variables/CarpetX.c
+COMPILING configs/sim/bindings/Variables/CoordBase.c
+COMPILING configs/sim/bindings/Variables/Coordinates.c
+COMPILING configs/sim/bindings/Variables/DGCoordinates.c
+COMPILING configs/sim/bindings/Variables/DGWaveToy.c
+COMPILING configs/sim/bindings/Variables/ErrorEstimator.c
+COMPILING configs/sim/bindings/Variables/FFTW3.c
+COMPILING configs/sim/bindings/Variables/Formaline.c
+COMPILING configs/sim/bindings/Variables/Fortran.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-SSE2_SSE41.cc
+COMPILING configs/sim/bindings/Variables/GSL.c
+COMPILING configs/sim/bindings/Variables/HDF5.c
+COMPILING configs/sim/bindings/Variables/Hydro.c
+COMPILING configs/sim/bindings/Variables/HydroBase.c
+COMPILING configs/sim/bindings/Variables/HydroInitial.c
+COMPILING configs/sim/bindings/Variables/HydroToyCarpetX.c
+COMPILING configs/sim/bindings/Variables/IOUtil.c
+COMPILING configs/sim/bindings/Variables/InitBase.c
+COMPILING configs/sim/bindings/Variables/KHInitial.c
+COMPILING configs/sim/bindings/Variables/Loop.c
+COMPILING configs/sim/bindings/Variables/MPI.c
+COMPILING configs/sim/bindings/Variables/Maxwell.c
+COMPILING configs/sim/bindings/Variables/MaxwellToyCarpetX.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-SSE2_SSE4A.cc
+COMPILING configs/sim/bindings/Variables/MultiPatch.c
+COMPILING configs/sim/bindings/Variables/NSIMD.c
+COMPILING configs/sim/bindings/Variables/ODESolvers.c
+COMPILING configs/sim/bindings/Variables/OpenBLAS.c
+COMPILING configs/sim/bindings/Variables/Poisson.c
+COMPILING configs/sim/bindings/Variables/Punctures.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-SSE2_FMA4.cc
+COMPILING configs/sim/bindings/Variables/Silo.c
+COMPILING configs/sim/bindings/Variables/StaticTrumpet.c
+COMPILING configs/sim/bindings/Variables/SymBase.c
+COMPILING configs/sim/bindings/Variables/SystemTopology.c
+COMPILING configs/sim/bindings/Variables/TerminationTrigger.c
+COMPILING configs/sim/bindings/Variables/TestArrayGroup.c
+COMPILING configs/sim/bindings/Variables/TestODESolvers.c
+COMPILING configs/sim/bindings/Variables/TestODESolvers2.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-VSX.cc
+COMPILING configs/sim/bindings/Variables/TestProlongate.c
+COMPILING configs/sim/bindings/Variables/TestSymmetries.c
+COMPILING configs/sim/bindings/Variables/Time.c
+COMPILING configs/sim/bindings/Variables/TimerReport.c
+COMPILING configs/sim/bindings/Variables/TmunuBase.c
+COMPILING configs/sim/bindings/Variables/TwoPunctures.c
+COMPILING CactusUtils/Vectors/src/test-vectors-8-default.cc
+COMPILING configs/sim/bindings/Variables/Vectors.c
+COMPILING configs/sim/bindings/Variables/WaveToyCPU.c
+COMPILING configs/sim/bindings/Variables/WaveToyCarpetX.c
+COMPILING configs/sim/bindings/Variables/WaveToyGPU.c
+COMPILING configs/sim/bindings/Variables/WaveToyMoL.c
+COMPILING configs/sim/bindings/Variables/Weyl.c
+COMPILING configs/sim/bindings/Variables/Z4c.c
+COMPILING configs/sim/bindings/Variables/hwloc.c
+COMPILING configs/sim/bindings/Variables/openPMD.c
+COMPILING configs/sim/bindings/Variables/ssht.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Vectors.a
+COMPILING configs/sim/bindings/Variables/yaml_cpp.c
+COMPILING configs/sim/bindings/Variables/zlib.c
+Checking status of thorn hwloc
+COMPILING ExternalLibraries/hwloc/src/version.c
+COMPILING configs/sim/bindings/build/hwloc/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_hwloc.a
+Checking status of thorn Arith
+COMPILING configs/sim/bindings/Schedule/ScheduleADIOS2.c
+COMPILING configs/sim/bindings/Schedule/ScheduleADMBase.c
+COMPILING configs/sim/bindings/Schedule/ScheduleAMReX.c
+COMPILING configs/sim/bindings/Schedule/ScheduleAlgo.c
+COMPILING configs/sim/bindings/Schedule/ScheduleArith.c
+COMPILING configs/sim/bindings/Schedule/ScheduleAsterX.c
+COMPILING configs/sim/bindings/Schedule/ScheduleBoost.c
+COMPILING configs/sim/bindings/Schedule/ScheduleBoundary.c
+COMPILING configs/sim/bindings/Schedule/ScheduleBrillLindquist.c
+COMPILING configs/sim/bindings/Schedule/ScheduleCactus.c
+COMPILING configs/sim/bindings/Schedule/ScheduleCarpetX.c
+COMPILING configs/sim/bindings/Schedule/ScheduleCoordBase.c
+COMPILING CarpetX/Arith/src/cons.cxx
+COMPILING configs/sim/bindings/Schedule/ScheduleCoordinates.c
+COMPILING configs/sim/bindings/Schedule/ScheduleDGCoordinates.c
+COMPILING configs/sim/bindings/Schedule/ScheduleDGWaveToy.c
+COMPILING configs/sim/bindings/Schedule/ScheduleErrorEstimator.c
+COMPILING configs/sim/bindings/Schedule/ScheduleFFTW3.c
+COMPILING configs/sim/bindings/Schedule/ScheduleFormaline.c
+COMPILING configs/sim/bindings/Schedule/ScheduleFortran.c
+COMPILING configs/sim/bindings/Schedule/ScheduleGSL.c
+COMPILING configs/sim/bindings/Schedule/ScheduleHDF5.c
+COMPILING CarpetX/Arith/src/cplx.cxx
+COMPILING configs/sim/bindings/Schedule/ScheduleHydro.c
+COMPILING configs/sim/bindings/Schedule/ScheduleHydroBase.c
+COMPILING configs/sim/bindings/Schedule/ScheduleHydroInitial.c
+COMPILING configs/sim/bindings/Schedule/ScheduleHydroToyCarpetX.c
+COMPILING configs/sim/bindings/Schedule/ScheduleIOUtil.c
+COMPILING configs/sim/bindings/Schedule/ScheduleInitBase.c
+COMPILING configs/sim/bindings/Schedule/ScheduleKHInitial.c
+COMPILING configs/sim/bindings/Schedule/ScheduleLoop.c
+COMPILING configs/sim/bindings/Schedule/ScheduleMPI.c
+COMPILING configs/sim/bindings/Schedule/ScheduleMaxwell.c
+COMPILING configs/sim/bindings/Schedule/ScheduleMaxwellToyCarpetX.c
+COMPILING configs/sim/bindings/Schedule/ScheduleMultiPatch.c
+COMPILING configs/sim/bindings/Schedule/ScheduleNSIMD.c
+COMPILING configs/sim/bindings/Schedule/ScheduleODESolvers.c
+COMPILING configs/sim/bindings/Schedule/ScheduleOpenBLAS.c
+COMPILING configs/sim/bindings/Schedule/SchedulePoisson.c
+COMPILING configs/sim/bindings/Schedule/SchedulePunctures.c
+COMPILING CarpetX/Arith/src/div.cxx
+COMPILING configs/sim/bindings/Schedule/ScheduleSilo.c
+COMPILING configs/sim/bindings/Schedule/ScheduleStaticTrumpet.c
+COMPILING configs/sim/bindings/Schedule/ScheduleSymBase.c
+COMPILING configs/sim/bindings/Schedule/ScheduleSystemTopology.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTerminationTrigger.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTestArrayGroup.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTestODESolvers.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTestODESolvers2.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTestProlongate.c
+COMPILING CarpetX/Arith/src/dual.cxx
+COMPILING configs/sim/bindings/Schedule/ScheduleTestSymmetries.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTime.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTimerReport.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTmunuBase.c
+COMPILING configs/sim/bindings/Schedule/ScheduleTwoPunctures.c
+COMPILING configs/sim/bindings/Schedule/ScheduleVectors.c
+COMPILING configs/sim/bindings/Schedule/ScheduleWaveToyCPU.c
+COMPILING configs/sim/bindings/Schedule/ScheduleWaveToyCarpetX.c
+COMPILING configs/sim/bindings/Schedule/ScheduleWaveToyGPU.c
+COMPILING configs/sim/bindings/Schedule/ScheduleWaveToyMoL.c
+COMPILING configs/sim/bindings/Schedule/ScheduleWeyl.c
+COMPILING configs/sim/bindings/Schedule/ScheduleZ4c.c
+COMPILING configs/sim/bindings/Schedule/Schedulehwloc.c
+COMPILING configs/sim/bindings/Schedule/ScheduleopenPMD.c
+COMPILING configs/sim/bindings/Schedule/Schedulessht.c
+COMPILING configs/sim/bindings/Schedule/Scheduleyaml_cpp.c
+COMPILING configs/sim/bindings/Schedule/Schedulezlib.c
+COMPILING CarpetX/Arith/src/mat.cxx
+COMPILING configs/sim/bindings/Schedule/BindingsSchedule.c
+COMPILING configs/sim/bindings/Schedule/BindingsParameterRecovery.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_CactusBindings.a
+Checking status of thorn MPI
+COMPILING configs/sim/bindings/build/MPI/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_MPI.a
+Checking status of thorn ADIOS2
+COMPILING configs/sim/bindings/build/ADIOS2/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_ADIOS2.a
+Checking status of thorn Boost
+COMPILING configs/sim/bindings/build/Boost/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Boost.a
+Checking status of thorn HDF5
+COMPILING configs/sim/bindings/build/HDF5/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_HDF5.a
+Checking status of thorn openPMD
+COMPILING configs/sim/bindings/build/openPMD/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_openPMD.a
+COMPILING CarpetX/Arith/src/rational.cxx
+Checking status of thorn Formaline
+COMPILING CarpetX/Arith/src/rten.cxx
+COMPILING CactusUtils/Formaline/src/announce.cc
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/Formaline/src/announce.cc: In function ‘void Formaline::Formaline_AnnounceInitial(cGH*)’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/Formaline/src/announce.cc:427:13: warning: ignoring return value of ‘char* getcwd(char*, size_t)’, declared with attribute warn_unused_result [-Wunused-result]
+  427 |       getcwd(cwd, sizeof cwd);
+      |       ~~~~~~^~~~~~~~~~~~~~~~~
+COMPILING CarpetX/Arith/src/simd.cxx
+COMPILING CarpetX/Arith/src/smallvector.cxx
+COMPILING CactusUtils/Formaline/src/file.cc
+COMPILING CactusUtils/Formaline/src/id.cc
+COMPILING CactusUtils/Formaline/src/json_file.cc
+COMPILING CarpetX/Arith/src/spvect.cxx
+COMPILING CactusUtils/Formaline/src/multistorage.cc
+COMPILING CactusUtils/Formaline/src/output_source.c
+COMPILING CactusUtils/Formaline/src/portal.cc
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/Formaline/src/portal.cc: In destructor ‘Formaline::portal::~portal()’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/Formaline/src/portal.cc:186:9: warning: ignoring return value of ‘int system(const char*)’, declared with attribute warn_unused_result [-Wunused-result]
+  186 |   system(chmod);
+      |   ~~~~~~^~~~~~~
+COMPILING CactusUtils/Formaline/src/rdf.cc
+COMPILING CarpetX/Arith/src/sum.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/Formaline/src/rdf.cc: In member function ‘void Formaline::rdf::Initial()’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/Formaline/src/rdf.cc:107:9: warning: ignoring return value of ‘char* getcwd(char*, size_t)’, declared with attribute warn_unused_result [-Wunused-result]
+  107 |   getcwd(buf, sizeof(buf));
+      |   ~~~~~~^~~~~~~~~~~~~~~~~~
+COMPILING CarpetX/Arith/src/ten3.cxx
+COMPILING CactusUtils/Formaline/src/rdf_publisher.cc
+COMPILING CarpetX/Arith/src/vec.cxx
+COMPILING CactusUtils/Formaline/src/senddata.cc
+COMPILING CarpetX/Arith/src/vect.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/Formaline/src/senddata.cc: In function ‘int Formaline::SendData(std::string, int, std::string)’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CactusUtils/Formaline/src/senddata.cc:140:9: warning: ignoring return value of ‘int system(const char*)’, declared with attribute warn_unused_result [-Wunused-result]
+  140 |   system(chmod);
+      |   ~~~~~~^~~~~~~
+COMPILING CactusUtils/Formaline/src/storage.cc
+COMPILING CactusUtils/Formaline/src/thornlist.cc
+COMPILING configs/sim/bindings/build/Arith/cctk_ThornBindings.c
+COMPILING configs/sim/bindings/build/Formaline/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Arith.a
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Formaline.a
+Checking status of thorn SystemTopology
+Checking status of thorn TimerReport
+COMPILING CactusUtils/TimerReport/src/Output.cc
+COMPILING CactusUtils/SystemTopology/src/system_topology.cc
+COMPILING configs/sim/bindings/build/SystemTopology/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_SystemTopology.a
+COMPILING configs/sim/bindings/build/TimerReport/cctk_ThornBindings.c
+Checking status of thorn ssht
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TimerReport.a
+Checking status of thorn Cactus
+COMPILING configs/sim/bindings/build/ssht/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_ssht.a
+COMPILING Cactus/IO/IOMethods.c
+COMPILING Cactus/IO/OverloadIO.c
+COMPILING Cactus/IO/FortranBindingsIO.c
+COMPILING Cactus/comm/CactusSync.c
+COMPILING Cactus/comm/CactusDefaultComm.c
+COMPILING Cactus/comm/OverloadComm.c
+In file included from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/comm/OverloadComm.c:20:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/CommOverloadables.h: In function ‘CCTKi_DummyExit’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:92:10: warning: function declared ‘noreturn’ has a ‘return’ statement
+   92 |   return 0;                                                     \
+      |          ^
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:84:59: note: in expansion of macro ‘__OVERLOADABLE_DUMMY’
+   84 | #define _OVERLOADABLE_DUMMY(prefix, dummy_prefix, name)   __OVERLOADABLE_DUMMY(prefix, dummy_prefix, name)
+      |                                                           ^~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:83:36: note: in expansion of macro ‘_OVERLOADABLE_DUMMY’
+   83 | #define OVERLOADABLE_DUMMY(name)   _OVERLOADABLE_DUMMY(OVERLOADABLE_PREFIX, OVERLOADABLE_DUMMY_PREFIX, name)
+      |                                    ^~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/comm/OverloadComm.c:151:28: note: in expansion of macro ‘OVERLOADABLE_DUMMY’
+  151 | #define OVERLOADABLE(name) OVERLOADABLE_DUMMY(name)
+      |                            ^~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/CommOverloadables.h:87:1: note: in expansion of macro ‘OVERLOADABLE’
+   87 | OVERLOADABLE(Exit)
+      | ^~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/CommOverloadables.h: In function ‘CCTKi_DummyAbort’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:92:10: warning: function declared ‘noreturn’ has a ‘return’ statement
+   92 |   return 0;                                                     \
+      |          ^
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:84:59: note: in expansion of macro ‘__OVERLOADABLE_DUMMY’
+   84 | #define _OVERLOADABLE_DUMMY(prefix, dummy_prefix, name)   __OVERLOADABLE_DUMMY(prefix, dummy_prefix, name)
+      |                                                           ^~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:83:36: note: in expansion of macro ‘_OVERLOADABLE_DUMMY’
+   83 | #define OVERLOADABLE_DUMMY(name)   _OVERLOADABLE_DUMMY(OVERLOADABLE_PREFIX, OVERLOADABLE_DUMMY_PREFIX, name)
+      |                                    ^~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/comm/OverloadComm.c:151:28: note: in expansion of macro ‘OVERLOADABLE_DUMMY’
+  151 | #define OVERLOADABLE(name) OVERLOADABLE_DUMMY(name)
+      |                            ^~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/CommOverloadables.h:88:1: note: in expansion of macro ‘OVERLOADABLE’
+   88 | OVERLOADABLE(Abort)
+      | ^~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/CommOverloadables.h: In function ‘CCTKi_DummyExit’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:92:10: warning: ‘noreturn’ function does return
+   92 |   return 0;                                                     \
+      |          ^
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:84:59: note: in expansion of macro ‘__OVERLOADABLE_DUMMY’
+   84 | #define _OVERLOADABLE_DUMMY(prefix, dummy_prefix, name)   __OVERLOADABLE_DUMMY(prefix, dummy_prefix, name)
+      |                                                           ^~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:83:36: note: in expansion of macro ‘_OVERLOADABLE_DUMMY’
+   83 | #define OVERLOADABLE_DUMMY(name)   _OVERLOADABLE_DUMMY(OVERLOADABLE_PREFIX, OVERLOADABLE_DUMMY_PREFIX, name)
+      |                                    ^~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/comm/OverloadComm.c:151:28: note: in expansion of macro ‘OVERLOADABLE_DUMMY’
+  151 | #define OVERLOADABLE(name) OVERLOADABLE_DUMMY(name)
+      |                            ^~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/CommOverloadables.h:87:1: note: in expansion of macro ‘OVERLOADABLE’
+   87 | OVERLOADABLE(Exit)
+      | ^~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/CommOverloadables.h: In function ‘CCTKi_DummyAbort’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:92:10: warning: ‘noreturn’ function does return
+   92 |   return 0;                                                     \
+      |          ^
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:84:59: note: in expansion of macro ‘__OVERLOADABLE_DUMMY’
+   84 | #define _OVERLOADABLE_DUMMY(prefix, dummy_prefix, name)   __OVERLOADABLE_DUMMY(prefix, dummy_prefix, name)
+      |                                                           ^~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/OverloadMacros.h:83:36: note: in expansion of macro ‘_OVERLOADABLE_DUMMY’
+   83 | #define OVERLOADABLE_DUMMY(name)   _OVERLOADABLE_DUMMY(OVERLOADABLE_PREFIX, OVERLOADABLE_DUMMY_PREFIX, name)
+      |                                    ^~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/comm/OverloadComm.c:151:28: note: in expansion of macro ‘OVERLOADABLE_DUMMY’
+  151 | #define OVERLOADABLE(name) OVERLOADABLE_DUMMY(name)
+      |                            ^~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/CommOverloadables.h:88:1: note: in expansion of macro ‘OVERLOADABLE’
+   88 | OVERLOADABLE(Abort)
+      | ^~~~~~~~~~~~
+COMPILING Cactus/comm/Interp.c
+COMPILING Cactus/comm/Reduction.c
+COMPILING Cactus/util/CactusTimers.c
+COMPILING Cactus/util/File.c
+COMPILING Cactus/util/ParseFile.c
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/util/ParseFile.c:58:12: warning: ‘lineno’ defined but not used [-Wunused-variable]
+   58 | static int lineno = 1;
+      |            ^~~~~~
+COMPILING Cactus/util/RegisterKeyedFunction.c
+COMPILING Cactus/util/StoreKeyedData.c
+COMPILING Cactus/util/StoreNamedData.c
+COMPILING Cactus/util/Misc.c
+COMPILING Cactus/util/StoreHandledData.c
+COMPILING Cactus/util/SKBinTree.c
+COMPILING Cactus/util/Hash.c
+COMPILING Cactus/util/Malloc.c
+COMPILING Cactus/util/Math.c
+COMPILING Cactus/util/String.c
+COMPILING Cactus/util/StringList.c
+COMPILING Cactus/util/Table.c
+COMPILING Cactus/util/Time.c
+COMPILING Cactus/util/Network.c
+COMPILING Cactus/util/PointerTo.F90
+COMPILING Cactus/main/ActiveThorns.c
+COMPILING Cactus/main/Banner.c
+COMPILING Cactus/main/CactusDefaultInitialise.c
+COMPILING Cactus/main/CactusDefaultEvolve.c
+COMPILING Cactus/main/CactusDefaultShutdown.c
+COMPILING Cactus/main/CactusDefaultMainLoopIndex.c
+COMPILING Cactus/main/CallStartupFunctions.c
+COMPILING Cactus/main/CommandLine.c
+COMPILING Cactus/main/Complex.c
+COMPILING Cactus/main/ConfigData.c
+COMPILING Cactus/main/Coord.c
+COMPILING Cactus/main/DebugDefines.c
+COMPILING Cactus/main/DefaultTimers.c
+COMPILING Cactus/main/Dummies.c
+COMPILING Cactus/main/flesh.cc
+COMPILING Cactus/main/FortranWrappers.c
+COMPILING Cactus/main/GHExtensions.c
+COMPILING Cactus/main/Groups.c
+COMPILING Cactus/main/GroupsOnGH.c
+COMPILING Cactus/main/InitialiseCactus.c
+COMPILING Cactus/main/InitialiseDataStructures.c
+COMPILING Cactus/main/MainUtils.c
+COMPILING Cactus/main/Names.c
+COMPILING Cactus/main/OverloadMain.c
+COMPILING Cactus/main/Parameters.c
+COMPILING Cactus/main/ProcessCommandLine.c
+COMPILING Cactus/main/ProcessEnvironment.c
+COMPILING Cactus/main/ProcessParameterDatabase.c
+COMPILING Cactus/main/RDWR.cc
+COMPILING Cactus/main/ScheduleInterface.c
+COMPILING Cactus/main/SetParams.c
+COMPILING Cactus/main/ShutdownCactus.c
+COMPILING Cactus/main/Subsystems.c
+COMPILING Cactus/main/Termination.c
+COMPILING Cactus/main/Traverse.c
+COMPILING Cactus/main/WarnLevel.c
+COMPILING Cactus/schedule/ScheduleSorter.c
+COMPILING Cactus/schedule/ScheduleCreater.c
+COMPILING Cactus/schedule/ScheduleTraverse.c
+COMPILING Cactus/piraha/AutoGrammar.cc
+COMPILING configs/sim/bindings/build/Cactus/cctk_ThornBindings.c
+COMPILING Cactus/piraha/Bracket.cc
+COMPILING Cactus/piraha/Dot.cc
+COMPILING Cactus/piraha/End.cc
+COMPILING Cactus/piraha/Grammar.cc
+COMPILING Cactus/piraha/Group.cc
+COMPILING Cactus/piraha/ILiteral.cc
+COMPILING Cactus/piraha/Literal.cc
+COMPILING Cactus/piraha/Lookup.cc
+Creating Formaline tarball for thorn AMReX
+Creating Formaline tarball for thorn Boundary
+Creating Formaline tarball for thorn CoordBase
+Creating Formaline tarball for thorn FFTW3
+COMPILING Cactus/piraha/Matcher.cc
+COMPILING Cactus/piraha/Multi.cc
+COMPILING Cactus/piraha/Or.cc
+COMPILING Cactus/piraha/ReParse.cc
+COMPILING Cactus/piraha/Seq.cc
+COMPILING Cactus/piraha/Start.cc
+COMPILING Cactus/piraha/Call.cc
+COMPILING Cactus/piraha/smart_ptr.cc
+COMPILING Cactus/piraha/Boundary.cc
+Creating Formaline tarball for thorn Fortran
+Creating Formaline tarball for thorn GSL
+COMPILING Cactus/piraha/NegLookAhead.cc
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Cactus.a
+Creating Formaline tarball for thorn IOUtil
+Creating Formaline tarball for thorn InitBase
+Creating Formaline tarball for thorn NSIMD
+Creating Formaline tarball for thorn OpenBLAS
+Creating Formaline tarball for thorn SymBase
+Creating Formaline tarball for thorn TerminationTrigger
+Creating Formaline tarball for thorn TestODESolvers
+Creating Formaline tarball for thorn Time
+Creating Formaline tarball for thorn TwoPunctures
+Creating Formaline tarball for thorn Vectors
+Creating Formaline tarball for thorn WaveToyMoL
+Creating Formaline tarball for thorn hwloc
+Creating Formaline tarball for thorn yaml_cpp
+Creating Formaline tarball for thorn zlib
+Checking status of thorn Loop
+COMPILING CarpetX/Loop/src/loop.cxx
+COMPILING CarpetX/Loop/src/loopcontrol.cxx
+Checking status of thorn Algo
+COMPILING CarpetX/Algo/src/roots.cxx
+COMPILING configs/sim/bindings/build/Loop/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Loop.a
+COMPILING configs/sim/bindings/build/Algo/cctk_ThornBindings.c
+Checking status of thorn Silo
+COMPILING CarpetX/Silo/src/silo.cxx
+COMPILING configs/sim/bindings/build/Silo/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Silo.a
+Checking status of thorn Coordinates
+COMPILING CarpetX/Coordinates/src/coordinates.cxx
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Algo.a
+COMPILING configs/sim/bindings/build/Coordinates/cctk_ThornBindings.c
+Checking status of thorn DGCoordinates
+COMPILING CarpetX/DGCoordinates/src/coordinates.cxx
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Coordinates.a
+Checking status of thorn DGWaveToy
+COMPILING CarpetX/DGWaveToy/src/energy.cxx
+COMPILING configs/sim/bindings/build/DGCoordinates/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_DGCoordinates.a
+COMPILING CarpetX/DGWaveToy/src/error.cxx
+COMPILING CarpetX/DGWaveToy/src/init.cxx
+Checking status of thorn ErrorEstimator
+COMPILING CarpetX/ErrorEstimator/src/error.cxx
+COMPILING CarpetX/DGWaveToy/src/rhs.cxx
+COMPILING configs/sim/bindings/build/ErrorEstimator/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_ErrorEstimator.a
+Checking status of thorn Hydro
+COMPILING CarpetX/Hydro/src/boundaries.cxx
+COMPILING CarpetX/Hydro/src/con2prim.cxx
+COMPILING configs/sim/bindings/build/DGWaveToy/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_DGWaveToy.a
+COMPILING CarpetX/Hydro/src/estimateerror.cxx
+COMPILING CarpetX/Hydro/src/fluxes.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Hydro/src/fluxes.cxx:100:2: warning: #warning "TODO: This calculates the fluxes twice; change this" [-Wcpp]
+  100 | #warning "TODO: This calculates the fluxes twice; change this"
+      |  ^~~~~~~
+Checking status of thorn HydroBase
+COMPILING CarpetX/HydroBase/src/hydrobase.cxx
+COMPILING CarpetX/Hydro/src/initialize.cxx
+COMPILING configs/sim/bindings/build/HydroBase/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_HydroBase.a
+Checking status of thorn HydroInitial
+COMPILING CarpetX/HydroInitial/src/initialize.cxx
+COMPILING CarpetX/Hydro/src/prim2con.cxx
+COMPILING configs/sim/bindings/build/HydroInitial/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_HydroInitial.a
+COMPILING configs/sim/bindings/build/Hydro/cctk_ThornBindings.c
+Checking status of thorn HydroToyCarpetX
+COMPILING CarpetX/HydroToyCarpetX/src/hydrotoy.cxx
+COMPILING CarpetX/Hydro/src/rhs.cxx
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Hydro.a
+Checking status of thorn KHInitial
+COMPILING CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx
+COMPILING CarpetX/KHInitial/src/KHInitialize.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx: In lambda function:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:95:42: warning: left operand of comma operator has no effect [-Wunused-value]
+   95 |               (momx[p.idx] * velx[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:94:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+   94 |               "fxmomx_p = %f, fxmomx_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:99:42: warning: left operand of comma operator has no effect [-Wunused-value]
+   99 |               (momy[p.idx] * velx[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:98:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+   98 |               "fxmomy_p = %f, fxmomy_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:103:42: warning: left operand of comma operator has no effect [-Wunused-value]
+  103 |               (momz[p.idx] * velx[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:102:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+  102 |               "fxmomz_p = %f, fxmomz_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx: In lambda function:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:164:42: warning: left operand of comma operator has no effect [-Wunused-value]
+  164 |               (momx[p.idx] * vely[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:163:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+  163 |               "fymomx_p = %f, fymomx_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:168:42: warning: left operand of comma operator has no effect [-Wunused-value]
+  168 |               (momy[p.idx] * vely[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:167:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+  167 |               "fymomy_p = %f, fymomy_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:172:42: warning: left operand of comma operator has no effect [-Wunused-value]
+  172 |               (momz[p.idx] * vely[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:171:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+  171 |               "fymomz_p = %f, fymomz_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx: In lambda function:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:233:42: warning: left operand of comma operator has no effect [-Wunused-value]
+  233 |               (momx[p.idx] * velz[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:232:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+  232 |               "fzmomx_p = %f, fzmomx_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:237:42: warning: left operand of comma operator has no effect [-Wunused-value]
+  237 |               (momy[p.idx] * velz[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:236:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+  236 |               "fzmomy_p = %f, fzmomy_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:241:42: warning: left operand of comma operator has no effect [-Wunused-value]
+  241 |               (momz[p.idx] * velz[p.idx] + press[p.idx],
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:240:15: warning: format ‘%f’ expects a matching ‘double’ argument [-Wformat=]
+  240 |               "fzmomz_p = %f, fzmomz_m =%f\n",
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx: In function ‘void HydroToyCarpetX::HydroToyCarpetX_Fluxes(cGH*)’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:34:19: warning: unused variable ‘dAy’ [-Wunused-variable]
+   34 |   const CCTK_REAL dAy = dt * dx * dz;
+      |                   ^~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/HydroToyCarpetX/src/fluxes-gpu.cxx:35:19: warning: unused variable ‘dAz’ [-Wunused-variable]
+   35 |   const CCTK_REAL dAz = dt * dx * dy;
+      |                   ^~~
+COMPILING configs/sim/bindings/build/KHInitial/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_KHInitial.a
+COMPILING CarpetX/HydroToyCarpetX/src/pressure-gpu.cxx
+Checking status of thorn Maxwell
+COMPILING CarpetX/Maxwell/src/average.cxx
+COMPILING CarpetX/HydroToyCarpetX/src/evolve-vc-gpu.cxx
+COMPILING CarpetX/Maxwell/src/boundaries.cxx
+COMPILING configs/sim/bindings/build/HydroToyCarpetX/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_HydroToyCarpetX.a
+COMPILING CarpetX/Maxwell/src/constraints.cxx
+COMPILING CarpetX/Maxwell/src/initial.cxx
+COMPILING CarpetX/Maxwell/src/rhsboundaries.cxx
+COMPILING CarpetX/Maxwell/src/rhs.cxx
+Checking status of thorn MaxwellToyCarpetX
+COMPILING CarpetX/MaxwellToyCarpetX/src/maxwelltoy.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Maxwell/src/rhs.cxx: In function ‘void Maxwell::Maxwell_RHS(cGH*)’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Maxwell/src/rhs.cxx:45:14: warning: variable ‘dxp’ set but not used [-Wunused-but-set-variable]
+   45 |   const auto dxp = [&](const auto &u, const auto &I) {
+      |              ^~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Maxwell/src/rhs.cxx:48:14: warning: variable ‘dyp’ set but not used [-Wunused-but-set-variable]
+   48 |   const auto dyp = [&](const auto &u, const auto &I) {
+      |              ^~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Maxwell/src/rhs.cxx:51:14: warning: variable ‘dzp’ set but not used [-Wunused-but-set-variable]
+   51 |   const auto dzp = [&](const auto &u, const auto &I) {
+      |              ^~~
+COMPILING configs/sim/bindings/build/Maxwell/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Maxwell.a
+Checking status of thorn MultiPatch
+COMPILING CarpetX/MultiPatch/src/interpolate.cxx
+COMPILING CarpetX/MultiPatch/src/multipatch.cxx
+COMPILING configs/sim/bindings/build/MaxwellToyCarpetX/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_MaxwellToyCarpetX.a
+Checking status of thorn Poisson
+COMPILING CarpetX/Poisson/src/poisson.cxx
+COMPILING CarpetX/MultiPatch/src/cake/cake_get_owner_patch.cxx
+COMPILING configs/sim/bindings/build/Poisson/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Poisson.a
+COMPILING CarpetX/MultiPatch/src/cake/cake_tests.cxx
+COMPILING CarpetX/MultiPatch/src/cake/cake.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx: In instantiation of ‘MultiPatch::Patch MultiPatch::Cake::make_patch(const MultiPatch::PatchTransformations&) [with MultiPatch::Cake::patch_piece p = MultiPatch::Cake::patch_piece::cartesian]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:382:75:   required from here
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:316:13: warning: variable ‘co’ set but not used [-Wunused-but-set-variable]
+  316 |   PatchFace co{false, static_cast<int>(patch_piece::cartesian)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:317:13: warning: variable ‘ex’ set but not used [-Wunused-but-set-variable]
+  317 |   PatchFace ex{true, static_cast<int>(patch_piece::exterior)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx: In instantiation of ‘MultiPatch::Patch MultiPatch::Cake::make_patch(const MultiPatch::PatchTransformations&) [with MultiPatch::Cake::patch_piece p = MultiPatch::Cake::patch_piece::minus_x]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:383:73:   required from here
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:318:13: warning: variable ‘px’ set but not used [-Wunused-but-set-variable]
+  318 |   PatchFace px{false, static_cast<int>(patch_piece::plus_x)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:319:13: warning: variable ‘mx’ set but not used [-Wunused-but-set-variable]
+  319 |   PatchFace mx{false, static_cast<int>(patch_piece::minus_x)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx: In instantiation of ‘MultiPatch::Patch MultiPatch::Cake::make_patch(const MultiPatch::PatchTransformations&) [with MultiPatch::Cake::patch_piece p = MultiPatch::Cake::patch_piece::plus_x]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:384:72:   required from here
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:318:13: warning: variable ‘px’ set but not used [-Wunused-but-set-variable]
+  318 |   PatchFace px{false, static_cast<int>(patch_piece::plus_x)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:319:13: warning: variable ‘mx’ set but not used [-Wunused-but-set-variable]
+  319 |   PatchFace mx{false, static_cast<int>(patch_piece::minus_x)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx: In instantiation of ‘MultiPatch::Patch MultiPatch::Cake::make_patch(const MultiPatch::PatchTransformations&) [with MultiPatch::Cake::patch_piece p = MultiPatch::Cake::patch_piece::minus_y]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:385:73:   required from here
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:320:13: warning: variable ‘py’ set but not used [-Wunused-but-set-variable]
+  320 |   PatchFace py{false, static_cast<int>(patch_piece::plus_y)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:321:13: warning: variable ‘my’ set but not used [-Wunused-but-set-variable]
+  321 |   PatchFace my{false, static_cast<int>(patch_piece::minus_y)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx: In instantiation of ‘MultiPatch::Patch MultiPatch::Cake::make_patch(const MultiPatch::PatchTransformations&) [with MultiPatch::Cake::patch_piece p = MultiPatch::Cake::patch_piece::plus_y]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:386:72:   required from here
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:320:13: warning: variable ‘py’ set but not used [-Wunused-but-set-variable]
+  320 |   PatchFace py{false, static_cast<int>(patch_piece::plus_y)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:321:13: warning: variable ‘my’ set but not used [-Wunused-but-set-variable]
+  321 |   PatchFace my{false, static_cast<int>(patch_piece::minus_y)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx: In instantiation of ‘MultiPatch::Patch MultiPatch::Cake::make_patch(const MultiPatch::PatchTransformations&) [with MultiPatch::Cake::patch_piece p = MultiPatch::Cake::patch_piece::minus_z]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:387:73:   required from here
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:322:13: warning: variable ‘pz’ set but not used [-Wunused-but-set-variable]
+  322 |   PatchFace pz{false, static_cast<int>(patch_piece::plus_z)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:323:13: warning: variable ‘mz’ set but not used [-Wunused-but-set-variable]
+  323 |   PatchFace mz{false, static_cast<int>(patch_piece::minus_z)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx: In instantiation of ‘MultiPatch::Patch MultiPatch::Cake::make_patch(const MultiPatch::PatchTransformations&) [with MultiPatch::Cake::patch_piece p = MultiPatch::Cake::patch_piece::plus_z]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:388:72:   required from here
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:322:13: warning: variable ‘pz’ set but not used [-Wunused-but-set-variable]
+  322 |   PatchFace pz{false, static_cast<int>(patch_piece::plus_z)};
+      |             ^~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/MultiPatch/src/cake/cake.cxx:323:13: warning: variable ‘mz’ set but not used [-Wunused-but-set-variable]
+  323 |   PatchFace mz{false, static_cast<int>(patch_piece::minus_z)};
+      |             ^~
+Checking status of thorn Punctures
+COMPILING CarpetX/Punctures/src/punctures.cxx
+COMPILING CarpetX/MultiPatch/src/cartesian/cartesian.cxx
+COMPILING CarpetX/MultiPatch/src/cartesian/cartesian_tests.cxx
+COMPILING configs/sim/bindings/build/Punctures/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Punctures.a
+COMPILING CarpetX/MultiPatch/src/cubed_sphere/cubed_sphere.cxx
+COMPILING CarpetX/MultiPatch/src/swirl/swirl.cxx
+COMPILING configs/sim/bindings/build/MultiPatch/cctk_ThornBindings.c
+Checking status of thorn StaticTrumpet
+COMPILING CarpetX/StaticTrumpet/src/StaticTrumpet.cxx
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_MultiPatch.a
+Checking status of thorn TestArrayGroup
+COMPILING configs/sim/bindings/build/StaticTrumpet/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_StaticTrumpet.a
+Checking status of thorn TestODESolvers2
+COMPILING CarpetX/TestArrayGroup/src/TestArray.cxx
+COMPILING CarpetX/TestODESolvers2/src/odes.cxx
+COMPILING CarpetX/TestArrayGroup/src/TestDynamicData.cxx
+COMPILING configs/sim/bindings/build/TestArrayGroup/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TestArrayGroup.a
+COMPILING configs/sim/bindings/build/TestODESolvers2/cctk_ThornBindings.c
+Checking status of thorn TmunuBase
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TestODESolvers2.a
+COMPILING CarpetX/TmunuBase/src/tmunubase.cxx
+Checking status of thorn WaveToyCPU
+COMPILING CarpetX/WaveToyCPU/src/wavetoy.cxx
+COMPILING configs/sim/bindings/build/TmunuBase/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TmunuBase.a
+COMPILING configs/sim/bindings/build/WaveToyCPU/cctk_ThornBindings.c
+Checking status of thorn WaveToyCarpetX
+COMPILING CarpetX/WaveToyCarpetX/src/wavetoy.cxx
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_WaveToyCPU.a
+Checking status of thorn WaveToyGPU
+COMPILING CarpetX/WaveToyGPU/src/wavetoy.cxx
+COMPILING configs/sim/bindings/build/WaveToyCarpetX/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_WaveToyCarpetX.a
+COMPILING configs/sim/bindings/build/WaveToyGPU/cctk_ThornBindings.c
+Checking status of thorn Weyl
+COMPILING CarpetX/Weyl/src/weyl.cxx
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_WaveToyGPU.a
+COMPILING configs/sim/bindings/build/Weyl/cctk_ThornBindings.c
+Checking status of thorn Z4c
+COMPILING CarpetX/Z4c/src/adm.cxx
+COMPILING CarpetX/Z4c/src/adm2.cxx
+COMPILING CarpetX/Z4c/src/constraints.cxx
+COMPILING CarpetX/Z4c/src/enforce.cxx
+COMPILING CarpetX/Z4c/src/initial1.cxx
+COMPILING CarpetX/Z4c/src/initial2.cxx
+COMPILING CarpetX/Z4c/src/rhs.cxx
+In file included from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Loop/src/loop_device.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/bindings/include/loop_device.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Weyl/src/derivs.hxx:5,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Weyl/src/weyl.cxx:12:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Loop/src/loop.hxx: In function ‘void Loop::GridDescBase::loop_box(const F&, const std::array<int, 3>&, const std::array<int, 3>&, const std::array<int, 3>&) const [with int CI = 0; int CJ = 0; int CK = 0; int VS = 2; F = Weyl::Weyl_Weyl(cGH*)::<lambda()>::<lambda(const Loop::PointDesc&)>]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Loop/src/loop.hxx:169:3: note: variable tracking size limit exceeded with ‘-fvar-tracking-assignments’, retrying without
+  169 |   loop_box(const F &f, const std::array<int, dim> &restrict imin,
+      |   ^~~~~~~~
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Weyl.a
+COMPILING CarpetX/Z4c/src/sync.cxx
+COMPILING CarpetX/Z4c/src/test.cxx
+COMPILING configs/sim/bindings/build/Z4c/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_Z4c.a
+Creating Formaline tarball for thorn ADIOS2
+Creating Formaline tarball for thorn Arith
+Creating Formaline tarball for thorn Boost
+Creating Formaline tarball for thorn Formaline
+Creating Formaline tarball for thorn HDF5
+Creating Formaline tarball for thorn MPI
+Creating Formaline tarball for thorn SystemTopology
+Creating Formaline tarball for thorn TimerReport
+Creating Formaline tarball for thorn openPMD
+Creating Formaline tarball for thorn ssht
+Creating Formaline tarball for the configuration options
+Creating Formaline tarball for the flesh
+Checking status of thorn ADMBase
+COMPILING CarpetX/ADMBase/src/admbase.cxx
+Checking status of thorn AsterX
+COMPILING CarpetX/ADMBase/src/linear_wave.cxx
+COMPILING CarpetX/AsterX/src/con2prim.cxx
+COMPILING CarpetX/ADMBase/src/noise.cxx
+COMPILING CarpetX/AsterX/src/estimate_error.cxx
+COMPILING CarpetX/AsterX/src/fluxes.cxx
+COMPILING configs/sim/bindings/build/ADMBase/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_ADMBase.a
+Checking status of thorn BrillLindquist
+COMPILING CarpetX/BrillLindquist/src/brill-lindquist.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/BrillLindquist/src/brill-lindquist.cxx: In instantiation of ‘constexpr T BrillLindquist::expand(T) [with T = double]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/BrillLindquist/src/brill-lindquist.cxx:35:23:   required from ‘constexpr T BrillLindquist::psi(T, T, T) [with T = double]’
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/BrillLindquist/src/brill-lindquist.cxx:95:54:   required from here
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/BrillLindquist/src/brill-lindquist.cxx:20:15: warning: unused variable ‘x0’ [-Wunused-variable]
+   20 |   constexpr T x0 = 5;
+      |               ^~
+COMPILING configs/sim/bindings/build/BrillLindquist/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_BrillLindquist.a
+COMPILING CarpetX/AsterX/src/prim2con.cxx
+COMPILING CarpetX/AsterX/src/rhs.cxx
+COMPILING CarpetX/AsterX/src/sync.cxx
+COMPILING CarpetX/AsterX/src/source.cxx
+COMPILING configs/sim/bindings/build/AsterX/cctk_ThornBindings.c
+Checking status of thorn CarpetX
+COMPILING CarpetX/CarpetX/src/driver.cxx
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_AsterX.a
+COMPILING CarpetX/CarpetX/src/interpolate.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/interpolate.cxx:36:2: warning: #warning "TODO: Check whether interpolated variables are valid" [-Wcpp]
+   36 | #warning "TODO: Check whether interpolated variables are valid"
+      |  ^~~~~~~
+COMPILING CarpetX/CarpetX/src/io.cxx
+COMPILING CarpetX/CarpetX/src/io_adios2.cxx
+In file included from /usr/include/c++/9/tuple:39,
+                 from /usr/include/c++/9/bits/stl_map.h:63,
+                 from /usr/include/c++/9/map:61,
+                 from /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/mpicxx.h:42,
+                 from /usr/lib/x86_64-linux-gnu/openmpi/include/mpi.h:2868,
+                 from /usr/local/include/AMReX_ccse-mpi.H:14,
+                 from /usr/local/include/AMReX.H:9,
+                 from /usr/local/include/AMReX_BLassert.H:6,
+                 from /usr/local/include/AMReX_Algorithm.H:8,
+                 from /usr/local/include/AMReX_Box.H:6,
+                 from /usr/local/include/AMReX_FArrayBox.H:6,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Loop/src/loop.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/bindings/include/loop.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/driver.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/io_adios2.cxx:3:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/io_adios2.cxx: In instantiation of ‘constexpr std::array<_Tp, _Nm> CarpetX::carpetx_adios2_t::box_t<T, D>::shape() const [with T = int; long unsigned int D = 3]’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/io_adios2.cxx:417:71:   required from here
+/usr/include/c++/9/array:94:12: note: ‘struct std::array<int, 3>’ has no user-provided default constructor
+   94 |     struct array
+      |            ^~~~~
+/usr/include/c++/9/array:110:56: note: and the implicitly-defined constructor does not initialize ‘int std::array<int, 3>::_M_elems [3]’
+  110 |       typename _AT_Type::_Type                         _M_elems;
+      |                                                        ^~~~~~~~
+COMPILING CarpetX/CarpetX/src/io_meta.cxx
+COMPILING CarpetX/CarpetX/src/io_norm.cxx
+COMPILING CarpetX/CarpetX/src/io_openpmd.cxx
+COMPILING configs/sim/bindings/build/CarpetX/cctk_ThornBindings.c
+COMPILING CarpetX/CarpetX/src/io_silo.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/io_silo.cxx:483:2: warning: #warning "TODO: read grid arrays" [-Wcpp]
+  483 | #warning "TODO: read grid arrays"
+      |  ^~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/io_silo.cxx:759:2: warning: #warning "TODO: Output grid arrays" [-Wcpp]
+  759 | #warning "TODO: Output grid arrays"
+      |  ^~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/io_silo.cxx:1005:2: warning: #warning "TODO: Output grid arrays" [-Wcpp]
+ 1005 | #warning "TODO: Output grid arrays"
+      |  ^~~~~~~
+COMPILING CarpetX/CarpetX/src/io_tsv.cxx
+COMPILING CarpetX/CarpetX/src/linsolve.cxx
+COMPILING CarpetX/CarpetX/src/logo.cxx
+COMPILING CarpetX/CarpetX/src/prolongate_3d_rf2.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/prolongate_3d_rf2.cxx:660:2: warning: #warning "TODO" [-Wcpp]
+  660 | #warning "TODO"
+      |  ^~~~~~~
+COMPILING CarpetX/CarpetX/src/reduction.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/reduction.cxx:130:2: warning: #warning "TODO: Don't overcount vertex-centred grid boundaries; introduce a weight function" [-Wcpp]
+  130 | #warning                                                                       \
+      |  ^~~~~~~
+COMPILING CarpetX/CarpetX/src/regrid_error.cxx
+COMPILING CarpetX/CarpetX/src/schedule.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/schedule.cxx:2318:2: warning: #warning "TODO" [-Wcpp]
+ 2318 | #warning "TODO"
+      |  ^~~~~~~
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/schedule.cxx:2383:2: warning: #warning "TODO: Allow different restriction operators, and ensure this is conservative" [-Wcpp]
+ 2383 | #warning                                                                       \
+      |  ^~~~~~~
+COMPILING CarpetX/CarpetX/src/timer.cxx
+COMPILING CarpetX/CarpetX/src/valid.cxx
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/valid.cxx:146:2: warning: #warning "TODO" [-Wcpp]
+  146 | #warning "TODO"
+      |  ^~~~~~~
+In file included from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/bindings/include/CarpetX/cctk.h:5,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Arith/src/fixmath.hxx:13,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/bindings/include/fixmath.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Arith/src/defs.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Arith/src/simd.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/bindings/include/simd.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/Loop/src/loop.hxx:9,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/bindings/include/loop.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/driver.hxx:4,
+                 from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/valid.cxx:1:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/valid.cxx: In function ‘void CarpetX::check_valid(const CarpetX::GHExt::PatchData::LevelData&, const CarpetX::GHExt::PatchData::LevelData::GroupData&, int, int, CarpetX::nan_handling_t, const std::function<std::__cxx11::basic_string<char>()>&)’:
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/include/cctk_core.h:430:66: warning: format not a string literal and no format arguments [-Wformat-security]
+  430 |   CCTK_VWarn(level,__LINE__,__FILE__,CCTK_THORNSTRING,__VA_ARGS__)
+      |                                                                  ^
+/__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/CarpetX/CarpetX/src/valid.cxx:299:7: note: in expansion of macro ‘CCTK_VWARN’
+  299 |       CCTK_VWARN(CCTK_WARN_ALERT, buf.str().c_str());
+      |       ^~~~~~~~~~
+Creating Formaline tarball for thorn Algo
+Creating Formaline tarball for thorn Coordinates
+Creating Formaline tarball for thorn DGCoordinates
+Creating Formaline tarball for thorn DGWaveToy
+Creating Formaline tarball for thorn ErrorEstimator
+Creating Formaline tarball for thorn Hydro
+Creating Formaline tarball for thorn HydroBase
+Creating Formaline tarball for thorn HydroInitial
+Creating Formaline tarball for thorn HydroToyCarpetX
+Creating Formaline tarball for thorn KHInitial
+Creating Formaline tarball for thorn Loop
+Creating Formaline tarball for thorn Maxwell
+Creating Formaline tarball for thorn MaxwellToyCarpetX
+Creating Formaline tarball for thorn MultiPatch
+Creating Formaline tarball for thorn Poisson
+Creating Formaline tarball for thorn Punctures
+Creating Formaline tarball for thorn Silo
+Creating Formaline tarball for thorn StaticTrumpet
+Creating Formaline tarball for thorn TestArrayGroup
+Creating Formaline tarball for thorn TestODESolvers2
+Creating Formaline tarball for thorn TmunuBase
+Creating Formaline tarball for thorn WaveToyCPU
+Creating Formaline tarball for thorn WaveToyCarpetX
+Creating Formaline tarball for thorn WaveToyGPU
+Creating Formaline tarball for thorn Weyl
+Creating Formaline tarball for thorn Z4c
+Creating Formaline tarball for thorn ADMBase
+Creating Formaline tarball for thorn AsterX
+Creating Formaline tarball for thorn BrillLindquist
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_CarpetX.a
+Checking status of thorn ODESolvers
+Checking status of thorn TestProlongate
+COMPILING CarpetX/TestProlongate/src/test.cxx
+COMPILING CarpetX/ODESolvers/src/solve.cxx
+COMPILING configs/sim/bindings/build/TestProlongate/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TestProlongate.a
+Checking status of thorn TestSymmetries
+COMPILING CarpetX/TestSymmetries/src/init.cxx
+COMPILING configs/sim/bindings/build/ODESolvers/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_ODESolvers.a
+Creating Formaline tarball for thorn CarpetX
+Creating Formaline tarball for thorn ODESolvers
+Creating Formaline tarball for thorn TestProlongate
+COMPILING configs/sim/bindings/build/TestSymmetries/cctk_ThornBindings.c
+Creating /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/lib/libthorn_TestSymmetries.a
+Creating Formaline tarball for thorn TestSymmetries
+Formaline: Creating configuration git repository...
+Formaline: Updating files in git repository...
+fatal: bad revision 'HEAD'
+Formaline: Committing source tree to git repository...
+Formaline: Created git tag build-sim-e1d30239941f--2022.07.20-21.15.29-19260
+Formaline: Updated git branch config-sim-e1d30239941f-__w-carpetx-tests-carpetx-tests-workspace-Cactus
+Formaline: Optimising git repository (slow only the first time)...
+Formaline: Creating master git repository...
+Formaline: Pushing to master git repository...
+________________________________________________________________________
+Creating cactus_sim in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe from CarpetX/ADIOS2 CarpetX/ADMBase CarpetX/AMReX CarpetX/Algo CarpetX/Arith CarpetX/AsterX CarpetX/Boost CactusBase/Boundary CarpetX/BrillLindquist CarpetX/CarpetX CactusBase/CoordBase CarpetX/Coordinates CarpetX/DGCoordinates CarpetX/DGWaveToy CarpetX/ErrorEstimator ExternalLibraries/FFTW3 CactusUtils/Formaline CactusBase/Fortran ExternalLibraries/GSL ExternalLibraries/HDF5 CarpetX/Hydro CarpetX/HydroBase CarpetX/HydroInitial CarpetX/HydroToyCarpetX CactusBase/IOUtil CactusBase/InitBase CarpetX/KHInitial CarpetX/Loop ExternalLibraries/MPI CarpetX/Maxwell CarpetX/MaxwellToyCarpetX CarpetX/MultiPatch CarpetX/NSIMD CarpetX/ODESolvers ExternalLibraries/OpenBLAS CarpetX/Poisson CarpetX/Punctures CarpetX/Silo CarpetX/StaticTrumpet CactusBase/SymBase CactusUtils/SystemTopology CactusUtils/TerminationTrigger CarpetX/TestArrayGroup CarpetX/TestODESolvers CarpetX/TestODESolvers2 CarpetX/TestProlongate CarpetX/TestSymmetries CactusBase/Time CactusUtils/TimerReport CarpetX/TmunuBase CarpetX/TwoPunctures CactusUtils/Vectors CarpetX/WaveToyCPU CarpetX/WaveToyCarpetX CarpetX/WaveToyGPU CarpetX/WaveToyMoL CarpetX/Weyl CarpetX/Z4c ExternalLibraries/hwloc CarpetX/openPMD CarpetX/ssht CarpetX/yaml_cpp ExternalLibraries/zlib
+Formaline: Optimising git repository (slow only the first time)...
+Formaline: Creating local git repository...
+Formaline: Pushing to local git repository /__w/carpetx-tests/carpetx-tests/workspace/Cactus/../CactusSourceJar.git...
+Formaline: Optimising git repository (slow only the first time)...
+Formaline: Done.
+Formaline: (Formaline has finished updating the git repositories.
+Formaline:  If the build process seems to hang, some other command
+Formaline:  is still running, e.g. the final link stage.)
+Done creating cactus_sim.
+All done !
+Building utilities for sim
+Building utilities for sim
+Copying gif2h5 from /usr/bin/gif2h5 to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h52gif from /usr/bin/h52gif to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5copy from /usr/bin/h5copy to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5debug from /usr/bin/h5debug to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5diff from /usr/bin/h5diff to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5dump from /usr/bin/h5dump to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5import from /usr/bin/h5import to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5jam from /usr/bin/h5jam to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5ls from /usr/bin/h5ls to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5mkgrp from /usr/bin/h5mkgrp to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5perf_serial from /usr/bin/h5perf_serial to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5redeploy from /usr/bin/h5redeploy to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5repack from /usr/bin/h5repack to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5repart from /usr/bin/h5repart to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5stat from /usr/bin/h5stat to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying h5unjam from /usr/bin/h5unjam to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Compiling /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/ExternalLibraries/HDF5/src/util/hdf5_merge.c
+Compiling /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/ExternalLibraries/HDF5/src/util/hdf5_extract.c
+Compiling /__w/carpetx-tests/carpetx-tests/workspace/Cactus/arrangements/ExternalLibraries/HDF5/src/util/hdf5_double_to_single.c
+Copying mpirun from /usr/bin/mpirun to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying mpirun.openmpi from /usr/bin/mpirun.openmpi to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying ompi-clean from /usr/bin/ompi-clean to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying ompi-server from /usr/bin/ompi-server to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Copying ompi_info from /usr/bin/ompi_info to /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim
+Creating hdf5_merge in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/build/HDF5/hdf5_merge.o
+Creating hdf5_extract in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/build/HDF5/hdf5_extract.o
+Creating hdf5_double_to_single in /__w/carpetx-tests/carpetx-tests/workspace/Cactus/exe/sim from /__w/carpetx-tests/carpetx-tests/workspace/Cactus/configs/sim/build/HDF5/hdf5_double_to_single.o
+Done.

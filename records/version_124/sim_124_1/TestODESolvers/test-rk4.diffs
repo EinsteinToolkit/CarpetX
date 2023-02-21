@@ -1,0 +1,26 @@
+   norms/carpetx-regrid_error.tsv: substantial differences
+      significant differences on 10 (out of 1) lines
+      missing  10 lines in new norms/carpetx-regrid_error.tsv
+   norms/testodesolvers-corder.tsv: substantial differences
+      significant differences on 10 (out of 1) lines
+      missing  10 lines in new norms/testodesolvers-corder.tsv
+   norms/testodesolvers-error.tsv: substantial differences
+      significant differences on 10 (out of 1) lines
+      missing  10 lines in new norms/testodesolvers-error.tsv
+   norms/testodesolvers-error2.tsv: substantial differences
+      significant differences on 10 (out of 1) lines
+      missing  10 lines in new norms/testodesolvers-error2.tsv
+   norms/testodesolvers-rhs.tsv: substantial differences
+      significant differences on 10 (out of 1) lines
+      missing  10 lines in new norms/testodesolvers-rhs.tsv
+   norms/testodesolvers-rhs2.tsv: substantial differences
+      significant differences on 10 (out of 1) lines
+      missing  10 lines in new norms/testodesolvers-rhs2.tsv
+   norms/testodesolvers-state.tsv: substantial differences
+      significant differences on 10 (out of 1) lines
+      missing  10 lines in new norms/testodesolvers-state.tsv
+   norms/testodesolvers-state2.tsv: substantial differences
+      significant differences on 10 (out of 1) lines
+      missing  10 lines in new norms/testodesolvers-state2.tsv
+
+

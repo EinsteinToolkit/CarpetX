@@ -1,0 +1,236 @@
+------------------------------------------------------------------------
+
+  Warnings for configuration sim
+  --------
+
+  Tests missed for lack of thorns:
+
+    bam in TwoPunctures
+      (CarpetX/TwoPunctures/test/bam.par)
+      Missing:  CARTGRID3D LOCALREDUCE PUGH PUGHREDUCE PUGHSLAB IOASCII IOBASIC LOCALREDUCE STATICCONFORMAL ADMCONSTRAINTS ADMCOUPLING ADMMACROS SPACEMASK BAM_ELLIPTIC ELLBASE
+
+    bhns_eval in TwoPunctures
+      (CarpetX/TwoPunctures/test/bhns_eval.par)
+      Missing:  CARTGRID3D LOCALREDUCE LOOPCONTROL CARPET CARPETLIB CARPETINTERP CARPETREDUCE CARPETSLAB CARPETIOASCII CARPETIOBASIC CARPETIOSCALAR CARPETIOHDF5 STATICCONFORMAL ADMCOUPLING ADMMACROS CONSTANTS SPACEMASK TOVSOLVER EOS_OMNI COORDGAUGE
+
+    bhns_interp in TwoPunctures
+      (CarpetX/TwoPunctures/test/bhns_interp.par)
+      Missing:  CARTGRID3D LOCALREDUCE LOOPCONTROL CARPET CARPETLIB CARPETINTERP CARPETREDUCE CARPETSLAB CARPETIOASCII CARPETIOBASIC CARPETIOSCALAR CARPETIOHDF5 STATICCONFORMAL ADMCOUPLING ADMMACROS CONSTANTS SPACEMASK TOVSOLVER EOS_OMNI COORDGAUGE
+
+    idpuncture in TwoPunctures
+      (CarpetX/TwoPunctures/test/idpuncture.par)
+      Missing:  CARTGRID3D PUGH PUGHREDUCE PUGHSLAB IOASCII IOBASIC STATICCONFORMAL ADMCONSTRAINTS ADMCOUPLING ADMMACROS SPACEMASK IDPUNCTURE TATELLIPTIC TATJACOBI TATMG TATPETSC
+
+    twopunctures in TwoPunctures
+      (CarpetX/TwoPunctures/test/twopunctures.par)
+      Missing:  CARTGRID3D PUGH PUGHREDUCE PUGHSLAB LOCALREDUCE IOASCII IOBASIC STATICCONFORMAL ADMCONSTRAINTS ADMCOUPLING ADMMACROS SPACEMASK
+
+    twopunctures_carpet in TwoPunctures
+      (CarpetX/TwoPunctures/test/twopunctures_carpet.par)
+      Missing:  NANCHECKER CARTGRID3D MOL CARPETIOBASIC CARPETIOSCALAR CARPET CARPETLIB CARPETIOASCII CARPETREDUCE STATICCONFORMAL SPACEMASK GENERICFD COORDGAUGE ADMCOUPLING LOOPCONTROL SPHERICALSURFACE ADMMACROS
+
+------------------------------------------------------------------------
+
+  Testsuite Summary for configuration sim
+  -----------------
+
+  Suitable testsuite parameter files found in:
+
+    TestInterpolate [1]
+    TestODESolvers [8]
+    TestODESolvers2 [8]
+    TestProlongate [6]
+
+  Details:
+
+    TestInterpolate:
+      interpolate (0.4 s)
+    TestODESolvers:
+      test-constant (0.3 s)
+      test-dp87 (0.3 s)
+      test-euler (0.4 s)
+      test-rk2 (0.4 s)
+      test-rk3 (0.4 s)
+      test-rk4 (0.4 s)
+      test-rkf78 (0.4 s)
+      test-ssprk3 (0.4 s)
+    TestODESolvers2:
+      test-constant (1.6 s)
+      test-dp87 (1.5 s)
+      test-euler (1.5 s)
+      test-rk2 (1.5 s)
+      test-rk3 (1.5 s)
+      test-rk4 (1.5 s)
+      test-rkf78 (1.5 s)
+      test-ssprk3 (1.5 s)
+    TestProlongate:
+      test_cc_co_o1 (0.3 s)
+      test_cc_nc_o1 (0.3 s)
+      test_cc_nc_o3 (0.3 s)
+      test_ddf_o1 (0.3 s)
+      test_ddf_o3 (0.4 s)
+      test_ddf_o5 (0.4 s)
+
+  Thorns with no valid testsuite parameter files:
+
+    ADIOS2
+    ADMBase
+    AMReX
+    Algo
+    Arith
+    AsterX
+    Boost
+    Boundary
+    BrillLindquist
+    CarpetX
+    CoordBase
+    Coordinates
+    DGCoordinates
+    DGWaveToy
+    ErrorEstimator
+    FFTW3
+    Formaline
+    Fortran
+    GSL
+    HDF5
+    Hydro
+    HydroBase
+    HydroInitial
+    HydroToyCarpetX
+    IOUtil
+    InitBase
+    KHInitial
+    Loop
+    MPI
+    Maxwell
+    MaxwellToyCarpetX
+    MultiPatch
+    NSIMD
+    ODESolvers
+    OpenBLAS
+    Poisson
+    Punctures
+    Silo
+    StaticTrumpet
+    SymBase
+    SystemTopology
+    TerminationTrigger
+    TestArrayGroup
+    TestSymmetries
+    Time
+    TimerReport
+    TmunuBase
+    TwoPunctures
+    Vectors
+    WaveToyCPU
+    WaveToyCarpetX
+    WaveToyGPU
+    WaveToyMoL
+    Weyl
+    Z4c
+    hwloc
+    openPMD
+    ssht
+    yaml_cpp
+    zlib
+
+------------------------------------------------------------------------
+
+  Run details for configuration sim
+
+      TestInterpolate: interpolate
+         Success: 6 files identical
+      TestODESolvers: test-constant
+         Failure: 11 files missing, 11 files compared, 11 differ, 11 differ significantly
+      TestODESolvers: test-dp87
+         Failure: Cactus exited with error code 1.
+      TestODESolvers: test-euler
+         Failure: 11 files missing, 11 files compared, 11 differ, 11 differ significantly
+      TestODESolvers: test-rk2
+         Failure: 11 files missing, 11 files compared, 11 differ, 11 differ significantly
+      TestODESolvers: test-rk3
+         Failure: 11 files missing, 11 files compared, 11 differ, 11 differ significantly
+      TestODESolvers: test-rk4
+         Failure: 11 files missing, 11 files compared, 11 differ, 11 differ significantly
+      TestODESolvers: test-rkf78
+         Failure: 11 files missing, 11 files compared, 11 differ, 11 differ significantly
+      TestODESolvers: test-ssprk3
+         Failure: 11 files missing, 11 files compared, 11 differ, 11 differ significantly
+      TestODESolvers2: test-constant
+         Failure: Cactus exited with error code 136.
+      TestODESolvers2: test-dp87
+         Failure: Cactus exited with error code 136.
+      TestODESolvers2: test-euler
+         Failure: Cactus exited with error code 136.
+      TestODESolvers2: test-rk2
+         Failure: Cactus exited with error code 136.
+      TestODESolvers2: test-rk3
+         Failure: Cactus exited with error code 136.
+      TestODESolvers2: test-rk4
+         Failure: Cactus exited with error code 136.
+      TestODESolvers2: test-rkf78
+         Failure: Cactus exited with error code 136.
+      TestODESolvers2: test-ssprk3
+         Failure: Cactus exited with error code 136.
+      TestProlongate: test_cc_co_o1
+         Failure: Cactus exited with error code 1.
+      TestProlongate: test_cc_nc_o1
+         Failure: Cactus exited with error code 1.
+      TestProlongate: test_cc_nc_o3
+         Failure: Cactus exited with error code 1.
+      TestProlongate: test_ddf_o1
+         Failure: Cactus exited with error code 1.
+      TestProlongate: test_ddf_o3
+         Failure: Cactus exited with error code 1.
+      TestProlongate: test_ddf_o5
+         Failure: Cactus exited with error code 1.
+
+========================================================================
+
+  Summary for configuration sim
+
+    Time                     -> Tue Jul 26 17:59:39 UTC 2022
+    Host                     -> 5b849c44f503
+    Processes                -> 2
+    User                     -> root
+
+    Total available tests    -> 29
+    Unrunnable tests         -> 6
+    Runnable tests           -> 23
+    Total number of thorns   -> 64
+    Number of tested thorns  -> 4
+    Number of tests passed   -> 1
+    Number passed only to
+               set tolerance -> 0
+    Number failed            -> 22
+
+  Tests passed:
+
+    interpolate (from TestInterpolate)
+
+  Tests failed:
+
+    test-constant (from TestODESolvers)
+    test-dp87 (from TestODESolvers)
+    test-euler (from TestODESolvers)
+    test-rk2 (from TestODESolvers)
+    test-rk3 (from TestODESolvers)
+    test-rk4 (from TestODESolvers)
+    test-rkf78 (from TestODESolvers)
+    test-ssprk3 (from TestODESolvers)
+    test-constant (from TestODESolvers2)
+    test-dp87 (from TestODESolvers2)
+    test-euler (from TestODESolvers2)
+    test-rk2 (from TestODESolvers2)
+    test-rk3 (from TestODESolvers2)
+    test-rk4 (from TestODESolvers2)
+    test-rkf78 (from TestODESolvers2)
+    test-ssprk3 (from TestODESolvers2)
+    test_cc_co_o1 (from TestProlongate)
+    test_cc_nc_o1 (from TestProlongate)
+    test_cc_nc_o3 (from TestProlongate)
+    test_ddf_o1 (from TestProlongate)
+    test_ddf_o3 (from TestProlongate)
+    test_ddf_o5 (from TestProlongate)
+
+========================================================================

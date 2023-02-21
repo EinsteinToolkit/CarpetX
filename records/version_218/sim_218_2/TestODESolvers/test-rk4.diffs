@@ -1,0 +1,21 @@
+   norms/testodesolvers-corder.tsv: substantial differences
+      significant differences on 5 (out of 11) lines
+      maximum absolute difference in column 3 is 0.000893309651381458
+      maximum absolute difference in column 4 is 0.000893309651381458
+      maximum absolute difference in column 5 is 0.00714647721105166
+      maximum absolute difference in column 6 is 0.000893309651381458
+      maximum absolute difference in column 9 is 0.000893309651381458
+      maximum absolute difference in column 10 is 0.000893309651381458
+      maximum absolute difference in column 11 is 0.000893309651381458
+      maximum relative difference in column 3 is 0.000223726922923282
+      maximum relative difference in column 4 is 0.000223726922923282
+      maximum relative difference in column 5 is 0.000223726922923282
+      maximum relative difference in column 6 is 0.000223726922923282
+      maximum relative difference in column 9 is 0.000223726922923282
+      maximum relative difference in column 10 is 0.000223726922923282
+      maximum relative difference in column 11 is 0.000223726922923282
+   norms/testodesolvers-error.tsv: differences below tolerance on 5 lines
+   norms/testodesolvers-rhs.tsv: differences below tolerance on 3 lines
+   norms/testodesolvers-state.tsv: differences below tolerance on 5 lines
+
+

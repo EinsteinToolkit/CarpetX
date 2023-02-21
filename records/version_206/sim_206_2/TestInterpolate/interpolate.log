@@ -1,0 +1,243 @@
+/root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestInterpolate
+Preparing:
++ set -e
++ cd output-0000-active
++ echo Checking:
+Checking:
++ pwd
+/root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestInterpolate/output-0000-active
++ hostname
+6f20f8b1dea8
++ date
+Fri Jan 20 23:35:02 UTC 2023
++ echo Environment:
+Environment:
++ export CACTUS_NUM_PROCS=2
++ CACTUS_NUM_PROCS=2
++ export CACTUS_NUM_THREADS=1
++ CACTUS_NUM_THREADS=1
++ export GMON_OUT_PREFIX=gmon.out
++ GMON_OUT_PREFIX=gmon.out
++ export OMP_NUM_THREADS=1
++ OMP_NUM_THREADS=1
++ env
++ sort
++ echo Starting:
+Starting:
+++ date +%s
++ export CACTUS_STARTTIME=1674257702
++ CACTUS_STARTTIME=1674257702
++ '[' 2 = 1 ']'
++ mpirun -np 2 /root/simulations/TestJob01_temp_2/SIMFACTORY/exe/cactus_sim -L 3 /root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestInterpolate/test/interpolate.par
+INFO (Cactus): Increased logging level from 0 to 3
+--------------------------------------------------------------------------------
+
+       10                                  
+  1   0101       ************************  
+  01  1010 10      The Cactus Code V4.13.0    
+ 1010 1101 011      www.cactuscode.org     
+  1001 100101    ************************  
+    00010101                               
+     100011     (c) Copyright The Authors  
+      0100      GNU Licensed. No Warranty  
+      0101                                 
+--------------------------------------------------------------------------------
+
+Cactus version:    4.13.0
+Compile date:      Jan 20 2023 (23:34:36)
+Run date:          Jan 20 2023 (23:35:03+0000)
+Run host:          6f20f8b1dea8 (pid=20729)
+Working directory: /root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestInterpolate
+Executable:        /root/simulations/TestJob01_temp_2/SIMFACTORY/exe/cactus_sim
+Parameter file:    /root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestInterpolate/test/interpolate.par
+--------------------------------------------------------------------------------
+
+Activating thorn Cactus...Success -> active implementation Cactus
+Activation requested for 
+--->CarpetX Coordinates IOUtil SystemTopology TestInterpolate<---
+Thorn CarpetX requests automatic activation of AMReX
+Thorn CarpetX requests automatic activation of MPI
+Thorn CarpetX requests automatic activation of yaml_cpp
+Thorn CarpetX requests automatic activation of zlib
+Thorn CarpetX requests automatic activation of Arith
+Thorn CarpetX requests automatic activation of Loop
+Thorn CarpetX requests automatic activation of ADIOS2
+Thorn CarpetX requests automatic activation of openPMD
+Thorn CarpetX requests automatic activation of Silo
+Thorn SystemTopology requests automatic activation of hwloc
+Thorn Arith requests automatic activation of NSIMD
+Thorn Silo requests automatic activation of HDF5
+Activating thorn ADIOS2...Success -> active implementation ADIOS2
+Activating thorn AMReX...Success -> active implementation AMReX
+Activating thorn Arith...Success -> active implementation Arith
+Activating thorn CarpetX...Success -> active implementation CarpetX
+Activating thorn Coordinates...Success -> active implementation Coordinates
+Activating thorn HDF5...Success -> active implementation HDF5
+Activating thorn hwloc...Success -> active implementation hwloc
+Activating thorn IOUtil...Success -> active implementation IO
+Activating thorn Loop...Success -> active implementation Loop
+Activating thorn MPI...Success -> active implementation MPI
+Activating thorn NSIMD...Success -> active implementation NSIMD
+Activating thorn openPMD...Success -> active implementation openPMD_api
+Activating thorn Silo...Success -> active implementation Silo
+Activating thorn SystemTopology...Success -> active implementation SystemTopology
+Activating thorn TestInterpolate...Success -> active implementation TestInterpolate
+Activating thorn yaml_cpp...Success -> active implementation yaml_cpp
+Activating thorn zlib...Success -> active implementation zlib
+INFO (hwloc): library version 2.1.0, API version 0x20100
+INFO (SystemTopology): MPI process-to-host mapping:
+This is MPI process 0 of 2
+MPI hosts:
+  0: 6f20f8b1dea8
+This MPI process runs on host 0 of 1
+On this host, this is MPI process 0 of 2
+INFO (SystemTopology): Topology support:
+Discovery support:
+  discovery->pu                            : yes
+CPU binding support:
+  cpubind->set_thisproc_cpubind            : yes
+  cpubind->get_thisproc_cpubind            : yes
+  cpubind->set_proc_cpubind                : yes
+  cpubind->get_proc_cpubind                : yes
+  cpubind->set_thisthread_cpubind          : yes
+  cpubind->get_thisthread_cpubind          : yes
+  cpubind->set_thread_cpubind              : yes
+  cpubind->get_thread_cpubind              : yes
+  cpubind->get_thisproc_last_cpu_location  : yes
+  cpubind->get_proc_last_cpu_location      : yes
+  cpubind->get_thisthread_last_cpu_location: yes
+Memory binding support:
+  membind->set_thisproc_membind            : no
+  membind->get_thisproc_membind            : no
+  membind->set_proc_membind                : no
+  membind->get_proc_membind                : no
+  membind->set_thisthread_membind          : yes
+  membind->get_thisthread_membind          : yes
+  membind->set_area_membind                : yes
+  membind->get_area_membind                : yes
+  membind->alloc_membind                   : yes
+  membind->firsttouch_membind              : yes
+  membind->bind_membind                    : yes
+  membind->interleave_membind              : yes
+  membind->nexttouch_membind               : no
+  membind->migrate_membind                 : yes
+INFO (SystemTopology): Hardware objects in this node:
+Machine L#0: (P#0, total=7110620KB, DMIProductName="Virtual Machine", DMIProductVersion=7.0, DMIProductSerial=0000-0005-7507-2436-5156-5654-70, DMIProductUUID=57adce4f-576a-de41-91af-de606de81c53, DMIBoardVendor="Microsoft Corporation", DMIBoardName="Virtual Machine", DMIBoardVersion=7.0, DMIBoardSerial=0000-0010-4978-5376-2166-0703-55, DMIChassisVendor="Microsoft Corporation", DMIChassisType=3, DMIChassisVersion=7.0, DMIChassisSerial=8153-2469-1448-4906-8825-8184-20, DMIChassisAssetTag=7783-7084-3265-9085-8269-3286-77, DMIBIOSVendor="American Megatrends Inc.", DMIBIOSVersion="090008 ", DMIBIOSDate=12/07/2018, DMISysVendor="Microsoft Corporation", Backend=Linux, OSName=Linux, OSRelease=5.15.0-1031-azure, OSVersion="#38-Ubuntu SMP Mon Jan 9 12:49:59 UTC 2023", HostName=6f20f8b1dea8, Architecture=x86_64, hwlocVersion=2.1.0, ProcessName=cactus_sim)
+  Package L#0: (P#0, total=7110620KB, CPUVendor=GenuineIntel, CPUFamilyNumber=6, CPUModelNumber=63, CPUModel="Intel(R) Xeon(R) CPU E5-2673 v3 @ 2.40GHz", CPUStepping=2)
+    L3Cache L#0: (P#-1, size=30720KB, linesize=64, ways=20, Inclusive=1)
+      L2Cache L#0: (P#-1, size=256KB, linesize=64, ways=8, Inclusive=0)
+        L1dCache L#0: (P#-1, size=32KB, linesize=64, ways=8, Inclusive=0)
+          Core L#0: (P#0)
+            PU L#0: (P#0)
+      L2Cache L#1: (P#-1, size=256KB, linesize=64, ways=8, Inclusive=0)
+        L1dCache L#1: (P#-1, size=32KB, linesize=64, ways=8, Inclusive=0)
+          Core L#1: (P#1)
+            PU L#1: (P#1)
+INFO (SystemTopology): Thread CPU bindings:
+  MPI process 0 on host 0 (process 0 of 2 on this host)
+    OpenMP thread 0: PU set L#{0} P#{0}
+  MPI process 1 on host 0 (process 1 of 2 on this host)
+    OpenMP thread 0: PU set L#{1} P#{1}
+INFO (SystemTopology): Setting thread CPU bindings:
+INFO (SystemTopology): Thread CPU bindings:
+  MPI process 0 on host 0 (process 0 of 2 on this host)
+    OpenMP thread 0: PU set L#{0} P#{0}
+  MPI process 1 on host 0 (process 1 of 2 on this host)
+    OpenMP thread 0: PU set L#{1} P#{1}
+INFO (SystemTopology): Extracting CPU/cache/memory properties:
+  There are 1 PUs per core (aka hardware SMT threads)
+  There are 1 threads per core (aka SMT threads used)
+  Cache (unknown name) has type "data" depth 1
+    size 32768 linesize 64 associativity 8 stride 4096, for 1 PUs
+  Cache (unknown name) has type "unified" depth 2
+    size 262144 linesize 64 associativity 8 stride 32768, for 1 PUs
+  Cache (unknown name) has type "unified" depth 3
+    size 31457280 linesize 64 associativity 20 stride 1572864, for 2 PUs
+--------------------------------------------------------------------------------
+
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m──██──[32m██████[34m──██──[34m──██──[32m██████[34m──██──[34m──██──[32m██████[34m──██──[39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[31m██████[31m██████[31m██████[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m──██──[32m██████[34m──██──[31m██████[31m██████[31m██████[34m──██──[32m██████[34m──██──[39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[31m██████[31m██████[31m██████[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m──██──[32m██████[34m──██──[34m──██──[32m██████[34m──██──[34m──██──[32m██████[34m──██──[39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+
+AMR driver provided by CarpetX,
+using AMReX 22.11 (MPI, OpenMP, no accelerators, debug)
+--------------------------------------------------------------------------------
+
+MPI initialized with 2 MPI processes
+MPI initialized with thread support level 2
+OMP initialized with 1 OMP threads
+AMReX (22.11) initialized
+INFO (CarpetX): 
+Symmetries:
+  lower x: outer_boundary
+  lower y: outer_boundary
+  lower z: outer_boundary
+  upper x: outer_boundary
+  upper y: outer_boundary
+  upper z: outer_boundary
+Default boundaries:
+  lower x: none
+  lower y: none
+  lower z: none
+  upper x: none
+  upper y: none
+  upper z: none
+INFO (Arith): Test_smallvector
+INFO (Arith): Test_spvect
+INFO (CarpetX): Setting up initial conditions...
+INFO (CarpetX): Patch 0:
+INFO (CarpetX):   Grid extent:
+INFO (CarpetX):     gsh=[35,35,35]
+INFO (CarpetX):     blocking_factor=[8,8,8]
+INFO (CarpetX):     max_grid_size=[32,32,32]
+INFO (CarpetX):     max_tile_size=[1024000,16,32]
+INFO (CarpetX):   Domain extent:
+INFO (CarpetX):     xmin=[-1,-1,-1]
+INFO (CarpetX):     xmax=[1,1,1]
+INFO (CarpetX):     base dx=[0.0625,0.0625,0.0625]
+INFO (CarpetX):   Time stepping:
+INFO (CarpetX):     t0=0
+INFO (CarpetX):     dt=0.0078125
+INFO (CarpetX): Initializing level 0...
+INFO (CarpetX): Regridding...
+INFO (CarpetX):   level 0: 2 boxes, 32768 cells (100%)
+INFO (CarpetX): Initialized 1 levels
+INFO (CarpetX): OutputGH: iteration 0, time 0.000000, run time 1 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): Starting evolution...
+INFO (CarpetX): Shutting down...
+AMReX (22.11) finalized
+--------------------------------------------------------------------------------
+Done.
++ echo Stopping:
+Stopping:
++ date
+Fri Jan 20 23:35:03 UTC 2023
++ echo Done.
+Done.
+  Elapsed time: 0.4 s

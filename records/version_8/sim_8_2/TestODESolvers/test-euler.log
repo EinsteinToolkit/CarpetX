@@ -1,0 +1,109 @@
+/root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestODESolvers
+Preparing:
++ set -e
++ cd output-0000-active
++ echo Checking:
+Checking:
++ pwd
+/root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestODESolvers/output-0000-active
++ hostname
+e51a729a4106
++ date
+Wed Jul 20 18:54:12 UTC 2022
++ echo Environment:
+Environment:
++ export CACTUS_NUM_PROCS=2
++ CACTUS_NUM_PROCS=2
++ export CACTUS_NUM_THREADS=1
++ CACTUS_NUM_THREADS=1
++ export GMON_OUT_PREFIX=gmon.out
++ GMON_OUT_PREFIX=gmon.out
++ export OMP_NUM_THREADS=1
++ OMP_NUM_THREADS=1
++ sort
++ env
++ echo Starting:
+Starting:
+++ date +%s
++ export CACTUS_STARTTIME=1658343252
++ CACTUS_STARTTIME=1658343252
++ '[' 2 = 1 ']'
++ mpirun -np 2 /root/simulations/TestJob01_temp_2/SIMFACTORY/exe/cactus_sim -L 3 /root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestODESolvers/test/test-euler.par
+INFO (Cactus): Increased logging level from 0 to 3
+--------------------------------------------------------------------------------
+
+       10                                  
+  1   0101       ************************  
+  01  1010 10      The Cactus Code V4.12.0    
+ 1010 1101 011      www.cactuscode.org     
+  1001 100101    ************************  
+    00010101                               
+     100011     (c) Copyright The Authors  
+      0100      GNU Licensed. No Warranty  
+      0101                                 
+--------------------------------------------------------------------------------
+
+Cactus version:    4.12.0
+Compile date:      Jul 20 2022 (18:53:40)
+Run date:          Jul 20 2022 (18:54:12+0000)
+Run host:          e51a729a4106 (pid=20285)
+Working directory: /root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestODESolvers
+Executable:        /root/simulations/TestJob01_temp_2/SIMFACTORY/exe/cactus_sim
+Parameter file:    /root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestODESolvers/test/test-euler.par
+--------------------------------------------------------------------------------
+
+Activating thorn Cactus...Success -> active implementation Cactus
+Activation requested for 
+--->CarpetX IOUtil ODESolvers TestODESolvers<---
+Thorn CarpetX requests automatic activation of AMReX
+Thorn CarpetX requests automatic activation of MPI
+Thorn CarpetX requests automatic activation of yaml_cpp
+Thorn CarpetX requests automatic activation of zlib
+Thorn CarpetX requests automatic activation of Arith
+Thorn CarpetX requests automatic activation of Loop
+Thorn CarpetX requests automatic activation of ADIOS2
+Thorn CarpetX requests automatic activation of openPMD
+Thorn CarpetX requests automatic activation of Silo
+Thorn Arith requests automatic activation of NSIMD
+Thorn MPI requests automatic activation of hwloc
+Thorn Silo requests automatic activation of HDF5
+Activating thorn ADIOS2...Success -> active implementation ADIOS2
+Activating thorn AMReX...Success -> active implementation AMReX
+Activating thorn Arith...Success -> active implementation Arith
+Activating thorn CarpetX...Success -> active implementation CarpetX
+Activating thorn HDF5...Success -> active implementation HDF5
+Activating thorn hwloc...Success -> active implementation hwloc
+Activating thorn IOUtil...Success -> active implementation IO
+Activating thorn Loop...Success -> active implementation Loop
+Activating thorn MPI...Success -> active implementation MPI
+Activating thorn NSIMD...Success -> active implementation NSIMD
+Activating thorn ODESolvers...Success -> active implementation ODESolvers
+Activating thorn openPMD...Success -> active implementation openPMD_api
+Activating thorn Silo...Success -> active implementation Silo
+Activating thorn TestODESolvers...Success -> active implementation TestODESolvers
+Activating thorn yaml_cpp...Success -> active implementation yaml_cpp
+Activating thorn zlib...Success -> active implementation zlib
+WARNING[L1,P0] (Cactus): Major error in parameter file '/root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestODESolvers/test/test-euler.par' line 33: Parameter 'CarpetX::output_metadata' not found
+[1mWARNING[L1,P0] (Cactus):[0m Major error in parameter file '/root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestODESolvers/test/test-euler.par' line 33: Parameter 'CarpetX::output_metadata' not found
+WARNING level 0 from host e51a729a4106 process 0
+  in thorn Cactus, file /__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/main/ProcessParameterDatabase.c:201:
+  ->WARNING[L1,P1] (Cactus): Major error in parameter file '/root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestODESolvers/test/test-euler.par' line 33: Parameter 'CarpetX::output_metadata' not found
+ CCTKi_SetParameterSetMask: 1 major error in parameter file
+[1mWARNING level 0 from host e51a729a4106 process 0
+  in thorn Cactus, file /__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/main/ProcessParameterDatabase.c:201:
+  ->[0m CCTKi_SetParameterSetMask: 1 major error in parameter file
+WARNING level 0 from host e51a729a4106 process 1
+  in thorn Cactus, file /__w/carpetx-tests/carpetx-tests/workspace/Cactus/src/main/ProcessParameterDatabase.c:201:
+  -> CCTKi_SetParameterSetMask: 1 major error in parameter file
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
+with errorcode 1.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+[e51a729a4106:20281] PMIX ERROR: UNREACHABLE in file ../../../src/server/pmix_server.c at line 2193
+[e51a729a4106:20281] 1 more process has sent help message help-mpi-api.txt / mpi-abort
+[e51a729a4106:20281] Set MCA parameter "orte_base_help_aggregate" to 0 to see all help / error messages
+  Elapsed time: 5.3 s

@@ -1,0 +1,167 @@
+<!doctype html>
+    <html lang="en">
+        <head>
+            <title>Summary of Tests</title>
+            <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+            <style>
+            .bk-root .bk {
+                margin: 0 auto !important;
+            }
+            </style>
+            <style>
+            .sidebar {
+                height: 100%; 
+                width: 150px;
+                position: fixed;
+                z-index: 1; 
+                top: 0; 
+                left: 0;
+                background-color: #212529; 
+                overflow-x: hidden;
+                padding-top: 20px; 
+            }
+            .sidebar a {
+                padding: 6px 8px 6px 16px;
+                text-decoration: none;
+                font-size: 18px;
+                color: #dbdcdd;
+                display: block;
+                }
+            .sidebar a:hover {
+                color: white;
+            }
+            .container{
+              padding-left: 150px;
+              font-size: 18px;
+            }
+                        /* On screens that are less than 700px wide, make the sidebar into a topbar */
+            @media screen and (max-width: 500px) {
+            .sidebar {
+              display: none;
+            }
+            .container {
+              padding-left:0px;
+            }
+            }
+            </style>
+            <script src="https://cdn.bokeh.org/bokeh/release/bokeh-2.0.1.min.js"
+            crossorigin="anonymous"></script>
+            
+<script type="text/javascript">
+    (function() {
+          var fn = function() {
+            Bokeh.safely(function() {
+              (function(root) {
+                function embed_document(root) {
+                  
+                var docs_json = '{&quot;b647311e-681b-4556-9d1a-990ac992f4eb&quot;:{&quot;roots&quot;:{&quot;references&quot;:[{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1252&quot;,&quot;type&quot;:&quot;CategoricalScale&quot;},{&quot;attributes&quot;:{&quot;data&quot;:{&quot;cts&quot;:[],&quot;wts&quot;:[]},&quot;selected&quot;:{&quot;id&quot;:&quot;1966&quot;},&quot;selection_policy&quot;:{&quot;id&quot;:&quot;1967&quot;}},&quot;id&quot;:&quot;1244&quot;,&quot;type&quot;:&quot;ColumnDataSource&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1248&quot;,&quot;type&quot;:&quot;FactorRange&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1257&quot;,&quot;type&quot;:&quot;CategoricalTicker&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1962&quot;,&quot;type&quot;:&quot;CategoricalTickFormatter&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1966&quot;,&quot;type&quot;:&quot;Selection&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1254&quot;,&quot;type&quot;:&quot;LinearScale&quot;},{&quot;attributes&quot;:{&quot;axis_label&quot;:&quot;Number of Warnings&quot;,&quot;formatter&quot;:{&quot;id&quot;:&quot;1964&quot;},&quot;ticker&quot;:{&quot;id&quot;:&quot;1260&quot;}},&quot;id&quot;:&quot;1259&quot;,&quot;type&quot;:&quot;LinearAxis&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1967&quot;,&quot;type&quot;:&quot;UnionRenderers&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1250&quot;,&quot;type&quot;:&quot;DataRange1d&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1964&quot;,&quot;type&quot;:&quot;BasicTickFormatter&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1260&quot;,&quot;type&quot;:&quot;BasicTicker&quot;},{&quot;attributes&quot;:{&quot;axis&quot;:{&quot;id&quot;:&quot;1256&quot;},&quot;ticker&quot;:null},&quot;id&quot;:&quot;1258&quot;,&quot;type&quot;:&quot;Grid&quot;},{&quot;attributes&quot;:{&quot;fill_alpha&quot;:{&quot;value&quot;:0.1},&quot;fill_color&quot;:{&quot;field&quot;:&quot;wts&quot;,&quot;transform&quot;:{&quot;id&quot;:&quot;1275&quot;}},&quot;line_alpha&quot;:{&quot;value&quot;:0.1},&quot;line_color&quot;:{&quot;value&quot;:&quot;white&quot;},&quot;top&quot;:{&quot;field&quot;:&quot;cts&quot;},&quot;width&quot;:{&quot;value&quot;:0.9},&quot;x&quot;:{&quot;field&quot;:&quot;wts&quot;}},&quot;id&quot;:&quot;1278&quot;,&quot;type&quot;:&quot;VBar&quot;},{&quot;attributes&quot;:{&quot;axis&quot;:{&quot;id&quot;:&quot;1259&quot;},&quot;dimension&quot;:1,&quot;ticker&quot;:null},&quot;id&quot;:&quot;1262&quot;,&quot;type&quot;:&quot;Grid&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1264&quot;,&quot;type&quot;:&quot;PanTool&quot;},{&quot;attributes&quot;:{&quot;factors&quot;:[],&quot;palette&quot;:[]},&quot;id&quot;:&quot;1275&quot;,&quot;type&quot;:&quot;CategoricalColorMapper&quot;},{&quot;attributes&quot;:{&quot;bottom_units&quot;:&quot;screen&quot;,&quot;fill_alpha&quot;:0.5,&quot;fill_color&quot;:&quot;lightgrey&quot;,&quot;left_units&quot;:&quot;screen&quot;,&quot;level&quot;:&quot;overlay&quot;,&quot;line_alpha&quot;:1.0,&quot;line_color&quot;:&quot;black&quot;,&quot;line_dash&quot;:[4,4],&quot;line_width&quot;:2,&quot;render_mode&quot;:&quot;css&quot;,&quot;right_units&quot;:&quot;screen&quot;,&quot;top_units&quot;:&quot;screen&quot;},&quot;id&quot;:&quot;1268&quot;,&quot;type&quot;:&quot;BoxAnnotation&quot;},{&quot;attributes&quot;:{&quot;callback&quot;:null},&quot;id&quot;:&quot;1263&quot;,&quot;type&quot;:&quot;TapTool&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1265&quot;,&quot;type&quot;:&quot;WheelZoomTool&quot;},{&quot;attributes&quot;:{&quot;fill_color&quot;:{&quot;field&quot;:&quot;wts&quot;,&quot;transform&quot;:{&quot;id&quot;:&quot;1275&quot;}},&quot;line_color&quot;:{&quot;value&quot;:&quot;white&quot;},&quot;top&quot;:{&quot;field&quot;:&quot;cts&quot;},&quot;width&quot;:{&quot;value&quot;:0.9},&quot;x&quot;:{&quot;field&quot;:&quot;wts&quot;}},&quot;id&quot;:&quot;1277&quot;,&quot;type&quot;:&quot;VBar&quot;},{&quot;attributes&quot;:{&quot;axis_label&quot;:&quot;Name of Thorn&quot;,&quot;formatter&quot;:{&quot;id&quot;:&quot;1962&quot;},&quot;ticker&quot;:{&quot;id&quot;:&quot;1257&quot;}},&quot;id&quot;:&quot;1256&quot;,&quot;type&quot;:&quot;CategoricalAxis&quot;},{&quot;attributes&quot;:{&quot;data_source&quot;:{&quot;id&quot;:&quot;1244&quot;},&quot;glyph&quot;:{&quot;id&quot;:&quot;1277&quot;},&quot;hover_glyph&quot;:null,&quot;muted_glyph&quot;:null,&quot;nonselection_glyph&quot;:{&quot;id&quot;:&quot;1278&quot;},&quot;selection_glyph&quot;:null,&quot;view&quot;:{&quot;id&quot;:&quot;1280&quot;}},&quot;id&quot;:&quot;1279&quot;,&quot;type&quot;:&quot;GlyphRenderer&quot;},{&quot;attributes&quot;:{&quot;overlay&quot;:{&quot;id&quot;:&quot;1268&quot;}},&quot;id&quot;:&quot;1266&quot;,&quot;type&quot;:&quot;BoxZoomTool&quot;},{&quot;attributes&quot;:{&quot;source&quot;:{&quot;id&quot;:&quot;1244&quot;}},&quot;id&quot;:&quot;1280&quot;,&quot;type&quot;:&quot;CDSView&quot;},{&quot;attributes&quot;:{},&quot;id&quot;:&quot;1267&quot;,&quot;type&quot;:&quot;ResetTool&quot;},{&quot;attributes&quot;:{&quot;below&quot;:[{&quot;id&quot;:&quot;1256&quot;}],&quot;center&quot;:[{&quot;id&quot;:&quot;1258&quot;},{&quot;id&quot;:&quot;1262&quot;}],&quot;left&quot;:[{&quot;id&quot;:&quot;1259&quot;}],&quot;plot_width&quot;:1200,&quot;renderers&quot;:[{&quot;id&quot;:&quot;1279&quot;}],&quot;sizing_mode&quot;:&quot;scale_width&quot;,&quot;title&quot;:{&quot;id&quot;:&quot;1246&quot;},&quot;toolbar&quot;:{&quot;id&quot;:&quot;1269&quot;},&quot;toolbar_location&quot;:&quot;below&quot;,&quot;x_range&quot;:{&quot;id&quot;:&quot;1248&quot;},&quot;x_scale&quot;:{&quot;id&quot;:&quot;1252&quot;},&quot;y_range&quot;:{&quot;id&quot;:&quot;1250&quot;},&quot;y_scale&quot;:{&quot;id&quot;:&quot;1254&quot;}},&quot;id&quot;:&quot;1245&quot;,&quot;subtype&quot;:&quot;Figure&quot;,&quot;type&quot;:&quot;Plot&quot;},{&quot;attributes&quot;:{&quot;active_drag&quot;:&quot;auto&quot;,&quot;active_inspect&quot;:&quot;auto&quot;,&quot;active_multi&quot;:null,&quot;active_scroll&quot;:{&quot;id&quot;:&quot;1265&quot;},&quot;active_tap&quot;:&quot;auto&quot;,&quot;tools&quot;:[{&quot;id&quot;:&quot;1263&quot;},{&quot;id&quot;:&quot;1264&quot;},{&quot;id&quot;:&quot;1265&quot;},{&quot;id&quot;:&quot;1266&quot;},{&quot;id&quot;:&quot;1267&quot;}]},&quot;id&quot;:&quot;1269&quot;,&quot;type&quot;:&quot;Toolbar&quot;},{&quot;attributes&quot;:{&quot;text&quot;:&quot;Compilation Warning Thorns&quot;},&quot;id&quot;:&quot;1246&quot;,&quot;type&quot;:&quot;Title&quot;}],&quot;root_ids&quot;:[&quot;1245&quot;]},&quot;title&quot;:&quot;Bokeh Application&quot;,&quot;version&quot;:&quot;2.0.1&quot;}}';
+                var render_items = [{"docid":"b647311e-681b-4556-9d1a-990ac992f4eb","root_ids":["1245"],"roots":{"1245":"fd0ea98e-8515-452c-9069-af30a7360e7b"}}];
+                root.Bokeh.embed.embed_items(docs_json, render_items);
+              
+                }
+                if (root.Bokeh !== undefined) {
+                  embed_document(root);
+                } else {
+                  var attempts = 0;
+                  var timer = setInterval(function(root) {
+                    if (root.Bokeh !== undefined) {
+                      clearInterval(timer);
+                      embed_document(root);
+                    } else {
+                      attempts++;
+                      if (attempts > 100) {
+                        clearInterval(timer);
+                        console.log("Bokeh: ERROR: Unable to run BokehJS code because BokehJS library is missing");
+                      }
+                    }
+                  }, 10, root)
+                }
+              })(window);
+            });
+          };
+          if (document.readyState != "loading") fn();
+          else document.addEventListener("DOMContentLoaded", fn);
+        })();
+</script>
+
+        </head>
+        <body>
+            <div class="sidebar">
+            </div>
+            <script src='version.js'>
+            </script>
+            <div class="container">
+                <h1 style="text-align:center">Some Tests Failed</h1>
+                <h3 style="text-align:center"><a href="https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79">Build #79</a></h3>
+                <table class="table table-bordered " >
+                <caption style="text-align:center;font-weight: bold;caption-side:top">Summary</caption>
+                        <tr><th>Time</th><td>Fri Aug  5 21:05:26 UTC 2022</td><tr>
+        <tr><th>Host</th><td>5460ce6a18de</td><tr>
+        <tr><th>Processes</th><td>2</td><tr>
+        <tr><th>User</th><td>root</td><tr>
+        <tr><th>Total available tests</th><td>29</td><tr>
+        <tr><th>Unrunnable tests</th><td>6</td><tr>
+        <tr><th>Runnable tests</th><td>23</td><tr>
+        <tr><th>Total number of thorns</th><td>64</td><tr>
+        <tr><th>Number of tested thorns</th><td>4</td><tr>
+        <tr><th>Number of tests passed</th><td>16</td><tr>
+        <tr><th>Number passed only to set tolerance</th><td>5</td><tr>
+        <tr><th>Number failed</th><td>7</td><tr>
+
+                </table>
+                <br>
+                <table class="table table-bordered " >
+                <caption style="text-align:center;font-weight: bold;caption-side:top">Commits in Last Push</caption>
+                
+                </table>
+                <table class="table table-bordered " >
+    <caption style="text-align:center;font-weight: bold;caption-side:top">Failed Tests and Changes</caption>
+    <tr><th></th><th>logs(1_process)</th><th>logs(2_processes)</th><th>diffs(1_process)</th><th>diffs(2_processes)</th></tr>
+<tr><th colspan="5">Failed Tests</th></tr>
+  <tr><td>test-rk4 (from TestODESolvers)</td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_1/TestODESolvers/test-rk4.log'>log</a></td>  <td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_2/TestODESolvers/test-rk4.log'>log</a></td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_1/TestODESolvers/test-rk4.diffs'>diff</a></td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_2/TestODESolvers/test-rk4.diffs'>diff</a></td></tr>
+  <tr><td>test_cc_co_o1 (from TestProlongate)</td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_1/TestProlongate/test_cc_co_o1.log'>log</a></td>  <td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_2/TestProlongate/test_cc_co_o1.log'>log</a></td><td>Not Available</td><td>Not Available</td></tr>
+  <tr><td>test_cc_nc_o1 (from TestProlongate)</td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_1/TestProlongate/test_cc_nc_o1.log'>log</a></td>  <td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_2/TestProlongate/test_cc_nc_o1.log'>log</a></td><td>Not Available</td><td>Not Available</td></tr>
+  <tr><td>test_cc_nc_o3 (from TestProlongate)</td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_1/TestProlongate/test_cc_nc_o3.log'>log</a></td>  <td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_2/TestProlongate/test_cc_nc_o3.log'>log</a></td><td>Not Available</td><td>Not Available</td></tr>
+  <tr><td>test_ddf_o1 (from TestProlongate)</td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_1/TestProlongate/test_ddf_o1.log'>log</a></td>  <td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_2/TestProlongate/test_ddf_o1.log'>log</a></td><td>Not Available</td><td>Not Available</td></tr>
+  <tr><td>test_ddf_o3 (from TestProlongate)</td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_1/TestProlongate/test_ddf_o3.log'>log</a></td>  <td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_2/TestProlongate/test_ddf_o3.log'>log</a></td><td>Not Available</td><td>Not Available</td></tr>
+  <tr><td>test_ddf_o5 (from TestProlongate)</td><td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_1/TestProlongate/test_ddf_o5.log'>log</a></td>  <td><a href='https://github.com/EinsteinToolkit/carpetx-tests/tree/gh-pages/records/version_79/sim_79_2/TestProlongate/test_ddf_o5.log'>log</a></td><td>Not Available</td><td>Not Available</td></tr>
+<tr><th colspan="5">Newly Passing Tests</th></tr>
+<tr><td></td></tr><tr><th colspan="5">Newly Failing Tests</th></tr>
+<tr><td></td></tr><tr><th colspan="5">Newly Added Tests</th></tr>
+<tr><td></td></tr><tr><th colspan="5">Removed Tests</th></tr>
+<tr><td></td></tr></table>
+                <br>
+                <table class="table table-bordered " >
+    <caption style="text-align:center;font-weight: bold;caption-side:top">Longest Tests</caption>
+<tr><th>Test Name</th><th>Running Time</th>   <tr><td>interpolate</td><td>0.4s</td></tr>
+   <tr><td>test-constant</td><td>0.4s</td></tr>
+   <tr><td>test-dp87</td><td>0.4s</td></tr>
+   <tr><td>test-rk2</td><td>0.4s</td></tr>
+   <tr><td>test-rk3</td><td>0.4s</td></tr>
+   <tr><td>test-rk4</td><td>0.4s</td></tr>
+   <tr><td>test-rkf78</td><td>0.4s</td></tr>
+   <tr><td>test-ssprk3</td><td>0.4s</td></tr>
+   <tr><td>test_ddf_o3</td><td>0.4s</td></tr>
+   <tr><td>test_ddf_o5</td><td>0.4s</td></tr>
+</table><br>
+                <br>
+                 <table class="table table-bordered " >
+    <caption style="text-align:center;font-weight: bold;caption-side:top">Unrunnable Tests</caption>
+<tr><th>Tests Missed for Lack Of Thorns</th><th>Missing Thorns</th></tr>
+  <tr><td>bam</td><td>CARTGRID3D, LOCALREDUCE, PUGH, PUGHREDUCE, PUGHSLAB, IOASCII, IOBASIC, LOCALREDUCE, STATICCONFORMAL, ADMCONSTRAINTS, ADMCOUPLING, ADMMACROS, SPACEMASK, BAM_ELLIPTIC, ELLBASE</td></tr>
+<tr><th>Tests missed for different number of processors required:</th><th>Processors Required</th></tr>
+</table>
+                <br>
+                <table style="margin: 0 auto;">
+                    <!-- height determined by height of plots inside (600ox) -->
+                    <iframe src="plot.html" style="height: 700px; width: 100%"></iframe>
+                </table>
+                <table style="margin: 0 auto;">
+                    
+<div class="bk-root" id="fd0ea98e-8515-452c-9069-af30a7360e7b" data-root-id="1245"></div>
+                </table>
+            <div>
+            
+        </body>
+    </html>
+        

@@ -1,0 +1,301 @@
+/root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestODESolvers
+Preparing:
++ set -e
++ cd output-0000-active
++ echo Checking:
+Checking:
++ pwd
+/root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestODESolvers/output-0000-active
++ hostname
+b5d4117fc156
++ date
+Fri Jul 22 21:27:26 UTC 2022
++ echo Environment:
+Environment:
++ export CACTUS_NUM_PROCS=1
++ CACTUS_NUM_PROCS=1
++ export CACTUS_NUM_THREADS=1
++ CACTUS_NUM_THREADS=1
++ export GMON_OUT_PREFIX=gmon.out
++ GMON_OUT_PREFIX=gmon.out
++ export OMP_NUM_THREADS=1
++ OMP_NUM_THREADS=1
++ sort
++ env
++ echo Starting:
+Starting:
+++ date +%s
++ export CACTUS_STARTTIME=1658525246
++ CACTUS_STARTTIME=1658525246
++ '[' 1 = 1 ']'
++ '[' 0 -eq 0 ']'
++ /root/simulations/TestJob01_temp_2/SIMFACTORY/exe/cactus_sim -L 3 /root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestODESolvers/test/test-constant.par
+INFO (Cactus): Increased logging level from 0 to 3
+--------------------------------------------------------------------------------
+
+       10                                  
+  1   0101       ************************  
+  01  1010 10      The Cactus Code V4.12.0    
+ 1010 1101 011      www.cactuscode.org     
+  1001 100101    ************************  
+    00010101                               
+     100011     (c) Copyright The Authors  
+      0100      GNU Licensed. No Warranty  
+      0101                                 
+--------------------------------------------------------------------------------
+
+Cactus version:    4.12.0
+Compile date:      Jul 22 2022 (21:27:00)
+Run date:          Jul 22 2022 (21:27:26+0000)
+Run host:          b5d4117fc156 (pid=20488)
+Working directory: /root/simulations/TestJob01_temp_2/output-0000/TEST/sim/TestODESolvers
+Executable:        /root/simulations/TestJob01_temp_2/SIMFACTORY/exe/cactus_sim
+Parameter file:    /root/simulations/TestJob01_temp_2/output-0000/arrangements/CarpetX/TestODESolvers/test/test-constant.par
+--------------------------------------------------------------------------------
+
+Activating thorn Cactus...Success -> active implementation Cactus
+Activation requested for 
+--->CarpetX IOUtil ODESolvers TestODESolvers<---
+Thorn CarpetX requests automatic activation of AMReX
+Thorn CarpetX requests automatic activation of MPI
+Thorn CarpetX requests automatic activation of yaml_cpp
+Thorn CarpetX requests automatic activation of zlib
+Thorn CarpetX requests automatic activation of Arith
+Thorn CarpetX requests automatic activation of Loop
+Thorn CarpetX requests automatic activation of ADIOS2
+Thorn CarpetX requests automatic activation of openPMD
+Thorn CarpetX requests automatic activation of Silo
+Thorn Arith requests automatic activation of NSIMD
+Thorn MPI requests automatic activation of hwloc
+Thorn Silo requests automatic activation of HDF5
+Activating thorn ADIOS2...Success -> active implementation ADIOS2
+Activating thorn AMReX...Success -> active implementation AMReX
+Activating thorn Arith...Success -> active implementation Arith
+Activating thorn CarpetX...Success -> active implementation CarpetX
+Activating thorn HDF5...Success -> active implementation HDF5
+Activating thorn hwloc...Success -> active implementation hwloc
+Activating thorn IOUtil...Success -> active implementation IO
+Activating thorn Loop...Success -> active implementation Loop
+Activating thorn MPI...Success -> active implementation MPI
+Activating thorn NSIMD...Success -> active implementation NSIMD
+Activating thorn ODESolvers...Success -> active implementation ODESolvers
+Activating thorn openPMD...Success -> active implementation openPMD_api
+Activating thorn Silo...Success -> active implementation Silo
+Activating thorn TestODESolvers...Success -> active implementation TestODESolvers
+Activating thorn yaml_cpp...Success -> active implementation yaml_cpp
+Activating thorn zlib...Success -> active implementation zlib
+--------------------------------------------------------------------------------
+  if (recover initial data)
+    Recover parameters
+  endif
+
+  Startup routines
+    [CCTK_STARTUP]
+      CarpetX::Driver_Startup: Start up the driver
+      IOUtil::IOUtil_Startup: Startup routine
+      GROUP hwloc_startup: hwloc startup group
+        hwloc::hwloc_version: Output hwloc version
+
+  Startup routines which need an existing grid hierarchy
+    [CCTK_WRAGH]
+      Arith::Test_smallvector: [meta] Test small vectors
+      Arith::Test_spvect: [meta] Test sparse vectors
+  Parameter checking routines
+    [CCTK_PARAMCHECK]
+
+  Initialisation
+    if (NOT (recover initial data AND recovery_mode is 'strict'))
+      [CCTK_PREREGRIDINITIAL]
+      Set up grid hierarchy
+      [CCTK_POSTREGRIDINITIAL]
+      [CCTK_BASEGRID]
+        CarpetX::CarpetX_InitError: Initialize regridding error to zero
+        GROUP ODESolvers_BaseGrid: Set up constants (e.g. coordinates) everywhere on the grid
+      [CCTK_INITIAL]
+        GROUP ODESolvers_Initial: Set up initial conditions on interior of state vector
+        TestODESolvers::TestODESolvers_Initial: Initialize state vector
+      [CCTK_POSTINITIAL]
+        GROUP ODESolvers_PostStep: Apply boundary conditions to state vector, and project if necessary
+        GROUP ODESolvers_RHS: Evaluate RHS for of state vector everywhere on the grid
+          TestODESolvers::TestODESolvers_RHS: RHS function
+        GROUP ODESolvers_EstimateError: Estimate discretization error (for regridding)
+      Initialise finer grids recursively
+      Restrict from finer grids
+      [CCTK_POSTRESTRICTINITIAL]
+      [CCTK_POSTPOSTINITIAL]
+      [CCTK_POSTSTEP]
+        GROUP ODESolvers_PostStep: Apply boundary conditions to state vector, and project if necessary
+        GROUP ODESolvers_RHS: Evaluate the RHS for of state vector everywhere on the grid
+          TestODESolvers::TestODESolvers_RHS: RHS function
+        GROUP ODESolvers_EstimateError: Estimate discretization error (for regridding)
+        TestODESolvers::TestODESolvers_Boundary: [global] Apply boundary conditions to state vector
+    endif
+    if (recover initial data)
+      [CCTK_BASEGRID]
+        CarpetX::CarpetX_InitError: Initialize regridding error to zero
+        GROUP ODESolvers_BaseGrid: Set up constants (e.g. coordinates) everywhere on the grid
+      [CCTK_RECOVER_VARIABLES]
+      [CCTK_POST_RECOVER_VARIABLES]
+    endif
+    if (checkpoint initial data)
+      [CCTK_CPINITIAL]
+        CarpetX::CarpetX_CheckpointInitial: [meta] Checkpoint initial conditions
+    endif
+    if (analysis)
+      [CCTK_ANALYSIS]
+        GROUP ODESolvers_Analysis: Calculate analysis quantities everywhere
+        TestODESolvers::TestODESolvers_Error: Calculate error in state vector
+  endif
+  Output grid variables
+
+  do loop over timesteps
+    [CCTK_PREREGRID]
+    Change grid hierarchy
+    [CCTK_POSTREGRID]
+      GROUP ODESolvers_PostStep: Apply boundary conditions to state vector, and project if necessary
+    Rotate timelevels
+    iteration = iteration+1
+    t = t+dt
+    [CCTK_PRESTEP]
+    [CCTK_EVOL]
+      ODESolvers::ODESolvers_Solve: [level] Solve ODEs
+    Evolve finer grids recursively
+    Restrict from finer grids
+    [CCTK_POSTRESTRICT]
+      GROUP ODESolvers_PostStep: Apply boundary conditions to state vector, and project if necessary
+    [CCTK_POSTSTEP]
+      GROUP ODESolvers_PostStep: Apply boundary conditions to state vector, and project if necessary
+      GROUP ODESolvers_RHS: Evaluate the RHS for of state vector everywhere on the grid
+        TestODESolvers::TestODESolvers_RHS: RHS function
+      GROUP ODESolvers_EstimateError: Estimate discretization error (for regridding)
+      TestODESolvers::TestODESolvers_Boundary: [global] Apply boundary conditions to state vector
+    if (checkpoint)
+      [CCTK_CHECKPOINT]
+      CarpetX::CarpetX_Checkpoint: [meta] Checkpoint
+    endif
+    if (analysis)
+      [CCTK_ANALYSIS]
+      GROUP ODESolvers_Analysis: Calculate analysis quantities everywhere
+      TestODESolvers::TestODESolvers_Error: Calculate error in state vector
+    endif
+    Output grid variables
+    enddo
+
+  Termination routines
+    [CCTK_TERMINATE]
+      CarpetX::CarpetX_CheckpointTerminate: [meta] Checkpoint before terminating
+
+  Shutdown routines
+    [CCTK_SHUTDOWN]
+      CarpetX::Driver_Shutdown: [meta] Shut down the driver
+
+  Routines run after changing the grid hierarchy:
+    [CCTK_POSTREGRID]
+      GROUP ODESolvers_PostStep: Apply boundary conditions to state vector, and project if necessary
+--------------------------------------------------------------------------------
+INFO (hwloc): library version 2.1.0, API version 0x20100
+--------------------------------------------------------------------------------
+
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m──██──[32m██████[34m──██──[34m──██──[32m██████[34m──██──[34m──██──[32m██████[34m──██──[39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[31m██████[31m██████[31m██████[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m──██──[32m██████[34m──██──[31m██████[31m██████[31m██████[34m──██──[32m██████[34m──██──[39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[31m██████[31m██████[31m██████[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [31m██████[31m██████[31m██████[34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m──██──[32m██████[34m──██──[34m──██──[32m██████[34m──██──[34m──██──[32m██████[34m──██──[39m  
+  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [34m  ▕▏  [32m██████[34m  ▕▏  [39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+  [34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[34m──██──[39m  
+  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [34m  ▕▏  [39m  
+
+AMR driver provided by CarpetX,
+using AMReX 22.07 (MPI, OpenMP, no accelerators, debug)
+--------------------------------------------------------------------------------
+
+MPI initialized with 1 MPI processes
+MPI initialized with thread support level 2
+OMP initialized with 1 OMP threads
+AMReX (22.07) initialized
+INFO (CarpetX): PatchData: symmetries=[[0,0,0],[0,0,0]]
+INFO (Arith): Test_smallvector
+INFO (Arith): Test_spvect
+INFO (CarpetX): Setting up initial conditions...
+INFO (CarpetX): Patch 0:
+INFO (CarpetX):   Grid extent:
+INFO (CarpetX):     gsh=[2,2,2]
+INFO (CarpetX):     blocking_factor=[1,1,1]
+INFO (CarpetX):     max_grid_size=[32,32,32]
+INFO (CarpetX):     max_tile_size=[1024000,16,32]
+INFO (CarpetX):   Domain extent:
+INFO (CarpetX):     xmin=[-1,-1,-1]
+INFO (CarpetX):     xmax=[1,1,1]
+INFO (CarpetX):     base dx=[2,2,2]
+INFO (CarpetX):   Time stepping:
+INFO (CarpetX):     t0=0
+INFO (CarpetX):     dt=0.002
+INFO (CarpetX): Initializing level 0...
+INFO (CarpetX): Regridding...
+INFO (CarpetX):   level 0: 1 boxes, 1 cells (100%)
+INFO (CarpetX): Initialized 1 levels
+INFO (CarpetX): OutputGH: iteration 0, time 0.000000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): Starting evolution...
+INFO (ODESolvers): Integrator is constant
+INFO (CarpetX): OutputGH: iteration 1, time 0.002000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 2, time 0.004000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 3, time 0.006000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 4, time 0.008000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 5, time 0.010000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 6, time 0.012000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 7, time 0.014000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 8, time 0.016000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 9, time 0.018000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): OutputGH: iteration 10, time 0.020000, run time 0 s
+INFO (CarpetX): OutputADIOS2...
+INFO (CarpetX): OutputGH done.
+INFO (CarpetX): Shutting down...
+AMReX (22.07) finalized
+--------------------------------------------------------------------------------
+Done.
++ echo Stopping:
+Stopping:
++ date
+Fri Jul 22 21:27:26 UTC 2022
++ echo Done.
+Done.
+  Elapsed time: 0.4 s
