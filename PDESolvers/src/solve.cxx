@@ -142,7 +142,7 @@ void define_point_type() {
                                });
         const auto &patchdata = CarpetX::ghext->patchdata.at(patch);
         const auto &leveldata = patchdata.leveldata.at(level);
-        leveldata.groupdata.at(gi_pt)->valid.at(tl).at(vi_pt).set(
+        leveldata.groupdata.at(gi_pt)->valid.at(tl).at(vi_pt).set_all(
             CarpetX::make_valid_all(),
             []() { return "PDESolver::define_point_type"; });
       });
@@ -162,7 +162,7 @@ void define_point_type() {
                                    ARITH_INLINE { gf_ind(p.I) = level; });
         const auto &patchdata = CarpetX::ghext->patchdata.at(patch);
         const auto &leveldata = patchdata.leveldata.at(level);
-        leveldata.groupdata.at(gi_ind)->valid.at(tl).at(vi_ind).set(
+        leveldata.groupdata.at(gi_ind)->valid.at(tl).at(vi_ind).set_all(
             CarpetX::make_valid_all(),
             []() { return "PDESolver::define_point_type before restricting"; });
       });
@@ -234,7 +234,7 @@ void define_point_type() {
                                    ARITH_INLINE { gf_ind(p.I) = index; });
         const auto &patchdata = CarpetX::ghext->patchdata.at(patch);
         const auto &leveldata = patchdata.leveldata.at(level);
-        leveldata.groupdata.at(gi_ind)->valid.at(tl).at(vi_ind).set(
+        leveldata.groupdata.at(gi_ind)->valid.at(tl).at(vi_ind).set_all(
             CarpetX::make_valid_all(), []() {
               return "PDESolver::define_point_type before synchronizing";
             });
@@ -290,7 +290,7 @@ void define_point_type() {
                                    ARITH_INLINE { gf_ind(p.I) = level; });
         const auto &patchdata = CarpetX::ghext->patchdata.at(patch);
         const auto &leveldata = patchdata.leveldata.at(level);
-        leveldata.groupdata.at(gi_ind)->valid.at(tl).at(vi_ind).set(
+        leveldata.groupdata.at(gi_ind)->valid.at(tl).at(vi_ind).set_all(
             CarpetX::make_valid_all(), []() {
               return "PDESolver::define_point_type before prolongating";
             });
@@ -307,7 +307,6 @@ void define_point_type() {
       const auto &coarsegroupdata = *coarseleveldata.groupdata.at(gi_ind);
       amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
       amrex::MultiFab &coarsemfab_ind = *coarsegroupdata.mfab.at(tl);
-      const amrex::IntVect reffact{2, 2, 2};
       amrex::Interpolater *const interpolator =
           CarpetX::get_interpolator(std::array<int, 3>(indextype));
       FillPatch_ProlongateGhosts(groupdata, mfab_ind, coarsemfab_ind,
@@ -352,7 +351,7 @@ void define_point_type() {
           const cGH *restrict const cctkGH) {
         const auto &patchdata = CarpetX::ghext->patchdata.at(patch);
         const auto &leveldata = patchdata.leveldata.at(level);
-        leveldata.groupdata.at(gi_ind)->valid.at(tl).at(vi_ind).set(
+        leveldata.groupdata.at(gi_ind)->valid.at(tl).at(vi_ind).set_all(
             CarpetX::valid_t(),
             []() { return "PDESolver::define_point_type"; });
       });
@@ -580,7 +579,7 @@ void enumerate_points(
                    block_prolongated_offsets.at(level).at(block) +
                    block_prolongated_sizes.at(level).at(block));
         const auto &leveldata = patchdata.leveldata.at(level);
-        leveldata.groupdata.at(gi_idx)->valid.at(tl).at(vi_idx).set(
+        leveldata.groupdata.at(gi_idx)->valid.at(tl).at(vi_idx).set_all(
             CarpetX::make_valid_all(),
             []() { return "PDESolver::enumerate_points"; });
       });
@@ -657,7 +656,7 @@ void enumerate_points(
               }
             });
         const auto &leveldata = patchdata.leveldata.at(level);
-        leveldata.groupdata.at(gi_idx)->valid.at(tl).at(vi_idx).set(
+        leveldata.groupdata.at(gi_idx)->valid.at(tl).at(vi_idx).set_all(
             CarpetX::make_valid_all(),
             []() { return "PDESolver::enumerate_points"; });
       });
@@ -1060,7 +1059,7 @@ void copy_PETSc_to_Cactus(Vec vec, const std::vector<int> &varinds,
             });
         assert(nelems == nvars * block_sizes.at(level).at(block));
         for (int n = 0; n < nvars; ++n)
-          leveldata.groupdata.at(gis.at(n))->valid.at(tl).at(vis.at(n)).set(
+          leveldata.groupdata.at(gis.at(n))->valid.at(tl).at(vis.at(n)).set_all(
               CarpetX::make_valid_int(),
               []() { return "PDESolver::copy_PETSc_to_Cactus"; });
       });
