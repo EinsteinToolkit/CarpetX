@@ -1313,9 +1313,9 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
           const int ntls = groupdata.mfab.size();
           for (int tl = 0; tl < ntls; ++tl) {
             for (int vi = 0; vi < groupdata.numvars; ++vi) {
-              groupdata.valid.at(tl).at(vi).set(valid_t(), []() {
-                return "InvalidateTimelevels (invalidate all "
-                       "non-checkpointed variables)";
+              groupdata.valid.at(tl).at(vi).set_all(valid_t(), []() {
+                return "InvalidateTimelevels (invalidate all non-checkpointed "
+                       "variables)";
               });
               poison_invalid(leveldata, groupdata, vi, tl);
             }
@@ -1377,7 +1377,7 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
           rotate(groupdata.valid.begin(), groupdata.valid.end() - 1,
                  groupdata.valid.end());
           for (int vi = 0; vi < groupdata.numvars; ++vi) {
-            groupdata.valid.at(0).at(vi).set(valid_t(), []() {
+            groupdata.valid.at(0).at(vi).set_all(valid_t(), []() {
               return "CycletimeLevels (invalidate current time level)";
             });
             poison_invalid(leveldata, groupdata, vi, 0);
@@ -1789,8 +1789,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         active_levels->loop([&](auto &restrict leveldata) {
           auto &restrict groupdata = *leveldata.groupdata.at(wr.gi);
           const valid_t &provided = wr.valid;
-          groupdata.valid.at(wr.tl).at(wr.vi).set_and(
-              need | ~provided,
+          groupdata.valid.at(wr.tl).at(wr.vi).set_invalid(
+              provided & ~need,
               [iteration = cctkGH->cctk_iteration, where = attribute->where,
                thorn = attribute->thorn, routine = attribute->routine] {
                 ostringstream buf;
@@ -1805,8 +1805,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         auto &restrict arraygroupdata =
             *ghext->globaldata.arraygroupdata.at(wr.gi);
         const valid_t &provided = wr.valid;
-        arraygroupdata.valid.at(wr.tl).at(wr.vi).set_and(
-            need | ~provided,
+        arraygroupdata.valid.at(wr.tl).at(wr.vi).set_invalid(
+            provided & ~need,
             [iteration = cctkGH->cctk_iteration, where = attribute->where,
              thorn = attribute->thorn, routine = attribute->routine] {
               ostringstream buf;
@@ -1890,7 +1890,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                                                   ? nan_handling_t::forbid_nans
                                                   : nan_handling_t::allow_nans;
           const valid_t &provided = wr.valid;
-          groupdata.valid.at(wr.tl).at(wr.vi).set_or(
+          groupdata.valid.at(wr.tl).at(wr.vi).set_valid(
               provided,
               [iteration = cctkGH->cctk_iteration, where = attribute->where,
                thorn = attribute->thorn, routine = attribute->routine] {
@@ -1915,7 +1915,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
         const valid_t &provided = wr.valid;
-        arraygroupdata.valid.at(wr.tl).at(wr.vi).set_or(
+        arraygroupdata.valid.at(wr.tl).at(wr.vi).set_valid(
             provided,
             [iteration = cctkGH->cctk_iteration, where = attribute->where,
              thorn = attribute->thorn, routine = attribute->routine] {
@@ -1948,9 +1948,9 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
           const nan_handling_t nan_handling = groupdata.do_checkpoint
                                                   ? nan_handling_t::forbid_nans
                                                   : nan_handling_t::allow_nans;
-          const valid_t &provided = inv.valid;
-          groupdata.valid.at(inv.tl).at(inv.vi).set_and(
-              ~provided,
+          const valid_t &invalidated = inv.valid;
+          groupdata.valid.at(inv.tl).at(inv.vi).set_invalid(
+              invalidated,
               [iteration = cctkGH->cctk_iteration, where = attribute->where,
                thorn = attribute->thorn, routine = attribute->routine] {
                 ostringstream buf;
@@ -1974,9 +1974,9 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
-        const valid_t &provided = inv.valid;
-        arraygroupdata.valid.at(inv.tl).at(inv.vi).set_and(
-            ~provided,
+        const valid_t &invalidated = inv.valid;
+        arraygroupdata.valid.at(inv.tl).at(inv.vi).set_invalid(
+            invalidated,
             [iteration = cctkGH->cctk_iteration, where = attribute->where,
              thorn = attribute->thorn, routine = attribute->routine] {
               ostringstream buf;
@@ -2081,10 +2081,11 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
             error_if_invalid(groupdata, vi, tl, make_valid_int(), []() {
               return "SyncGroupsByDirI before syncing";
             });
-            groupdata.valid.at(tl).at(vi).set_and(~make_valid_ghosts(), []() {
-              return "SyncGroupsByDirI before syncing: "
-                     "Mark ghost zones as invalid";
-            });
+            groupdata.valid.at(tl).at(vi).set_invalid(
+                make_valid_ghosts(), []() {
+                  return "SyncGroupsByDirI before syncing: "
+                         "Mark ghost zones as invalid";
+                });
             poison_invalid(leveldata, groupdata, vi, tl);
             check_valid(leveldata, groupdata, vi, tl, nan_handling,
                         []() { return "SyncGroupsByDirI before syncing"; });

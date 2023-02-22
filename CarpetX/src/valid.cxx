@@ -22,6 +22,79 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+std::string valid_t::explanation() const {
+  const auto valstr = [](bool v) { return v ? "valid" : "invalid"; };
+  std::ostringstream buf;
+  buf << "\n"
+      << "  The interior is " << valstr(valid_int) << ".\n"
+      << "  The outer boundary is " << valstr(valid_outer) << ".\n"
+      << "  The ghost zones are " << valstr(valid_ghosts) << ".\n";
+  return buf.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const valid_t v) {
+  auto str = [](bool v) { return v ? "VAL" : "INV"; };
+  return os << "[int:" << str(v.valid_int) << ",outer:" << str(v.valid_outer)
+            << ",ghosts:" << str(v.valid_ghosts) << "]";
+}
+
+valid_t::operator string() const {
+  ostringstream buf;
+  buf << *this;
+  return buf.str();
+}
+
+YAML::Emitter &operator<<(YAML::Emitter &yaml, const valid_t v) {
+  yaml << YAML::LocalTag("valid-1.0.0");
+  yaml << YAML::Flow << YAML::BeginMap;
+  yaml << YAML::Key << "int" << YAML::Value << v.valid_int;
+  yaml << YAML::Key << "outer" << YAML::Value << v.valid_outer;
+  yaml << YAML::Key << "ghosts" << YAML::Value << v.valid_ghosts;
+  yaml << YAML::EndMap;
+  return yaml;
+}
+
+std::string why_valid_t::explanation() const {
+  const auto valstr = [](bool v) { return v ? "valid" : "invalid"; };
+  std::ostringstream buf;
+  buf << "\n"
+      << "  The interior is " << valstr(valid.valid_int)
+      << " because: " << why_int() << ".\n"
+      << "  The outer boundary is " << valstr(valid.valid_outer)
+      << " because: " << why_outer() << ".\n"
+      << "  The ghost zones are " << valstr(valid.valid_ghosts)
+      << " because: " << why_ghosts() << ".\n";
+  return buf.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const why_valid_t &why) {
+  return os << why.valid << ","
+            << "why{int:" << why.why_int() << ","
+            << "outer:" << why.why_outer() << ","
+            << "ghosts:" << why.why_ghosts() << "}";
+}
+
+why_valid_t::operator string() const {
+  ostringstream buf;
+  buf << *this;
+  return buf.str();
+}
+
+YAML::Emitter &operator<<(YAML::Emitter &yaml, const why_valid_t &why) {
+  yaml << YAML::LocalTag("why_valid-1.0.0");
+  yaml << YAML::BeginMap;
+  yaml << YAML::Key << "valid" << YAML::Value << why.valid;
+  yaml << YAML::Key << "why" << YAML::Value << YAML::BeginMap;
+  yaml << YAML::Key << "int" << YAML::Value << why.why_int();
+  yaml << YAML::Key << "outer" << YAML::Value << why.why_outer();
+  yaml << YAML::Key << "ghosts" << YAML::Value << why.why_ghosts();
+  yaml << YAML::EndMap;
+  yaml << YAML::EndMap;
+  return yaml;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // valid/invalid flags
 
 // Ensure grid functions are valid
@@ -33,8 +106,9 @@ void error_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
     CCTK_VERROR("%s: Grid function \"%s\" is invalid on patch %d, refinement "
                 "level %d, time level %d; required %s, found %s",
                 msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
-                groupdata.patch, groupdata.level, tl, string(required).c_str(),
-                string(groupdata.valid.at(tl).at(vi)).c_str());
+                groupdata.patch, groupdata.level, tl,
+                required.explanation().c_str(),
+                groupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 void warn_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
                      int vi, int tl, const valid_t &required,
@@ -45,8 +119,9 @@ void warn_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
                "%s: Grid function \"%s\" is invalid on patch %d, refinement "
                "level %d, time level %d; required %s, found %s",
                msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
-               groupdata.patch, groupdata.level, tl, string(required).c_str(),
-               string(groupdata.valid.at(tl).at(vi)).c_str());
+               groupdata.patch, groupdata.level, tl,
+               required.explanation().c_str(),
+               groupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 
 // Ensure arrays are valid
@@ -58,8 +133,8 @@ void error_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata,
     CCTK_VERROR("%s: Array \"%s\" is invalid on time level %d; "
                 "required %s, found %s",
                 msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
-                tl, string(required).c_str(),
-                string(groupdata.valid.at(tl).at(vi)).c_str());
+                tl, required.explanation().c_str(),
+                groupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 void warn_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata, int vi,
                      int tl, const valid_t &required,
@@ -70,8 +145,8 @@ void warn_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata, int vi,
                "%s: Array \"%s\" is invalid on time level %d; "
                "required %s, found %s",
                msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
-               tl, string(required).c_str(),
-               string(groupdata.valid.at(tl).at(vi)).c_str());
+               tl, required.explanation().c_str(),
+               groupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -142,14 +217,14 @@ void poison_invalid(const GHExt::PatchData::LevelData &leveldata,
 // Ensure grid functions are not poisoned
 void check_valid(const GHExt::PatchData::LevelData &leveldata,
                  const GHExt::PatchData::LevelData::GroupData &groupdata,
-                 int vi, int tl, const nan_handling_t nan_handling,
+                 int vi, int tl, const nan_handling_t nan_handling1,
                  const function<string()> &msg) {
   DECLARE_CCTK_PARAMETERS;
   if (!poison_undefined_values)
     return;
 
 #warning "TODO"
-  // const nan_handling_t nan_handling = nan_handling_t::forbid_nans;
+  const nan_handling_t nan_handling = nan_handling_t::forbid_nans;
 
   const valid_t &valid = groupdata.valid.at(tl).at(vi).get();
   if (!valid.valid_any())
@@ -247,7 +322,7 @@ void check_valid(const GHExt::PatchData::LevelData &leveldata,
           nan_imin[1], nan_imin[2], nan_imax[0], nan_imax[1], nan_imax[2],
           double(nan_xmin[0]), double(nan_xmin[1]), double(nan_xmin[2]),
           double(nan_xmax[0]), double(nan_xmax[1]), double(nan_xmax[2]),
-          string(groupdata.valid.at(tl).at(vi)).c_str());
+          groupdata.valid.at(tl).at(vi).explanation().c_str());
 
       struct info_t {
         where_t where;
@@ -310,7 +385,7 @@ void check_valid(const GHExt::PatchData::LevelData &leveldata,
                   "refinement level %d, time level %d; expected valid %s",
                   msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
                   leveldata.patch, leveldata.level, tl,
-                  string(groupdata.valid.at(tl).at(vi)).c_str());
+                  groupdata.valid.at(tl).at(vi).explanation().c_str());
     }
   }
 }
@@ -388,7 +463,7 @@ void check_valid(const GHExt::GlobalData::ArrayGroupData &arraygroupdata,
                 "expected valid %s",
                 msg().c_str(),
                 CCTK_FullVarName(arraygroupdata.firstvarindex + vi), nan_count,
-                tl, string(arraygroupdata.valid.at(tl).at(vi)).c_str());
+                tl, arraygroupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

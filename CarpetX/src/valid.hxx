@@ -64,27 +64,11 @@ struct valid_t {
            make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
   }
 
-  // TODO: Move I/O functions to valid.cxx
-  friend ostream &operator<<(ostream &os, const valid_t v) {
-    auto str = [](bool v) { return v ? "VAL" : "INV"; };
-    return os << "[int:" << str(v.valid_int) << ",outer:" << str(v.valid_outer)
-              << ",ghosts:" << str(v.valid_ghosts) << "]";
-  }
-  operator string() const {
-    ostringstream buf;
-    buf << *this;
-    return buf.str();
-  }
+  std::string explanation() const;
 
-  friend YAML::Emitter &operator<<(YAML::Emitter &yaml, const valid_t v) {
-    yaml << YAML::LocalTag("valid-1.0.0");
-    yaml << YAML::Flow << YAML::BeginMap;
-    yaml << YAML::Key << "int" << YAML::Value << v.valid_int;
-    yaml << YAML::Key << "outer" << YAML::Value << v.valid_outer;
-    yaml << YAML::Key << "ghosts" << YAML::Value << v.valid_ghosts;
-    yaml << YAML::EndMap;
-    return yaml;
-  }
+  friend std::ostream &operator<<(std::ostream &os, const valid_t v);
+  operator string() const;
+  friend YAML::Emitter &operator<<(YAML::Emitter &yaml, const valid_t v);
 };
 
 inline constexpr valid_t make_valid_int() {
@@ -137,64 +121,40 @@ public:
 
   const valid_t &get() const { return valid; }
 
-  void set(const valid_t &val, const function<string()> &why) {
-    auto old_valid = valid;
-    valid = val;
-    auto new_valid = valid;
-    if (new_valid.valid_int != old_valid.valid_int)
+  void set(const valid_t &which, const valid_t &val,
+           const function<string()> &why) {
+    valid = (valid & ~which) | (val & which);
+    if (which.valid_int)
       why_int = why;
-    if (new_valid.valid_outer != old_valid.valid_outer)
+    if (which.valid_outer)
       why_outer = why;
-    if (new_valid.valid_ghosts != old_valid.valid_ghosts)
+    if (which.valid_ghosts)
       why_ghosts = why;
   }
+  void set_all(const valid_t &val, const function<string()> &why) {
+    set(valid_t(true), val, why);
+  }
   void set_int(bool b, const function<string()> &why) {
-    auto val = valid;
-    val.valid_int = b;
-    set(val, why);
+    set(make_valid_int(), valid_t(b), why);
   }
   void set_outer(bool b, const function<string()> &why) {
-    auto val = valid;
-    val.valid_outer = b;
-    set(val, why);
+    set(make_valid_outer(), valid_t(b), why);
   }
   void set_ghosts(bool b, const function<string()> &why) {
-    auto val = valid;
-    val.valid_ghosts = b;
-    set(val, why);
+    set(make_valid_ghosts(), valid_t(b), why);
   }
-  void set_and(const valid_t &val, const function<string()> &why) {
-    set(valid & val, why);
+  void set_invalid(const valid_t &which, const function<string()> &why) {
+    set(which, valid_t(false), why);
   }
-  void set_or(const valid_t &val, const function<string()> &why) {
-    set(valid | val, why);
+  void set_valid(const valid_t &which, const function<string()> &why) {
+    set(which, valid_t(true), why);
   }
 
-  friend ostream &operator<<(ostream &os, const why_valid_t &why) {
-    return os << why.valid << ","
-              << "why{int:" << why.why_int() << ","
-              << "outer:" << why.why_outer() << ","
-              << "ghosts:" << why.why_ghosts() << "}";
-  }
-  operator string() const {
-    ostringstream buf;
-    buf << *this;
-    return buf.str();
-  }
+  std::string explanation() const;
 
-  friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
-                                   const why_valid_t &why) {
-    yaml << YAML::LocalTag("why_valid-1.0.0");
-    yaml << YAML::BeginMap;
-    yaml << YAML::Key << "valid" << YAML::Value << why.valid;
-    yaml << YAML::Key << "why" << YAML::Value << YAML::BeginMap;
-    yaml << YAML::Key << "int" << YAML::Value << why.why_int();
-    yaml << YAML::Key << "outer" << YAML::Value << why.why_outer();
-    yaml << YAML::Key << "ghosts" << YAML::Value << why.why_ghosts();
-    yaml << YAML::EndMap;
-    yaml << YAML::EndMap;
-    return yaml;
-  }
+  friend std::ostream &operator<<(std::ostream &os, const why_valid_t &why);
+  operator string() const;
+  friend YAML::Emitter &operator<<(YAML::Emitter &yaml, const why_valid_t &why);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -909,7 +909,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
               }
 
               // Mark read variables as valid
-              groupdata.valid.at(tl).at(vi).set(
+              groupdata.valid.at(tl).at(vi).set_all(
                   input_ghosts ? make_valid_all() : make_valid_int(),
                   []() { return "read from openPMD file"; });
 

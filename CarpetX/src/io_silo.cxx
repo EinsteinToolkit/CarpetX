@@ -652,7 +652,7 @@ void InputSilo(const cGH *restrict const cctkGH,
           }
           if (recv_this_fab)
             for (int vi = 0; vi < numvars; ++vi)
-              groupdata.valid.at(tl).at(vi).set(
+              groupdata.valid.at(tl).at(vi).set_all(
                   make_valid_all(), []() { return "read from Silo file"; });
           interval_wait = nullptr;
 
