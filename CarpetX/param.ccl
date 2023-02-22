@@ -479,7 +479,7 @@ BOOLEAN out_metadata "Output metadata in YAML format?" STEERABLE=always
 STRING out_norm_vars "Variables to output as norms" STEERABLE=always
 {
   ".*" :: ""
-} "all"
+} ""
 
 BOOLEAN out_norm_omit_unstable "Omit unstable norms (e.g. maxloc)" STEERABLE=always
 {
