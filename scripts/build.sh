@@ -24,10 +24,4 @@ git config --global user.name "Github Actions"
 # Build
 # The build log needs to be stored for later.
 time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build -j $(nproc) sim 2>&1 |
-    tee "build-$ACCELERATOR-$REAL_PRECISION".log || true
-
-make VERBOSE=yes sim || true
-
-nm /usr/local/lib/libamrex.so
-
-false
+    tee "build-$ACCELERATOR-$REAL_PRECISION".log

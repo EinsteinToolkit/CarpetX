@@ -187,10 +187,11 @@ RUN mkdir src && \
         *) exit 1;; \
     esac && \
     cmake \
-        -DCMAKE_BUILD_TYPE=Debug \
         -DAMReX_OMP=ON \
         -DAMReX_PARTICLES=ON \
         -DAMReX_PRECISION="$precision" \
+        -DBUILD_SHARED_LIBS=ON \
+        -DCMAKE_BUILD_TYPE=Debug \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         .. && \
     make -j$(nproc) && \
