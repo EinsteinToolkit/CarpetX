@@ -47,4 +47,4 @@ IO::out_fileinfo        = "axis labels"
 IO::out_dir             = $parfile
 IO::out_every = 1
 
-CarpetX::out_tsv = "no" # only norms are output
+CarpetX::out_norm_vars  = "all"
