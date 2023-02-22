@@ -411,8 +411,8 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
       patchdata.amrcore->SetGeometry(level, geom);
     }
 
-    amrex::BoxList boxlist(move(levboxes));
-    amrex::BoxArray boxarray(move(boxlist));
+    amrex::BoxList boxlist(std::move(levboxes));
+    amrex::BoxArray boxarray(std::move(boxlist));
     patchdata.amrcore->SetBoxArray(level, boxarray);
 
     amrex::DistributionMapping dm(boxarray);
@@ -1094,7 +1094,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
             for (int c = 0; c < ncomps; ++c)
               data.push_back(comp0 + c);
             segment_types.push_back(DB_BLOCKCENT);
-            segment_data.push_back(move(data));
+            segment_data.push_back(std::move(data));
           }
           vector<int> segment_lengths;
           vector<const int *> segment_data_ptrs;
@@ -1149,7 +1149,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 }
 
                 segment_types.push_back(DB_BLOCKCENT);
-                segment_data.push_back(move(children));
+                segment_data.push_back(std::move(children));
               }
 
             } else {
