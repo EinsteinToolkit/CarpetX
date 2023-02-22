@@ -51,37 +51,37 @@ extern "C" void ADMBase_add_noise(CCTK_ARGUMENTS) {
   const GF3D<CCTK_REAL, 0, 0, 0> dtbetay_(cctkGH, dtbetay);
   const GF3D<CCTK_REAL, 0, 0, 0> dtbetaz_(cctkGH, dtbetaz);
 
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gxx_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gxy_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gxz_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gyy_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gyz_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gzz_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gxx_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gxy_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gxz_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gyy_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gyz_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(gzz_(p.I)); });
 
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kxx_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kxy_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kxz_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kyy_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kyz_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kzz_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kxx_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kxy_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kxz_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kyy_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kyz_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(kzz_(p.I)); });
 
-  loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(alp_(p.I)); });
+  loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(alp_(p.I)); });
 
-  loop_all<0, 0, 0>(cctkGH,
+  loop_int<0, 0, 0>(cctkGH,
                     [&](const PointDesc &p) { add_noise(dtalp_(p.I)); });
 
-  loop_all<0, 0, 0>(cctkGH,
+  loop_int<0, 0, 0>(cctkGH,
                     [&](const PointDesc &p) { add_noise(betax_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH,
+  loop_int<0, 0, 0>(cctkGH,
                     [&](const PointDesc &p) { add_noise(betay_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH,
+  loop_int<0, 0, 0>(cctkGH,
                     [&](const PointDesc &p) { add_noise(betaz_(p.I)); });
 
-  loop_all<0, 0, 0>(cctkGH,
+  loop_int<0, 0, 0>(cctkGH,
                     [&](const PointDesc &p) { add_noise(dtbetax_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH,
+  loop_int<0, 0, 0>(cctkGH,
                     [&](const PointDesc &p) { add_noise(dtbetay_(p.I)); });
-  loop_all<0, 0, 0>(cctkGH,
+  loop_int<0, 0, 0>(cctkGH,
                     [&](const PointDesc &p) { add_noise(dtbetaz_(p.I)); });
 }
 

@@ -105,5 +105,11 @@ if (noise_amplitude != 0) {
     WRITES: dtlapse(interior)
     WRITES: shift(interior)
     WRITES: dtshift(interior)
+    SYNC: metric
+    SYNC: curv
+    SYNC: lapse
+    SYNC: dtlapse
+    SYNC: shift
+    SYNC: dtshift
   } "Add noise to ADMBase variables"
 }
