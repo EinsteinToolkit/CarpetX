@@ -2421,8 +2421,9 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
           for (int vi = 0; vi < groupdata.numvars; ++vi) {
             // Should we mark ghosts and maybe outer boundaries as
             // valid as well?
-            groupdata.valid.at(tl).at(vi).set(make_valid_int(),
-                                              []() { return "Restrict"; });
+            groupdata.valid.at(tl).at(vi).set_invalid(
+                make_valid_outer() | make_valid_ghosts(),
+                []() { return "Restrict"; });
             poison_invalid(leveldata, groupdata, vi, tl);
             check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
               return "Restrict on coarse level after restricting";
