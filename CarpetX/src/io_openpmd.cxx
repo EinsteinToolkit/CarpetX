@@ -294,7 +294,7 @@ struct carpetx_openpmd_t {
     std::ostringstream buf;
     buf << groupname;
     // TODO: The openPMD standard says to use `"_lev" << level` as mesh name
-    buf << "_rl" << setw(2) << setfill('0') << level;
+    buf << "_lev" << setw(2) << setfill('0') << level;
     return buf.str();
   }
 
@@ -302,7 +302,7 @@ struct carpetx_openpmd_t {
   static std_tuple<int, int> interpret_meshname(const std::string &meshname) {
     std::smatch match;
     const bool matched =
-        std::regex_match(meshname, match, std::regex("(\\w+)_rl0*(\\d+)"));
+        std::regex_match(meshname, match, std::regex("(\\w+)_lev0*(\\d+)"));
     if (!matched)
       CCTK_VERROR("Cannot parse mesh name %s", meshname.c_str());
     const std::string groupname = match[1].str();
@@ -496,29 +496,52 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
   // TODO: Check whether attribute exists and has correct type
   const int ndims = iter.getAttribute("numDims").get<int64_t>();
   assert(ndims >= 0);
-  const int nlevels = iter.getAttribute("numLevels").get<int64_t>();
+
+  const int npatches = iter.getAttribute("numPatches").get<int64_t>();
+  assert(npatches == ghext->num_patches());
+  std::vector<std::string> patch_suffixes;
+  if (npatches == 1) {
+    assert(iter.getAttribute("patchSuffixes").dtype ==
+           openPMD::Datatype::STRING);
+    const std::string patch_suffix =
+        iter.getAttribute("patchSuffixes").get<std::string>();
+    patch_suffixes.resize(1);
+    patch_suffixes.at(0) = patch_suffix;
+  } else {
+    assert(iter.getAttribute("patchSuffixes").dtype ==
+           openPMD::Datatype::VEC_STRING);
+    patch_suffixes =
+        iter.getAttribute("patchSuffixes").get<std::vector<std::string> >();
+  }
+  // TODOPATCH: Handle multiple patches
+  assert(ghext->num_patches() == 1);
+  const int patch = 0;
+
+  const int nlevels =
+      iter.getAttribute("numLevels" + patch_suffixes.at(patch)).get<int64_t>();
   assert(nlevels >= 0);
   std::vector<std::string> level_suffixes;
   if (nlevels == 1) {
-    assert(iter.getAttribute("levelSuffixes").dtype ==
-           openPMD::Datatype::STRING);
+    assert(
+        iter.getAttribute("levelSuffixes" + patch_suffixes.at(patch)).dtype ==
+        openPMD::Datatype::STRING);
     const std::string level_suffix =
-        iter.getAttribute("levelSuffixes").get<std::string>();
+        iter.getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+            .get<std::string>();
     level_suffixes.resize(1);
     level_suffixes.at(0) = level_suffix;
   } else {
-    assert(iter.getAttribute("levelSuffixes").dtype ==
-           openPMD::Datatype::VEC_STRING);
+    assert(
+        iter.getAttribute("levelSuffixes" + patch_suffixes.at(patch)).dtype ==
+        openPMD::Datatype::VEC_STRING);
     level_suffixes =
-        iter.getAttribute("levelSuffixes").get<std::vector<std::string> >();
+        iter.getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+            .get<std::vector<std::string> >();
   }
   assert(int(level_suffixes.size()) == nlevels);
 
   assert(ndims == 3);
   assert(nlevels > 0);
-  // TODOPATCH: Handle multiple patches
-  assert(ghext->num_patches() == 1);
-  const int patch = 0;
   auto &patchdata = ghext->patchdata.at(patch);
   patchdata.amrcore->SetFinestLevel(nlevels - 1);
 
@@ -1027,8 +1050,9 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     for (const auto &patchdata : ghext->patchdata) {
       const int patch = patchdata.patch;
       std::ostringstream buf;
-      if (ghext->num_patches() > 1)
-        buf << "_m" << setw(2) << setfill('0') << patch;
+      // String attributes cannot be empty; we thus always need to use a patch
+      // suffix if (ghext->num_patches() > 1)
+      buf << "_patch" << setw(2) << setfill('0') << patch;
       patch_suffixes.at(patch) = buf.str();
     }
     iter.setAttribute("patchSuffixes", patch_suffixes);
@@ -1041,7 +1065,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
       for (const auto &leveldata : patchdata.leveldata) {
         const int level = leveldata.level;
         std::ostringstream buf;
-        buf << patch_suffixes.at(patch) << "_rl" << setw(2) << setfill('0')
+        buf << patch_suffixes.at(patch) << "_lev" << setw(2) << setfill('0')
             << level;
         level_suffixes.at(level) = buf.str();
       }
