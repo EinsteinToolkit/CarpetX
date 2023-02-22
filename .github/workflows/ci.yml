@@ -16,14 +16,15 @@ jobs:
   download-build-test:
     strategy:
       matrix:
-        real-precision: [32, 64]
+        accelerator: [cpu, cuda]
+        real-precision: [real32, real64]
     env:
+      ACCELERATOR: ${{matrix.accelerator}}
       REAL_PRECISION: ${{matrix.real-precision}}
-
 
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    container: einsteintoolkit/carpetx-${{matrix.real-precision}}:latest
+    container: einsteintoolkit/carpetx-${{matrix.accelerator}}-${{matrix.real-precision}}:latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -46,6 +47,7 @@ jobs:
         run: /bin/bash $GITHUB_WORKSPACE/scripts/build.sh
       
       - name: Test Cactus
+        if: ${{matrix.accelerator != 'cuda'}}
         run: /bin/bash $GITHUB_WORKSPACE/scripts/test.sh
       
       #TODO # Set exit code based on test status
