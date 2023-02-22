@@ -1297,8 +1297,8 @@ void SetupGlobals() {
         valid.valid_int = false;
         valid.valid_outer = true;
         valid.valid_ghosts = true;
-        arraygroupdata.valid.at(tl).at(vi).set(valid,
-                                               []() { return "SetupGlobals"; });
+        arraygroupdata.valid.at(tl).at(vi).set_all(
+            valid, []() { return "SetupGlobals"; });
 
         // TODO: make poison_invalid and check_invalid virtual members of
         // CommonGroupData
@@ -1416,7 +1416,7 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
       why_valid_t why([]() { return "MakeNewLevelFromCoarse"; });
       groupdata.valid.at(tl).resize(groupdata.numvars, why);
       for (int vi = 0; vi < groupdata.numvars; ++vi)
-        groupdata.valid.at(tl).at(vi).set(valid_t(false), []() {
+        groupdata.valid.at(tl).at(vi).set_all(valid_t(false), []() {
           return "MakeNewLevelFromCoarse: not prolongated because variable is "
                  "not evolved";
         });
@@ -1440,7 +1440,7 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
                                      : valid_t();
         assert(outer_valid == make_valid_outer());
         for (int vi = 0; vi < groupdata.numvars; ++vi) {
-          groupdata.valid.at(tl).at(vi).set(
+          groupdata.valid.at(tl).at(vi).set_all(
               make_valid_int() | make_valid_ghosts() | outer_valid,
               []() { return "MakeNewLevelFromCoarse after prolongation"; });
           // check_valid(groupdata, vi, tl, nan_handling, []() {
