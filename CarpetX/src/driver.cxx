@@ -852,6 +852,14 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   pp.add("amr.max_grid_size_y", max_grid_size_y);
   pp.add("amr.max_grid_size_z", max_grid_size_z);
   pp.add("amr.grid_eff", grid_efficiency);
+  if (poison_undefined_values) {
+    // Tell AMReX to initialize FArrayBoxes with nans
+    pp.add("fab.do_initval", true);
+    pp.add("fab.init_snan", true);
+    amrex::FArrayBox::set_do_initval(true);
+    amrex::FArrayBox::set_initval(
+        std::numeric_limits<amrex::Real>::signaling_NaN());
+  }
 
   amrcore = make_unique<CactusAmrCore>(patch, domain, max_num_levels - 1,
                                        ncells, coord, reffacts, is_periodic);
