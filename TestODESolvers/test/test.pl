@@ -52,6 +52,7 @@ IO::parfile_write = "no"
 IO::out_every = 1
 CarpetX::out_metadata = no
 CarpetX::out_norm_omit_unstable = yes
+CarpetX::out_norm_vars = "all"
 EOF
   my $fn = "test-$method.par";
   open (my $fh, ">", $fn) or die "Could not open '$fn': $!";
