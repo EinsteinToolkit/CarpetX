@@ -14,7 +14,7 @@
 #if defined _OPENMP || defined __HIPCC__
 #include <omp.h>
 #else
-static inline int omp_get_max_threads() { return 1; }
+#define omp_get_max_threads() (1)
 #endif
 
 #include <algorithm>
