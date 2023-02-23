@@ -29,6 +29,15 @@ namespace Loop {
 
 using Arith::vect;
 
+#ifdef __HIPCC__
+// https://clang.llvm.org/docs/AttributeReference.html#noinline
+// __noinline__ can be used as a keyword in CUDA/HIP languages. This is to
+// avoid diagnostics due to usage of __attribute__((__noinline__)) with
+// __noinline__ defined as a macro as __attribute__((noinline)).
+#undef CCTK_ATTRIBUTE_NOINLINE
+#define CCTK_ATTRIBUTE_NOINLINE __noinline__
+#endif
+
 template <typename F> CCTK_ATTRIBUTE_NOINLINE auto noinline(const F &f) {
   return f();
 }
