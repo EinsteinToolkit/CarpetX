@@ -1248,8 +1248,8 @@ int Initialise(tFleshConfig *config) {
           for (int lev = 0; lev < int(patchdata.amrcore->level_modified.size());
                ++lev) {
             if (patchdata.amrcore->level_modified.at(lev)) {
-              first_modified_level = min(first_modified_level, lev);
-              last_modified_level = max(last_modified_level, lev);
+              first_modified_level = std::min(first_modified_level, lev);
+              last_modified_level = std::max(last_modified_level, lev);
             }
           }
         }
