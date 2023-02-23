@@ -3,7 +3,7 @@ ActiveThorns = "
     IOUtil
     TestNorms
 "
- 
+
 $nlevels = 2
 $ncells = 20
 $blocking_factor = 2
@@ -41,10 +41,11 @@ CarpetX::regrid_error_threshold = 0.01
 
 CarpetX::dtfac = 0.5
 
-IO::parfile_write       = "no"
-IO::out_fileinfo        = "axis labels"
+IO::parfile_write = "no"
+IO::out_fileinfo = "axis labels"
 
-IO::out_dir             = $parfile
+IO::out_dir = $parfile
 IO::out_every = 1
 
-CarpetX::out_tsv = "no" # only norms are output
+CarpetX::out_metadata = no
+CarpetX::out_norm_vars = "all"

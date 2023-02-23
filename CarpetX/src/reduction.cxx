@@ -91,22 +91,27 @@ reduce_array(const amrex::Array4<const T> &restrict vars, const int n,
   // norm2 as well as "sum" itself)
   for (int d = 0; d < dim; ++d)
     dV *= dx[d];
-  reduction<T, dim> red;
+  // Use per-loop reduction objects to reduce round-off error
+  reduction<T, dim> redk;
   // TODO: use loop.hxx codoe to loop over grid
   for (int k = imin[2]; k < imax[2]; ++k) {
+    reduction<T, dim> redj;
     for (int j = imin[1]; j < imax[1]; ++j) {
       // #pragma omp simd reduction(red : reduction_CCTK_REAL)
+      reduction<T, dim> redi;
       for (int i = imin[0]; i < imax[0]; ++i) {
         const bool is_masked = finemask && (*finemask)(i, j, k);
         if (!is_masked) {
           const vect<T, dim> x = {x0[0] + i * dx[0], x0[1] + j * dx[1],
                                   x0[2] + k * dx[2]};
-          red += reduction<T, dim>(x, dV, vars(i, j, k, n));
+          redi += reduction<T, dim>(x, dV, vars(i, j, k, n));
         }
       }
+      redj += redi;
     }
+    redk += redj;
   }
-  return red;
+  return redk;
 }
 } // namespace
 
