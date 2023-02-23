@@ -24,10 +24,10 @@
 #define omp_get_thread_num() 0
 #define omp_in_parallel() 0
 #else
-static inline int omp_get_max_threads() { return 1; }
-static inline int omp_get_num_threads() { return 1; }
-static inline int omp_get_thread_num() { return 0; }
-static inline int omp_in_parallel() { return 0; }
+#define omp_get_max_threads() (1)
+#define omp_get_num_threads() (1)
+#define omp_get_thread_num() (0)
+#define omp_in_parallel() (0)
 #endif
 
 #include <mpi.h>
