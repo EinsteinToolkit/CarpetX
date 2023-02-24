@@ -895,7 +895,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 1, make_array(dt / 2), make_array(&rhs),
                          make_valid_int());
-    // TODO var.set_valid(make_valid_int());
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
@@ -916,7 +915,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt / 2),
                          make_array(&old, &rhs), make_valid_int());
-    // TODO var.set_valid(make_valid_int());
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
@@ -937,7 +935,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt),
                          make_array(&old, &rhs), make_valid_int());
-    // TODO var.set_valid(make_valid_int());
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
@@ -954,7 +951,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Calculate new state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt / 6, dt / 6),
                          make_array(&old, &kaccum, &k4), make_valid_int());
-    // TODO var.set_valid(make_valid_int());
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
