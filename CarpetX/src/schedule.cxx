@@ -983,6 +983,9 @@ vector<clause_t> decode_clauses(const cFunctionData *restrict attribute,
     default:
       assert(0);
     }
+    // Ignore clauses that have no effect
+    if (where == 0)
+      continue;
     valid_t valid;
     valid.valid_int = where & CCTK_VALID_INTERIOR;
     valid.valid_outer = where & CCTK_VALID_BOUNDARY;
