@@ -84,6 +84,10 @@ struct statecomp_t {
   static void free_tmp_mfabs();
 
   void set_valid(const valid_t valid) const;
+  template <size_t N>
+  static void combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
+                             const array<CCTK_REAL, N> &factors,
+                             const array<const statecomp_t *, N> &srcs);
   void check_valid(const valid_t required, const function<string()> &why) const;
   void check_valid(const valid_t required, const string &why) const {
     check_valid(required, [=]() { return why; });
@@ -171,6 +175,50 @@ void statecomp_t::set_valid(const valid_t valid) const {
   }
 }
 
+// Combine validity information from several sources
+template <size_t N>
+void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
+                                 const array<CCTK_REAL, N> &factors,
+                                 const array<const statecomp_t *, N> &srcs) {
+  const int ngroups = dst.groupdatas.size();
+  for (const auto &src : srcs)
+    assert(int(src->groupdatas.size()) == ngroups);
+  for (int group = 0; group < ngroups; ++group) {
+    const auto &dstgroup = dst.groupdatas.at(group);
+    const int nvars = dstgroup->numvars;
+    for (const auto &src : srcs) {
+      const auto &srcgroup = src->groupdatas.at(group);
+      assert(srcgroup->numvars == nvars);
+    }
+  }
+
+  for (int group = 0; group < ngroups; ++group) {
+    const auto &dstgroup = dst.groupdatas.at(group);
+    const int nvars = dstgroup->numvars;
+    const int tl = 0;
+    for (int vi = 0; vi < nvars; ++vi) {
+      valid_t valid = valid_t(true);
+      bool did_set_valid = false;
+      if (scale != 0) {
+        valid &= dstgroup->valid.at(tl).at(vi).get();
+        did_set_valid = true;
+      }
+      for (size_t m = 0; m < srcs.size(); ++m) {
+        if (factors.at(m) != 0) {
+          const auto &src = srcs.at(m);
+          const auto &srcgroup = src->groupdatas.at(group);
+          valid &= srcgroup->valid.at(tl).at(vi).get();
+          did_set_valid = true;
+        }
+      }
+      if (!did_set_valid)
+        valid = valid_t(false);
+      dstgroup->valid.at(tl).at(vi) =
+          why_valid_t(valid, []() { return "Set from RHS in ODESolvers"; });
+    }
+  }
+}
+
 // Ensure a state vector has valid data in the interior
 void statecomp_t::check_valid(const valid_t required,
                               const function<string()> &why) const {
@@ -238,6 +286,8 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
   const bool read_dst = scale != 0;
   for (size_t n = 0; n < N; ++n)
     assert(isfinite(factors[n]));
+
+  statecomp_t::combine_valids(dst, scale, factors, srcs);
 
 #ifndef AMREX_USE_GPU
   vector<function<void()> > tasks;
@@ -660,6 +710,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 1, make_array(dt), make_array(&rhs),
                          make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
 
   } else if (CCTK_EQUALS(method, "RK2")) {
@@ -682,6 +734,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // dest = alpha * dest + beta^i * src^i
     statecomp_t::lincomb(var, 1, make_array(dt / 2), make_array(&rhs),
                          make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt / 2;
     // var = poststep(var)
@@ -696,6 +750,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Calculate new state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt),
                          make_array(&old, &rhs), make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
 
   } else if (CCTK_EQUALS(method, "RK3")) {
@@ -719,6 +775,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 1, make_array(dt / 2), make_array(&k1),
                          make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt / 2;
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
@@ -734,6 +792,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), -dt, 2 * dt),
                          make_array(&old, &k1, &k2), make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt;
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
@@ -748,6 +808,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     statecomp_t::lincomb(var, 0,
                          make_array(CCTK_REAL(1), dt / 6, 2 * dt / 3, dt / 6),
                          make_array(&old, &k1, &k2, &k3), make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
 
   } else if (CCTK_EQUALS(method, "SSPRK3")) {
@@ -771,6 +833,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 1, make_array(dt), make_array(&k1),
                          make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt;
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
@@ -786,6 +850,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt / 4, dt / 4),
                          make_array(&old, &k1, &k2), make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt / 2;
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
@@ -800,6 +866,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     statecomp_t::lincomb(var, 0,
                          make_array(CCTK_REAL(1), dt / 6, dt / 6, 2 * dt / 3),
                          make_array(&old, &k1, &k2, &k3), make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
 
   } else if (CCTK_EQUALS(method, "RK4")) {
@@ -827,7 +895,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 1, make_array(dt / 2), make_array(&rhs),
                          make_valid_int());
-    var.set_valid(make_valid_int());
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
@@ -848,7 +915,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt / 2),
                          make_array(&old, &rhs), make_valid_int());
-    var.set_valid(make_valid_int());
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
@@ -869,7 +935,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Add scaled RHS to state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt),
                          make_array(&old, &rhs), make_valid_int());
-    var.set_valid(make_valid_int());
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
@@ -886,7 +951,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // Calculate new state vector
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt / 6, dt / 6),
                          make_array(&old, &kaccum, &k4), make_valid_int());
-    var.set_valid(make_valid_int());
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
@@ -975,6 +1039,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         }
       }
       statecomp_t::lincomb(var, 0, factors, srcs, make_valid_int());
+      var.check_valid(make_valid_int(),
+                      "ODESolvers after defining new state vector");
       mark_invalid(dep_groups);
       // TODO: Deallocate ks that are not needed any more
       CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
@@ -1000,6 +1066,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
     }
     statecomp_t::lincomb(var, 0, factors, srcs, make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
 
   } else if (CCTK_EQUALS(method, "DP87")) {
@@ -1090,6 +1158,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         }
       }
       statecomp_t::lincomb(var, 0, factors, srcs, make_valid_int());
+      var.check_valid(make_valid_int(),
+                      "ODESolvers after defining new state vector");
       mark_invalid(dep_groups);
       // TODO: Deallocate ks that are not needed any more
       CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
@@ -1115,6 +1185,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
     }
     statecomp_t::lincomb(var, 0, factors, srcs, make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
 
   } else if (CCTK_EQUALS(method, "Implicit Euler")) {
@@ -1144,6 +1216,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt / 2;
     statecomp_t::lincomb(var, 1, make_array(dt / 2), make_array(&rhs),
                          make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
 
@@ -1172,6 +1246,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt, dt),
                          make_array(&y0, &k2, &kprime2), make_valid_int());
+    var.check_valid(make_valid_int(),
+                    "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
 
   } else {
