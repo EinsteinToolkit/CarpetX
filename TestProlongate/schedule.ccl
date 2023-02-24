@@ -52,15 +52,6 @@ SCHEDULE TestProlongate_Set IN TestProlongate_SetValue
 SCHEDULE TestProlongate_Sync IN TestProlongate_SetValue AFTER TestProlongate_Set
 {
   LANG: C
-  WRITES: data(boundary)
-  WRITES: gf000(boundary)
-  WRITES: gf001(boundary)
-  WRITES: gf010(boundary)
-  WRITES: gf011(boundary)
-  WRITES: gf100(boundary)
-  WRITES: gf101(boundary)
-  WRITES: gf110(boundary)
-  WRITES: gf111(boundary)
   SYNC: data
   SYNC: gf000
   SYNC: gf001
@@ -75,15 +66,6 @@ SCHEDULE TestProlongate_Sync IN TestProlongate_SetValue AFTER TestProlongate_Set
 SCHEDULE TestProlongate_Sync IN postregrid
 {
   LANG: C
-  WRITES: data(boundary)
-  WRITES: gf000(boundary)
-  WRITES: gf001(boundary)
-  WRITES: gf010(boundary)
-  WRITES: gf011(boundary)
-  WRITES: gf100(boundary)
-  WRITES: gf101(boundary)
-  WRITES: gf110(boundary)
-  WRITES: gf111(boundary)
   SYNC: data
   SYNC: gf000
   SYNC: gf001
@@ -98,15 +80,6 @@ SCHEDULE TestProlongate_Sync IN postregrid
 SCHEDULE TestProlongate_Sync IN postrestrict
 {
   LANG: C
-  WRITES: data(boundary)
-  WRITES: gf000(boundary)
-  WRITES: gf001(boundary)
-  WRITES: gf010(boundary)
-  WRITES: gf011(boundary)
-  WRITES: gf100(boundary)
-  WRITES: gf101(boundary)
-  WRITES: gf110(boundary)
-  WRITES: gf111(boundary)
   SYNC: data
   SYNC: gf000
   SYNC: gf001
