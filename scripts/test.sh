@@ -36,7 +36,7 @@ TWOPROC_DIR="$(./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECIS
 TESTS_FAILED=False
 for test_dir in "${ONEPROC_DIR}" "${TWOPROC_DIR}"; do
     log="${test_dir}/summary.log"
-    if !grep -q '^ Number failed            -> 0$' ${log}; then
+    if ! grep -q '^ Number failed            -> 0$' ${log}; then
         TESTS_FAILED=True
     fi
 done
