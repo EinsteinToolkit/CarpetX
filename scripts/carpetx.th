@@ -229,14 +229,14 @@ CactusTest/TestFortranDependencies1
 CactusTest/TestFortranDependencies2
 CactusTest/TestFpointerNULL
 CactusTest/TestFreeF90
-CactusTest/TestGlobalReduce
+# CactusTest/TestGlobalReduce
 CactusTest/TestInclude1
 CactusTest/TestInclude2
-CactusTest/TestLoop
+# CactusTest/TestLoop
 CactusTest/TestMath
-CactusTest/TestMoL
+# CactusTest/TestMoL
 CactusTest/TestPar
-CactusTest/TestReadWrite
+# CactusTest/TestReadWrite
 CactusTest/TestReduce
 CactusTest/TestSchedule
 CactusTest/TestStrings
@@ -254,7 +254,7 @@ CactusTest/TestTypes
 CactusUtils/Formaline
 CactusUtils/MemSpeed
 CactusUtils/NaNCatcher
-CactusUtils/NaNChecker
+# CactusUtils/NaNChecker
 CactusUtils/Nice
 CactusUtils/NoMPI
 #DISABLED CactusUtils/OpenCLRunTime
@@ -468,8 +468,8 @@ CactusUtils/WatchDog
 !TYPE     = git
 !URL      = https://github.com/EinsteinToolkit/$1-$2
 !REPO_PATH = ../$1-$2
-!CHECKOUT = ExternalLibraries/OpenBLAS ExternalLibraries/OpenCL ExternalLibraries/pciutils ExternalLibraries/PETSc
-#DISABLED ExternalLibraries/ADIOS2
+!CHECKOUT = ExternalLibraries/ADIOS ExternalLibraries/AMReX ExternalLibraries/Boost ExternalLibraries/NSIMD ExternalLibraries/OpenBLAS ExternalLibraries/OpenCL ExternalLibraries/openPMD_api ExternalLibraries/pciutils ExternalLibraries/PETSc ExternalLibraries/Silo ExternalLibraries/ssht ExternalLibraries/yaml_cpp
+#DISABLED ExternalLibraries/ADIOS
 #DISABLED ExternalLibraries/AMReX
 ExternalLibraries/BLAS
 #DISABLED ExternalLibraries/Boost
