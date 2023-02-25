@@ -1,0 +1,3 @@
+# Configuration definitions for thorn Poisson2
+
+REQUIRES PDESolvers
