@@ -6,9 +6,9 @@ on:
   # Allow running this workflow manually from the Actions tab
   workflow_dispatch:
 
-#TODO concurrency:
-#TODO   group: carpetx
-#TODO   cancel-in-progress: false
+# concurrency:
+#   group: carpetx
+#   cancel-in-progress: false
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -31,11 +31,11 @@ jobs:
       # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
       - uses: actions/checkout@v3
           
-      # Check out the documentation and test results
-      - uses: actions/checkout@v3
-        with:
-          ref: gh-pages
-          path: gh-pages
+      # # Check out the documentation and test results
+      # - uses: actions/checkout@v3
+      #   with:
+      #     ref: gh-pages
+      #     path: gh-pages
           
       - name: Log the triggering commit
         run: echo ${{github.event.client_payload.trigger}}
