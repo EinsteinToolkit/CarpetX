@@ -40,4 +40,4 @@ for test_dir in "${ONEPROC_DIR}" "${TWOPROC_DIR}"; do
         TESTS_FAILED=True
     fi
 done
-echo ${TESTS_FAILED} >>${GITHUB_ENV}
+echo "TESTS_FAILED=${TESTS_FAILED}" >>"${GITHUB_ENV}"
