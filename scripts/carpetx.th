@@ -468,11 +468,8 @@ CactusUtils/WatchDog
 !TYPE     = git
 !URL      = https://github.com/EinsteinToolkit/$1-$2
 !REPO_PATH = ../$1-$2
-!CHECKOUT = ExternalLibraries/ADIOS ExternalLibraries/AMReX ExternalLibraries/Boost ExternalLibraries/NSIMD ExternalLibraries/OpenBLAS ExternalLibraries/OpenCL ExternalLibraries/openPMD_api ExternalLibraries/pciutils ExternalLibraries/PETSc ExternalLibraries/Silo ExternalLibraries/ssht ExternalLibraries/yaml_cpp
-#DISABLED ExternalLibraries/ADIOS
-#DISABLED ExternalLibraries/AMReX
+!CHECKOUT = ExternalLibraries/OpenBLAS ExternalLibraries/OpenCL ExternalLibraries/pciutils ExternalLibraries/PETSc
 ExternalLibraries/BLAS
-#DISABLED ExternalLibraries/Boost
 ExternalLibraries/FFTW3
 ExternalLibraries/GSL
 ExternalLibraries/HDF5
@@ -481,19 +478,29 @@ ExternalLibraries/LAPACK
 ExternalLibraries/libjpeg
 ExternalLibraries/LORENE
 ExternalLibraries/MPI
-#DISABLED ExternalLibraries/NSIMD
 #DISABLED ExternalLibraries/OpenBLAS
 #DISABLED ExternalLibraries/OpenCL
-#DISABLED ExternalLibraries/openPMD_api
 ExternalLibraries/OpenSSL
 ExternalLibraries/PAPI
 #DISABLED ExternalLibraries/pciutils
 #DISABLED ExternalLibraries/PETSc
-#DISABLED ExternalLibraries/Silo
-#DISABLED ExternalLibraries/ssht
 ExternalLibraries/pthreads
-#DISABLED ExternalLibraries/yaml_cpp
 ExternalLibraries/zlib
+
+# Thorns required for CarpetX
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://github.com/rhaas80/$1-$2
+!REPO_PATH = ../$1-$2
+!CHECKOUT =
+ExternalLibraries/ADIOS
+ExternalLibraries/AMReX
+ExternalLibraries/Boost
+ExternalLibraries/NSIMD
+ExternalLibraries/openPMD_api
+ExternalLibraries/Silo
+ExternalLibraries/ssht
+ExternalLibraries/yaml_cpp
 
 # A newer version of Lorene, by default disabled
 !TARGET   = $ARR
