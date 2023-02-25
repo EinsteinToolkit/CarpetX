@@ -495,12 +495,20 @@ ExternalLibraries/zlib
 !CHECKOUT =
 ExternalLibraries/ADIOS
 ExternalLibraries/AMReX
-ExternalLibraries/Boost
 ExternalLibraries/NSIMD
-ExternalLibraries/openPMD_api
+ExternalLibraries/openPMD
 ExternalLibraries/Silo
 ExternalLibraries/ssht
 ExternalLibraries/yaml_cpp
+
+# Boost library
+!TARGET   = $ARR
+!TYPE     = git                                                                                         
+!AUTH_URL = git@github.com:dradice/Boost.git
+!URL      = git://github.com/dradice/Boost.git
+!REPO_PATH = ../$2                                                                                      
+!CHECKOUT =
+ExternalLibraries/Boost
 
 # A newer version of Lorene, by default disabled
 !TARGET   = $ARR
