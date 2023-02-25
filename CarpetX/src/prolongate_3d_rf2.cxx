@@ -255,7 +255,10 @@ template <int ORDER> struct interp1d<CC, POLY, ORDER> {
         y += cs[i] * crseptr[(i - i0) * di];
     else
       for (int i = 0; i < ORDER + 1; ++i)
-        y += cs[i] * crseptr[(ORDER - i - i0) * di];
+        // For odd orders, the stencil has an even number of points and is thus
+        // offset. This offset moves the stencil right by one point when it is
+        // reversed.
+        y += cs[i] * crseptr[(ORDER + (ORDER % 2 != 0 ? 1 : 0) - i - i0) * di];
 #ifdef CCTK_DEBUG
     assert(isfinite(y));
 #endif

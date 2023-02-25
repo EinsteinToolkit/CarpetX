@@ -5,7 +5,7 @@ ActiveThorns = "
     SystemTopology
     TestInterpolate
 "
- 
+
 $nlevels = 3
 $ncells = 32
 
@@ -16,6 +16,7 @@ Cactus::terminate = "time"
 Cactus::cctk_final_time = 0
 
 CarpetX::verbose = no
+CarpetX::poison_undefined_values = yes
 
 CarpetX::xmin = -1.0
 CarpetX::ymin = -1.0
@@ -40,7 +41,9 @@ IO::out_fileinfo = "none"
 IO::parfile_write = "no"
 IO::out_every = 1
 
-CarpetX::out_plotfile_groups = ""
-CarpetX::out_silo_vars = ""
-CarpetX::out_tsv_vars = ""
-CarpetX::out_norm_vars = ""
+CarpetX::out_metadata = no
+CarpetX::out_tsv_vars = "
+    TestInterpolate::reference
+    TestInterpolate::results_driver_interpolate
+    TestInterpolate::results_interpolate
+"

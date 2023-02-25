@@ -359,65 +359,6 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void OutputScalars(const cGH *restrict cctkGH) {
-  DECLARE_CCTK_ARGUMENTS;
-  DECLARE_CCTK_PARAMETERS;
-
-  static Timer timer("OutputScalars");
-  Interval interval(timer);
-
-  const bool is_root = CCTK_MyProc(nullptr) == 0;
-  if (!is_root)
-    return;
-  const string sep = "\t";
-
-  const int numgroups = CCTK_NumGroups();
-  for (int gi = 0; gi < numgroups; ++gi) {
-    cGroup group;
-    int ierr = CCTK_GroupData(gi, &group);
-    assert(!ierr);
-
-    if (group.grouptype != CCTK_SCALAR)
-      continue;
-
-    string groupname = CCTK_FullGroupName(gi);
-    groupname = regex_replace(groupname, regex("::"), "-");
-    for (auto &c : groupname)
-      c = tolower(c);
-    ostringstream buf;
-    buf << out_dir << "/" << groupname << ".tsv";
-    const string filename = buf.str();
-
-    ofstream file(filename.c_str(), std::ofstream::out | std::ofstream::app);
-
-    // TODO: write proper header (once)
-#if 0
-    // Output header
-    file << "#"
-         << sep
-         << "iteration"
-         << sep
-         << "time";
-    for (int vi = 0; vi < groupdata.numvars; ++vi) {
-      file << sep << CCTK_VarName(group.firstvarindex + vi);
-    file << "\n";
-#endif
-
-    // Output data
-    const GHExt::GlobalData &restrict globaldata = ghext->globaldata;
-    const GHExt::GlobalData::ArrayGroupData &restrict arraygroupdata =
-        *globaldata.arraygroupdata.at(gi);
-    const int tl = 0;
-    file << cctkGH->cctk_iteration << sep << cctkGH->cctk_time;
-    for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
-      file << sep << arraygroupdata.data.at(tl).at(vi);
-    }
-    file << "\n";
-  }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 struct parameters {};
 YAML::Emitter &operator<<(YAML::Emitter &yaml, parameters) {
   yaml << YAML::LocalTag("parameters-1.0.0");
@@ -551,8 +492,6 @@ int OutputGH(const cGH *restrict cctkGH) {
     launch([&]() { OutputMetadata(cctkGH); });
 
     OutputNorms(cctkGH);
-
-    OutputScalars(cctkGH);
 
     {
       const vector<bool> group_enabled = find_groups("ADIOS2", out_adios2_vars);
