@@ -6,9 +6,9 @@ on:
   # Allow running this workflow manually from the Actions tab
   workflow_dispatch:
 
-#TODO concurrency:
-#TODO   group: carpetx
-#TODO   cancel-in-progress: false
+# concurrency:
+#   group: carpetx
+#   cancel-in-progress: false
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -31,11 +31,11 @@ jobs:
       # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
       - uses: actions/checkout@v3
           
-      #TODO # Check out the documentation and test results
-      #TODO - uses: actions/checkout@v3
-      #TODO   with:
-      #TODO     ref: gh-pages
-      #TODO     path: gh-pages
+      # # Check out the documentation and test results
+      # - uses: actions/checkout@v3
+      #   with:
+      #     ref: gh-pages
+      #     path: gh-pages
           
       - name: Log the triggering commit
         run: echo ${{github.event.client_payload.trigger}}
@@ -50,7 +50,8 @@ jobs:
         if: ${{matrix.accelerator != 'cuda'}}
         run: /bin/bash $GITHUB_WORKSPACE/scripts/test.sh
       
-      #TODO # Set exit code based on test status
-      #TODO - name: Exit code
-      #TODO   if: ${{env.TESTS_FAILED == 'True'}}
-      #TODO   run: exit 1
+      # Set exit code based on test status
+      - name: Set exit code
+        # Only look at the test results for `carpetx-cpu-real64` runs
+        if: ${{matrix.accelerator == 'cpu' && matrix.real-precision == 'real64' && env.TESTS_FAILED == 'True'}}
+        run: exit 1

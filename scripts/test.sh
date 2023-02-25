@@ -26,9 +26,18 @@ TWOPROC_DIR="$(./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECIS
 # cd "$PAGESSPACE"
 # python3 "$CARPETXSPACE/scripts/store.py" "$WORKSPACE/Cactus/repos/CarpetX" "$ONEPROC_DIR" "$TWOPROC_DIR"
 # python3 "$CARPETXSPACE/scripts/logpage.py" "$WORKSPACE/Cactus/repos/CarpetX"
-#  
+# 
 # # Store HTML results
 # git add docs
 # git add records
 # git add test_nums.csv
 # git commit -m "Add new test result" && git push
+
+TESTS_FAILED=False
+for test_dir in "${ONEPROC_DIR}" "${TWOPROC_DIR}"; do
+    log="${test_dir}/summary.log"
+    if ! grep -q '^    Number failed            -> 0$' ${log}; then
+        TESTS_FAILED=True
+    fi
+done
+echo "TESTS_FAILED=${TESTS_FAILED}" >>"${GITHUB_ENV}"

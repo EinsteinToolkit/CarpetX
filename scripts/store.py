@@ -1,7 +1,10 @@
 '''
 This file stores logs for future use in the records folder
 '''
-import shutil,os,glob
+import glob
+import os
+import shutil
+import subprocess
 import sys
 import configparser
 
@@ -68,11 +71,11 @@ def store_commit_id(version):
         This stores the current git HEAD hash for future use
     '''
     global REPO
+    # Keep trailing newline with the commit id
+    id=subprocess.check_output(["git", "--git-dir", f"{REPO}/.git", "rev-parse", "HEAD"])
     dst=f"./records/version_{version}/id.txt"
-    # TODO: use pygit2 for this
-    # id=f"{REPO}/.git/refs/heads/master"
-    id=os.open(f"git --git-dir {REPO}/.git rev-parse HEAD").read().strip()
-    shutil.copy(id,dst)
+    with open(dst,'wb') as f:
+        f.write(id)
 
 def get_version():
     '''
