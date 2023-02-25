@@ -692,7 +692,26 @@ Numerical/AEILocalInterp
 # WVUThorns_Diagnostics/VolumeIntegrals_vacuum
 
 
-# Private thorns
+# CarpetX thorns
 !TARGET   = $ARR
 !TYPE     = ignore
 !CHECKOUT =
+CarpetX/ADMBase
+CarpetX/Algo
+CarpetX/Arith
+CarpetX/CarpetX
+CarpetX/Coordinates
+CarpetX/Derivs
+CarpetX/ErrorEstimator
+CarpetX/HydroBase
+CarpetX/Loop
+CarpetX/ODESolvers
+CarpetX/PDESolvers
+CarpetX/TestArrayGroup
+CarpetX/TestInterpolate
+CarpetX/TestNorms
+CarpetX/TestODESolvers
+CarpetX/TestODESolvers2
+CarpetX/TestProlongate
+CarpetX/TestSymmetries
+CarpetX/TmunuBase
