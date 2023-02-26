@@ -53,10 +53,11 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         using std::pow;
+        constexpr auto DI = Loop::PointDesc::DI;
         CCTK_REAL ddu = 0;
         for (int d = 0; d < dim; ++d)
-          ddu += (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
-                 pow(p.DX[d], 2);
+          ddu +=
+              (u(p.I - DI[d]) - 2 * u(p.I) + u(p.I + DI[d])) / pow(p.DX[d], 2);
 
         udot(p.I) = rho(p.I);
         rhodot(p.I) = ddu;
@@ -88,9 +89,10 @@ extern "C" void WaveToyX_Energy(CCTK_ARGUMENTS) {
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         using std::pow;
+        constexpr auto DI = Loop::PointDesc::DI;
         CCTK_REAL du2 = 0;
         for (int d = 0; d < dim; ++d)
-          du2 += pow((u(p.I + p.DI[d]) - u(p.I + p.DI[d])) / (2 * p.DX[d]), 2);
+          du2 += pow((u(p.I + DI[d]) - u(p.I + DI[d])) / (2 * p.DX[d]), 2);
 
         eps(p.I) = (pow(rho(p.I), 2) + du2) / 2;
       });
