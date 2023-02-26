@@ -24,8 +24,10 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <future>
+#include <algorithm>
 #include <regex>
+#include <utility>
+#include <vector>
 
 namespace CarpetX {
 using namespace std;
@@ -361,20 +363,37 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
 
 struct parameters {};
 YAML::Emitter &operator<<(YAML::Emitter &yaml, parameters) {
-  yaml << YAML::LocalTag("parameters-1.0.0");
-  yaml << YAML::BeginMap;
+  // Collect all parameters and their values
+  std::vector<std::pair<std::string, const cParamData *> > parameter_values;
   int first = 1;
   for (;;) {
     const cParamData *data;
-    // This call is most likely not thread safe
-    int ierr = CCTK_ParameterWalk(first, nullptr, nullptr, &data);
-    assert(ierr >= 0);
-    if (ierr)
+    // This call is not thread safe
+    const int iret = CCTK_ParameterWalk(first, nullptr, nullptr, &data);
+    assert(iret >= 0);
+    if (iret)
       break;
-    const string fullname = string(data->thorn) + "::" + data->name;
+    first = 0;
+    // Ignore inactive thorns
+    if (!CCTK_IsThornActive(data->thorn))
+      continue;
+    const std::string fullname = std::string(data->thorn) + "::" + data->name;
+    parameter_values.emplace_back(fullname, data);
+  }
+
+  // Sort parameters alphabetically
+  std::sort(parameter_values.begin(), parameter_values.end());
+
+  // Output parameters
+  yaml << YAML::LocalTag("parameters-1.0.0");
+  yaml << YAML::BeginMap;
+  for (const auto &parameter_value : parameter_values) {
+    const std::string &fullname = parameter_value.first;
+    const cParamData *const data = parameter_value.second;
     yaml << YAML::Key << fullname << YAML::Value << YAML::Flow;
     int type;
-    const void *pvalue = CCTK_ParameterGet(data->name, data->thorn, &type);
+    const void *const pvalue =
+        CCTK_ParameterGet(data->name, data->thorn, &type);
     switch (type) {
     case PARAMETER_KEYWORD:
     case PARAMETER_STRING:
@@ -392,9 +411,9 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml, parameters) {
     default:
       assert(0);
     }
-    first = 0;
   }
   yaml << YAML::EndMap;
+
   return yaml;
 }
 
@@ -484,12 +503,8 @@ int OutputGH(const cGH *restrict cctkGH) {
                double(cctk_time), CCTK_RunTime());
 
   if (out_every > 0 && cctk_iteration % out_every == 0) {
-    vector<future<void> > tasks;
-    const auto launch = [&](const auto &fun) {
-      tasks.push_back(async(std::launch::async, fun));
-    };
 
-    launch([&]() { OutputMetadata(cctkGH); });
+    OutputMetadata(cctkGH);
 
     OutputNorms(cctkGH);
 
@@ -541,9 +556,6 @@ int OutputGH(const cGH *restrict cctkGH) {
     OutputTSVold(cctkGH);
 
     OutputTSV(cctkGH);
-
-    for (auto &task : tasks)
-      task.wait();
 
     // Describe all output files
     OutputMeta(cctkGH);
