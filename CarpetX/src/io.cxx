@@ -25,7 +25,6 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
-#include <future>
 #include <regex>
 #include <utility>
 #include <vector>

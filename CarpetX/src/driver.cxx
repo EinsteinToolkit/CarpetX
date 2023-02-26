@@ -1071,9 +1071,9 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
       freg = make_unique<amrex::FluxRegister>(
           gba, dm, ghext->patchdata.at(patch).amrcore->refRatio(level - 1),
           level, numvars);
-    } else {
-      fluxes.fill(-1);
     }
+  } else {
+    fluxes.fill(-1);
   }
 }
 
