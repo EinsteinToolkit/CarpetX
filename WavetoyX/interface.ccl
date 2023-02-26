@@ -1,0 +1,26 @@
+# Interface definition for thorn WaveToyX
+
+IMPLEMENTS: WaveToyX
+
+CCTK_REAL ustate TYPE=gf TAGS='rhs="urhs"'
+{
+  u
+  rho
+} "Scalar wave state vector"
+
+CCTK_REAL urhs TYPE=gf
+{
+  udot
+  rhodot
+} "RHS of scalar wave state vector"
+
+CCTK_REAL uerror TYPE=gf
+{
+  uerr
+  rhoerr
+} "Error in scalar wave state vector"
+
+CCTK_REAL eps TYPE=gf
+{
+  eps
+} "Energy density"
