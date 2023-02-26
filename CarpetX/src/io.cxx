@@ -24,7 +24,6 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <future>
 #include <regex>
 
 namespace CarpetX {
