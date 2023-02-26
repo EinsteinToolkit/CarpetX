@@ -294,20 +294,22 @@ void OutputMeta(const cGH *restrict const cctkGH) {
   if (real_output_file_descriptions.empty())
     return;
 
-  YAML::Emitter yaml;
-  yaml << YAML::Comment("Cactus Metadata");
-  yaml << YAML::BeginDoc;
-  yaml << real_output_file_descriptions;
-  yaml << YAML::EndDoc;
+  if (out_metadata) {
+    YAML::Emitter yaml;
+    yaml << YAML::Comment("Cactus Metadata");
+    yaml << YAML::BeginDoc;
+    yaml << real_output_file_descriptions;
+    yaml << YAML::EndDoc;
 
-  std::ostringstream buf;
-  buf << out_dir << "/cactus-metadata"
-      << ".it" << std::setw(8) << std::setfill('0') << cctkGH->cctk_iteration
-      << ".yaml";
-  const std::string filename = buf.str();
-  std::ofstream file(filename);
-  file << yaml.c_str() << "\n";
-  file.close();
+    std::ostringstream buf;
+    buf << out_dir << "/cactus-metadata"
+        << ".it" << std::setw(8) << std::setfill('0') << cctkGH->cctk_iteration
+        << ".yaml";
+    const std::string filename = buf.str();
+    std::ofstream file(filename);
+    file << yaml.c_str() << "\n";
+    file.close();
+  }
 
   real_output_file_descriptions.clear();
 }
