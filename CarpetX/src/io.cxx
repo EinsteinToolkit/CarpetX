@@ -24,7 +24,6 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <future>
 #include <regex>
 
 namespace CarpetX {
@@ -484,12 +483,8 @@ int OutputGH(const cGH *restrict cctkGH) {
                double(cctk_time), CCTK_RunTime());
 
   if (out_every > 0 && cctk_iteration % out_every == 0) {
-    vector<future<void> > tasks;
-    const auto launch = [&](const auto &fun) {
-      tasks.push_back(async(std::launch::async, fun));
-    };
 
-    launch([&]() { OutputMetadata(cctkGH); });
+    OutputMetadata(cctkGH);
 
     OutputNorms(cctkGH);
 
@@ -541,9 +536,6 @@ int OutputGH(const cGH *restrict cctkGH) {
     OutputTSVold(cctkGH);
 
     OutputTSV(cctkGH);
-
-    for (auto &task : tasks)
-      task.wait();
 
     // Describe all output files
     OutputMeta(cctkGH);
