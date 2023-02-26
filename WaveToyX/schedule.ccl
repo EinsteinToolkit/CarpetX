@@ -1,0 +1,34 @@
+# Schedule definitions for thorn WaveToyX
+
+STORAGE: ustate
+
+SCHEDULE WaveToyX_Initial AT initial
+{
+  LANG: C
+  WRITES: ustate(interior)
+  SYNC: ustate
+} "Initialize scalar wave state"
+
+SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: ustate(everywhere)
+  WRITES: urhs(interior)
+  SYNC: urhs
+} "Calculate scalar wave RHS"
+
+SCHEDULE WaveToyX_Error IN ODESolvers_PostStep
+{
+  LANG: C
+  READS: ustate(everywhere)
+  WRITES: uerror(interior)
+  SYNC: uerror
+} "Calculate error in scalar wave state"
+
+SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep
+{
+  LANG: C
+  READS: ustate(everywhere)
+  WRITES: eps(interior)
+  SYNC: eps
+} "Calculate scalar wave energy density"
