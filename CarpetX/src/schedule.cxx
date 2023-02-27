@@ -1635,7 +1635,7 @@ int Evolve(tFleshConfig *config) {
   CCTK_VINFO("  total iterations:                %d", total_iterations);
   CCTK_VINFO("  average cell updates per second: %g",
              total_cell_updates / total_evolution_time);
-  if (CCTK_MyProc(NULL) == 0) {
+  if (out_metadata && CCTK_MyProc(NULL) == 0) {
     std::ostringstream buf;
     buf << out_dir << "/performance.yaml";
     const std::string filename = buf.str();
