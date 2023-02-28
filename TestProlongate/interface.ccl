@@ -10,7 +10,7 @@ USES INCLUDE HEADER: loop.hxx
 
 PRIVATE:
 
-CCTK_REAL data TYPE=gf TIMELEVELS=1 TAGS='index={1 1 1}' "test grid function"
+CCTK_REAL data TYPE=gf TIMELEVELS=1 TAGS='index={1 1 1}' "Test grid function"
 
 CCTK_REAL gf000 TYPE=gf TAGS='index={0 0 0}' "Test grid function"
 CCTK_REAL gf001 TYPE=gf TAGS='index={0 0 1}' "Test grid function"
