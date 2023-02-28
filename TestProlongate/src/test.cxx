@@ -64,43 +64,50 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
   });
 
   Loop::loop_int<0, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 0, 0, 0, operator_order);
+    const CCTK_REAL good_data = fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, false,
+                                    false, false, operator_order);
     gf000[p.idx] = good_data;
   });
   Loop::loop_int<0, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 0, 0, 1, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, false, false,
+            conservative_prolongation, operator_order);
     gf001[p.idx] = good_data;
   });
   Loop::loop_int<0, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 0, 1, 0, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, false, conservative_prolongation,
+            false, operator_order);
     gf010[p.idx] = good_data;
   });
   Loop::loop_int<0, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 0, 1, 1, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, false, conservative_prolongation,
+            conservative_prolongation, operator_order);
     gf011[p.idx] = good_data;
   });
   Loop::loop_int<1, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 1, 0, 0, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, conservative_prolongation, false,
+            false, operator_order);
     gf100[p.idx] = good_data;
   });
   Loop::loop_int<1, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 1, 0, 1, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, conservative_prolongation, false,
+            conservative_prolongation, operator_order);
     gf101[p.idx] = good_data;
   });
   Loop::loop_int<1, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 1, 1, 0, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, conservative_prolongation,
+            conservative_prolongation, false, operator_order);
     gf110[p.idx] = good_data;
   });
   Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 1, 1, 1, operator_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, conservative_prolongation,
+        conservative_prolongation, conservative_prolongation, operator_order);
     gf111[p.idx] = good_data;
   });
 
@@ -174,50 +181,57 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
   });
 
   Loop::loop_int<0, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 0, 0, 0, operator_order);
+    const CCTK_REAL good_data = fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, false,
+                                    false, false, operator_order);
     const CCTK_REAL diff = fabs(gf000[p.idx] - good_data);
     my_max_diff = fmax(diff, my_max_diff);
   });
   Loop::loop_int<0, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 0, 0, 1, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, false, false,
+            conservative_prolongation, operator_order);
     const CCTK_REAL diff = fabs(gf001[p.idx] - good_data);
     my_max_diff = fmax(diff, my_max_diff);
   });
   Loop::loop_int<0, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 0, 1, 0, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, false, conservative_prolongation,
+            false, operator_order);
     const CCTK_REAL diff = fabs(gf010[p.idx] - good_data);
     my_max_diff = fmax(diff, my_max_diff);
   });
   Loop::loop_int<0, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 0, 1, 1, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, false, conservative_prolongation,
+            conservative_prolongation, operator_order);
     const CCTK_REAL diff = fabs(gf011[p.idx] - good_data);
     my_max_diff = fmax(diff, my_max_diff);
   });
   Loop::loop_int<1, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 1, 0, 0, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, conservative_prolongation, false,
+            false, operator_order);
     const CCTK_REAL diff = fabs(gf100[p.idx] - good_data);
     my_max_diff = fmax(diff, my_max_diff);
   });
   Loop::loop_int<1, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 1, 0, 1, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, conservative_prolongation, false,
+            conservative_prolongation, operator_order);
     const CCTK_REAL diff = fabs(gf101[p.idx] - good_data);
     my_max_diff = fmax(diff, my_max_diff);
   });
   Loop::loop_int<1, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 1, 1, 0, operator_order);
+        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, conservative_prolongation,
+            conservative_prolongation, false, operator_order);
     const CCTK_REAL diff = fabs(gf110[p.idx] - good_data);
     my_max_diff = fmax(diff, my_max_diff);
   });
   Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, 1, 1, 1, operator_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, conservative_prolongation,
+        conservative_prolongation, conservative_prolongation, operator_order);
     const CCTK_REAL diff = fabs(gf111[p.idx] - good_data);
     my_max_diff = fmax(diff, my_max_diff);
   });
