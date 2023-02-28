@@ -6,34 +6,50 @@
 #include <AMReX_Interpolater.H>
 
 #include <cassert>
+#include <iostream>
 
 namespace CarpetX {
-using namespace std;
 
-constexpr int VC = 0;        // vertex centering
-constexpr int CC = 1;        // cell centering
-constexpr bool POLY = false; // polynomial interpolation (non-conservative)
-constexpr bool CONS = true;  // conservative
+enum class centering_t : int { vertex = 0, cell = 1 };
+std::ostream &operator<<(std::ostream &os, centering_t cent);
+constexpr auto VC = centering_t::vertex;
+constexpr auto CC = centering_t::cell;
 
-template <int CENTI, int CENTJ, int CENTK, bool CONSI, bool CONSJ, bool CONSK,
+enum class interpolation_t { poly, cons, hermite };
+std::ostream &operator<<(std::ostream &os, interpolation_t cent);
+constexpr auto POLY = interpolation_t::poly;
+constexpr auto CONS = interpolation_t::cons;
+constexpr auto HERMITE = interpolation_t::hermite;
+
+template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
+          interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK>
 class prolongate_3d_rf2 final : public amrex::Interpolater {
 
   // Centering must be vertex (0) or cell (1)
-  static_assert(CENTI == 0 || CENTI == 1, "");
-  static_assert(CENTJ == 0 || CENTJ == 1, "");
-  static_assert(CENTK == 0 || CENTK == 1, "");
+  static_assert(CENTI == VC || CENTI == CC, "");
+  static_assert(CENTJ == VC || CENTJ == CC, "");
+  static_assert(CENTK == VC || CENTK == CC, "");
+
+  // Conservative must be one of the possible choices
+  static_assert(INTPI == POLY || INTPI == CONS || INTPI == HERMITE, "");
+  static_assert(INTPJ == POLY || INTPJ == CONS || INTPJ == HERMITE, "");
+  static_assert(INTPK == POLY || INTPK == CONS || INTPK == HERMITE, "");
 
   // Order must be nonnegative
   static_assert(ORDERI >= 0, "");
   static_assert(ORDERJ >= 0, "");
   static_assert(ORDERK >= 0, "");
 
-  static constexpr array<int, dim> indextype() { return {CENTI, CENTJ, CENTK}; }
-  static constexpr array<bool, dim> conservative() {
-    return {CONSI, CONSJ, CONSK};
+  static constexpr std::array<centering_t, dim> indextype() {
+    return {CENTI, CENTJ, CENTK};
   }
-  static constexpr array<int, dim> order() { return {ORDERI, ORDERJ, ORDERK}; }
+  static constexpr std::array<interpolation_t, dim> conservative() {
+    return {INTPI, INTPJ, INTPK};
+  }
+  static constexpr std::array<int, dim> order() {
+    return {ORDERI, ORDERJ, ORDERK};
+  }
 
 public:
   virtual ~prolongate_3d_rf2() override;
@@ -134,9 +150,7 @@ extern prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 2, 2, 2>
 
 // Prolongation operators for discrete differential forms:
 // interpolating (non-conservative) for vertex centred directions,
-// conservative for cell centred directions. We use linear
-// interpolation for vertex centred and constant interpolation for
-// cell centred directions.
+// conservative for cell centred directions.
 extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1>
     prolongate_ddf_3d_rf2_c000_o1;
 extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 1, 1, 0>

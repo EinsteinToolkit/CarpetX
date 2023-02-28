@@ -20,41 +20,42 @@ static inline int omp_get_thread_num() { return 0; }
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 
-template <typename T> constexpr T pown(const T x, const int n0) {
-  if (n0 < 0)
-    return 1 / pown(x, -n0);
-  T r{1};
-  int n{n0};
-  // while (n) {
-  //   // invariant: x^n0 = r * x^n
-  //   r *= x;
-  //   --n;
-  // }
-  T y{x};
-  while (n) {
-    if (n & 1)
-      r *= y;
-    y *= y;
-    n >>= 1;
+std::ostream &operator<<(std::ostream &os, const centering_t cent) {
+  switch (cent) {
+  case centering_t::vertex:
+    return os << "vertex";
+  case centering_t::cell:
+    return os << "cell";
   }
-  return r;
+  assert(false);
+}
+
+std::ostream &operator<<(std::ostream &os, const interpolation_t intp) {
+  switch (intp) {
+  case interpolation_t::poly:
+    return os << "poly";
+  case interpolation_t::cons:
+    return os << "cons";
+  case interpolation_t::hermite:
+    return os << "hermite";
+  }
+  assert(false);
 }
 
 // 1D interpolation coefficients
 
-template <int CENTERING, bool CONSERVATIVE, int ORDER, typename T>
+template <centering_t CENT, interpolation_t INTP, int ORDER, typename T>
 struct coeffs1d;
 
 template <typename T> struct coeffs1d<VC, POLY, /*order*/ 1, T> {
-  static constexpr array<T, 2> coeffs = {
+  static constexpr std::array<T, 2> coeffs = {
       +1 / T(2),
       +1 / T(2),
   };
 };
 template <typename T> struct coeffs1d<VC, POLY, /*order*/ 3, T> {
-  static constexpr array<T, 4> coeffs = {
+  static constexpr std::array<T, 4> coeffs = {
       -1 / T(16),
       +9 / T(16),
       +9 / T(16),
@@ -62,38 +63,38 @@ template <typename T> struct coeffs1d<VC, POLY, /*order*/ 3, T> {
   };
 };
 template <typename T> struct coeffs1d<VC, POLY, /*order*/ 5, T> {
-  static constexpr array<T, 6> coeffs = {
+  static constexpr std::array<T, 6> coeffs = {
       +3 / T(256),  -25 / T(256), +75 / T(128),
       +75 / T(128), -25 / T(256), +3 / T(256),
   };
 };
 template <typename T> struct coeffs1d<VC, POLY, /*order*/ 7, T> {
-  static constexpr array<T, 8> coeffs = {
+  static constexpr std::array<T, 8> coeffs = {
       -5 / T(2048),    +49 / T(2048),  -245 / T(2048), +1225 / T(2048),
       +1225 / T(2048), -245 / T(2048), +49 / T(2048),  -5 / T(2048),
   };
 };
 
 template <typename T> struct coeffs1d<CC, POLY, /*order*/ 0, T> {
-  static constexpr array<T, 1> coeffs = {
+  static constexpr std::array<T, 1> coeffs = {
       +1 / T(1),
   };
 };
 template <typename T> struct coeffs1d<CC, POLY, /*order*/ 1, T> {
-  static constexpr array<T, 2> coeffs = {
+  static constexpr std::array<T, 2> coeffs = {
       +1 / T(4),
       +3 / T(4),
   };
 };
 template <typename T> struct coeffs1d<CC, POLY, /*order*/ 2, T> {
-  static constexpr array<T, 3> coeffs = {
+  static constexpr std::array<T, 3> coeffs = {
       +5 / T(32),
       +15 / T(16),
       -3 / T(32),
   };
 };
 template <typename T> struct coeffs1d<CC, POLY, /*order*/ 3, T> {
-  static constexpr array<T, 4> coeffs = {
+  static constexpr std::array<T, 4> coeffs = {
       -5 / T(128),
       +35 / T(128),
       +105 / T(128),
@@ -101,70 +102,71 @@ template <typename T> struct coeffs1d<CC, POLY, /*order*/ 3, T> {
   };
 };
 template <typename T> struct coeffs1d<CC, POLY, /*order*/ 4, T> {
-  static constexpr array<T, 5> coeffs = {
+  static constexpr std::array<T, 5> coeffs = {
       -45 / T(2048), +105 / T(512), +945 / T(1024), -63 / T(512), +35 / T(2048),
   };
 };
 
+// Deprecated
 template <typename T> struct coeffs1d<VC, CONS, /*order*/ 0, T> {
-  static constexpr array<T, 1> coeffs0 = {
+  static constexpr std::array<T, 1> coeffs0 = {
       1 / T(1),
   };
-  static constexpr array<T, 0> coeffs1 = {};
+  static constexpr std::array<T, 0> coeffs1 = {};
 };
 template <typename T> struct coeffs1d<VC, CONS, /*order*/ 1, T> {
-  static constexpr array<T, 1> coeffs0 = {
+  static constexpr std::array<T, 1> coeffs0 = {
       1 / T(1),
   };
-  static constexpr array<T, 2> coeffs1 = {
+  static constexpr std::array<T, 2> coeffs1 = {
       +1 / T(2),
       +1 / T(2),
   };
 };
 // template <typename T> struct coeffs1d<VC, CONS, /*order*/ 2, T> {
-//   static constexpr array<T, 3> coeffs0 = {
+//   static constexpr std::array<T, 3> coeffs0 = {
 //       -1 / T(32),
 //       +17 / T(16),
 //       -1 / T(32),
 //   };
-//   static constexpr array<T, 3> coeffs1 = {
+//   static constexpr std::array<T, 3> coeffs1 = {
 //       +13 / T(16),
 //       -5 / T(32),
 //       +11 / T(32),
 //   };
 // };
 // template <typename T> struct coeffs1d<VC, CONS, /*order*/ 4, T> {
-//   static constexpr array<T, 5> coeffs0 = {
+//   static constexpr std::array<T, 5> coeffs0 = {
 //       +7 / T(2048), -23 / T(512), +1109 / T(1024), -23 / T(512), +7 /
 //       T(2048),
 //   };
-//   static constexpr array<T, 5> coeffs1 = {
+//   static constexpr std::array<T, 5> coeffs1 = {
 //       +63 / T(2048), -103 / T(512), +781 / T(1024),
 //       +233 / T(512), -97 / T(2048),
 //   };
 // };
 
 template <typename T> struct coeffs1d<CC, CONS, /*order*/ 0, T> {
-  static constexpr array<T, 1> coeffs = {
+  static constexpr std::array<T, 1> coeffs = {
       +1 / T(1),
   };
 };
 template <typename T> struct coeffs1d<CC, CONS, /*order*/ 2, T> {
-  static constexpr array<T, 3> coeffs = {
+  static constexpr std::array<T, 3> coeffs = {
       +1 / T(8),
       +1 / T(1),
       -1 / T(8),
   };
 };
 template <typename T> struct coeffs1d<CC, CONS, /*order*/ 4, T> {
-  static constexpr array<T, 5> coeffs = {
+  static constexpr std::array<T, 5> coeffs = {
       -3 / T(128), +11 / T(64), +1 / T(1), -11 / T(64), +3 / T(128),
   };
 };
 
 // 1D interpolation operators
 
-template <int CENTERING, bool CONSERVATIVE, int ORDER> struct interp1d;
+template <centering_t CENT, interpolation_t INTP, int ORDER> struct interp1d;
 // static constexpr int required_ghosts;
 // template <typename T>
 // inline T operator()(const T *restrict const crseptr, const ptrdiff_t di,
@@ -184,7 +186,8 @@ template <int ORDER> struct interp1d<VC, POLY, ORDER> {
 #endif
     if (off == 0)
       return crseptr[0];
-    constexpr array<T, ORDER + 1> cs = coeffs1d<VC, POLY, ORDER, T>::coeffs;
+    constexpr std::array<T, ORDER + 1> cs =
+        coeffs1d<VC, POLY, ORDER, T>::coeffs;
     const int i0 = (ORDER + 1) / 2 - off;
     constexpr int i0min = (ORDER + 1) / 2 - 1;
     constexpr int i0max = (ORDER + 1) / 2;
@@ -239,7 +242,8 @@ template <int ORDER> struct interp1d<CC, POLY, ORDER> {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
 #endif
-    constexpr array<T, ORDER + 1> cs = coeffs1d<CC, POLY, ORDER, T>::coeffs;
+    constexpr std::array<T, ORDER + 1> cs =
+        coeffs1d<CC, POLY, ORDER, T>::coeffs;
     constexpr int i0 = (ORDER + 1) / 2;
     constexpr int imin = 0;
     constexpr int imax = ORDER;
@@ -266,6 +270,7 @@ template <int ORDER> struct interp1d<CC, POLY, ORDER> {
   }
 };
 
+// Deprecated!
 // off=0: on coarse point
 // off=1: between coarse points
 template <int ORDER> struct interp1d<VC, CONS, ORDER> {
@@ -281,13 +286,13 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
     // TODO: use symmetry
     if (off == 0) {
       constexpr int i0 = ORDER / 2;
-      constexpr array<T, ORDER / 2 * 2 + 1> cs =
+      constexpr std::array<T, ORDER / 2 * 2 + 1> cs =
           coeffs1d<VC, CONS, ORDER, T>::coeffs0;
       for (int i = 0; i < ORDER / 2 * 2 + 1; ++i)
         y += cs[i] * crseptr[(i - i0) * di];
     } else {
       constexpr int i0 = (ORDER + 1) / 2;
-      constexpr array<T, (ORDER + 1) / 2 * 2> cs =
+      constexpr std::array<T, (ORDER + 1) / 2 * 2> cs =
           coeffs1d<VC, CONS, ORDER, T>::coeffs1;
       for (int i = 0; i < (ORDER + 1) / 2 * 2; ++i)
         y += cs[i] * crseptr[(i - i0) * di];
@@ -307,11 +312,11 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
 //     constexpr int i0 = (ORDER + 1) / 2;
 //     T y = 0;
 //     if (off == 0) {
-//       constexpr array<T, ORDER + 1> cs = coeffs1d<VC, CONS, ORDER,
+//       constexpr std::array<T, ORDER + 1> cs = coeffs1d<VC, CONS, ORDER,
 //       T>::coeffs0; for (int i = 0; i < ORDER + 1; ++i)
 //         y += cs[i] * crseptr[(i - i0) * di];
 //     } else {
-//       constexpr array<T, ORDER + 1> cs = coeffs1d<VC, CONS, ORDER,
+//       constexpr std::array<T, ORDER + 1> cs = coeffs1d<VC, CONS, ORDER,
 //       T>::coeffs1; for (int i = 0; i < ORDER + 1; ++i)
 //         y += cs[i] * crseptr[(i - i0) * di];
 //     }
@@ -331,7 +336,8 @@ template <int ORDER> struct interp1d<CC, CONS, ORDER> {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
 #endif
-    constexpr array<T, ORDER + 1> cs = coeffs1d<CC, CONS, ORDER, T>::coeffs;
+    constexpr std::array<T, ORDER + 1> cs =
+        coeffs1d<CC, CONS, ORDER, T>::coeffs;
     constexpr int i0 = (ORDER + 1) / 2;
     constexpr int imin = 0;
     constexpr int imax = ORDER;
@@ -374,31 +380,29 @@ template <int ORDER> struct interp1d<CC, CONS, ORDER> {
 
 // Test 1d interpolators
 
-template <int CENTERING, bool CONSERVATIVE, int ORDER, typename T>
+template <centering_t CENT, interpolation_t INTP, int ORDER, typename T>
 struct test_interp1d;
 
-template <int CENTERING, int ORDER, typename T>
-struct test_interp1d<CENTERING, POLY, ORDER, T> {
+template <centering_t CENT, int ORDER, typename T>
+struct test_interp1d<CENT, POLY, ORDER, T> {
   test_interp1d() {
     for (int order = 0; order <= ORDER; ++order) {
       auto f = [&](T x) { return pown(x, order); };
       constexpr int n = (ORDER + 1) / 2 * 2 + 1;
-      array<T, n + 2> ys;
+      std::array<T, n + 2> ys;
       ys[0] = ys[n + 1] = 0 / T(0);
       constexpr int i0 = n / 2;
-      static_assert(interp1d<CENTERING, POLY, ORDER>::required_ghosts <= i0,
-                    "");
-      static_assert(interp1d<CENTERING, POLY, ORDER>::required_ghosts <= n - i0,
-                    "");
+      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= i0, "");
+      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= n - i0, "");
       for (int i = 0; i < n; ++i) {
-        T x = (i - i0) + CENTERING / T(2);
+        T x = (i - i0) + int(CENT) / T(2);
         T y = f(x);
         ys[i + 1] = y;
       }
       for (int off = 0; off < 2; ++off) {
-        T x = CENTERING / T(4) + off / T(2);
+        T x = int(CENT) / T(4) + off / T(2);
         T y = f(x);
-        T y1 = interp1d<CENTERING, POLY, ORDER>()(&ys[i0 + 1], 1, off);
+        T y1 = interp1d<CENT, POLY, ORDER>()(&ys[i0 + 1], 1, off);
         // We carefully choose the test problem so that round-off
         // cannot be a problem here
         assert(isfinite(y1));
@@ -408,8 +412,8 @@ struct test_interp1d<CENTERING, POLY, ORDER, T> {
   }
 };
 
-template <int CENTERING, int ORDER, typename T>
-struct test_interp1d<CENTERING, CONS, ORDER, T> {
+template <centering_t CENT, int ORDER, typename T>
+struct test_interp1d<CENT, CONS, ORDER, T> {
   test_interp1d() {
     for (int order = 0; order <= ORDER; ++order) {
       // Function f, a polynomial
@@ -417,18 +421,17 @@ struct test_interp1d<CENTERING, CONS, ORDER, T> {
       // Integral of f (antiderivative)
       const auto fint{[&](T x) { return pown(x, order + 1); }};
       constexpr int n = (ORDER + 1) / 2 * 2 + 1;
-      if (CENTERING == CC) {
-        array<T, n + 2> xs;
-        array<T, n + 2> ys;
+      if (CENT == CC) {
+        std::array<T, n + 2> xs;
+        std::array<T, n + 2> ys;
         xs[0] = xs[n + 1] = 0 / T(0);
         ys[0] = ys[n + 1] = 0 / T(0);
         constexpr int i0 = n / 2;
-        static_assert(interp1d<CENTERING, CONS, ORDER>::required_ghosts <= i0,
+        static_assert(interp1d<CENT, CONS, ORDER>::required_ghosts <= i0, "");
+        static_assert(interp1d<CENT, CONS, ORDER>::required_ghosts <= n - i0,
                       "");
-        static_assert(
-            interp1d<CENTERING, CONS, ORDER>::required_ghosts <= n - i0, "");
         for (int i = 0; i < n; ++i) {
-          const T x = (i - i0) + CENTERING / T(2);
+          const T x = (i - i0) + int(CENT) / T(2);
           // T y = f(x);
           const T dx = 1;
           const T xlo = x - dx / 2;
@@ -437,11 +440,11 @@ struct test_interp1d<CENTERING, CONS, ORDER, T> {
           xs[i + 1] = x;
           ys[i + 1] = y;
         }
-        array<T, 2> x1;
-        array<T, 2> y1;
+        std::array<T, 2> x1;
+        std::array<T, 2> y1;
         for (int off = 0; off < 2; ++off) {
-          x1[off] = CENTERING / T(4) + off / T(2);
-          y1[off] = interp1d<CENTERING, CONS, ORDER>()(&ys[i0 + 1], 1, off);
+          x1[off] = int(CENT) / T(4) + off / T(2);
+          y1[off] = interp1d<CENT, CONS, ORDER>()(&ys[i0 + 1], 1, off);
           assert(isfinite(y1[off]));
         }
         assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
@@ -453,20 +456,20 @@ struct test_interp1d<CENTERING, CONS, ORDER, T> {
       } else {
         // Don't test this, the case (VC,CONS) should not be used
         if (false) {
-          array<T, n + 3> xs, ys;
+          std::array<T, n + 3> xs, ys;
           xs[0] = xs[n + 2] = 0 / T(0);
           ys[0] = ys[n + 2] = 0 / T(0);
           constexpr int i0 = n / 2;
           // TODO
           // static_assert(
-          //     interp1d<CENTERING, CONS, ORDER>::required_ghosts <= i0,
+          //     interp1d<CENT, CONS, ORDER>::required_ghosts <= i0,
           //     "");
-          // static_assert(interp1d<CENTERING, CONS, ORDER>::required_ghosts
+          // static_assert(interp1d<CENT, CONS, ORDER>::required_ghosts
           // <=
           //                   n - i0,
           //               "");
           for (int i = -1; i < n; ++i) {
-            const T x = (i - i0) + CENTERING / T(2);
+            const T x = (i - i0) + int(CENT) / T(2);
             // T y = f(x);
             const T dx = 1;
             const T xlo = x - dx / 2;
@@ -475,16 +478,15 @@ struct test_interp1d<CENTERING, CONS, ORDER, T> {
             xs[i + 2] = x;
             ys[i + 2] = y;
           }
-          array<T, 3> x1;
-          array<T, 3> y1;
+          std::array<T, 3> x1;
+          std::array<T, 3> y1;
           for (int off = -1; off < 2; ++off) {
-            x1[off + 1] = CENTERING / T(4) + off / T(2);
+            x1[off + 1] = int(CENT) / T(4) + off / T(2);
             if (off < 0)
               y1[off + 1] =
-                  interp1d<CENTERING, CONS, ORDER>()(&ys[i0 + 1], 1, off + 2);
+                  interp1d<CENT, CONS, ORDER>()(&ys[i0 + 1], 1, off + 2);
             else
-              y1[off + 1] =
-                  interp1d<CENTERING, CONS, ORDER>()(&ys[i0 + 2], 1, off);
+              y1[off + 1] = interp1d<CENT, CONS, ORDER>()(&ys[i0 + 2], 1, off);
             assert(isfinite(y1[off + 1]));
           }
           const T dx = x1[1] - x1[0];
@@ -493,7 +495,7 @@ struct test_interp1d<CENTERING, CONS, ORDER, T> {
           const T yint = fint(xhi) - fint(xlo);
           if (!(y1[0] / 4 + y1[1] / 2 + y1[2] / 4 == ys[i0 + 2]) ||
               !(y1[0] * dx / 2 + y1[1] * dx + y1[2] * dx / 2 == yint)) {
-            cerr << "settings: CENTERING=" << CENTERING << " ORDER=" << ORDER
+            cerr << "settings: CENT=" << CENT << " ORDER=" << ORDER
                  << " order=" << order << "\n";
             cerr << "input:\n";
             for (int i = -1; i < n; ++i)
@@ -513,12 +515,12 @@ struct test_interp1d<CENTERING, CONS, ORDER, T> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <int CENTERING, bool CONSERVATIVE, int ORDER, int D, typename T>
+template <centering_t CENT, interpolation_t INTP, int ORDER, int D, typename T>
 void interp3d(const T *restrict const crseptr,
               const amrex::Box &restrict crsebox, T *restrict const fineptr,
               const amrex::Box &restrict finebox,
               const amrex::Box &restrict targetbox) {
-  static test_interp1d<CENTERING, CONSERVATIVE, ORDER, T> test;
+  static test_interp1d<CENT, INTP, ORDER, T> test;
 
   static_assert(D >= 0 && D < 3, "");
 
@@ -535,8 +537,7 @@ void interp3d(const T *restrict const crseptr,
       crsebox.index(next_crseind) - crsebox.index(first_crseind);
   assert(di > 0);
 
-  constexpr int required_ghosts =
-      interp1d<CENTERING, CONSERVATIVE, ORDER>::required_ghosts;
+  constexpr int required_ghosts = interp1d<CENT, INTP, ORDER>::required_ghosts;
   {
     const amrex::IntVect fineind(targetbox.loVect());
     amrex::IntVect crseind = fineind;
@@ -579,7 +580,7 @@ void interp3d(const T *restrict const crseptr,
         crseind.getVect()[D] = coarsen(fineind.getVect()[D], 2);
         const int off = fineind.getVect()[D] - crseind.getVect()[D] * 2;
         fineptr[finebox.index(fineind)] =
-            interp1d<CENTERING, CONSERVATIVE, ORDER>()(
+            interp1d<CENT, INTP, ORDER>()(
                 &crseptr[crsebox.index(crseind)], di, off);
 #ifdef CCTK_DEBUG
         assert(isfinite(fineptr[finebox.index(fineind)]));
@@ -594,13 +595,13 @@ void interp3d(const T *restrict const crseptr,
       // allow vectorization
       const T *restrict const ptr =
           &crseptr[crsed0 + ck * crsedk + cj * crsedj + ci * crsedi];
-      const T res0 = interp1d<CENTERING, CONSERVATIVE, ORDER>()(ptr, di, 0);
-      const T res1 = interp1d<CENTERING, CONSERVATIVE, ORDER>()(ptr, di, 1);
+      const T res0 = interp1d<CENT, INTP, ORDER>()(ptr, di, 0);
+      const T res1 = interp1d<CENT, INTP, ORDER>()(ptr, di, 1);
       const T res = off == 0 ? res0 : res1;
       fineptr[fined0 + k * finedk + j * finedj + i * finedi] = res;
     } else {
       fineptr[fined0 + k * finedk + j * finedj + i * finedi] =
-          interp1d<CENTERING, CONSERVATIVE, ORDER>()(
+          interp1d<CENT, INTP, ORDER>()(
               &crseptr[crsed0 + ck * crsedk + cj * crsedj + ci * crsedi], di,
               off);
     }
@@ -639,23 +640,26 @@ void interp3d(const T *restrict const crseptr,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <int CENTI, int CENTJ, int CENTK, bool CONSI, bool CONSJ, bool CONSK,
+template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
+          interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK>
-prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
+prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                   ORDERK>::~prolongate_3d_rf2() {}
 
-template <int CENTI, int CENTJ, int CENTK, bool CONSI, bool CONSJ, bool CONSK,
+template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
+          interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK>
-amrex::Box prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI,
+amrex::Box prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI,
                              ORDERJ, ORDERK>::CoarseBox(const amrex::Box &fine,
                                                         int ratio) {
   return CoarseBox(fine, amrex::IntVect(ratio));
 }
 
-template <int CENTI, int CENTJ, int CENTK, bool CONSI, bool CONSJ, bool CONSK,
+template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
+          interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK>
 amrex::Box
-prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
+prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                   ORDERK>::CoarseBox(const amrex::Box &fine,
                                      const amrex::IntVect &ratio) {
 #warning "TODO"
@@ -685,9 +689,10 @@ prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
   return crse;
 }
 
-template <int CENTI, int CENTJ, int CENTK, bool CONSI, bool CONSJ, bool CONSK,
+template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
+          interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK>
-void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
+void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                        ORDERK>::interp(const amrex::FArrayBox &crse,
                                        int crse_comp, amrex::FArrayBox &fine,
                                        int fine_comp, int ncomp,
@@ -700,8 +705,8 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
                                        amrex::RunOn gpu_or_cpu) {
   DECLARE_CCTK_PARAMETERS;
 
-  static once_flag have_timers;
-  static vector<Timer> timers;
+  static std::once_flag have_timers;
+  static std::vector<Timer> timers;
 
   const int thread_num = omp_get_thread_num();
 
@@ -709,9 +714,9 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
     const int num_threads = omp_get_num_threads();
     timers.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
-      ostringstream buf;
+      std::ostringstream buf;
       buf << "prolongate_3d_rf2<CENT=" << CENTI << CENTJ << CENTK
-          << ",CONS=" << CONSI << CONSJ << CONSK << ",ORDER=" << ORDERI
+          << ",INTP=" << INTPI << INTPJ << INTPK << ",ORDER=" << ORDERI
           << ORDERJ << ORDERK << ">[thread=" << i << "]";
       timers.emplace_back(buf.str());
     }
@@ -734,7 +739,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
   // We prolongate first in the x, then y, then the z direction. Each
   // direction changes the target from coarse-plus-ghosts to fine.
   const amrex::Box source_region = CoarseBox(target_region, 2);
-  array<amrex::Box, dim> targets;
+  std::array<amrex::Box, dim> targets;
   for (int d = 0; d < dim; ++d) {
     targets[d] = d == 0 ? source_region : targets[d - 1];
     targets[d].setRange(d, target_region.loVect()[d], target_region.length(d));
@@ -779,7 +784,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
   for (int comp = 0; comp < ncomp; ++comp) {
     const CCTK_REAL *restrict crseptr = crse.dataPtr(crse_comp + comp);
     CCTK_REAL *restrict fineptr = &tmp0.data()[comp * targets[0].numPts()];
-    interp3d<CENTI, CONSI, ORDERI, /*D*/ 0>(crseptr, crse.box(), fineptr,
+    interp3d<CENTI, INTPI, ORDERI, /*D*/ 0>(crseptr, crse.box(), fineptr,
                                             targets[0], targets[0]);
   }
 
@@ -804,7 +809,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
     const CCTK_REAL *restrict crseptr =
         &tmp0.data()[comp * targets[0].numPts()];
     CCTK_REAL *restrict fineptr = &tmp1.data()[comp * targets[1].numPts()];
-    interp3d<CENTJ, CONSJ, ORDERJ, /*D*/ 1>(crseptr, targets[0], fineptr,
+    interp3d<CENTJ, INTPJ, ORDERJ, /*D*/ 1>(crseptr, targets[0], fineptr,
                                             targets[1], targets[1]);
   }
 
@@ -839,7 +844,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
     const CCTK_REAL *restrict crseptr =
         &tmp1.data()[comp * targets[1].numPts()];
     CCTK_REAL *restrict fineptr = fine.dataPtr(fine_comp + comp);
-    interp3d<CENTK, CONSK, ORDERK, /*D*/ 2>(crseptr, targets[1], fineptr,
+    interp3d<CENTK, INTPK, ORDERK, /*D*/ 2>(crseptr, targets[1], fineptr,
                                             fine.box(), target_region);
   }
 
@@ -869,9 +874,10 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
 #endif
 }
 
-template <int CENTI, int CENTJ, int CENTK, bool CONSI, bool CONSJ, bool CONSK,
+template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
+          interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK>
-void prolongate_3d_rf2<CENTI, CENTJ, CENTK, CONSI, CONSJ, CONSK, ORDERI, ORDERJ,
+void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                        ORDERK>::interp_face(const amrex::FArrayBox &crse,
                                             int crse_comp,
                                             amrex::FArrayBox &fine,
