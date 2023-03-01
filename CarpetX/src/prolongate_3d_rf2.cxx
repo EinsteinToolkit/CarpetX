@@ -107,6 +107,38 @@ template <typename T> struct coeffs1d<CC, POLY, /*order*/ 4, T> {
   };
 };
 
+// Hermite interpolation (with matched first derivatives)
+
+// Linear Hermite interpolation is the same as linear Lagrange interpolation
+template <typename T> struct coeffs1d<VC, HERMITE, /*order*/ 1, T> {
+  static constexpr std::array<T, 4> coeffs = {
+      +1 / T(2),
+      +1 / T(2),
+  };
+};
+// Cubic Hermite interpolation is the same as cubic Lagrange interpolation
+template <typename T> struct coeffs1d<VC, HERMITE, /*order*/ 3, T> {
+  static constexpr std::array<T, 4> coeffs = {
+      -1 / T(16),
+      +9 / T(16),
+      +9 / T(16),
+      -1 / T(16),
+  };
+};
+template <typename T> struct coeffs1d<VC, HERMITE, /*order*/ 5, T> {
+  static constexpr std::array<T, 6> coeffs = {
+      +121 / T(8192),  -875 / T(8192), +2425 / T(4096),
+      +2425 / T(4096), -875 / T(8192), +121 / T(8192),
+  };
+};
+template <typename T> struct coeffs1d<VC, HERMITE, /*order*/ 7, T> {
+  static constexpr std::array<T, 6> coeffs = {
+      -129 / T(32768),     +1127 / T(36864),    -6419 / T(49152),
+      +178115 / T(294912), +178115 / T(294912), -6419 / T(49152),
+      +1127 / T(36864),    -129 / T(32768),
+  };
+};
+
 // Deprecated
 template <typename T> struct coeffs1d<VC, CONS, /*order*/ 0, T> {
   static constexpr std::array<T, 1> coeffs0 = {
@@ -379,6 +411,65 @@ template <int ORDER> struct interp1d<CC, CONS, ORDER> {
   }
 };
 
+// off=0: on coarse point
+// off=1: between coarse points
+template <int ORDER> struct interp1d<VC, HERMITE, ORDER> {
+  static_assert(ORDER % 2 == 1);
+  static constexpr int required_ghosts = (ORDER + 1) / 2;
+  template <typename T>
+  CCTK_DEVICE CCTK_HOST inline T operator()(const T *restrict const crseptr,
+                                            const ptrdiff_t di,
+                                            const int off) const {
+#ifdef CCTK_DEBUG
+    assert(off == 0 || off == 1);
+#endif
+    if (off == 0)
+      return crseptr[0];
+    constexpr std::array<T, ORDER + 1> cs =
+        coeffs1d<VC, POLY, ORDER, T>::coeffs;
+    const int i0 = (ORDER + 1) / 2 - off;
+    constexpr int i0min = (ORDER + 1) / 2 - 1;
+    constexpr int i0max = (ORDER + 1) / 2;
+    constexpr int imin = 0;
+    constexpr int imax = (ORDER + 1) / 2 - 1;
+    constexpr int i1min = ORDER - imax;
+    constexpr int i1max = ORDER - imin;
+    // nvcc doesn't accept the constexpr terms below
+#ifndef __CUDACC__
+    const auto abs0 = [](auto x) { return x >= 0 ? x : -x; };
+    static_assert(abs0(imin - i0min) <= required_ghosts, "");
+    static_assert(abs0(imin - i0max) <= required_ghosts, "");
+    static_assert(abs0(imax - i0min) <= required_ghosts, "");
+    static_assert(abs0(imax - i0max) <= required_ghosts, "");
+    static_assert(abs0(i1min - i0min) <= required_ghosts, "");
+    static_assert(abs0(i1min - i0max) <= required_ghosts, "");
+    static_assert(abs0(i1max - i0min) <= required_ghosts, "");
+    static_assert(abs0(i1max - i0max) <= required_ghosts, "");
+#endif
+    T y = 0;
+    // Make use of symmetry in coefficients
+    for (int i = 0; i < (ORDER + 1) / 2; ++i) {
+      const int i1 = ORDER - i;
+#ifdef CCTK_DEBUG
+      assert(cs[i1] == cs[i]);
+#endif
+      y += cs[i] * (crseptr[(i - i0) * di] + crseptr[(i1 - i0) * di]);
+    }
+#ifdef CCTK_DEBUG
+    assert(isfinite(y));
+#endif
+#ifdef CCTK_DEBUG
+    T y1 = 0;
+    for (int i = 0; i < ORDER + 1; ++i)
+      y1 += cs[i] * crseptr[(i - i0) * di];
+    assert(isfinite(y1));
+    // Don't check for equality; there can be round-off errors
+    // assert(y1 == y);
+#endif
+    return y;
+  }
+};
+
 // Test 1d interpolators
 
 template <centering_t CENT, interpolation_t INTP, int ORDER, typename T>
@@ -509,6 +600,35 @@ struct test_interp1d<CENT, CONS, ORDER, T> {
           assert(y1[0] / 4 + y1[1] / 2 + y1[2] / 4 == ys[i0 + 2]);
           assert(y1[0] * dx / 2 + y1[1] * dx + y1[2] * dx / 2 == yint);
         }
+      }
+    }
+  }
+};
+
+template <centering_t CENT, int ORDER, typename T>
+struct test_interp1d<CENT, HERMITE, ORDER, T> {
+  test_interp1d() {
+    for (int order = 0; order <= ORDER; ++order) {
+      auto f = [&](T x) { return pown(x, order); };
+      constexpr int n = (ORDER + 1) / 2 * 2 + 1;
+      std::array<T, n + 2> ys;
+      ys[0] = ys[n + 1] = 0 / T(0);
+      constexpr int i0 = n / 2;
+      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= i0, "");
+      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= n - i0, "");
+      for (int i = 0; i < n; ++i) {
+        T x = (i - i0) + int(CENT) / T(2);
+        T y = f(x);
+        ys[i + 1] = y;
+      }
+      for (int off = 0; off < 2; ++off) {
+        T x = int(CENT) / T(4) + off / T(2);
+        T y = f(x);
+        T y1 = interp1d<CENT, POLY, ORDER>()(&ys[i0 + 1], 1, off);
+        // We carefully choose the test problem so that round-off
+        // cannot be a problem here
+        assert(isfinite(y1));
+        assert(y1 == y);
       }
     }
   }
@@ -1036,5 +1156,58 @@ prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 4, 4, 5>
     prolongate_ddf_3d_rf2_c110_o5;
 prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 4, 4, 4>
     prolongate_ddf_3d_rf2_c111_o5;
+
+// Hermite interpolation
+
+prolongate_3d_rf2<VC, VC, VC, HERMITE, HERMITE, HERMITE, 1, 1, 1>
+    prolongate_ddfh_3d_rf2_c000_o1;
+prolongate_3d_rf2<VC, VC, CC, HERMITE, HERMITE, CONS, 1, 1, 0>
+    prolongate_ddfh_3d_rf2_c001_o1;
+prolongate_3d_rf2<VC, CC, VC, HERMITE, CONS, HERMITE, 1, 0, 1>
+    prolongate_ddfh_3d_rf2_c010_o1;
+prolongate_3d_rf2<VC, CC, CC, HERMITE, CONS, CONS, 1, 0, 0>
+    prolongate_ddfh_3d_rf2_c011_o1;
+prolongate_3d_rf2<CC, VC, VC, CONS, HERMITE, HERMITE, 0, 1, 1>
+    prolongate_ddfh_3d_rf2_c100_o1;
+prolongate_3d_rf2<CC, VC, CC, CONS, HERMITE, CONS, 0, 1, 0>
+    prolongate_ddfh_3d_rf2_c101_o1;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, HERMITE, 0, 0, 1>
+    prolongate_ddfh_3d_rf2_c110_o1;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 0, 0, 0>
+    prolongate_ddfh_3d_rf2_c111_o1;
+
+prolongate_3d_rf2<VC, VC, VC, HERMITE, HERMITE, HERMITE, 3, 3, 3>
+    prolongate_ddfh_3d_rf2_c000_o3;
+prolongate_3d_rf2<VC, VC, CC, HERMITE, HERMITE, CONS, 3, 3, 2>
+    prolongate_ddfh_3d_rf2_c001_o3;
+prolongate_3d_rf2<VC, CC, VC, HERMITE, CONS, HERMITE, 3, 2, 3>
+    prolongate_ddfh_3d_rf2_c010_o3;
+prolongate_3d_rf2<VC, CC, CC, HERMITE, CONS, CONS, 3, 2, 2>
+    prolongate_ddfh_3d_rf2_c011_o3;
+prolongate_3d_rf2<CC, VC, VC, CONS, HERMITE, HERMITE, 2, 3, 3>
+    prolongate_ddfh_3d_rf2_c100_o3;
+prolongate_3d_rf2<CC, VC, CC, CONS, HERMITE, CONS, 2, 3, 2>
+    prolongate_ddfh_3d_rf2_c101_o3;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, HERMITE, 2, 2, 3>
+    prolongate_ddfh_3d_rf2_c110_o3;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 2, 2, 2>
+    prolongate_ddfh_3d_rf2_c111_o3;
+
+prolongate_3d_rf2<VC, VC, VC, HERMITE, HERMITE, HERMITE, 5, 5, 5>
+    prolongate_ddfh_3d_rf2_c000_o5;
+prolongate_3d_rf2<VC, VC, CC, HERMITE, HERMITE, CONS, 5, 5, 4>
+    prolongate_ddfh_3d_rf2_c001_o5;
+prolongate_3d_rf2<VC, CC, VC, HERMITE, CONS, HERMITE, 5, 4, 5>
+    prolongate_ddfh_3d_rf2_c010_o5;
+prolongate_3d_rf2<VC, CC, CC, HERMITE, CONS, CONS, 5, 4, 4>
+    prolongate_ddfh_3d_rf2_c011_o5;
+prolongate_3d_rf2<CC, VC, VC, CONS, HERMITE, HERMITE, 4, 5, 5>
+    prolongate_ddfh_3d_rf2_c100_o5;
+prolongate_3d_rf2<CC, VC, CC, CONS, HERMITE, CONS, 4, 5, 4>
+    prolongate_ddfh_3d_rf2_c101_o5;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, HERMITE, 4, 4, 5>
+    prolongate_ddfh_3d_rf2_c110_o5;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 4, 4, 4>
+    prolongate_ddfh_3d_rf2_c111_o5;
 
 } // namespace CarpetX
