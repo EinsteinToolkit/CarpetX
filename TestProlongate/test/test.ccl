@@ -8,3 +8,15 @@ TEST test_cc_nc_o3
   ABSTOL 1.0e-5
   RELTOL 1
 }
+
+TEST test_ddfh_o3
+{
+  ABSTOL 1.0e-5
+  RELTOL 1
+}
+
+TEST test_ddfh_o5
+{
+  ABSTOL 1.0e-8
+  RELTOL 1
+}
