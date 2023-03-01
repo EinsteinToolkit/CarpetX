@@ -259,10 +259,10 @@ template <int ORDER> struct interp1d<CC, POLY, ORDER> {
         y += cs[i] * crseptr[(i - i0) * di];
     else
       for (int i = 0; i < ORDER + 1; ++i)
-        // For odd orders, the stencil has an even number of points and is thus
-        // offset. This offset moves the stencil right by one point when it is
-        // reversed.
-        y += cs[i] * crseptr[(ORDER + (ORDER % 2 != 0 ? 1 : 0) - i - i0) * di];
+        // For odd orders, the stencil has an even number of points and is
+        // thus offset. This offset moves the stencil right by one point
+        // when it is reversed.
+        y += cs[ORDER - i] * crseptr[(i - i0 + (ORDER % 2 != 0 ? 1 : 0)) * di];
 #ifdef CCTK_DEBUG
     assert(isfinite(y));
 #endif
@@ -270,7 +270,7 @@ template <int ORDER> struct interp1d<CC, POLY, ORDER> {
   }
 };
 
-// Deprecated!
+// Deprecated
 // off=0: on coarse point
 // off=1: between coarse points
 template <int ORDER> struct interp1d<VC, CONS, ORDER> {
@@ -304,7 +304,8 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
 //   static_assert(ORDER % 2 == 0);
 //   static_assert(ORDER > 0);
 //   template <typename T>
-//   inline T operator()(const T *restrict const crseptr, const ptrdiff_t di,
+//   inline T operator()(const T *restrict const crseptr, const ptrdiff_t
+//   di,
 //                       const int off) const {
 // #ifdef CCTK_DEBUG
 //     assert(off == 0 || off == 1);
@@ -901,8 +902,8 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 
 // Self-tests
 namespace {
-// The constructors for these objects run the self-tests. These definitions will
-// make them run at start-up. These tests are very cheap.
+// The constructors for these objects run the self-tests. These definitions
+// will make them run at start-up. These tests are very cheap.
 static test_interp1d<VC, POLY, 1, CCTK_REAL> test_c0_o1;
 static test_interp1d<VC, POLY, 3, CCTK_REAL> test_c0_o3;
 static test_interp1d<VC, POLY, 5, CCTK_REAL> test_c0_o5;
@@ -910,6 +911,8 @@ static test_interp1d<CC, CONS, 0, CCTK_REAL> test_c1_o0;
 static test_interp1d<CC, CONS, 2, CCTK_REAL> test_c1_o2;
 static test_interp1d<CC, CONS, 4, CCTK_REAL> test_c1_o4;
 } // namespace
+
+// Polynomial (Lagrange) interpolation
 
 prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1>
     prolongate_3d_rf2_c000_o1;
@@ -945,6 +948,8 @@ prolongate_3d_rf2<CC, CC, VC, POLY, POLY, POLY, 3, 3, 3>
 prolongate_3d_rf2<CC, CC, CC, POLY, POLY, POLY, 3, 3, 3>
     prolongate_3d_rf2_c111_o3;
 
+// Conservative interpolation
+
 prolongate_3d_rf2<VC, VC, VC, CONS, CONS, CONS, 0, 0, 0>
     prolongate_cons_3d_rf2_c000_o0;
 prolongate_3d_rf2<VC, VC, CC, CONS, CONS, CONS, 0, 0, 0>
@@ -978,6 +983,8 @@ prolongate_3d_rf2<CC, CC, VC, CONS, CONS, CONS, 2, 2, 1>
     prolongate_cons_3d_rf2_c110_o1;
 prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 2, 2, 2>
     prolongate_cons_3d_rf2_c111_o1;
+
+// DDF interpolation
 
 prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1>
     prolongate_ddf_3d_rf2_c000_o1;

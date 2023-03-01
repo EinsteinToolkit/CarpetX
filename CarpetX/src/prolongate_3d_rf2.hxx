@@ -80,6 +80,8 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Polynomial (Lagrange) interpolation
+
 extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1>
     prolongate_3d_rf2_c000_o1;
 extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, POLY, 1, 1, 1>
@@ -114,6 +116,8 @@ extern prolongate_3d_rf2<CC, CC, VC, POLY, POLY, POLY, 3, 3, 3>
 extern prolongate_3d_rf2<CC, CC, CC, POLY, POLY, POLY, 3, 3, 3>
     prolongate_3d_rf2_c111_o3;
 
+// Conservative interpolation
+
 extern prolongate_3d_rf2<VC, VC, VC, CONS, CONS, CONS, 0, 0, 0>
     prolongate_cons_3d_rf2_c000_o0;
 extern prolongate_3d_rf2<VC, VC, CC, CONS, CONS, CONS, 0, 0, 0>
@@ -147,6 +151,8 @@ extern prolongate_3d_rf2<CC, CC, VC, CONS, CONS, CONS, 2, 2, 1>
     prolongate_cons_3d_rf2_c110_o1;
 extern prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 2, 2, 2>
     prolongate_cons_3d_rf2_c111_o1;
+
+// DDF interpolation
 
 // Prolongation operators for discrete differential forms:
 // interpolating (non-conservative) for vertex centred directions,

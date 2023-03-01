@@ -63,7 +63,7 @@ SCHEDULE TestProlongate_Sync IN TestProlongate_SetValue AFTER TestProlongate_Set
   SYNC: gf111
 } "Sync up test data"
 
-SCHEDULE TestProlongate_Sync IN postregrid
+SCHEDULE TestProlongate_Sync AT postregrid
 {
   LANG: C
   SYNC: data
@@ -77,7 +77,7 @@ SCHEDULE TestProlongate_Sync IN postregrid
   SYNC: gf111
 } "Sync up test data"
 
-SCHEDULE TestProlongate_Sync IN postrestrict
+SCHEDULE TestProlongate_Sync AT postrestrict
 {
   LANG: C
   SYNC: data
@@ -93,7 +93,7 @@ SCHEDULE TestProlongate_Sync IN postrestrict
 
 
 
-SCHEDULE TestProlongate_Check IN analysis
+SCHEDULE TestProlongate_Check AT analysis
 {
   LANG: C
   READS: max_diff(interior)

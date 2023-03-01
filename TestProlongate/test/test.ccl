@@ -1,1 +1,10 @@
 NPROCS 1
+
+# Increase tolerances for some tests because restricting cell-centred values is
+# only first-order accurate
+
+TEST test_cc_nc_o3
+{
+  ABSTOL 1.0e-5
+  RELTOL 1
+}
