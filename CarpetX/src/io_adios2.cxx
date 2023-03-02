@@ -11,6 +11,7 @@
 
 #ifdef HAVE_CAPABILITY_ADIOS2
 
+#define ADIOS2_USE_MPI 1
 #include <adios2.h>
 
 #ifdef _OPENMP
