@@ -51,10 +51,19 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
   assert(prolongation_type_type == PARAMETER_KEYWORD);
   const char *const prolongation_type =
       *static_cast<const char *const *>(prolongation_type_p);
-  const bool conservative_prolongation =
-      CCTK_EQUALS(prolongation_type, "conservative") ||
-      CCTK_EQUALS(prolongation_type, "ddf") ||
-      CCTK_EQUALS(prolongation_type, "ddfh");
+  bool conservative_prolongation;
+  if (CCTK_EQUALS(prolongation_type, "interpolate"))
+    conservative_prolongation = false;
+  else if (CCTK_EQUALS(prolongation_type, "conservative"))
+    conservative_prolongation = true;
+  else if (CCTK_EQUALS(prolongation_type, "ddf"))
+    conservative_prolongation = true;
+  else if (CCTK_EQUALS(prolongation_type, "ddf-eno"))
+    conservative_prolongation = true;
+  else if (CCTK_EQUALS(prolongation_type, "ddf-hermite"))
+    conservative_prolongation = true;
+  else
+    assert(0);
 
   Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     const CCTK_REAL good_data = fun(
@@ -165,10 +174,19 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
   assert(prolongation_type_type == PARAMETER_KEYWORD);
   const char *const prolongation_type =
       *static_cast<const char *const *>(prolongation_type_p);
-  const bool conservative_prolongation =
-      CCTK_EQUALS(prolongation_type, "conservative") ||
-      CCTK_EQUALS(prolongation_type, "ddf") ||
-      CCTK_EQUALS(prolongation_type, "ddfh");
+  bool conservative_prolongation;
+  if (CCTK_EQUALS(prolongation_type, "interpolate"))
+    conservative_prolongation = false;
+  else if (CCTK_EQUALS(prolongation_type, "conservative"))
+    conservative_prolongation = true;
+  else if (CCTK_EQUALS(prolongation_type, "ddf"))
+    conservative_prolongation = true;
+  else if (CCTK_EQUALS(prolongation_type, "ddf-eno"))
+    conservative_prolongation = true;
+  else if (CCTK_EQUALS(prolongation_type, "ddf-hermite"))
+    conservative_prolongation = true;
+  else
+    assert(0);
 
   CCTK_REAL my_max_diff = 0;
 
