@@ -641,9 +641,13 @@ template <int ORDER> struct interp1d<CC, ENO, ORDER> {
     assert(off == 0 || off == 1);
 #endif
     // For off=1, use the reversed stencil for the opposite shift
-    const std::array<T, ORDER + 1> cs =
-        coeffs1d<CC, ENO, ORDER, T>::coeffs[ORDER / 2 +
-                                            (off == 0 ? +1 : -1) * shift];
+    // const std::array<T, ORDER + 1> cs =
+    //     coeffs1d<CC, ENO, ORDER, T>::coeffs[ORDER / 2 +
+    //                                         (off == 0 ? +1 : -1) * shift];
+    const std::array<std::array<T, ORDER + 1>, ORDER + 1> css =
+        coeffs1d<CC, ENO, ORDER, T>::coeffs;
+    const std::array<T, ORDER + 1> &cs =
+        css[ORDER / 2 + (off == 0 ? +1 : -1) * shift];
     const int i0 = (ORDER + 1) / 2 - shift;
 #ifdef CCTK_DEBUG
     constexpr int imin = 0;
@@ -961,7 +965,7 @@ void interp3d(const T *restrict const crseptr,
     const int ck = D == 2 ? k >> 1 : k;
     const int off = (D == 0 ? i : D == 1 ? j : k) & 0x1;
     int shift = 0;
-    if constexpr (USE_STENCIL_SHIFTS) {
+    if (USE_STENCIL_SHIFTS) {
       const int si = D <= 0 ? i >> 1 : i;
       const int sj = D <= 1 ? j >> 1 : j;
       const int sk = D <= 2 ? k >> 1 : k;
@@ -974,7 +978,7 @@ void interp3d(const T *restrict const crseptr,
     const T *restrict const ptr =
         &crseptr[crsed0 + ck * crsedk + cj * crsedj + ci * crsedi];
     T res;
-    if constexpr (D == 0) {
+    if (D == 0) {
       // allow vectorization
       const T res0 = interp1d<CENT, INTP, ORDER>()(ptr, di, shift, 0);
       const T res1 = interp1d<CENT, INTP, ORDER>()(ptr, di, shift, 1);
