@@ -493,7 +493,7 @@ ExternalLibraries/zlib
 !URL      = https://github.com/rhaas80/$1-$2
 !REPO_PATH = ../$1-$2
 !CHECKOUT =
-ExternalLibraries/ADIOS
+ExternalLibraries/ADIOS2
 ExternalLibraries/AMReX
 ExternalLibraries/NSIMD
 ExternalLibraries/openPMD
