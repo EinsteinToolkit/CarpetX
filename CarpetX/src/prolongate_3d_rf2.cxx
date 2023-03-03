@@ -572,14 +572,29 @@ template <int ORDER> struct divided_difference_1d<ENO, ORDER> {
     // T dd = 0;
     // for (int i = 0; i <= ORDER; ++i)
     //   dd += ws[i] * ptr[(i - i0) * di];
-    T dd = ws[ORDER / 2] * ptr[0 * di];
-    // Make use of symmetry in coefficients
-    for (int i = 0; i < ORDER / 2; ++i) {
-      const int i1 = ORDER - i;
+    T dd;
+    if constexpr (ORDER % 2 == 0) {
+      // Make use of symmetry in coefficients
+      dd = ws[ORDER / 2] * ptr[0 * di];
+      for (int i = 0; i < ORDER / 2; ++i) {
+        const int i1 = ORDER - i;
 #ifdef CCTK_DEBUG
-      assert(ws[i1] == -ws[i]);
+        assert(ws[i1] == ws[i]);
 #endif
-      dd += ws[i] * (ptr[(i - i0) * di] - ptr[(i1 - i0) * di]);
+        dd += ws[i] * (ptr[(i - i0) * di] + ptr[(i1 - i0) * di]);
+      }
+    } else {
+      // Make use of antisymmetry in coefficients
+      // TODO: implement this
+      assert(false);
+      dd = 0;
+      for (int i = 0; i < ORDER / 2; ++i) {
+        const int i1 = ORDER - i;
+#ifdef CCTK_DEBUG
+        assert(ws[i1] == -ws[i]);
+#endif
+        dd += ws[i] * (ptr[(i - i0) * di] - ptr[(i1 - i0) * di]);
+      }
     }
     using std::fabs;
     return fabs(dd);
@@ -648,7 +663,8 @@ template <int ORDER> struct interp1d<CC, ENO, ORDER> {
         coeffs1d<CC, ENO, ORDER, T>::coeffs;
     const std::array<T, ORDER + 1> &cs =
         css[ORDER / 2 + (off == 0 ? +1 : -1) * shift];
-    const int i0 = (ORDER + 1) / 2 - shift;
+    const int i0 =
+        (off == 0 ? (ORDER + 1) / 2 : ORDER - (ORDER + 1) / 2) - shift;
 #ifdef CCTK_DEBUG
     constexpr int imin = 0;
     constexpr int imax = ORDER;
@@ -662,7 +678,7 @@ template <int ORDER> struct interp1d<CC, ENO, ORDER> {
         y += cs[i] * crseptr[(i - i0) * di];
     else
       for (int i = 0; i <= ORDER; ++i)
-        y += cs[i] * crseptr[-(i - i0) * di];
+        y += cs[ORDER - i] * crseptr[(i - i0) * di];
     return y;
   }
 };
@@ -865,7 +881,9 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
           y1[off] = interp1d<CC, ENO, ORDER>()(&ys[i0 + 1], 1, shift, off);
           assert(isfinite(y1[off]));
         }
+        // Check discrete conservation
         assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
+        // Check continuum conservation
         const T dx = x1[1] - x1[0];
         const T xlo = x1[0] - dx / 2;
         const T xhi = x1[1] + dx / 2;
@@ -966,14 +984,31 @@ void interp3d(const T *restrict const crseptr,
     const int off = (D == 0 ? i : D == 1 ? j : k) & 0x1;
     int shift = 0;
     if (USE_STENCIL_SHIFTS) {
-      const int si = D <= 0 ? i >> 1 : i;
-      const int sj = D <= 1 ? j >> 1 : j;
-      const int sk = D <= 2 ? k >> 1 : k;
+      // We interpolate first in x, then in y, then in the z
+      // direction. That is, when interpolating in direction D, we can
+      // assume that directions d<D are fine, and direction d>D are
+      // coarse. In still-coarse directions d>D, indexing
+      // `stencil_shifts_ptr` works with the fine grid indices
+      // [i,j,k], in the other directions we need to coarsen the fine
+      // grid indices.
+      const int si = 0 > D ? i : i >> 1;
+      const int sj = 1 > D ? j : j >> 1;
+      const int sk = 2 > D ? k : k >> 1;
+#ifdef CCTK_DEBUG
+      assert(si >= shiftbox.loVect()[0]);
+      assert(sj >= shiftbox.loVect()[1]);
+      assert(sk >= shiftbox.loVect()[2]);
+      assert(si <= shiftbox.hiVect()[0]);
+      assert(sj <= shiftbox.hiVect()[1]);
+      assert(sk <= shiftbox.hiVect()[2]);
+#endif
       const int shifts = stencil_shifts_ptr[shiftd0 + sk * shiftdk +
                                             sj * shiftdj + si * shiftdi];
-      shift = D == 0   ? int8_t(shifts >> 0x00)
-              : D == 1 ? int8_t(shifts >> 0x08)
-                       : int8_t(shifts >> 0x10);
+      shift = int8_t(shifts >> (D == 0 ? 0x00 : D == 1 ? 0x08 : 0x10));
+#ifdef CCTK_DEBUG
+      assert(-ORDER / 2 <= shift);
+      assert(shift <= +ORDER / 2);
+#endif
     }
     const T *restrict const ptr =
         &crseptr[crsed0 + ck * crsedk + cj * crsedj + ci * crsedi];
@@ -1143,8 +1178,9 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 #endif
 
   // Find ENO stencil offsets
-  constexpr bool use_stencil_shifts =
-      INTPI == ENO || INTPJ == ENO || INTPK == ENO;
+  constexpr bool use_stencil_shifts = (INTPI == ENO && ORDERI > 0) ||
+                                      (INTPJ == ENO && ORDERJ > 0) ||
+                                      (INTPK == ENO && ORDERK > 0);
   const amrex::Box &stencil_shifts_box = source_region;
   amrex::Gpu::DeviceVector<int> stencil_shifts;
   if constexpr (use_stencil_shifts) {
