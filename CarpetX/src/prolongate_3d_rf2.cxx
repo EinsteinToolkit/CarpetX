@@ -1218,7 +1218,9 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
   constexpr bool USE_SHIFTK = INTPK == ENO && ORDERK > 0;
   constexpr bool USE_SHIFT = USE_SHIFTI || USE_SHIFTJ || USE_SHIFTK;
   constexpr std::array<bool, dim> use_shift{USE_SHIFTI, USE_SHIFTJ, USE_SHIFTK};
-  constexpr std::array<int, dim> order{ORDERI, ORDERJ, ORDERK};
+  constexpr std::array<int, dim> diffradius{USE_SHIFTI ? ORDERI / 2 : 0,
+                                            USE_SHIFTJ ? ORDERJ / 2 : 0,
+                                            USE_SHIFTK ? ORDERK / 2 : 0};
   const amrex::Box &stencil_shifts_box = source_region;
   amrex::Gpu::DeviceVector<int> stencil_shifts;
   if constexpr (USE_SHIFT) {
@@ -1235,13 +1237,13 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     amrex::Box diffbox = source_region;
     for (int d = 0; d < dim; ++d)
       if (use_shift[d])
-        diffbox.setRange(d, diffbox.loVect()[d] - order[d] / 2,
-                         diffbox.length(d) + 2 * (order[d] / 2));
-    const ptrdiff_t diffd0 = diffbox.index(amrex::IntVect(0, 0, 0));
-    constexpr ptrdiff_t diffdi = 1;
-    assert(diffbox.index(amrex::IntVect(1, 0, 0)) - diffd0 == diffdi);
-    const ptrdiff_t diffdj = diffbox.index(amrex::IntVect(0, 1, 0)) - diffd0;
-    const ptrdiff_t diffdk = diffbox.index(amrex::IntVect(0, 0, 1)) - diffd0;
+        diffbox.setRange(d, diffbox.loVect()[d] - diffradius[d],
+                         diffbox.length(d) + 2 * diffradius[d]);
+    // const ptrdiff_t diffd0 = diffbox.index(amrex::IntVect(0, 0, 0));
+    // constexpr ptrdiff_t diffdi = 1;
+    // assert(diffbox.index(amrex::IntVect(1, 0, 0)) - diffd0 == diffdi);
+    // const ptrdiff_t diffdj = diffbox.index(amrex::IntVect(0, 1, 0)) - diffd0;
+    // const ptrdiff_t diffdk = diffbox.index(amrex::IntVect(0, 0, 1)) - diffd0;
 
     // Allocate memory for stencil shifts
     stencil_shifts.resize(ncomp * stencil_shifts_box.numPts());
@@ -1249,10 +1251,6 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     // Allocate memory for divided differences
     amrex::Gpu::DeviceVector<CCTK_REAL> divided_differences(diffbox.numPts());
     CCTK_REAL *restrict const diffptr = divided_differences.dataPtr();
-
-    constexpr int diradius = USE_SHIFTI ? ORDERI / 2 : 0;
-    constexpr int djradius = USE_SHIFTJ ? ORDERJ / 2 : 0;
-    constexpr int dkradius = USE_SHIFTK ? ORDERK / 2 : 0;
 
     // Loop over all components sequentially
     for (int comp = 0; comp < ncomp; ++comp) {
@@ -1289,9 +1287,9 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
             const amrex::IntVect ind(i, j, k);
             std::array<int, dim> min_shift{0, 0, 0};
             CCTK_REAL min_dd = 1 / CCTK_REAL(0);
-            for (int dk = -dkradius; dk <= +dkradius; ++dk) {
-              for (int dj = -djradius; dj <= +djradius; ++dj) {
-                for (int di = -diradius; di <= +diradius; ++di) {
+            for (int dk = -diffradius[2]; dk <= +diffradius[2]; ++dk) {
+              for (int dj = -diffradius[1]; dj <= +diffradius[1]; ++dj) {
+                for (int di = -diffradius[0]; di <= +diffradius[0]; ++di) {
                   const std::array<int, dim> shift{di, dj, dk};
                   const amrex::IntVect ind1(i + di, j + dj, k + dk);
                   const CCTK_REAL penalty =
