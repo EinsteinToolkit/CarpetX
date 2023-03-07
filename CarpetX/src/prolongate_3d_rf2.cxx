@@ -1,6 +1,8 @@
 #include "prolongate_3d_rf2.hxx"
 #include "timer.hxx"
 
+#include <div.hxx>
+
 #include <cctk.h>
 #include <cctk_Parameters.h>
 
@@ -198,6 +200,12 @@ template <typename T> struct coeffs1d<CC, CONS, /*order*/ 2, T> {
 template <typename T> struct coeffs1d<CC, CONS, /*order*/ 4, T> {
   static constexpr std::array<T, 5> coeffs = {
       -3 / T(128), +11 / T(64), +1 / T(1), -11 / T(64), +3 / T(128),
+  };
+};
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 6, T> {
+  static constexpr std::array<T, 7> coeffs = {
+      +5 / T(1024),   -11 / T(256), +201 / T(1024), +1 / T(1),
+      -201 / T(1024), +11 / T(256), -5 / T(1024),
   };
 };
 
@@ -601,6 +609,7 @@ template <int ORDER> struct divided_difference_1d<ENO, ORDER> {
   }
 };
 
+#if 0
 template <interpolation_t INTP, int ORDER> struct choose_stencil_shift_1d {
   static constexpr int required_ghosts = 0;
   template <typename T>
@@ -621,26 +630,32 @@ template <int ORDER> struct choose_stencil_shift_1d<ENO, ORDER> {
     std::ptrdiff_t min_shift = 0;
     T min_dd = divided_differences[0 * di];
     for (std::ptrdiff_t absi = 1; absi <= +ORDER / 2; ++absi) {
-      {
-        std::ptrdiff_t i = -absi;
-        const T dd = divided_differences[i * di];
-        if (dd < min_dd) {
-          min_shift = i;
-          min_dd = dd;
-        }
+      const std::ptrdiff_t im = -absi;
+      const T ddm = divided_differences[im * di];
+      const std::ptrdiff_t ip = +absi;
+      const T ddp = divided_differences[ip * di];
+      std::ptrdiff_t i;
+      T dd;
+      if (ddm <= ddp) {
+        i = im;
+        dd = ddm;
+      } else {
+        i = ip;
+        dd = ddp;
       }
-      {
-        std::ptrdiff_t i = +absi;
-        const T dd = divided_differences[i * di];
-        if (dd < min_dd) {
-          min_shift = i;
-          min_dd = dd;
-        }
+      using std::sqrt;
+      // Slightly prefer centred stencils
+#warning "TODO"
+      // if (dd < (1 - sqrt(std::numeric_limits<T>::epsilon())) * min_dd) {
+      if (dd < 0.9 * min_dd) {
+        min_shift = i;
+        min_dd = dd;
       }
     }
     return min_shift;
   }
 };
+#endif
 
 // off=0: left sub-cell
 // off=1: right sub-cell
@@ -693,12 +708,12 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
   test_interp1d() {
     for (int order = 0; order <= ORDER; ++order) {
       auto f = [&](T x) { return pown(x, order); };
-      constexpr int n = (ORDER + 1) / 2 * 2 + 1;
+      constexpr int n = 1 + 2 * interp1d<CENT, POLY, ORDER>::required_ghosts;
       std::array<T, n + 2> ys;
       ys[0] = ys[n + 1] = 0 / T(0);
       constexpr int i0 = n / 2;
-      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= i0, "");
-      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= n - i0, "");
+      static_assert(i0 - interp1d<CENT, POLY, ORDER>::required_ghosts >= 0, "");
+      static_assert(i0 + interp1d<CENT, POLY, ORDER>::required_ghosts <= n, "");
       for (int i = 0; i < n; ++i) {
         T x = (i - i0) + int(CENT) / T(2);
         T y = f(x);
@@ -721,12 +736,13 @@ template <int ORDER, typename T> struct test_interp1d<VC, HERMITE, ORDER, T> {
   test_interp1d() {
     for (int order = 0; order <= ORDER; ++order) {
       auto f = [&](T x) { return pown(x, order); };
-      constexpr int n = (ORDER + 1) / 2 * 2 + 1;
+      constexpr int n = 1 + 2 * interp1d<VC, HERMITE, ORDER>::required_ghosts;
       std::array<T, n + 2> ys;
       ys[0] = ys[n + 1] = 0 / T(0);
       constexpr int i0 = n / 2;
-      static_assert(interp1d<VC, HERMITE, ORDER>::required_ghosts <= i0, "");
-      static_assert(interp1d<VC, HERMITE, ORDER>::required_ghosts <= n - i0,
+      static_assert(i0 - interp1d<VC, HERMITE, ORDER>::required_ghosts >= 0,
+                    "");
+      static_assert(i0 + interp1d<VC, HERMITE, ORDER>::required_ghosts <= n,
                     "");
       for (int i = 0; i < n; ++i) {
         T x = (i - i0) + int(VC) / T(2);
@@ -754,15 +770,16 @@ struct test_interp1d<CENT, CONS, ORDER, T> {
       // const auto f{[&](T x) { return (order + 1) * pown(x, order); }};
       // Integral of f (antiderivative)
       const auto fint{[&](T x) { return pown(x, order + 1); }};
-      constexpr int n = (ORDER + 1) / 2 * 2 + 1;
+      constexpr int n = 1 + 2 * interp1d<CENT, CONS, ORDER>::required_ghosts;
       if (CENT == CC) {
         std::array<T, n + 2> xs;
         std::array<T, n + 2> ys;
         xs[0] = xs[n + 1] = 0 / T(0);
         ys[0] = ys[n + 1] = 0 / T(0);
         constexpr int i0 = n / 2;
-        static_assert(interp1d<CENT, CONS, ORDER>::required_ghosts <= i0, "");
-        static_assert(interp1d<CENT, CONS, ORDER>::required_ghosts <= n - i0,
+        static_assert(i0 - interp1d<CENT, CONS, ORDER>::required_ghosts >= 0,
+                      "");
+        static_assert(i0 + interp1d<CENT, CONS, ORDER>::required_ghosts <= n,
                       "");
         for (int i = 0; i < n; ++i) {
           const T x = (i - i0) + int(CENT) / T(2);
@@ -850,20 +867,21 @@ struct test_interp1d<CENT, CONS, ORDER, T> {
 
 template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
   test_interp1d() {
+    static_assert(ORDER % 2 == 0);
     for (int shift = -ORDER / 2; shift <= +ORDER / 2; ++shift) {
       for (int order = 0; order <= ORDER; ++order) {
         // Function f, a polynomial
         // const auto f{[&](T x) { return (order + 1) * pown(x, order); }};
         // Integral of f (antiderivative)
         const auto fint{[&](T x) { return pown(x, order + 1); }};
-        constexpr int n = (ORDER + 1) / 2 * 2 * 2 + 1;
+        constexpr int n = 1 + 2 * interp1d<CC, ENO, ORDER>::required_ghosts;
         std::array<T, n + 2> xs;
         std::array<T, n + 2> ys;
         xs[0] = xs[n + 1] = 0 / T(0);
         ys[0] = ys[n + 1] = 0 / T(0);
         constexpr int i0 = n / 2;
-        static_assert(interp1d<CC, ENO, ORDER>::required_ghosts <= i0, "");
-        static_assert(interp1d<CC, ENO, ORDER>::required_ghosts <= n - i0, "");
+        static_assert(i0 - interp1d<CC, ENO, ORDER>::required_ghosts >= 0, "");
+        static_assert(i0 + interp1d<CC, ENO, ORDER>::required_ghosts <= n, "");
         for (int i = 0; i < n; ++i) {
           const T x = (i - i0) + int(CC) / T(2);
           // T y = f(x);
@@ -897,13 +915,14 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <centering_t CENT, interpolation_t INTP, int ORDER, int D,
-          bool USE_STENCIL_SHIFTS, typename T>
+          bool USE_SHIFT, typename T>
 void interp3d(const T *restrict const crseptr,
               const amrex::Box &restrict crsebox,
               const int *restrict const stencil_shifts_ptr,
               const amrex::Box &restrict stencil_shifts_box,
               T *restrict const fineptr, const amrex::Box &restrict finebox,
               const amrex::Box &restrict targetbox) {
+  // Run self-test at compile time
   static test_interp1d<CENT, INTP, ORDER, T> test;
 
   static_assert(D >= 0 && D < 3, "");
@@ -917,8 +936,13 @@ void interp3d(const T *restrict const crseptr,
   const amrex::IntVect first_crseind(finebox.loVect());
   amrex::IntVect next_crseind = first_crseind;
   ++next_crseind.getVect()[D];
-  const ptrdiff_t di =
-      crsebox.index(next_crseind) - crsebox.index(first_crseind);
+  ptrdiff_t di;
+  if constexpr (D == 0) {
+    di = 1;
+    assert(crsebox.index(next_crseind) - crsebox.index(first_crseind) == di);
+  } else {
+    di = crsebox.index(next_crseind) - crsebox.index(first_crseind);
+  }
   assert(di > 0);
 
   constexpr int required_ghosts = interp1d<CENT, INTP, ORDER>::required_ghosts;
@@ -962,70 +986,78 @@ void interp3d(const T *restrict const crseptr,
   const ptrdiff_t shiftdj = shiftbox.index(amrex::IntVect(0, 1, 0)) - shiftd0;
   const ptrdiff_t shiftdk = shiftbox.index(amrex::IntVect(0, 0, 1)) - shiftd0;
 
-  const auto kernel = [=] CCTK_DEVICE(
-                          const int i, const int j,
-                          const int k) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+  const auto kernel =
+      [=] CCTK_DEVICE(const int i, const int j,
+                      const int k) CCTK_ATTRIBUTE_ALWAYS_INLINE {
 #if 0
         const amrex::IntVect fineind(i, j, k);
         amrex::IntVect crseind = fineind;
-        crseind.getVect()[D] = coarsen(fineind.getVect()[D], 2);
+        crseind.getVect()[D] = amrex::coarsen(fineind.getVect()[D], 2);
+        constexpr int shift = 0;
         const int off = fineind.getVect()[D] - crseind.getVect()[D] * 2;
-        fineptr[finebox.index(fineind)] =
-            interp1d<CENT, INTP, ORDER>()(
-                &crseptr[crsebox.index(crseind)], di, off);
+        fineptr[finebox.index(fineind)] = interp1d<CENT, INTP, ORDER>()(
+            &crseptr[crsebox.index(crseind)], di, shift, off);
 #ifdef CCTK_DEBUG
         assert(isfinite(fineptr[finebox.index(fineind)]));
 #endif
 #endif
-    // Note: fineind = 2 * coarseind + off
-    const int ci = D == 0 ? i >> 1 : i;
-    const int cj = D == 1 ? j >> 1 : j;
-    const int ck = D == 2 ? k >> 1 : k;
-    const int off = (D == 0 ? i : D == 1 ? j : k) & 0x1;
-    int shift = 0;
-    if (USE_STENCIL_SHIFTS) {
-      // We interpolate first in x, then in y, then in the z
-      // direction. That is, when interpolating in direction D, we can
-      // assume that directions d<D are fine, and direction d>D are
-      // coarse. In still-coarse directions d>D, indexing
-      // `stencil_shifts_ptr` works with the fine grid indices
-      // [i,j,k], in the other directions we need to coarsen the fine
-      // grid indices.
-      const int si = 0 > D ? i : i >> 1;
-      const int sj = 1 > D ? j : j >> 1;
-      const int sk = 2 > D ? k : k >> 1;
+        // Note: fineind = 2 * coarseind + off
+        const int ci = D == 0 ? div_floor(i, 2) : i;
+        const int cj = D == 1 ? div_floor(j, 2) : j;
+        const int ck = D == 2 ? div_floor(k, 2) : k;
+        const int off = (D == 0 ? i : D == 1 ? j : k) & 0x1;
+        int shift = 0;
+        if (USE_SHIFT) {
+          // We interpolate first in x, then in y, then in the z
+          // direction. That is, when interpolating in direction D, we
+          // can assume that directions d<D are fine, and direction
+          // d>D are coarse. In still-coarse directions d>D, indexing
+          // `stencil_shifts_ptr` works with the fine grid indices
+          // [i,j,k], in the other directions we need to coarsen the
+          // fine grid indices.
+          const int si = 0 > D ? i : div_floor(i, 2);
+          const int sj = 1 > D ? j : div_floor(j, 2);
+          const int sk = 2 > D ? k : div_floor(k, 2);
 #ifdef CCTK_DEBUG
-      assert(si >= shiftbox.loVect()[0]);
-      assert(sj >= shiftbox.loVect()[1]);
-      assert(sk >= shiftbox.loVect()[2]);
-      assert(si <= shiftbox.hiVect()[0]);
-      assert(sj <= shiftbox.hiVect()[1]);
-      assert(sk <= shiftbox.hiVect()[2]);
+          assert(si >= shiftbox.loVect()[0]);
+          assert(sj >= shiftbox.loVect()[1]);
+          assert(sk >= shiftbox.loVect()[2]);
+          assert(si <= shiftbox.hiVect()[0]);
+          assert(sj <= shiftbox.hiVect()[1]);
+          assert(sk <= shiftbox.hiVect()[2]);
 #endif
-      const int shifts = stencil_shifts_ptr[shiftd0 + sk * shiftdk +
-                                            sj * shiftdj + si * shiftdi];
-      shift = int8_t(shifts >> (D == 0 ? 0x00 : D == 1 ? 0x08 : 0x10));
+          const int shifts = stencil_shifts_ptr[shiftd0 + sk * shiftdk +
+                                                sj * shiftdj + si * shiftdi];
+          shift = int8_t(shifts >> (D == 0 ? 0x00 : D == 1 ? 0x08 : 0x10));
 #ifdef CCTK_DEBUG
-      assert(-ORDER / 2 <= shift);
-      assert(shift <= +ORDER / 2);
+          assert(ORDER % 2 == 0);
+          assert(-ORDER / 2 <= shift);
+          assert(shift <= +ORDER / 2);
 #endif
-    }
-    const T *restrict const ptr =
-        &crseptr[crsed0 + ck * crsedk + cj * crsedj + ci * crsedi];
-    T res;
-    if (D == 0) {
-      // allow vectorization
-      const T res0 = interp1d<CENT, INTP, ORDER>()(ptr, di, shift, 0);
-      const T res1 = interp1d<CENT, INTP, ORDER>()(ptr, di, shift, 1);
-      res = off == 0 ? res0 : res1;
-    } else {
-      res = interp1d<CENT, INTP, ORDER>()(ptr, di, shift, off);
-    }
-    fineptr[fined0 + k * finedk + j * finedj + i * finedi] = res;
+        }
+        const T *restrict const ptr =
+            &crseptr[crsed0 + ck * crsedk + cj * crsedj + ci * crsedi];
 #ifdef CCTK_DEBUG
-    assert(isfinite(fineptr[fined0 + i * finedi + j * finedj + k * finedk]));
+        assert(ptr == &crseptr[crsebox.index(amrex::IntVect(ci, cj, ck))]);
 #endif
-  };
+        T res;
+        if (D == 0) {
+          // allow vectorization
+          const T res0 = interp1d<CENT, INTP, ORDER>()(ptr, di, shift, 0);
+          const T res1 = interp1d<CENT, INTP, ORDER>()(ptr, di, shift, 1);
+          res = off == 0 ? res0 : res1;
+        } else {
+          res = interp1d<CENT, INTP, ORDER>()(ptr, di, shift, off);
+        }
+#ifdef CCTK_DEBUG
+        assert(isfinite(res));
+#endif
+#ifdef CCTK_DEBUG
+        assert(&fineptr[fined0 + k * finedk + j * finedj + i * finedi] ==
+               &fineptr[finebox.index(amrex::IntVect(i, j, k))]);
+#endif
+        fineptr[fined0 + k * finedk + j * finedj + i * finedi] = res;
+      };
 
   // TODO: Use `loop_region` from driver.cxx (to be moved to loop.hxx)
 #ifndef __CUDACC__
@@ -1141,6 +1173,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 
   // We prolongate first in the x, then y, then the z direction. Each
   // direction changes the target from coarse-plus-ghosts to fine.
+  // TODO: Choose the order of directions to minimize work.
   const amrex::Box source_region = CoarseBox(target_region, /*reffact*/ 2);
   std::array<amrex::Box, dim> targets;
   for (int d = 0; d < dim; ++d) {
@@ -1148,6 +1181,8 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     targets[d].setRange(d, target_region.loVect()[d], target_region.length(d));
   }
   assert(targets[dim - 1] == target_region);
+
+  // TODO: Pull the loop over components to the top level
 
   // Allocate temporary memory
   // `AsyncArray` frees its memory automatically after the kernels are
@@ -1178,12 +1213,15 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 #endif
 
   // Find ENO stencil offsets
-  constexpr bool use_stencil_shifts = (INTPI == ENO && ORDERI > 0) ||
-                                      (INTPJ == ENO && ORDERJ > 0) ||
-                                      (INTPK == ENO && ORDERK > 0);
+  constexpr bool USE_SHIFTI = INTPI == ENO && ORDERI > 0;
+  constexpr bool USE_SHIFTJ = INTPJ == ENO && ORDERJ > 0;
+  constexpr bool USE_SHIFTK = INTPK == ENO && ORDERK > 0;
+  constexpr bool USE_SHIFT = USE_SHIFTI || USE_SHIFTJ || USE_SHIFTK;
+  constexpr std::array<bool, dim> use_shift{USE_SHIFTI, USE_SHIFTJ, USE_SHIFTK};
+  constexpr std::array<int, dim> order{ORDERI, ORDERJ, ORDERK};
   const amrex::Box &stencil_shifts_box = source_region;
   amrex::Gpu::DeviceVector<int> stencil_shifts;
-  if constexpr (use_stencil_shifts) {
+  if constexpr (USE_SHIFT) {
 
     // Coarse grid indexing
     const amrex::Box &crsebox = crse.box();
@@ -1194,7 +1232,11 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     const ptrdiff_t crsedk = crsebox.index(amrex::IntVect(0, 0, 1)) - crsed0;
 
     // Divided difference indexing
-    const amrex::Box &diffbox = source_region;
+    amrex::Box diffbox = source_region;
+    for (int d = 0; d < dim; ++d)
+      if (use_shift[d])
+        diffbox.setRange(d, diffbox.loVect()[d] - order[d] / 2,
+                         diffbox.length(d) + 2 * (order[d] / 2));
     const ptrdiff_t diffd0 = diffbox.index(amrex::IntVect(0, 0, 0));
     constexpr ptrdiff_t diffdi = 1;
     assert(diffbox.index(amrex::IntVect(1, 0, 0)) - diffd0 == diffdi);
@@ -1208,19 +1250,21 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     amrex::Gpu::DeviceVector<CCTK_REAL> divided_differences(diffbox.numPts());
     CCTK_REAL *restrict const diffptr = divided_differences.dataPtr();
 
+    constexpr int diradius = USE_SHIFTI ? ORDERI / 2 : 0;
+    constexpr int djradius = USE_SHIFTJ ? ORDERJ / 2 : 0;
+    constexpr int dkradius = USE_SHIFTK ? ORDERK / 2 : 0;
+
     // Loop over all components sequentially
     for (int comp = 0; comp < ncomp; ++comp) {
 
       // Calculate divided differences
       // TODO: Convert this into a kernel
       const CCTK_REAL *restrict const crseptr = crse.dataPtr(crse_comp + comp);
-      for (int k = source_region.loVect()[2]; k <= source_region.hiVect()[2];
-           ++k) {
-        for (int j = source_region.loVect()[1]; j <= source_region.hiVect()[1];
-             ++j) {
-          for (int i = source_region.loVect()[0];
-               i <= source_region.hiVect()[0]; ++i) {
+      for (int k = diffbox.loVect()[2]; k <= diffbox.hiVect()[2]; ++k) {
+        for (int j = diffbox.loVect()[1]; j <= diffbox.hiVect()[1]; ++j) {
+          for (int i = diffbox.loVect()[0]; i <= diffbox.hiVect()[0]; ++i) {
             const amrex::IntVect ind(i, j, k);
+            // TODO: Check crsebox indexing properly
             assert(crsebox.contains(ind));
             diffptr[diffbox.index(ind)] =
                 divided_difference_1d<INTPI, ORDERI>()(
@@ -1243,16 +1287,26 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
           for (int i = source_region.loVect()[0];
                i <= source_region.hiVect()[0]; ++i) {
             const amrex::IntVect ind(i, j, k);
-            shiftptr[diffbox.index(ind)] =
-                int(uint8_t(choose_stencil_shift_1d<INTPI, ORDERI>()(
-                        &diffptr[diffbox.index(ind)], diffdi))
-                    << 0x00) |
-                int(uint8_t(choose_stencil_shift_1d<INTPJ, ORDERJ>()(
-                        &diffptr[diffbox.index(ind)], diffdj))
-                    << 0x08) |
-                int(uint8_t(choose_stencil_shift_1d<INTPK, ORDERK>()(
-                        &diffptr[diffbox.index(ind)], diffdk))
-                    << 0x10);
+            std::array<int, dim> min_shift{0, 0, 0};
+            CCTK_REAL min_dd = 1 / CCTK_REAL(0);
+            for (int dk = -dkradius; dk <= +dkradius; ++dk) {
+              for (int dj = -djradius; dj <= +djradius; ++dj) {
+                for (int di = -diradius; di <= +diradius; ++di) {
+                  const std::array<int, dim> shift{di, dj, dk};
+                  const amrex::IntVect ind1(i + di, j + dj, k + dk);
+                  const CCTK_REAL penalty =
+                      (abs(di) + abs(dj) + abs(dk)) * CCTK_REAL(0.1);
+                  const CCTK_REAL dd = diffptr[diffbox.index(ind1)];
+                  if ((1 + penalty) * dd < min_dd) {
+                    min_shift = shift;
+                    min_dd = dd;
+                  }
+                }
+              }
+            }
+            shiftptr[diffbox.index(ind)] = int(uint8_t(min_shift[0]) << 0x00) |
+                                           int(uint8_t(min_shift[1]) << 0x08) |
+                                           int(uint8_t(min_shift[2]) << 0x10);
           }
         }
       }
@@ -1270,11 +1324,11 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
   for (int comp = 0; comp < ncomp; ++comp) {
     const CCTK_REAL *restrict crseptr = crse.dataPtr(crse_comp + comp);
     const int *restrict const shiftptr =
-        use_stencil_shifts
+        USE_SHIFTI
             ? stencil_shifts.dataPtr() + comp * stencil_shifts_box.numPts()
             : nullptr;
     CCTK_REAL *restrict fineptr = &tmp0.data()[comp * targets[0].numPts()];
-    interp3d<CENTI, INTPI, ORDERI, /*D*/ 0, use_stencil_shifts>(
+    interp3d<CENTI, INTPI, ORDERI, /*D*/ 0, USE_SHIFTI>(
         crseptr, crse.box(), shiftptr, stencil_shifts_box, fineptr, targets[0],
         targets[0]);
   }
@@ -1300,11 +1354,11 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     const CCTK_REAL *restrict crseptr =
         &tmp0.data()[comp * targets[0].numPts()];
     const int *restrict const shiftptr =
-        use_stencil_shifts
+        USE_SHIFTJ
             ? stencil_shifts.dataPtr() + comp * stencil_shifts_box.numPts()
             : nullptr;
     CCTK_REAL *restrict fineptr = &tmp1.data()[comp * targets[1].numPts()];
-    interp3d<CENTJ, INTPJ, ORDERJ, /*D*/ 1, use_stencil_shifts>(
+    interp3d<CENTJ, INTPJ, ORDERJ, /*D*/ 1, USE_SHIFTJ>(
         crseptr, targets[0], shiftptr, stencil_shifts_box, fineptr, targets[1],
         targets[1]);
   }
@@ -1340,11 +1394,11 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     const CCTK_REAL *restrict crseptr =
         &tmp1.data()[comp * targets[1].numPts()];
     const int *restrict const shiftptr =
-        use_stencil_shifts
+        USE_SHIFTK
             ? stencil_shifts.dataPtr() + comp * stencil_shifts_box.numPts()
             : nullptr;
     CCTK_REAL *restrict fineptr = fine.dataPtr(fine_comp + comp);
-    interp3d<CENTK, INTPK, ORDERK, /*D*/ 2, use_stencil_shifts>(
+    interp3d<CENTK, INTPK, ORDERK, /*D*/ 2, USE_SHIFTK>(
         crseptr, targets[1], shiftptr, stencil_shifts_box, fineptr, fine.box(),
         target_region);
   }
@@ -1399,26 +1453,6 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-// Self-tests
-namespace {
-// The constructors for these objects run the self-tests. These definitions
-// will make them run at start-up. These tests are very cheap.
-static test_interp1d<VC, POLY, 1, CCTK_REAL> test_vc_poly_o1;
-static test_interp1d<VC, POLY, 3, CCTK_REAL> test_vc_poly_o3;
-static test_interp1d<VC, POLY, 5, CCTK_REAL> test_vc_poly_o5;
-static test_interp1d<CC, POLY, 1, CCTK_REAL> test_cc_poly_o1;
-static test_interp1d<CC, POLY, 3, CCTK_REAL> test_cc_poly_o3;
-static test_interp1d<VC, HERMITE, 1, CCTK_REAL> test_vc_hermite_o1;
-static test_interp1d<VC, HERMITE, 3, CCTK_REAL> test_vc_hermite_o3;
-static test_interp1d<VC, HERMITE, 5, CCTK_REAL> test_vc_hermite_o5;
-static test_interp1d<CC, CONS, 0, CCTK_REAL> test_cc_cons_o0;
-static test_interp1d<CC, CONS, 2, CCTK_REAL> test_cc_cons_o2;
-static test_interp1d<CC, CONS, 4, CCTK_REAL> test_cc_cons_o4;
-static test_interp1d<CC, ENO, 0, CCTK_REAL> test_cc_eno_o0;
-static test_interp1d<CC, ENO, 2, CCTK_REAL> test_cc_eno_o2;
-static test_interp1d<CC, ENO, 4, CCTK_REAL> test_cc_eno_o4;
-} // namespace
 
 // Polynomial (Lagrange) interpolation
 
@@ -1544,6 +1578,23 @@ prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 4, 4, 5>
     prolongate_ddf_3d_rf2_c110_o5;
 prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 4, 4, 4>
     prolongate_ddf_3d_rf2_c111_o5;
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 7, 7, 7>
+    prolongate_ddf_3d_rf2_c000_o7;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 7, 7, 6>
+    prolongate_ddf_3d_rf2_c001_o7;
+prolongate_3d_rf2<VC, CC, VC, POLY, CONS, POLY, 7, 6, 7>
+    prolongate_ddf_3d_rf2_c010_o7;
+prolongate_3d_rf2<VC, CC, CC, POLY, CONS, CONS, 7, 6, 6>
+    prolongate_ddf_3d_rf2_c011_o7;
+prolongate_3d_rf2<CC, VC, VC, CONS, POLY, POLY, 6, 7, 7>
+    prolongate_ddf_3d_rf2_c100_o7;
+prolongate_3d_rf2<CC, VC, CC, CONS, POLY, CONS, 6, 7, 6>
+    prolongate_ddf_3d_rf2_c101_o7;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 6, 6, 7>
+    prolongate_ddf_3d_rf2_c110_o7;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 6, 6, 6>
+    prolongate_ddf_3d_rf2_c111_o7;
 
 // DDF ENO interpolation
 

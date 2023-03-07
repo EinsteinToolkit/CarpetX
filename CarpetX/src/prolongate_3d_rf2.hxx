@@ -215,6 +215,23 @@ extern prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 4, 4, 5>
 extern prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 4, 4, 4>
     prolongate_ddf_3d_rf2_c111_o5;
 
+extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 7, 7, 7>
+    prolongate_ddf_3d_rf2_c000_o7;
+extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 7, 7, 6>
+    prolongate_ddf_3d_rf2_c001_o7;
+extern prolongate_3d_rf2<VC, CC, VC, POLY, CONS, POLY, 7, 6, 7>
+    prolongate_ddf_3d_rf2_c010_o7;
+extern prolongate_3d_rf2<VC, CC, CC, POLY, CONS, CONS, 7, 6, 6>
+    prolongate_ddf_3d_rf2_c011_o7;
+extern prolongate_3d_rf2<CC, VC, VC, CONS, POLY, POLY, 6, 7, 7>
+    prolongate_ddf_3d_rf2_c100_o7;
+extern prolongate_3d_rf2<CC, VC, CC, CONS, POLY, CONS, 6, 7, 6>
+    prolongate_ddf_3d_rf2_c101_o7;
+extern prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 6, 6, 7>
+    prolongate_ddf_3d_rf2_c110_o7;
+extern prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 6, 6, 6>
+    prolongate_ddf_3d_rf2_c111_o7;
+
 // DDF ENO interpolation
 
 extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1>
