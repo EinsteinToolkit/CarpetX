@@ -628,57 +628,73 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
 
     case 0b000:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c000_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c000_o1;
       }
       break;
 
     case 0b001:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c001_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c001_o1;
       }
       break;
 
     case 0b010:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c010_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c010_o1;
       }
       break;
 
     case 0b011:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c011_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c011_o1;
       }
       break;
 
     case 0b100:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c100_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c100_o1;
       }
       break;
 
     case 0b101:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c101_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c101_o1;
       }
       break;
 
     case 0b110:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c110_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c110_o1;
       }
       break;
 
     case 0b111:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c111_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c111_o1;
       }
       break;
     }
