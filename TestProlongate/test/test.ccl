@@ -1,22 +1,12 @@
 NPROCS 1
 
-# # Increase tolerances for some tests because restricting cell-centred values is
-# # only first-order accurate
-# 
-# TEST test_cc_nc_o3
-# {
-#   ABSTOL 1.0e-5
-#   RELTOL 1
-# }
-# 
-# TEST test_ddfh_o3
-# {
-#   ABSTOL 1.0e-5
-#   RELTOL 1
-# }
-# 
-# TEST test_ddfh_o5
-# {
-#   ABSTOL 1.0e-8
-#   RELTOL 1
-# }
+# Increase tolerances for some tests because both polynomial restriction for
+# cell-centred values is only first-order accurate. The tell-tale sign is that
+# the coarse grid shows errors as well, and the coarse grid is set via
+# restriction from correct fine-grid data.
+
+TEST test_cc_nc_o3
+{
+  ABSTOL 1.0e-5
+  RELTOL 1
+}

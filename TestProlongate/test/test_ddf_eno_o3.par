@@ -90,4 +90,3 @@ CarpetX::out_tsv_vars = "
     TestProlongate::gf110_sum_count
     TestProlongate::gf111_sum_count
 "
-CarpetX::out_tsv = yes
