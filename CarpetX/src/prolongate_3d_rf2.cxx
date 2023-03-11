@@ -80,19 +80,19 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
 
   const amrex::Box box(amrex::IntVect(imin[0], imin[1], imin[2]),
                        amrex::IntVect(imax[0] - 1, imax[1] - 1, imax[2] - 1));
-  amrex::launch(targetbox, [=] CCTK_DEVICE(const amrex::Box &box)
-                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
+  amrex::launch(box, [=] CCTK_DEVICE(const amrex::Box &box)
+                         CCTK_ATTRIBUTE_ALWAYS_INLINE {
 #ifdef CCTK_DEBUG
-                                 assert(box.bigEnd()[0] == box.smallEnd()[0] &&
-                                        box.bigEnd()[1] == box.smallEnd()[1] &&
-                                        box.bigEnd()[2] == box.smallEnd()[2]);
+                           assert(box.bigEnd()[0] == box.smallEnd()[0] &&
+                                  box.bigEnd()[1] == box.smallEnd()[1] &&
+                                  box.bigEnd()[2] == box.smallEnd()[2]);
 #endif
-                                 const int i = box.smallEnd()[0];
-                                 const int j = box.smallEnd()[1];
-                                 const int k = box.smallEnd()[2];
-                                 const Arith::vect<int, dim> p{i, j, k};
-                                 f(p);
-                               });
+                           const int i = box.smallEnd()[0];
+                           const int j = box.smallEnd()[1];
+                           const int k = box.smallEnd()[2];
+                           const Arith::vect<int, dim> p{i, j, k};
+                           f(p);
+                         });
 #endif
 }
 } // namespace
@@ -566,31 +566,31 @@ template <int ORDER> struct interp1d<CC, CONS, ORDER> {
   }
 };
 
-template <int N> struct divided_difference_weights;
-template <> struct divided_difference_weights<1> {
+template <int N> struct undivided_difference_weights;
+template <> struct undivided_difference_weights<1> {
   static constexpr std::array<int, 1> weights = {+1};
 };
-template <> struct divided_difference_weights<2> {
+template <> struct undivided_difference_weights<2> {
   static constexpr std::array<int, 2> weights = {-1, +1};
 };
-template <> struct divided_difference_weights<3> {
+template <> struct undivided_difference_weights<3> {
   static constexpr std::array<int, 3> weights = {+1, -2, +1};
 };
-template <> struct divided_difference_weights<4> {
+template <> struct undivided_difference_weights<4> {
   static constexpr std::array<int, 4> weights = {-1, +3, -3, +1};
 };
-template <> struct divided_difference_weights<5> {
+template <> struct undivided_difference_weights<5> {
   static constexpr std::array<int, 5> weights = {+1, -4, +6, -4, +1};
 };
-template <> struct divided_difference_weights<6> {
+template <> struct undivided_difference_weights<6> {
   static constexpr std::array<int, 6> weights = {-1, +5, -10, +10, -5, +1};
 };
-template <> struct divided_difference_weights<7> {
+template <> struct undivided_difference_weights<7> {
   static constexpr std::array<int, 7> weights = {+1, -6, +15, -20, +15, -6, +1};
 };
 
 template <centering_t CENT, interpolation_t INTP, int ORDER>
-struct divided_difference_1d {
+struct undivided_difference_1d {
   static constexpr int required_ghosts = 0;
   template <typename F, typename T = std::invoke_result_t<F, int> >
   CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
@@ -599,7 +599,7 @@ struct divided_difference_1d {
   }
 };
 
-template <int ORDER> struct divided_difference_1d<CC, ENO, ORDER> {
+template <int ORDER> struct undivided_difference_1d<CC, ENO, ORDER> {
   static_assert(ORDER % 2 == 0, "");
   // The stencil size is ORDER / 2, and the stencil shift can be ORDER / 2
   // static constexpr int required_ghosts = ORDER;
@@ -607,7 +607,7 @@ template <int ORDER> struct divided_difference_1d<CC, ENO, ORDER> {
   CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
   operator()(const F &crse) const {
     constexpr int N = ORDER + 1;
-    constexpr std::array<int, N> ws = divided_difference_weights<N>::weights;
+    constexpr std::array<int, N> ws = undivided_difference_weights<N>::weights;
     constexpr std::ptrdiff_t i0 = ORDER / 2;
 
     T dd;
@@ -636,18 +636,6 @@ template <int ORDER> struct divided_difference_1d<CC, ENO, ORDER> {
     }
     using std::fabs;
     return fabs(dd);
-  }
-};
-
-template <int N> struct maximum_1d {
-  template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
-  operator()(const F &crse) const {
-    using std::fmax;
-    T res = crse(0);
-    for (int i = 1; i <= N; ++i)
-      res = fmax(res, fmax(crse(-i), crse(+i)));
-    return res;
   }
 };
 
@@ -1047,21 +1035,31 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     const CCTK_REAL *restrict const crseptr = crse.dataPtr(crse_comp + comp);
     CCTK_REAL *restrict fineptr = fine.dataPtr(fine_comp + comp);
 
-    const auto crse = [=](const int i, const int j, const int k) {
-      const amrex::IntVect vcrse(i, j, k);
+    const auto crse = [=] CCTK_DEVICE(const int i, const int j, const int k)
+                          CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                            const amrex::IntVect vcrse(i, j, k);
 #ifdef CCTK_DEBUG
-      assert(crsebox.contains(vcrse));
+                            assert(crsebox.contains(vcrse));
 #endif
-      return crseptr[crsebox.index(vcrse)];
-    };
-    const auto setfine = [=](const int i, const int j, const int k,
-                             const CCTK_REAL val) {
-      const amrex::IntVect vfine(i, j, k);
+                            return crseptr[crsebox.index(vcrse)];
+                          };
+    const auto fine = [=] CCTK_DEVICE(const int i, const int j, const int k)
+                          CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                            const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-      assert(finebox.contains(vfine));
+                            assert(finebox.contains(vfine));
 #endif
-      fineptr[finebox.index(vfine)] = val;
-    };
+                            return crseptr[crsebox.index(vfine)];
+                          };
+    const auto setfine = [=] CCTK_DEVICE(const int i, const int j, const int k,
+                                         const CCTK_REAL val)
+                             CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                               const amrex::IntVect vfine(i, j, k);
+#ifdef CCTK_DEBUG
+                               assert(finebox.contains(vfine));
+#endif
+                               fineptr[finebox.index(vfine)] = val;
+                             };
 
 #ifdef CCTK_DEBUG
     // Check that the input values are finite
@@ -1071,132 +1069,20 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
             CCTK_ATTRIBUTE_ALWAYS_INLINE { assert(isfinite(crse(i, j, k))); });
 #endif
 
-    // Divided differences
+    // Undivided differences
     // Maximum ENO shift
     constexpr vect<int, dim> maxshift{use_shift[0] ? required_ghosts[0] / 2 : 0,
                                       use_shift[1] ? required_ghosts[1] / 2 : 0,
                                       use_shift[2] ? required_ghosts[2] / 2
                                                    : 0};
+    // Stencil radius
+    constexpr vect<int, dim> diffradius{
+        use_shift[0] ? required_ghosts[0] / 2 : 0,
+        use_shift[1] ? required_ghosts[1] / 2 : 0,
+        use_shift[2] ? required_ghosts[2] / 2 : 0};
 
-    // We don't pre-calculate the divided differences; this is probably not
+    // We don't pre-calculate the undivided differences; this is probably not
     // worth the effort
-#if 0
-    // Box where we calculate divided differences:
-    // The coarsened fine region (without ghosts added),
-    // with  the maximum stencil shift added
-    std::array<amrex::Box, dim> diffboxes;
-    std::array<amrex::Gpu::DeviceVector<CCTK_REAL>, dim> divided_differences;
-    std::array<CCTK_REAL *restrict, dim> diffptrs;
-    for (int dir = 0; dir < dim; ++dir) {
-      if constexpr (use_shift[dir]) {
-        diffboxes[dir] = coarsen(target_region, /*reffac*/ 2);
-        diffboxes.setRange(dir, diffboxes[dir].loVect()[dir] - maxshift[dir],
-                           diffboxes[dir].length(dir) + 2 * maxshift[dir]);
-
-        divided_differences[dir].resize(diffboxes[dir].numPts());
-        diffptrs[dir] = divided_differences[dir].dataPtr();
-      }
-    }
-
-    if constexpr (use_shift[0]) {
-      constexpr int dir = 0;
-      const auto &diffbox = diffboxes[dir];
-      const auto diffptr = diffptrs[dir];
-      const auto setdiff = [=](const int i, const int j, const int k,
-                               const CCTK_REAL val) {
-        const amrex::IntVect vdiff(i, j, k);
-#ifdef CCTK_DEBUG
-        assert(diffbox.contains(vdiff));
-#endif
-        diffptr[diffbox.index(vdiff)] = val;
-      };
-
-      const vect<int, dim> dmin{diffbox.loVect()[0], diffbox.loVect()[1],
-                                diffbox.loVect()[2]};
-      const vect<int, dim> dmax{diffbox.hiVect()[0] + 1,
-                                diffbox.hiVect()[1] + 1,
-                                diffbox.hiVect()[2] + 1};
-      loop_region(
-          [=](const vect<int, dim> &idiff) {
-            setdiff(idiff[0], idiff[1], idiff[2],
-                    call_stencil_1d(
-                        [&](const int di) {
-                          return crse(idiff[0] + (dir == 0 ? di : 0),
-                                      idiff[1] + (dir == 1 ? di : 0),
-                                      idiff[2] + (dir == 2 ? di : 0));
-                        },
-                        divided_difference_1d<centering[dir], interpolator[dir],
-                                              order[dir]>()));
-          },
-          dmin, dmax);
-    } // if use_shift[0]
-
-    if constexpr (use_shift[1]) {
-      constexpr int dir = 1;
-      const auto &diffbox = diffboxes[dir];
-      const auto diffptr = diffptrs[dir];
-      const auto setdiff = [=](const int i, const int j, const int k,
-                               const CCTK_REAL val) {
-        const amrex::IntVect vdiff(i, j, k);
-#ifdef CCTK_DEBUG
-        assert(diffbox.contains(vdiff));
-#endif
-        diffptr[diffbox.index(vdiff)] = val;
-      };
-
-      const vect<int, dim> dmin{diffbox.loVect()[0], diffbox.loVect()[1],
-                                diffbox.loVect()[2]};
-      const vect<int, dim> dmax{diffbox.hiVect()[0] + 1,
-                                diffbox.hiVect()[1] + 1,
-                                diffbox.hiVect()[2] + 1};
-      loop_region(
-          [=](const vect<int, dim> &idiff) {
-            setdiff(idiff[0], idiff[1], idiff[2],
-                    call_stencil_1d(
-                        [&](const int di) {
-                          return crse(idiff[0] + (dir == 0 ? di : 0),
-                                      idiff[1] + (dir == 1 ? di : 0),
-                                      idiff[2] + (dir == 2 ? di : 0));
-                        },
-                        divided_difference_1d<centering[dir], interpolator[dir],
-                                              order[dir]>()));
-          },
-          dmin, dmax);
-    } // if use_shift[0]
-
-    if constexpr (use_shift[2]) {
-      constexpr int dir = 2;
-      const auto &diffbox = diffboxes[dir];
-      const auto diffptr = diffptrs[dir];
-      const auto setdiff = [=](const int i, const int j, const int k,
-                               const CCTK_REAL val) {
-        const amrex::IntVect vdiff(i, j, k);
-#ifdef CCTK_DEBUG
-        assert(diffbox.contains(vdiff));
-#endif
-        diffptr[diffbox.index(vdiff)] = val;
-      };
-
-      const vect<int, dim> dmin{diffbox.loVect()[0], diffbox.loVect()[1],
-                                diffbox.loVect()[2]};
-      const vect<int, dim> dmax{diffbox.hiVect()[0] + 1,
-                                diffbox.hiVect()[1] + 1,
-                                diffbox.hiVect()[2] + 1};
-      loop_region(
-          [=](const vect<int, dim> &idiff) {
-            setdiff(idiff[0], idiff[1], idiff[2],
-                    call_stencil_1d(
-                        [&](const int di) {
-                          return crse(idiff[0] + (dir == 0 ? di : 0),
-                                      idiff[1] + (dir == 1 ? di : 0),
-                                      idiff[2] + (dir == 2 ? di : 0));
-                        },
-                        divided_difference_1d<centering[dir], interpolator[dir],
-                                              order[dir]>()));
-          },
-          dmin, dmax);
-    } // if use_shift[0]
-#endif
 
     const vect<int, dim> imin{target_region.loVect()[0],
                               target_region.loVect()[1],
@@ -1205,53 +1091,88 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                               target_region.hiVect()[1] + 1,
                               target_region.hiVect()[2] + 1};
     loop_region(
-        [=](const vect<int, dim> &ifine) {
+        [=] CCTK_DEVICE(
+            const vect<int, dim> &ifine) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          // Redefine `constexpr` values since they are only captured as `const`
+          // by nvcc
+          constexpr vect<interpolation_t, dim> interpolation{INTPI, INTPJ,
+                                                             INTPK};
+          constexpr vect<int, dim> order{ORDERI, ORDERJ, ORDERK};
+          // Do we need shifted stencils?
+          constexpr vect<bool, dim> use_shift{
+              interpolation[0] == ENO && order[0] > 0,
+              interpolation[1] == ENO && order[1] > 0,
+              interpolation[2] == ENO && order[2] > 0};
+          // Maximum ENO shift
+          constexpr vect<int, dim> maxshift{
+              use_shift[0] ? required_ghosts[0] / 2 : 0,
+              use_shift[1] ? required_ghosts[1] / 2 : 0,
+              use_shift[2] ? required_ghosts[2] / 2 : 0};
+          // Stencil radius
+          constexpr vect<int, dim> diffradius{
+              use_shift[0] ? required_ghosts[0] / 2 : 0,
+              use_shift[1] ? required_ghosts[1] / 2 : 0,
+              use_shift[2] ? required_ghosts[2] / 2 : 0};
+
           const vect<int, dim> icrse = ifine >> 1;
           const vect<int, dim> off = ifine & 0x1;
 
           // Choose stencil shift
           vect<int, dim> shift{0, 0, 0};
-          if constexpr (any(use_shift)) {
+          constexpr bool any_use_shift = any(use_shift);
+          if (any_use_shift) {
             CCTK_REAL min_dd = 1 / CCTK_REAL(0);
+            // Loop over all possible shifts
             for (int sk = -maxshift[2]; sk <= +maxshift[2]; ++sk) {
               for (int sj = -maxshift[1]; sj <= +maxshift[1]; ++sj) {
                 for (int si = -maxshift[0]; si <= +maxshift[0]; ++si) {
 
-                  const CCTK_REAL ddx = call_stencil_2d(
-                      [&](const int dj, const int dk) {
-                        return call_stencil_1d(
-                            [&](const int di) {
-                              return crse(icrse[0] + si + di,
-                                          icrse[1] + sj + dj,
-                                          icrse[2] + sk + dk);
-                            },
-                            divided_difference_1d<CENTI, INTPI, ORDERI>());
-                      },
-                      maximum_1d<order[1] / 2>(), maximum_1d<order[2] / 2>());
+                  // Calculate all undivided differences in the x-direction,
+                  // looping over the y- and z-direction, and finding the
+                  // maximum undivided difference
+                  CCTK_REAL ddx = 0;
+                  for (int dk = -diffradius[2]; dk <= +diffradius[2]; ++dk) {
+                    for (int dj = -diffradius[1]; dj <= +diffradius[1]; ++dj) {
+                      const CCTK_REAL dd =
+                          undivided_difference_1d<CENTI, INTPI, ORDERI>()(
+                              [&](const int di) {
+                                return crse(icrse[0] + si + di,
+                                            icrse[1] + sj + dj,
+                                            icrse[2] + sk + dk);
+                              });
+                      ddx = fmax(ddx, dd);
+                    }
+                  }
 
-                  const CCTK_REAL ddy = call_stencil_2d(
-                      [&](const int di, const int dk) {
-                        return call_stencil_1d(
-                            [&](const int dj) {
-                              return crse(icrse[0] + si + di,
-                                          icrse[1] + sj + dj,
-                                          icrse[2] + sk + dk);
-                            },
-                            divided_difference_1d<CENTJ, INTPJ, ORDERJ>());
-                      },
-                      maximum_1d<order[0] / 2>(), maximum_1d<order[2] / 2>());
+                  // Same with y-undivided difference
+                  CCTK_REAL ddy = 0;
+                  for (int dk = -diffradius[2]; dk <= +diffradius[2]; ++dk) {
+                    for (int di = -diffradius[0]; di <= +diffradius[0]; ++di) {
+                      const CCTK_REAL dd =
+                          undivided_difference_1d<CENTJ, INTPJ, ORDERJ>()(
+                              [&](const int dj) {
+                                return crse(icrse[0] + si + di,
+                                            icrse[1] + sj + dj,
+                                            icrse[2] + sk + dk);
+                              });
+                      ddy = fmax(ddy, dd);
+                    }
+                  }
 
-                  const CCTK_REAL ddz = call_stencil_2d(
-                      [&](const int di, const int dj) {
-                        return call_stencil_1d(
-                            [&](const int dk) {
-                              return crse(icrse[0] + si + di,
-                                          icrse[1] + sj + dj,
-                                          icrse[2] + sk + dk);
-                            },
-                            divided_difference_1d<CENTK, INTPK, ORDERK>());
-                      },
-                      maximum_1d<order[0] / 2>(), maximum_1d<order[1] / 2>());
+                  // Same with z-undivided difference
+                  CCTK_REAL ddz = 0;
+                  for (int dj = -diffradius[1]; dj <= +diffradius[1]; ++dj) {
+                    for (int di = -diffradius[0]; di <= +diffradius[0]; ++di) {
+                      const CCTK_REAL dd =
+                          undivided_difference_1d<CENTK, INTPK, ORDERK>()(
+                              [&](const int dk) {
+                                return crse(icrse[0] + si + di,
+                                            icrse[1] + sj + dj,
+                                            icrse[2] + sk + dk);
+                              });
+                      ddz = fmax(ddz, dd);
+                    }
+                  }
 
                   // Prefer centred stencils
                   const CCTK_REAL penalty =
@@ -1289,13 +1210,10 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 
 #ifdef CCTK_DEBUG
     // Check that the output values are finite
-    amrex::ParallelFor(target_region,
-                       [=] CCTK_DEVICE(const int i, const int j, const int k)
-                           CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                             const amrex::IntVect ind(i, j, k);
-                             assert(finebox.contains(ind));
-                             assert(isfinite(fineptr[finebox.index(ind)]));
-                           });
+    amrex::ParallelFor(
+        target_region,
+        [=] CCTK_DEVICE(const int i, const int j, const int k)
+            CCTK_ATTRIBUTE_ALWAYS_INLINE { assert(isfinite(fine(i, j, k))); });
 #endif
 
   } // for comp
