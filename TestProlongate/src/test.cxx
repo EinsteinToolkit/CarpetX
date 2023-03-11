@@ -27,8 +27,9 @@ bool is_near_outer_boundary(const cGH *const cctkGH, const Loop::PointDesc &p) {
 
 bool is_near_jump(const Loop::PointDesc &p, const bool enox, const bool enoy,
                   const bool enoz) {
-  // Stay away from the singularity.
-  // `1 * dx` on the coarse grid is `2 * dx` on the fine grid.
+  // Stay away from the discontinuity.
+  // `1 dx` on the coarse grid is `2 dx` on the fine grid. The coarse grid is
+  // also offset by 1/2 grid spacing if it's cell centred.
   return (enox && fabs(p.x) < 2.1 * p.dx) || (enoy && fabs(p.y) < 2.1 * p.dy) ||
          (enoz && fabs(p.z) < 2.1 * p.dz);
 }
