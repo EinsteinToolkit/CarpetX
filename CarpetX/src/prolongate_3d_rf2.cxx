@@ -1034,9 +1034,9 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     timers.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
       std::ostringstream buf;
-      buf << "prolongate_3d_rf2<CENT=" << CENTI << CENTJ << CENTK
-          << ",INTP=" << INTPI << INTPJ << INTPK << ",ORDER=" << ORDERI
-          << ORDERJ << ORDERK << ">[thread=" << i << "]";
+      buf << "prolongate_3d_rf2<[" << CENTI << "," << CENTJ << "," << CENTK
+          << "],[" << INTPI << "," << INTPJ << "," << INTPK << "],[" << ORDERI
+          << "," << ORDERJ << "," << ORDERK << "]>[thread=" << i << "]";
       timers.emplace_back(buf.str());
     }
   });
@@ -1197,7 +1197,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                   // looping over the y- and z-directions and finding the
                   // maximum undivided difference there
                   CCTK_REAL ddx = 0;
-                  if constexpr (use_shift[0]) {
+                  if (use_shift[0]) {
                     for (int dk = stencil_radius[2][0];
                          dk <= stencil_radius[2][1]; ++dk) {
                       for (int dj = stencil_radius[1][0];
@@ -1216,7 +1216,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 
                   // Same with y-undivided differences
                   CCTK_REAL ddy = 0;
-                  if constexpr (use_shift[1]) {
+                  if (use_shift[1]) {
                     for (int dk = stencil_radius[2][0];
                          dk <= stencil_radius[2][1]; ++dk) {
                       for (int di = stencil_radius[0][0];
@@ -1235,7 +1235,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 
                   // Same with z-undivided differences
                   CCTK_REAL ddz = 0;
-                  if constexpr (use_shift[2]) {
+                  if (use_shift[2]) {
                     for (int dj = stencil_radius[1][0];
                          dj <= stencil_radius[1][1]; ++dj) {
                       for (int di = stencil_radius[0][0];
