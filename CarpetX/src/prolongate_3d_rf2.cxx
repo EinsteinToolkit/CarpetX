@@ -1,6 +1,8 @@
 #include "prolongate_3d_rf2.hxx"
 #include "timer.hxx"
 
+#include <vect.hxx>
+
 #include <cctk.h>
 #include <cctk_Parameters.h>
 
@@ -16,7 +18,11 @@ static inline int omp_get_thread_num() { return 0; }
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <limits>
+#include <memory>
 #include <mutex>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace CarpetX {
@@ -35,13 +41,61 @@ std::ostream &operator<<(std::ostream &os, const interpolation_t intp) {
   switch (intp) {
   case interpolation_t::poly:
     return os << "poly";
-  case interpolation_t::cons:
-    return os << "cons";
   case interpolation_t::hermite:
     return os << "hermite";
+  case interpolation_t::cons:
+    return os << "cons";
+  case interpolation_t::eno:
+    return os << "eno";
   }
   assert(false);
 }
+
+namespace {
+// TODO: Move this function to loop.hxx
+template <typename F>
+CCTK_ATTRIBUTE_NOINLINE __attribute__((__flatten__, __hot__)) void
+loop_region(const F &f, const Arith::vect<int, dim> &imin,
+            const Arith::vect<int, dim> &imax) {
+  assert(!any(imax <= imin));
+  if (any(imax <= imin))
+    return;
+
+#ifndef __CUDACC__
+  // CPU
+
+  // #pragma omp task final(true) untied
+  for (int k = imin[2]; k < imax[2]; ++k) {
+    for (int j = imin[1]; j < imax[1]; ++j) {
+#pragma omp simd
+      for (int i = imin[0]; i < imax[0]; ++i) {
+        const Arith::vect<int, dim> p{i, j, k};
+        f(p);
+      }
+    }
+  }
+
+#else
+  // GPU
+
+  const amrex::Box box(amrex::IntVect(imin[0], imin[1], imin[2]),
+                       amrex::IntVect(imax[0] - 1, imax[1] - 1, imax[2] - 1));
+  amrex::launch(box, [=] CCTK_DEVICE(const amrex::Box &box)
+                         CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+                           assert(box.bigEnd()[0] == box.smallEnd()[0] &&
+                                  box.bigEnd()[1] == box.smallEnd()[1] &&
+                                  box.bigEnd()[2] == box.smallEnd()[2]);
+#endif
+                           const int i = box.smallEnd()[0];
+                           const int j = box.smallEnd()[1];
+                           const int k = box.smallEnd()[2];
+                           const Arith::vect<int, dim> p{i, j, k};
+                           f(p);
+                         });
+#endif
+}
+} // namespace
 
 // 1D interpolation coefficients
 
@@ -142,13 +196,13 @@ template <typename T> struct coeffs1d<VC, HERMITE, /*order*/ 7, T> {
 // Deprecated
 template <typename T> struct coeffs1d<VC, CONS, /*order*/ 0, T> {
   static constexpr std::array<T, 1> coeffs0 = {
-      1 / T(1),
+      +1 / T(1),
   };
   static constexpr std::array<T, 0> coeffs1 = {};
 };
 template <typename T> struct coeffs1d<VC, CONS, /*order*/ 1, T> {
   static constexpr std::array<T, 1> coeffs0 = {
-      1 / T(1),
+      +1 / T(1),
   };
   static constexpr std::array<T, 2> coeffs1 = {
       +1 / T(2),
@@ -195,40 +249,132 @@ template <typename T> struct coeffs1d<CC, CONS, /*order*/ 4, T> {
       -3 / T(128), +11 / T(64), +1 / T(1), -11 / T(64), +3 / T(128),
   };
 };
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 6, T> {
+  static constexpr std::array<T, 7> coeffs = {
+      +5 / T(1024),   -11 / T(256), +201 / T(1024), +1 / T(1),
+      -201 / T(1024), +11 / T(256), -5 / T(1024),
+  };
+};
+
+template <typename T> struct coeffs1d<CC, ENO, /*order*/ 0, T> {
+  static constexpr std::array<std::array<T, 1>, 1> coeffs = {{
+      // centred
+      {
+          +1 / T(1),
+      },
+  }};
+};
+template <typename T> struct coeffs1d<CC, ENO, /*order*/ 2, T> {
+  static constexpr std::array<std::array<T, 3>, 3> coeffs = {{
+      // left
+      {
+          -1 / T(8),
+          +1 / T(2),
+          +5 / T(8),
+      },
+      // centred
+      {
+          +1 / T(8),
+          +1 / T(1),
+          -1 / T(8),
+      },
+      // right
+      {
+          +11 / T(8),
+          -1 / T(2),
+          +1 / T(8),
+      },
+  }};
+};
+template <typename T> struct coeffs1d<CC, ENO, /*order*/ 4, T> {
+  static constexpr std::array<std::array<T, 5>, 5> coeffs = {{
+      // left 2 cells
+      {
+          -7 / T(128),
+          +19 / T(64),
+          -11 / T(16),
+          +61 / T(64),
+          +63 / T(128),
+      },
+      // left 1 cell
+      {
+          +3 / T(128),
+          -9 / T(64),
+          +13 / T(32),
+          +49 / T(64),
+          -7 / T(128),
+      },
+      // centred
+      {
+          -3 / T(128),
+          +11 / T(64),
+          +1 / T(1),
+          -11 / T(64),
+          +3 / T(128),
+      },
+      // right 1 cell
+      {
+          +7 / T(128),
+          +79 / T(64),
+          -13 / T(32),
+          +9 / T(64),
+          -3 / T(128),
+      },
+      // right 2 cells
+      {
+          +193 / T(128),
+          -61 / T(64),
+          +11 / T(16),
+          -19 / T(64),
+          +7 / T(128),
+      },
+  }};
+};
 
 // 1D interpolation operators
 
 template <centering_t CENT, interpolation_t INTP, int ORDER> struct interp1d;
 // static constexpr int required_ghosts;
-// template <typename T>
-// inline T operator()(const T *restrict const crseptr, const ptrdiff_t di,
-//                     const int off) const;
+// constexpr std::array<int, 2> stencil_radius(int shift, int off) const;
+// template <typename F>
+// T operator()(const F& crse, int shift, int off) const;
 
 // off=0: on coarse point
 // off=1: between coarse points
 template <int ORDER> struct interp1d<VC, POLY, ORDER> {
   static_assert(ORDER % 2 == 1);
   static constexpr int required_ghosts = (ORDER + 1) / 2;
-  template <typename T>
-  CCTK_DEVICE CCTK_HOST inline T operator()(const T *restrict const crseptr,
-                                            const ptrdiff_t di,
-                                            const int off) const {
+  CCTK_DEVICE
+  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
+  stencil_radius(const int shift, const int off) const {
+    if (off == 0)
+      return {0, 0};
+    constexpr int N = ORDER + 1;
+    const int i0 = N / 2 - off;
+    return {0 - i0, ORDER - i0};
+  }
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
 #endif
+
     if (off == 0)
-      return crseptr[0];
-    constexpr std::array<T, ORDER + 1> cs =
-        coeffs1d<VC, POLY, ORDER, T>::coeffs;
-    const int i0 = (ORDER + 1) / 2 - off;
-    constexpr int i0min = (ORDER + 1) / 2 - 1;
-    constexpr int i0max = (ORDER + 1) / 2;
-    constexpr int imin = 0;
-    constexpr int imax = (ORDER + 1) / 2 - 1;
-    constexpr int i1min = ORDER - imax;
-    constexpr int i1max = ORDER - imin;
+      return crse(0);
+
+    constexpr int N = ORDER + 1;
+    constexpr std::array<T, N> cs = coeffs1d<VC, POLY, ORDER, T>::coeffs;
+    const int i0 = N / 2 - off;
+
     // nvcc doesn't accept the constexpr terms below
 #ifndef __CUDACC__
+    constexpr int i0min = N / 2 - 1;
+    constexpr int i0max = N / 2;
+    constexpr int imin = 0;
+    constexpr int imax = N / 2 - 1;
+    constexpr int i1min = N - 1 - imax;
+    constexpr int i1max = N - 1 - imin;
     const auto abs0 = [](auto x) { return x >= 0 ? x : -x; };
     static_assert(abs0(imin - i0min) <= required_ghosts, "");
     static_assert(abs0(imin - i0max) <= required_ghosts, "");
@@ -239,25 +385,18 @@ template <int ORDER> struct interp1d<VC, POLY, ORDER> {
     static_assert(abs0(i1max - i0min) <= required_ghosts, "");
     static_assert(abs0(i1max - i0max) <= required_ghosts, "");
 #endif
+
     T y = 0;
     // Make use of symmetry in coefficients
-    for (int i = 0; i < (ORDER + 1) / 2; ++i) {
+    for (int i = 0; i < N / 2; ++i) {
       const int i1 = ORDER - i;
 #ifdef CCTK_DEBUG
       assert(cs[i1] == cs[i]);
 #endif
-      y += cs[i] * (crseptr[(i - i0) * di] + crseptr[(i1 - i0) * di]);
+      y += cs[i] * (crse(i - i0) + crse(i1 - i0));
     }
 #ifdef CCTK_DEBUG
     assert(isfinite(y));
-#endif
-#ifdef CCTK_DEBUG
-    T y1 = 0;
-    for (int i = 0; i < ORDER + 1; ++i)
-      y1 += cs[i] * crseptr[(i - i0) * di];
-    assert(isfinite(y1));
-    // Don't check for equality; there can be round-off errors
-    // assert(y1 == y);
 #endif
     return y;
   }
@@ -267,34 +406,113 @@ template <int ORDER> struct interp1d<VC, POLY, ORDER> {
 // off=1: right sub-cell
 template <int ORDER> struct interp1d<CC, POLY, ORDER> {
   static constexpr int required_ghosts = (ORDER + 1) / 2;
-  template <typename T>
-  CCTK_DEVICE CCTK_HOST inline T operator()(const T *restrict const crseptr,
-                                            const ptrdiff_t di,
-                                            const int off) const {
+  CCTK_DEVICE
+  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
+  stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
 #endif
-    constexpr std::array<T, ORDER + 1> cs =
-        coeffs1d<CC, POLY, ORDER, T>::coeffs;
-    constexpr int i0 = (ORDER + 1) / 2;
-    constexpr int imin = 0;
-    constexpr int imax = ORDER;
+    constexpr int N = ORDER + 1;
+    constexpr int i0 = N / 2;
+    if (off == 0)
+      return {0 - i0, N - 1 - i0};
+    else
+      return {0 - i0 + ORDER % 2, N - 1 - i0 + ORDER % 2};
+  }
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  operator()(const F &crse, const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(off == 0 || off == 1);
+#endif
+    constexpr int N = ORDER + 1;
+    constexpr std::array<T, N> cs = coeffs1d<CC, POLY, ORDER, T>::coeffs;
+    constexpr int i0 = N / 2;
+
     // nvcc doesn't accept the constexpr terms below
 #ifndef __CUDACC__
+    constexpr int imin = 0;
+    constexpr int imax = ORDER;
     const auto abs0 = [](auto x) { return x >= 0 ? x : -x; };
     static_assert(abs0(imin - i0) <= required_ghosts, "");
     static_assert(abs0(imax - i0) <= required_ghosts, "");
 #endif
+
     T y = 0;
     if (off == 0)
-      for (int i = 0; i < ORDER + 1; ++i)
-        y += cs[i] * crseptr[(i - i0) * di];
+      for (int i = 0; i < N; ++i)
+        y += cs[i] * crse(i - i0);
     else
-      for (int i = 0; i < ORDER + 1; ++i)
+      for (int i = 0; i < N; ++i)
         // For odd orders, the stencil has an even number of points and is
         // thus offset. This offset moves the stencil right by one point
         // when it is reversed.
-        y += cs[ORDER - i] * crseptr[(i - i0 + (ORDER % 2 != 0 ? 1 : 0)) * di];
+        y += cs[ORDER - i] * crse(i - i0 + ORDER % 2);
+#ifdef CCTK_DEBUG
+    assert(isfinite(y));
+#endif
+    return y;
+  }
+};
+
+// off=0: on coarse point
+// off=1: between coarse points
+template <int ORDER> struct interp1d<VC, HERMITE, ORDER> {
+  static_assert(ORDER % 2 == 1);
+  static constexpr int required_ghosts = (ORDER + 1) / 2;
+  CCTK_DEVICE
+  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
+  stencil_radius(const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(off == 0 || off == 1);
+#endif
+    if (off == 0)
+      return {0, 0};
+    constexpr int N = ORDER + 1;
+    const int i0 = N / 2 - off;
+    return {0 - i0, N - 1 - i0};
+  }
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  operator()(const F &crse, const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(off == 0 || off == 1);
+#endif
+
+    if (off == 0)
+      return crse(0);
+
+    constexpr int N = ORDER + 1;
+    constexpr std::array<T, N> cs = coeffs1d<VC, POLY, N - 1, T>::coeffs;
+    const int i0 = N / 2 - off;
+#ifndef __CUDACC__
+    constexpr int i0min = N / 2 - 1;
+    constexpr int i0max = N / 2;
+    constexpr int imin = 0;
+    constexpr int imax = N / 2 - 1;
+    constexpr int i1min = N - 1 - imax;
+    constexpr int i1max = N - 1 - imin;
+    // nvcc doesn't accept the constexpr terms below
+    const auto abs0 = [](auto x) { return x >= 0 ? x : -x; };
+    static_assert(abs0(imin - i0min) <= required_ghosts, "");
+    static_assert(abs0(imin - i0max) <= required_ghosts, "");
+    static_assert(abs0(imax - i0min) <= required_ghosts, "");
+    static_assert(abs0(imax - i0max) <= required_ghosts, "");
+    static_assert(abs0(i1min - i0min) <= required_ghosts, "");
+    static_assert(abs0(i1min - i0max) <= required_ghosts, "");
+    static_assert(abs0(i1max - i0min) <= required_ghosts, "");
+    static_assert(abs0(i1max - i0max) <= required_ghosts, "");
+#endif
+
+    T y = 0;
+    // Make use of symmetry in coefficients
+    for (int i = 0; i < N / 2; ++i) {
+      const int i1 = N - 1 - i;
+#ifdef CCTK_DEBUG
+      assert(cs[i1] == cs[i]);
+#endif
+      y += cs[i] * (crse(i - i0) + crse(i1 - i0));
+    }
 #ifdef CCTK_DEBUG
     assert(isfinite(y));
 #endif
@@ -306,14 +524,28 @@ template <int ORDER> struct interp1d<CC, POLY, ORDER> {
 // off=0: on coarse point
 // off=1: between coarse points
 template <int ORDER> struct interp1d<VC, CONS, ORDER> {
-  static constexpr int required_ghosts = 0; // TODO: fix this
-  template <typename T>
-  CCTK_DEVICE CCTK_HOST inline T operator()(const T *restrict const crseptr,
-                                            const ptrdiff_t di,
-                                            const int off) const {
+  static constexpr int required_ghosts = (ORDER + 1) / 2;
+  CCTK_DEVICE
+  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
+  stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
 #endif
+    if (off == 0) {
+      constexpr int i0 = ORDER / 2;
+      return {0 - i0, ORDER / 2 * 2 - i0};
+    } else {
+      constexpr int i0 = (ORDER + 1) / 2 - 1;
+      return {0 - i0, (ORDER + 1) / 2 * 2 - 1 - i0};
+    }
+  }
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  operator()(const F &crse, const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(off == 0 || off == 1);
+#endif
+
     T y = 0;
     // TODO: use symmetry
     if (off == 0) {
@@ -321,151 +553,197 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
       constexpr std::array<T, ORDER / 2 * 2 + 1> cs =
           coeffs1d<VC, CONS, ORDER, T>::coeffs0;
       for (int i = 0; i < ORDER / 2 * 2 + 1; ++i)
-        y += cs[i] * crseptr[(i - i0) * di];
+        y += cs[i] * crse(i - i0);
     } else {
-      constexpr int i0 = (ORDER + 1) / 2;
+      constexpr int i0 = (ORDER + 1) / 2 - 1;
       constexpr std::array<T, (ORDER + 1) / 2 * 2> cs =
           coeffs1d<VC, CONS, ORDER, T>::coeffs1;
       for (int i = 0; i < (ORDER + 1) / 2 * 2; ++i)
-        y += cs[i] * crseptr[(i - i0) * di];
+        y += cs[i] * crse(i - i0);
     }
     return y;
   }
 };
-// template <int ORDER> struct interp1d<VC, CONS, ORDER> {
-//   static_assert(ORDER % 2 == 0);
-//   static_assert(ORDER > 0);
-//   template <typename T>
-//   inline T operator()(const T *restrict const crseptr, const ptrdiff_t
-//   di,
-//                       const int off) const {
-// #ifdef CCTK_DEBUG
-//     assert(off == 0 || off == 1);
-// #endif
-//     constexpr int i0 = (ORDER + 1) / 2;
-//     T y = 0;
-//     if (off == 0) {
-//       constexpr std::array<T, ORDER + 1> cs = coeffs1d<VC, CONS, ORDER,
-//       T>::coeffs0; for (int i = 0; i < ORDER + 1; ++i)
-//         y += cs[i] * crseptr[(i - i0) * di];
-//     } else {
-//       constexpr std::array<T, ORDER + 1> cs = coeffs1d<VC, CONS, ORDER,
-//       T>::coeffs1; for (int i = 0; i < ORDER + 1; ++i)
-//         y += cs[i] * crseptr[(i - i0) * di];
-//     }
-//     return y;
-//   }
-// };
 
 // off=0: left sub-cell
 // off=1: right sub-cell
 template <int ORDER> struct interp1d<CC, CONS, ORDER> {
   static_assert(ORDER % 2 == 0, "");
   static constexpr int required_ghosts = (ORDER + 1) / 2;
-  template <typename T>
-  CCTK_DEVICE CCTK_HOST inline T operator()(const T *restrict const crseptr,
-                                            const ptrdiff_t di,
-                                            const int off) const {
+  CCTK_DEVICE
+  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
+  stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
 #endif
-    constexpr std::array<T, ORDER + 1> cs =
-        coeffs1d<CC, CONS, ORDER, T>::coeffs;
-    constexpr int i0 = (ORDER + 1) / 2;
-    constexpr int imin = 0;
-    constexpr int imax = ORDER;
-    // nvcc doesn't accept the constexpr terms below
+    constexpr int N = ORDER + 1;
+    constexpr int i0 = N / 2;
+    return {0 - i0, ORDER - i0};
+  }
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  operator()(const F &crse, const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(off == 0 || off == 1);
+#endif
+
+    constexpr int N = ORDER + 1;
+    constexpr std::array<T, N> cs = coeffs1d<CC, CONS, N - 1, T>::coeffs;
+    constexpr int i0 = N / 2;
 #ifndef __CUDACC__
+    constexpr int imin = 0;
+    constexpr int imax = N - 1;
+    // nvcc doesn't accept the constexpr terms below
     const auto abs0 = [](auto x) { return x >= 0 ? x : -x; };
     static_assert(abs0(imin - i0) <= required_ghosts, "");
     static_assert(abs0(imax - i0) <= required_ghosts, "");
 #endif
-    T y = 0;
-    // if (off == 0)
-    //   for (int i = 0; i < ORDER + 1; ++i)
-    //     y += cs[i] * crseptr[(i - i0) * di];
-    // else
-    //   for (int i = 0; i < ORDER + 1; ++i)
-    //     y += cs[i] * crseptr[-(i - i0) * di];
+
+    T y;
     if (off == 0) {
+      y = cs[ORDER / 2] * crse(ORDER / 2 - i0);
       // Make use of symmetry in coefficients
       for (int i = 0; i < ORDER / 2; ++i) {
         const int i1 = ORDER - i;
 #ifdef CCTK_DEBUG
         assert(cs[i1] == -cs[i]);
 #endif
-        y += cs[i] * (crseptr[(i - i0) * di] - crseptr[(i1 - i0) * di]);
+        y += cs[i] * (crse(i - i0) - crse(i1 - i0));
       }
-      y += cs[ORDER / 2] * crseptr[(ORDER / 2 - i0) * di];
     } else {
+      y = cs[ORDER / 2] * crse(ORDER / 2 - i0);
+      // Make use of symmetry in coefficients
       for (int i = 0; i < ORDER / 2; ++i) {
         const int i1 = ORDER - i;
 #ifdef CCTK_DEBUG
         assert(cs[i1] == -cs[i]);
 #endif
-        y += cs[i] * (crseptr[(i1 - i0) * di] - crseptr[(i - i0) * di]);
+        y += cs[i] * (crse(i1 - i0) - crse(i - i0));
       }
-      y += cs[ORDER / 2] * crseptr[(ORDER / 2 - i0) * di];
     }
     return y;
   }
 };
 
-// off=0: on coarse point
-// off=1: between coarse points
-template <int ORDER> struct interp1d<VC, HERMITE, ORDER> {
-  static_assert(ORDER % 2 == 1);
-  static constexpr int required_ghosts = (ORDER + 1) / 2;
-  template <typename T>
-  CCTK_DEVICE CCTK_HOST inline T operator()(const T *restrict const crseptr,
-                                            const ptrdiff_t di,
-                                            const int off) const {
+template <int N> struct undivided_difference_weights;
+template <> struct undivided_difference_weights<1> {
+  static constexpr std::array<int, 1> weights = {+1};
+};
+template <> struct undivided_difference_weights<2> {
+  static constexpr std::array<int, 2> weights = {-1, +1};
+};
+template <> struct undivided_difference_weights<3> {
+  static constexpr std::array<int, 3> weights = {+1, -2, +1};
+};
+template <> struct undivided_difference_weights<4> {
+  static constexpr std::array<int, 4> weights = {-1, +3, -3, +1};
+};
+template <> struct undivided_difference_weights<5> {
+  static constexpr std::array<int, 5> weights = {+1, -4, +6, -4, +1};
+};
+template <> struct undivided_difference_weights<6> {
+  static constexpr std::array<int, 6> weights = {-1, +5, -10, +10, -5, +1};
+};
+template <> struct undivided_difference_weights<7> {
+  static constexpr std::array<int, 7> weights = {+1, -6, +15, -20, +15, -6, +1};
+};
+
+template <centering_t CENT, interpolation_t INTP, int ORDER>
+struct undivided_difference_1d {
+  static constexpr int required_ghosts = 0;
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  operator()(const F &crse) const {
+    return 0;
+  }
+};
+
+template <int ORDER> struct undivided_difference_1d<CC, ENO, ORDER> {
+  static_assert(ORDER % 2 == 0, "");
+  // The stencil size is ORDER / 2, and the stencil shift can be ORDER / 2
+  // static constexpr int required_ghosts = ORDER;
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  operator()(const F &crse) const {
+    constexpr int N = ORDER + 1;
+    constexpr std::array<int, N> ws = undivided_difference_weights<N>::weights;
+    constexpr std::ptrdiff_t i0 = ORDER / 2;
+
+    T dd;
+    if constexpr (ORDER % 2 == 0) {
+      // Make use of symmetry in coefficients
+      dd = ws[ORDER / 2] * crse(0);
+      for (int i = 0; i < ORDER / 2; ++i) {
+        const int i1 = ORDER - i;
 #ifdef CCTK_DEBUG
+        assert(ws[i1] == ws[i]);
+#endif
+        dd += ws[i] * (crse(i - i0) + crse(i1 - i0));
+      }
+    } else {
+      // Make use of antisymmetry in coefficients
+      // TODO: implement this
+      assert(false);
+      dd = 0;
+      for (int i = 0; i < ORDER / 2; ++i) {
+        const int i1 = ORDER - i;
+#ifdef CCTK_DEBUG
+        assert(ws[i1] == -ws[i]);
+#endif
+        dd += ws[i] * (crse(i - i0) - crse(i1 - i0));
+      }
+    }
+    return dd;
+  }
+};
+
+// off=0: left sub-cell
+// off=1: right sub-cell
+template <int ORDER> struct interp1d<CC, ENO, ORDER> {
+  static_assert(ORDER % 2 == 0, "");
+  static constexpr int required_ghosts = ORDER;
+  CCTK_DEVICE
+  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
+  stencil_radius(const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(-ORDER / 2 <= shift && shift <= +ORDER / 2);
     assert(off == 0 || off == 1);
 #endif
-    if (off == 0)
-      return crseptr[0];
-    constexpr std::array<T, ORDER + 1> cs =
-        coeffs1d<VC, POLY, ORDER, T>::coeffs;
-    const int i0 = (ORDER + 1) / 2 - off;
-    constexpr int i0min = (ORDER + 1) / 2 - 1;
-    constexpr int i0max = (ORDER + 1) / 2;
+    constexpr int N = ORDER + 1;
+    const int i0 = N / 2 - shift;
+    return {0 - i0, ORDER - i0};
+  }
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  operator()(const F &crse, const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(-ORDER / 2 <= shift && shift <= +ORDER / 2);
+    assert(off == 0 || off == 1);
+#endif
+    // For off=1, use the reversed stencil for the opposite shift
+    // const std::array<T, ORDER + 1> cs =
+    //     coeffs1d<CC, ENO, ORDER, T>::coeffs[ORDER / 2 +
+    //                                         (off == 0 ? +1 : -1) * shift];
+    constexpr int N = ORDER + 1;
+    const std::array<std::array<T, N>, N> css =
+        coeffs1d<CC, ENO, ORDER, T>::coeffs;
+    const std::array<T, N> &cs = css[ORDER / 2 + (off == 0 ? +1 : -1) * shift];
+    const int i0 = N / 2 - shift;
+
+#ifdef CCTK_DEBUG
     constexpr int imin = 0;
-    constexpr int imax = (ORDER + 1) / 2 - 1;
-    constexpr int i1min = ORDER - imax;
-    constexpr int i1max = ORDER - imin;
-    // nvcc doesn't accept the constexpr terms below
-#ifndef __CUDACC__
-    const auto abs0 = [](auto x) { return x >= 0 ? x : -x; };
-    static_assert(abs0(imin - i0min) <= required_ghosts, "");
-    static_assert(abs0(imin - i0max) <= required_ghosts, "");
-    static_assert(abs0(imax - i0min) <= required_ghosts, "");
-    static_assert(abs0(imax - i0max) <= required_ghosts, "");
-    static_assert(abs0(i1min - i0min) <= required_ghosts, "");
-    static_assert(abs0(i1min - i0max) <= required_ghosts, "");
-    static_assert(abs0(i1max - i0min) <= required_ghosts, "");
-    static_assert(abs0(i1max - i0max) <= required_ghosts, "");
+    constexpr int imax = ORDER;
+    assert(abs(imin - i0) <= required_ghosts);
+    assert(abs(imax - i0) <= required_ghosts);
 #endif
+
     T y = 0;
-    // Make use of symmetry in coefficients
-    for (int i = 0; i < (ORDER + 1) / 2; ++i) {
-      const int i1 = ORDER - i;
-#ifdef CCTK_DEBUG
-      assert(cs[i1] == cs[i]);
-#endif
-      y += cs[i] * (crseptr[(i - i0) * di] + crseptr[(i1 - i0) * di]);
-    }
-#ifdef CCTK_DEBUG
-    assert(isfinite(y));
-#endif
-#ifdef CCTK_DEBUG
-    T y1 = 0;
-    for (int i = 0; i < ORDER + 1; ++i)
-      y1 += cs[i] * crseptr[(i - i0) * di];
-    assert(isfinite(y1));
-    // Don't check for equality; there can be round-off errors
-    // assert(y1 == y);
-#endif
+    if (off == 0)
+      for (int i = 0; i <= ORDER; ++i)
+        y += cs[i] * crse(i - i0);
+    else
+      for (int i = 0; i <= ORDER; ++i)
+        y += cs[ORDER - i] * crse(i - i0);
     return y;
   }
 };
@@ -478,23 +756,31 @@ struct test_interp1d;
 template <centering_t CENT, int ORDER, typename T>
 struct test_interp1d<CENT, POLY, ORDER, T> {
   test_interp1d() {
+    constexpr interp1d<CENT, POLY, ORDER> stencil1d;
+    constexpr int nghosts = stencil1d.required_ghosts;
+    static_assert(nghosts >= 0);
+    constexpr int n = 1 + 2 * nghosts;
+    constexpr int i0 = n / 2;
+    std::array<T, n + 2> ys;
+
     for (int order = 0; order <= ORDER; ++order) {
       auto f = [&](T x) { return pown(x, order); };
-      constexpr int n = (ORDER + 1) / 2 * 2 + 1;
-      std::array<T, n + 2> ys;
-      ys[0] = ys[n + 1] = 0 / T(0);
-      constexpr int i0 = n / 2;
-      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= i0, "");
-      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= n - i0, "");
-      for (int i = 0; i < n; ++i) {
-        T x = (i - i0) + int(CENT) / T(2);
-        T y = f(x);
-        ys[i + 1] = y;
-      }
       for (int off = 0; off < 2; ++off) {
+        const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
+        assert(rmin >= -nghosts && rmax <= +nghosts);
+        for (int i = -1; i < n + 1; ++i) {
+          if (i - i0 < rmin || i - i0 > rmax) {
+            ys[i + 1] = 0 / T(0);
+          } else {
+            T x = (i - i0) + int(CENT) / T(2);
+            T y = f(x);
+            ys[i + 1] = y;
+          }
+        }
+
         T x = int(CENT) / T(4) + off / T(2);
         T y = f(x);
-        T y1 = interp1d<CENT, POLY, ORDER>()(&ys[i0 + 1], 1, off);
+        T y1 = stencil1d([&](int i) { return ys[i0 + 1 + i]; }, 0, off);
         // We carefully choose the test problem so that round-off
         // cannot be a problem here
         assert(isfinite(y1));
@@ -504,131 +790,148 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
   }
 };
 
-template <centering_t CENT, int ORDER, typename T>
-struct test_interp1d<CENT, CONS, ORDER, T> {
+template <int ORDER, typename T> struct test_interp1d<VC, HERMITE, ORDER, T> {
   test_interp1d() {
+    constexpr interp1d<VC, HERMITE, ORDER> stencil1d;
+    constexpr int nghosts = stencil1d.required_ghosts;
+    static_assert(nghosts >= 0);
+    constexpr int n = 1 + 2 * nghosts;
+    constexpr int i0 = n / 2;
+    std::array<T, n + 2> ys;
+
+    for (int order = 0; order <= ORDER; ++order) {
+      auto f = [&](T x) { return pown(x, order); };
+      for (int off = 0; off < 2; ++off) {
+        const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
+        assert(rmin >= -nghosts && rmax <= +nghosts);
+        for (int i = -1; i < n + 1; ++i) {
+          if (i - i0 < rmin || i - i0 > rmax) {
+            ys[i + 1] = 0 / T(0);
+          } else {
+            T x = (i - i0) + int(VC) / T(2);
+            T y = f(x);
+            ys[i + 1] = y;
+          }
+        }
+
+        T x = int(VC) / T(4) + off / T(2);
+        T y = f(x);
+        T y1 = stencil1d([&](int i) { return ys[i0 + 1 + i]; }, 0, off);
+        // We carefully choose the test problem so that round-off
+        // cannot be a problem here
+        assert(isfinite(y1));
+        assert(y1 == y);
+      }
+    }
+  }
+};
+
+template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
+  test_interp1d() {
+    constexpr interp1d<CC, CONS, ORDER> stencil1d;
+    constexpr int nghosts = stencil1d.required_ghosts;
+    static_assert(nghosts >= 0);
+    constexpr int n = 1 + 2 * nghosts;
+    constexpr int i0 = n / 2;
+    std::array<T, n + 2> xs, ys;
+
     for (int order = 0; order <= ORDER; ++order) {
       // Function f, a polynomial
       // const auto f{[&](T x) { return (order + 1) * pown(x, order); }};
       // Integral of f (antiderivative)
       const auto fint{[&](T x) { return pown(x, order + 1); }};
-      constexpr int n = (ORDER + 1) / 2 * 2 + 1;
-      if (CENT == CC) {
-        std::array<T, n + 2> xs;
-        std::array<T, n + 2> ys;
-        xs[0] = xs[n + 1] = 0 / T(0);
-        ys[0] = ys[n + 1] = 0 / T(0);
-        constexpr int i0 = n / 2;
-        static_assert(interp1d<CENT, CONS, ORDER>::required_ghosts <= i0, "");
-        static_assert(interp1d<CENT, CONS, ORDER>::required_ghosts <= n - i0,
-                      "");
-        for (int i = 0; i < n; ++i) {
-          const T x = (i - i0) + int(CENT) / T(2);
-          // T y = f(x);
-          const T dx = 1;
-          const T xlo = x - dx / 2;
-          const T xhi = x + dx / 2;
-          const T y = fint(xhi) - fint(xlo); // average of f over cell
-          xs[i + 1] = x;
-          ys[i + 1] = y;
+      std::array<T, 2> x1;
+      std::array<T, 2> y1;
+      for (int off = 0; off < 2; ++off) {
+        const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
+        assert(rmin >= -nghosts && rmax <= +nghosts);
+        for (int i = -1; i < n + 1; ++i) {
+          if (i - i0 < rmin || i - i0 > rmax) {
+            xs[i + 1] = 0 / T(0);
+            ys[i + 1] = 0 / T(0);
+          } else {
+            T x = (i - i0) + int(CC) / T(2);
+            // T y = f(x);
+            const T dx = 1;
+            const T xlo = x - dx / 2;
+            const T xhi = x + dx / 2;
+            const T y = fint(xhi) - fint(xlo); // average of f over cell
+            xs[i + 1] = x;
+            ys[i + 1] = y;
+          }
         }
+
+        x1[off] = int(CC) / T(4) + off / T(2);
+        y1[off] = stencil1d([&](int i) { return ys[i0 + 1 + i]; }, 0, off);
+        assert(isfinite(y1[off]));
+      } // for off
+      assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
+      const T dx = x1[1] - x1[0];
+      const T xlo = x1[0] - dx / 2;
+      const T xhi = x1[1] + dx / 2;
+      const T yint = fint(xhi) - fint(xlo);
+      assert(y1[0] * dx + y1[1] * dx == yint);
+    }
+  }
+};
+
+template <int ORDER, typename T> struct test_interp1d<VC, CONS, ORDER, T> {
+  test_interp1d() {
+    constexpr interp1d<VC, CONS, ORDER> stencil1d;
+    constexpr int nghosts = stencil1d.required_ghosts;
+    static_assert(nghosts >= 0);
+
+    // Don't test this, the case (VC,CONS) should not be used
+  }
+};
+
+template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
+  test_interp1d() {
+    constexpr interp1d<CC, ENO, ORDER> stencil1d;
+    constexpr int nghosts = stencil1d.required_ghosts;
+    static_assert(nghosts >= 0);
+    constexpr int n = 1 + 2 * nghosts;
+    constexpr int i0 = n / 2;
+    std::array<T, n + 2> xs, ys;
+
+    static_assert(ORDER % 2 == 0);
+    for (int shift = -ORDER / 2; shift <= +ORDER / 2; ++shift) {
+      for (int order = 0; order <= ORDER; ++order) {
+        // Function f, a polynomial
+        // const auto f{[&](T x) { return (order + 1) * pown(x, order); }};
+        // Integral of f (antiderivative)
+        const auto fint{[&](T x) { return pown(x, order + 1); }};
         std::array<T, 2> x1;
         std::array<T, 2> y1;
         for (int off = 0; off < 2; ++off) {
-          x1[off] = int(CENT) / T(4) + off / T(2);
-          y1[off] = interp1d<CENT, CONS, ORDER>()(&ys[i0 + 1], 1, off);
+          const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
+          assert(rmin >= -nghosts && rmax <= +nghosts);
+          for (int i = -1; i < n + 1; ++i) {
+            if (i - i0 < rmin || i - i0 > rmax) {
+              xs[i + 1] = 0 / T(0);
+              ys[i + 1] = 0 / T(0);
+            } else {
+              T x = (i - i0) + int(CC) / T(2);
+              // T y = f(x);
+              const T dx = 1;
+              const T xlo = x - dx / 2;
+              const T xhi = x + dx / 2;
+              const T y = fint(xhi) - fint(xlo); // average of f over cell
+              xs[i + 1] = x;
+              ys[i + 1] = y;
+            }
+          }
+
+          x1[off] = int(CC) / T(4) + off / T(2);
+          y1[off] = stencil1d([&](int i) { return ys[i0 + 1 + i]; }, 0, off);
           assert(isfinite(y1[off]));
-        }
+        } // for off
         assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
         const T dx = x1[1] - x1[0];
         const T xlo = x1[0] - dx / 2;
         const T xhi = x1[1] + dx / 2;
         const T yint = fint(xhi) - fint(xlo);
         assert(y1[0] * dx + y1[1] * dx == yint);
-      } else {
-        // Don't test this, the case (VC,CONS) should not be used
-        if (false) {
-          std::array<T, n + 3> xs, ys;
-          xs[0] = xs[n + 2] = 0 / T(0);
-          ys[0] = ys[n + 2] = 0 / T(0);
-          constexpr int i0 = n / 2;
-          // TODO
-          // static_assert(
-          //     interp1d<CENT, CONS, ORDER>::required_ghosts <= i0,
-          //     "");
-          // static_assert(interp1d<CENT, CONS, ORDER>::required_ghosts
-          // <=
-          //                   n - i0,
-          //               "");
-          for (int i = -1; i < n; ++i) {
-            const T x = (i - i0) + int(CENT) / T(2);
-            // T y = f(x);
-            const T dx = 1;
-            const T xlo = x - dx / 2;
-            const T xhi = x + dx / 2;
-            const T y = fint(xhi) - fint(xlo);
-            xs[i + 2] = x;
-            ys[i + 2] = y;
-          }
-          std::array<T, 3> x1;
-          std::array<T, 3> y1;
-          for (int off = -1; off < 2; ++off) {
-            x1[off + 1] = int(CENT) / T(4) + off / T(2);
-            if (off < 0)
-              y1[off + 1] =
-                  interp1d<CENT, CONS, ORDER>()(&ys[i0 + 1], 1, off + 2);
-            else
-              y1[off + 1] = interp1d<CENT, CONS, ORDER>()(&ys[i0 + 2], 1, off);
-            assert(isfinite(y1[off + 1]));
-          }
-          const T dx = x1[1] - x1[0];
-          const T xlo = x1[0];
-          const T xhi = x1[2];
-          const T yint = fint(xhi) - fint(xlo);
-          if (!(y1[0] / 4 + y1[1] / 2 + y1[2] / 4 == ys[i0 + 2]) ||
-              !(y1[0] * dx / 2 + y1[1] * dx + y1[2] * dx / 2 == yint)) {
-            cerr << "settings: CENT=" << CENT << " ORDER=" << ORDER
-                 << " order=" << order << "\n";
-            cerr << "input:\n";
-            for (int i = -1; i < n; ++i)
-              cerr << "  xs=" << xs[i + 2] << " ys=" << ys[i + 2] << "\n";
-            cerr << "output:\n";
-            for (int off = -1; off < 2; ++off)
-              cerr << "  x1=" << x1[off + 1] << " y1=" << y1[off + 1] << "\n";
-            cerr << "xlo=" << xlo << " xhi=" << xhi << " yint=" << yint << "\n";
-          }
-          assert(y1[0] / 4 + y1[1] / 2 + y1[2] / 4 == ys[i0 + 2]);
-          assert(y1[0] * dx / 2 + y1[1] * dx + y1[2] * dx / 2 == yint);
-        }
-      }
-    }
-  }
-};
-
-template <centering_t CENT, int ORDER, typename T>
-struct test_interp1d<CENT, HERMITE, ORDER, T> {
-  test_interp1d() {
-    for (int order = 0; order <= ORDER; ++order) {
-      auto f = [&](T x) { return pown(x, order); };
-      constexpr int n = (ORDER + 1) / 2 * 2 + 1;
-      std::array<T, n + 2> ys;
-      ys[0] = ys[n + 1] = 0 / T(0);
-      constexpr int i0 = n / 2;
-      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= i0, "");
-      static_assert(interp1d<CENT, POLY, ORDER>::required_ghosts <= n - i0, "");
-      for (int i = 0; i < n; ++i) {
-        T x = (i - i0) + int(CENT) / T(2);
-        T y = f(x);
-        ys[i + 1] = y;
-      }
-      for (int off = 0; off < 2; ++off) {
-        T x = int(CENT) / T(4) + off / T(2);
-        T y = f(x);
-        T y1 = interp1d<CENT, POLY, ORDER>()(&ys[i0 + 1], 1, off);
-        // We carefully choose the test problem so that round-off
-        // cannot be a problem here
-        assert(isfinite(y1));
-        assert(y1 == y);
       }
     }
   }
@@ -636,127 +939,36 @@ struct test_interp1d<CENT, HERMITE, ORDER, T> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <centering_t CENT, interpolation_t INTP, int ORDER, int D, typename T>
-void interp3d(const T *restrict const crseptr,
-              const amrex::Box &restrict crsebox, T *restrict const fineptr,
-              const amrex::Box &restrict finebox,
-              const amrex::Box &restrict targetbox) {
-  static test_interp1d<CENT, INTP, ORDER, T> test;
+template <typename F, typename T = std::invoke_result_t<F> >
+CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+call_stencil_0d(const F &crse) {
+  return crse();
+}
 
-  static_assert(D >= 0 && D < 3, "");
+template <typename F, typename Si, typename T = std::invoke_result_t<F, int> >
+CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+call_stencil_1d(const F &crse, const Si &si) {
+  return si(
+      [&](const int i) { return call_stencil_0d([&]() { return crse(i); }); });
+}
 
-  assert(crseptr);
-  assert(crsebox.ok());
-  assert(fineptr);
-  assert(finebox.ok());
-  assert(targetbox.ok());
+template <typename F, typename Si, typename Sj,
+          typename T = std::invoke_result_t<F, int, int> >
+CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+call_stencil_2d(const F &crse, const Si &si, const Sj &sj) {
+  return sj([&](const int j) {
+    return call_stencil_1d([&](const int i) { return crse(i, j); }, si);
+  });
+}
 
-  const amrex::IntVect first_crseind(finebox.loVect());
-  amrex::IntVect next_crseind = first_crseind;
-  ++next_crseind.getVect()[D];
-  const ptrdiff_t di =
-      crsebox.index(next_crseind) - crsebox.index(first_crseind);
-  assert(di > 0);
-
-  constexpr int required_ghosts = interp1d<CENT, INTP, ORDER>::required_ghosts;
-  {
-    const amrex::IntVect fineind(targetbox.loVect());
-    amrex::IntVect crseind = fineind;
-    crseind.getVect()[D] =
-        amrex::coarsen(fineind.getVect()[D], 2) - required_ghosts;
-    for (int d = 0; d < 3; ++d)
-      assert(crseind.getVect()[d] >= crsebox.loVect()[d]);
-    for (int d = 0; d < 3; ++d)
-      assert(targetbox.loVect()[d] >= finebox.loVect()[d]);
-  }
-  {
-    const amrex::IntVect fineind(targetbox.hiVect());
-    amrex::IntVect crseind = fineind;
-    crseind.getVect()[D] =
-        amrex::coarsen(fineind.getVect()[D], 2) + required_ghosts;
-    for (int d = 0; d < 3; ++d)
-      assert(crseind.getVect()[d] <= crsebox.hiVect()[d]);
-    for (int d = 0; d < 3; ++d)
-      assert(targetbox.hiVect()[d] <= finebox.hiVect()[d]);
-  }
-
-  const ptrdiff_t fined0 = finebox.index(amrex::IntVect(0, 0, 0));
-  constexpr ptrdiff_t finedi = 1;
-  assert(finebox.index(amrex::IntVect(1, 0, 0)) - fined0 == finedi);
-  const ptrdiff_t finedj = finebox.index(amrex::IntVect(0, 1, 0)) - fined0;
-  const ptrdiff_t finedk = finebox.index(amrex::IntVect(0, 0, 1)) - fined0;
-
-  const ptrdiff_t crsed0 = crsebox.index(amrex::IntVect(0, 0, 0));
-  constexpr ptrdiff_t crsedi = 1;
-  assert(crsebox.index(amrex::IntVect(1, 0, 0)) - crsed0 == crsedi);
-  const ptrdiff_t crsedj = crsebox.index(amrex::IntVect(0, 1, 0)) - crsed0;
-  const ptrdiff_t crsedk = crsebox.index(amrex::IntVect(0, 0, 1)) - crsed0;
-
-  const auto kernel = [=] CCTK_DEVICE(
-                          const int i, const int j,
-                          const int k) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-#if 0
-        const amrex::IntVect fineind(i, j, k);
-        amrex::IntVect crseind = fineind;
-        crseind.getVect()[D] = coarsen(fineind.getVect()[D], 2);
-        const int off = fineind.getVect()[D] - crseind.getVect()[D] * 2;
-        fineptr[finebox.index(fineind)] =
-            interp1d<CENT, INTP, ORDER>()(
-                &crseptr[crsebox.index(crseind)], di, off);
-#ifdef CCTK_DEBUG
-        assert(isfinite(fineptr[finebox.index(fineind)]));
-#endif
-#endif
-    // Note: fineind = 2 * coarseind + off
-    const int ci = D == 0 ? i >> 1 : i;
-    const int cj = D == 1 ? j >> 1 : j;
-    const int ck = D == 2 ? k >> 1 : k;
-    const int off = (D == 0 ? i : D == 1 ? j : k) & 0x1;
-    if (D == 0) {
-      // allow vectorization
-      const T *restrict const ptr =
-          &crseptr[crsed0 + ck * crsedk + cj * crsedj + ci * crsedi];
-      const T res0 = interp1d<CENT, INTP, ORDER>()(ptr, di, 0);
-      const T res1 = interp1d<CENT, INTP, ORDER>()(ptr, di, 1);
-      const T res = off == 0 ? res0 : res1;
-      fineptr[fined0 + k * finedk + j * finedj + i * finedi] = res;
-    } else {
-      fineptr[fined0 + k * finedk + j * finedj + i * finedi] =
-          interp1d<CENT, INTP, ORDER>()(
-              &crseptr[crsed0 + ck * crsedk + cj * crsedj + ci * crsedi], di,
-              off);
-    }
-#ifdef CCTK_DEBUG
-    assert(isfinite(fineptr[fined0 + i * finedi + j * finedj + k * finedk]));
-#endif
-  };
-
-  // TODO: Use `loop_region` from driver.cxx (to be moved to loop.hxx)
-#ifndef __CUDACC__
-  // CPU
-
-  for (int k = targetbox.smallEnd()[2]; k <= targetbox.bigEnd()[2]; ++k)
-    for (int j = targetbox.smallEnd()[1]; j <= targetbox.bigEnd()[1]; ++j)
-      for (int i = targetbox.smallEnd()[0]; i <= targetbox.bigEnd()[0]; ++i)
-        kernel(i, j, k);
-
-#else // GPU
-
-  amrex::launch(targetbox, [=] CCTK_DEVICE(const amrex::Box &box)
-                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
-#ifdef CCTK_DEBUG
-                                 assert(box.bigEnd()[0] == box.smallEnd()[0] &&
-                                        box.bigEnd()[1] == box.smallEnd()[1] &&
-                                        box.bigEnd()[2] == box.smallEnd()[2]);
-#endif
-                                 const int i = box.smallEnd()[0];
-                                 const int j = box.smallEnd()[1];
-                                 const int k = box.smallEnd()[2];
-
-                                 kernel(i, j, k);
-                               });
-
-#endif // GPU
+template <typename F, typename Si, typename Sj, typename Sk,
+          typename T = std::invoke_result_t<F, int, int, int> >
+CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+call_stencil_3d(const F &crse, const Si &si, const Sj &sj, const Sk &sk) {
+  return sk([&](const int k) {
+    return call_stencil_2d(
+        [&](const int i, const int j) { return crse(i, j, k); }, si, sj);
+  });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -772,7 +984,7 @@ template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
           int ORDERI, int ORDERJ, int ORDERK>
 amrex::Box prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI,
                              ORDERJ, ORDERK>::CoarseBox(const amrex::Box &fine,
-                                                        int ratio) {
+                                                        const int ratio) {
   return CoarseBox(fine, amrex::IntVect(ratio));
 }
 
@@ -783,30 +995,16 @@ amrex::Box
 prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                   ORDERK>::CoarseBox(const amrex::Box &fine,
                                      const amrex::IntVect &ratio) {
-#warning "TODO"
-#if 0
-  bool error = false;
-  for (int d = 0; d < dim; ++d)
-    error |= !(fine.type(d) == (indextype()[d] == 0 ? amrex::IndexType::NODE
-                                                    : amrex::IndexType::CELL));
-  if (error)
-    CCTK_VERROR("CENT:%d%d%d CONS:%d%d%d ORDER:%d%d%d fine.type:%d%d%d "
-                "indextype:%d%d%d",
-                int(CENTI), int(CENTJ), int(CENTK), int(CONSI), int(CONSJ),
-                int(CONSK), int(ORDERI), int(ORDERJ), int(ORDERK),
-                int(fine.type(0) == amrex::IndexType::CELL),
-                int(fine.type(1) == amrex::IndexType::CELL),
-                int(fine.type(2) == amrex::IndexType::CELL),
-                int(indextype()[0]), int(indextype()[1]), int(indextype()[2]));
-  for (int d = 0; d < dim; ++d)
-    assert(fine.type(d) == (indextype()[d] == 0 ? amrex::IndexType::NODE
-                                                : amrex::IndexType::CELL));
-#endif
+  constexpr vect<int, dim> required_ghosts = {
+      interp1d<CENTI, INTPI, ORDERI>::required_ghosts,
+      interp1d<CENTJ, INTPJ, ORDERJ>::required_ghosts,
+      interp1d<CENTK, INTPK, ORDERK>::required_ghosts,
+  };
   for (int d = 0; d < dim; ++d)
     assert(ratio.getVect()[d] == 2);
   amrex::Box crse = amrex::coarsen(fine, 2);
   for (int d = 0; d < dim; ++d)
-    crse = crse.grow(d, (order()[d] + 1) / 2);
+    crse.grow(d, required_ghosts[d]);
   return crse;
 }
 
@@ -836,9 +1034,9 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     timers.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
       std::ostringstream buf;
-      buf << "prolongate_3d_rf2<CENT=" << CENTI << CENTJ << CENTK
-          << ",INTP=" << INTPI << INTPJ << INTPK << ",ORDER=" << ORDERI
-          << ORDERJ << ORDERK << ">[thread=" << i << "]";
+      buf << "prolongate_3d_rf2<[" << CENTI << "," << CENTJ << "," << CENTK
+          << "],[" << INTPI << "," << INTPJ << "," << INTPK << "],[" << ORDERI
+          << "," << ORDERJ << "," << ORDERK << "]>[thread=" << i << "]";
       timers.emplace_back(buf.str());
     }
   });
@@ -857,137 +1055,247 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
   const amrex::Box target_region = fine_region & fine.box();
   assert(target_region == fine_region);
 
-  // We prolongate first in the x, then y, then the z direction. Each
-  // direction changes the target from coarse-plus-ghosts to fine.
-  const amrex::Box source_region = CoarseBox(target_region, 2);
-  std::array<amrex::Box, dim> targets;
-  for (int d = 0; d < dim; ++d) {
-    targets[d] = d == 0 ? source_region : targets[d - 1];
-    targets[d].setRange(d, target_region.loVect()[d], target_region.length(d));
+  using STENCILI = interp1d<CENTI, INTPI, ORDERI>;
+  using STENCILJ = interp1d<CENTJ, INTPJ, ORDERJ>;
+  using STENCILK = interp1d<CENTK, INTPK, ORDERK>;
+
+  constexpr vect<centering_t, dim> centering{CENTI, CENTJ, CENTK};
+  constexpr vect<interpolation_t, dim> interpolation{INTPI, INTPJ, INTPK};
+  constexpr vect<int, dim> order{ORDERI, ORDERJ, ORDERK};
+
+  {
+    static test_interp1d<CENTI, INTPI, ORDERI, CCTK_REAL> testi;
+    static test_interp1d<CENTJ, INTPJ, ORDERJ, CCTK_REAL> testj;
+    static test_interp1d<CENTK, INTPK, ORDERK, CCTK_REAL> testk;
   }
-  assert(targets[dim - 1] == target_region);
 
-  // Allocate temporary memory
-  // `AsyncArray` frees its memory automatically after the kernels are
-  // done using it. However, that mechanism is apparently more
-  // expensive than a manual `synchronize`.
-  static_assert(dim == 3, "");
-  amrex::Gpu::DeviceVector<CCTK_REAL> tmp0(ncomp * targets[0].numPts());
-  // amrex::Gpu::AsyncArray<CCTK_REAL> tmp0(ncomp * targets[0].numPts());
+  // The points we will access, i.e. the coarsened fine region, with ghosts
+  // added
+  const amrex::Box source_region = CoarseBox(target_region, /*reffact*/ 2);
 
-  // Check that the input values are finite
-#ifdef CCTK_DEBUG
+  const auto crsebox = crse.box();
+  const auto finebox = fine.box();
+
+  constexpr vect<int, dim> required_ghosts{
+      STENCILI::required_ghosts,
+      STENCILJ::required_ghosts,
+      STENCILK::required_ghosts,
+  };
+
+  // Do we need shifted stencils?
+  constexpr vect<bool, dim> use_shift{interpolation[0] == ENO && order[0] > 0,
+                                      interpolation[1] == ENO && order[1] > 0,
+                                      interpolation[2] == ENO && order[2] > 0};
+
   for (int comp = 0; comp < ncomp; ++comp) {
     const CCTK_REAL *restrict const crseptr = crse.dataPtr(crse_comp + comp);
-    for (int k = source_region.loVect()[2]; k <= source_region.hiVect()[2];
-         ++k) {
-      for (int j = source_region.loVect()[1]; j <= source_region.hiVect()[1];
-           ++j) {
-#pragma omp simd
-        for (int i = source_region.loVect()[0]; i <= source_region.hiVect()[0];
-             ++i) {
-          const amrex::IntVect ind(i, j, k);
-          assert(crse.box().contains(ind));
-          assert(isfinite(crseptr[crse.box().index(ind)]));
-        }
-      }
-    }
-  }
-#endif
-
-  // Initialize the result of the x-prolongation with nan
-#ifdef CCTK_DEBUG
-  for (int i = 0; i < ncomp * targets[0].numPts(); ++i)
-    tmp0.data()[i] = 0.0 / 0.0;
-#endif
-
-  // Interpolate in the x-direction
-  for (int comp = 0; comp < ncomp; ++comp) {
-    const CCTK_REAL *restrict crseptr = crse.dataPtr(crse_comp + comp);
-    CCTK_REAL *restrict fineptr = &tmp0.data()[comp * targets[0].numPts()];
-    interp3d<CENTI, INTPI, ORDERI, /*D*/ 0>(crseptr, crse.box(), fineptr,
-                                            targets[0], targets[0]);
-  }
-
-  // Check that the result is finite
-#ifdef CCTK_DEBUG
-  for (int i = 0; i < ncomp * targets[0].numPts(); ++i)
-    assert(isfinite(tmp0.data()[i]));
-#endif
-
-  // Allocate temporary memory
-  amrex::Gpu::DeviceVector<CCTK_REAL> tmp1(ncomp * targets[1].numPts());
-  // amrex::Gpu::AsyncArray<CCTK_REAL> tmp1(ncomp * targets[1].numPts());
-
-  // Initialize the result of the y-prolongation with nan
-#ifdef CCTK_DEBUG
-  for (int i = 0; i < ncomp * targets[1].numPts(); ++i)
-    tmp1.data()[i] = 0.0 / 0.0;
-#endif
-
-  // Interpolate in the y-direction
-  for (int comp = 0; comp < ncomp; ++comp) {
-    const CCTK_REAL *restrict crseptr =
-        &tmp0.data()[comp * targets[0].numPts()];
-    CCTK_REAL *restrict fineptr = &tmp1.data()[comp * targets[1].numPts()];
-    interp3d<CENTJ, INTPJ, ORDERJ, /*D*/ 1>(crseptr, targets[0], fineptr,
-                                            targets[1], targets[1]);
-  }
-
-  // Check that the result is finite
-#ifdef CCTK_DEBUG
-  for (int i = 0; i < ncomp * targets[1].numPts(); ++i)
-    assert(isfinite(tmp1.data()[i]));
-#endif
-
-    // Initialize the result of the z-prolongation with nan
-#ifdef CCTK_DEBUG
-  for (int comp = 0; comp < ncomp; ++comp) {
     CCTK_REAL *restrict fineptr = fine.dataPtr(fine_comp + comp);
-    for (int k = target_region.loVect()[2]; k <= target_region.hiVect()[2];
-         ++k) {
-      for (int j = target_region.loVect()[1]; j <= target_region.hiVect()[1];
-           ++j) {
-#pragma omp simd
-        for (int i = target_region.loVect()[0]; i <= target_region.hiVect()[0];
-             ++i) {
-          const amrex::IntVect ind(i, j, k);
-          assert(fine.box().contains(ind));
-          fineptr[fine.box().index(ind)] = 0.0 / 0.0;
-        }
-      }
-    }
-  }
-#endif
 
-  // Interpolate in the y-direction
-  for (int comp = 0; comp < ncomp; ++comp) {
-    const CCTK_REAL *restrict crseptr =
-        &tmp1.data()[comp * targets[1].numPts()];
-    CCTK_REAL *restrict fineptr = fine.dataPtr(fine_comp + comp);
-    interp3d<CENTK, INTPK, ORDERK, /*D*/ 2>(crseptr, targets[1], fineptr,
-                                            fine.box(), target_region);
-  }
-
-  // Check that the result is finite
+    const auto crse = [=] CCTK_DEVICE(const int i, const int j, const int k)
+                          CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                            const amrex::IntVect vcrse(i, j, k);
 #ifdef CCTK_DEBUG
-  for (int comp = 0; comp < ncomp; ++comp) {
-    CCTK_REAL *restrict fineptr = fine.dataPtr(fine_comp + comp);
-    for (int k = target_region.loVect()[2]; k <= target_region.hiVect()[2];
-         ++k) {
-      for (int j = target_region.loVect()[1]; j <= target_region.hiVect()[1];
-           ++j) {
-#pragma omp simd
-        for (int i = target_region.loVect()[0]; i <= target_region.hiVect()[0];
-             ++i) {
-          const amrex::IntVect ind(i, j, k);
-          assert(fine.box().contains(ind));
-          assert(isfinite(fineptr[fine.box().index(ind)]));
-        }
-      }
-    }
-  }
+                            assert(crsebox.contains(vcrse));
 #endif
+                            return crseptr[crsebox.index(vcrse)];
+                          };
+    const auto fine = [=] CCTK_DEVICE(const int i, const int j, const int k)
+                          CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                            const amrex::IntVect vfine(i, j, k);
+#ifdef CCTK_DEBUG
+                            assert(finebox.contains(vfine));
+#endif
+                            return fineptr[finebox.index(vfine)];
+                          };
+    const auto setfine = [=] CCTK_DEVICE(const int i, const int j, const int k,
+                                         const CCTK_REAL val)
+                             CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                               const amrex::IntVect vfine(i, j, k);
+#ifdef CCTK_DEBUG
+                               assert(finebox.contains(vfine));
+#endif
+                               fineptr[finebox.index(vfine)] = val;
+                             };
+
+#ifdef CCTK_DEBUG
+    // Check that the input values are finite
+    amrex::ParallelFor(
+        source_region,
+        [=] CCTK_DEVICE(const int i, const int j, const int k)
+            CCTK_ATTRIBUTE_ALWAYS_INLINE { assert(isfinite(crse(i, j, k))); });
+#endif
+
+    // Undivided differences
+    // Maximum ENO shift
+    constexpr vect<int, dim> maxshift{use_shift[0] ? required_ghosts[0] / 2 : 0,
+                                      use_shift[1] ? required_ghosts[1] / 2 : 0,
+                                      use_shift[2] ? required_ghosts[2] / 2
+                                                   : 0};
+
+    // We don't pre-calculate the undivided differences
+
+    const vect<int, dim> imin{target_region.loVect()[0],
+                              target_region.loVect()[1],
+                              target_region.loVect()[2]};
+    const vect<int, dim> imax{target_region.hiVect()[0] + 1,
+                              target_region.hiVect()[1] + 1,
+                              target_region.hiVect()[2] + 1};
+    loop_region(
+        [=] CCTK_DEVICE(
+            const vect<int, dim> &ifine) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          // Redefine `constexpr` values since they are only captured as
+          // `const` by nvcc
+          constexpr vect<interpolation_t, dim> interpolation{INTPI, INTPJ,
+                                                             INTPK};
+          constexpr vect<int, dim> order{ORDERI, ORDERJ, ORDERK};
+          // Do we need shifted stencils?
+          constexpr vect<bool, dim> use_shift{
+              interpolation[0] == ENO && order[0] > 0,
+              interpolation[1] == ENO && order[1] > 0,
+              interpolation[2] == ENO && order[2] > 0};
+          // Maximum ENO shift
+          constexpr vect<int, dim> maxshift{
+              use_shift[0] ? required_ghosts[0] / 2 : 0,
+              use_shift[1] ? required_ghosts[1] / 2 : 0,
+              use_shift[2] ? required_ghosts[2] / 2 : 0};
+
+          const vect<int, dim> icrse = ifine >> 1;
+          const vect<int, dim> off = ifine & 0x1;
+
+          // Choose stencil shift
+          vect<int, dim> shift{0, 0, 0};
+          constexpr bool any_use_shift = any(use_shift);
+          if (any_use_shift) {
+            CCTK_REAL min_dd = 1 / CCTK_REAL(0);
+            // Loop over all possible shifts
+            for (int sk = -maxshift[2]; sk <= +maxshift[2]; ++sk) {
+              for (int sj = -maxshift[1]; sj <= +maxshift[1]; ++sj) {
+                for (int si = -maxshift[0]; si <= +maxshift[0]; ++si) {
+
+                  // Stencil radius
+                  // This stencil radius already takes the shift into account,
+                  // but only for stencils that use a shift. Undo this; we add
+                  // the shift back later manually.
+                  vect<std::array<int, 2>, dim> stencil_radius{
+                      STENCILI().stencil_radius(si, off[0]),
+                      STENCILJ().stencil_radius(sj, off[1]),
+                      STENCILK().stencil_radius(sk, off[2])};
+                  if (use_shift[0]) {
+                    stencil_radius[0][0] -= si;
+                    stencil_radius[0][1] -= si;
+                  }
+                  if (use_shift[1]) {
+                    stencil_radius[1][0] -= sj;
+                    stencil_radius[1][1] -= sj;
+                  }
+                  if (use_shift[2]) {
+                    stencil_radius[2][0] -= sk;
+                    stencil_radius[2][1] -= sk;
+                  }
+
+                  // Calculate all undivided differences in the x-direction,
+                  // looping over the y- and z-directions and finding the
+                  // maximum undivided difference there
+                  CCTK_REAL ddx = 0;
+                  if (use_shift[0]) {
+                    for (int dk = stencil_radius[2][0];
+                         dk <= stencil_radius[2][1]; ++dk) {
+                      for (int dj = stencil_radius[1][0];
+                           dj <= stencil_radius[1][1]; ++dj) {
+                        const CCTK_REAL dd =
+                            undivided_difference_1d<CENTI, INTPI, ORDERI>()(
+                                [&](const int di) {
+                                  return crse(icrse[0] + si + di,
+                                              icrse[1] + sj + dj,
+                                              icrse[2] + sk + dk);
+                                });
+                        ddx = fmax(ddx, fabs(dd));
+                      }
+                    }
+                  }
+
+                  // Same with y-undivided differences
+                  CCTK_REAL ddy = 0;
+                  if (use_shift[1]) {
+                    for (int dk = stencil_radius[2][0];
+                         dk <= stencil_radius[2][1]; ++dk) {
+                      for (int di = stencil_radius[0][0];
+                           di <= stencil_radius[0][1]; ++di) {
+                        const CCTK_REAL dd =
+                            undivided_difference_1d<CENTJ, INTPJ, ORDERJ>()(
+                                [&](const int dj) {
+                                  return crse(icrse[0] + si + di,
+                                              icrse[1] + sj + dj,
+                                              icrse[2] + sk + dk);
+                                });
+                        ddy = fmax(ddy, fabs(dd));
+                      }
+                    }
+                  }
+
+                  // Same with z-undivided differences
+                  CCTK_REAL ddz = 0;
+                  if (use_shift[2]) {
+                    for (int dj = stencil_radius[1][0];
+                         dj <= stencil_radius[1][1]; ++dj) {
+                      for (int di = stencil_radius[0][0];
+                           di <= stencil_radius[0][1]; ++di) {
+                        const CCTK_REAL dd =
+                            undivided_difference_1d<CENTK, INTPK, ORDERK>()(
+                                [&](const int dk) {
+                                  return crse(icrse[0] + si + di,
+                                              icrse[1] + sj + dj,
+                                              icrse[2] + sk + dk);
+                                });
+                        ddz = fmax(ddz, fabs(dd));
+                      }
+                    }
+                  }
+
+                  // Prefer centred stencils
+                  const CCTK_REAL penalty =
+                      1 + sqrt(std::numeric_limits<CCTK_REAL>::epsilon()) *
+                              (abs(si) + abs(sj) + abs(sk));
+                  const CCTK_REAL dd = penalty * fmax(fmax(ddx, ddy), ddz);
+                  if (dd < min_dd) {
+                    min_dd = dd;
+                    shift = {si, sj, sk};
+                  }
+                }
+              }
+            }
+          }
+
+          setfine(ifine[0], ifine[1], ifine[2],
+                  call_stencil_3d(
+                      [&](const int di, const int dj, const int dk) {
+                        return crse(icrse[0] + di, icrse[1] + dj,
+                                    icrse[2] + dk);
+                      },
+                      [&](const auto &crse) {
+                        return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0],
+                                                                off[0]);
+                      },
+                      [&](const auto &crse) {
+                        return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1],
+                                                                off[1]);
+                      },
+                      [&](const auto &crse) {
+                        return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2],
+                                                                off[2]);
+                      }));
+        },
+        imin, imax);
+
+#ifdef CCTK_DEBUG
+    // Check that the output values are finite
+    amrex::ParallelFor(
+        target_region,
+        [=] CCTK_DEVICE(const int i, const int j, const int k)
+            CCTK_ATTRIBUTE_ALWAYS_INLINE { assert(isfinite(fine(i, j, k))); });
+#endif
+
+  } // for comp
 
 #ifdef __CUDACC__
   amrex::Gpu::synchronize();
@@ -1019,18 +1327,6 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-// Self-tests
-namespace {
-// The constructors for these objects run the self-tests. These definitions
-// will make them run at start-up. These tests are very cheap.
-static test_interp1d<VC, POLY, 1, CCTK_REAL> test_c0_o1;
-static test_interp1d<VC, POLY, 3, CCTK_REAL> test_c0_o3;
-static test_interp1d<VC, POLY, 5, CCTK_REAL> test_c0_o5;
-static test_interp1d<CC, CONS, 0, CCTK_REAL> test_c1_o0;
-static test_interp1d<CC, CONS, 2, CCTK_REAL> test_c1_o2;
-static test_interp1d<CC, CONS, 4, CCTK_REAL> test_c1_o4;
-} // namespace
 
 // Polynomial (Lagrange) interpolation
 
@@ -1156,6 +1452,76 @@ prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 4, 4, 5>
     prolongate_ddf_3d_rf2_c110_o5;
 prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 4, 4, 4>
     prolongate_ddf_3d_rf2_c111_o5;
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 7, 7, 7>
+    prolongate_ddf_3d_rf2_c000_o7;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 7, 7, 6>
+    prolongate_ddf_3d_rf2_c001_o7;
+prolongate_3d_rf2<VC, CC, VC, POLY, CONS, POLY, 7, 6, 7>
+    prolongate_ddf_3d_rf2_c010_o7;
+prolongate_3d_rf2<VC, CC, CC, POLY, CONS, CONS, 7, 6, 6>
+    prolongate_ddf_3d_rf2_c011_o7;
+prolongate_3d_rf2<CC, VC, VC, CONS, POLY, POLY, 6, 7, 7>
+    prolongate_ddf_3d_rf2_c100_o7;
+prolongate_3d_rf2<CC, VC, CC, CONS, POLY, CONS, 6, 7, 6>
+    prolongate_ddf_3d_rf2_c101_o7;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 6, 6, 7>
+    prolongate_ddf_3d_rf2_c110_o7;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 6, 6, 6>
+    prolongate_ddf_3d_rf2_c111_o7;
+
+// DDF ENO interpolation
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1>
+    prolongate_ddf_eno_3d_rf2_c000_o1;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, ENO, 1, 1, 0>
+    prolongate_ddf_eno_3d_rf2_c001_o1;
+prolongate_3d_rf2<VC, CC, VC, POLY, ENO, POLY, 1, 0, 1>
+    prolongate_ddf_eno_3d_rf2_c010_o1;
+prolongate_3d_rf2<VC, CC, CC, POLY, ENO, ENO, 1, 0, 0>
+    prolongate_ddf_eno_3d_rf2_c011_o1;
+prolongate_3d_rf2<CC, VC, VC, ENO, POLY, POLY, 0, 1, 1>
+    prolongate_ddf_eno_3d_rf2_c100_o1;
+prolongate_3d_rf2<CC, VC, CC, ENO, POLY, ENO, 0, 1, 0>
+    prolongate_ddf_eno_3d_rf2_c101_o1;
+prolongate_3d_rf2<CC, CC, VC, ENO, ENO, POLY, 0, 0, 1>
+    prolongate_ddf_eno_3d_rf2_c110_o1;
+prolongate_3d_rf2<CC, CC, CC, ENO, ENO, ENO, 0, 0, 0>
+    prolongate_ddf_eno_3d_rf2_c111_o1;
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 3, 3, 3>
+    prolongate_ddf_eno_3d_rf2_c000_o3;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, ENO, 3, 3, 2>
+    prolongate_ddf_eno_3d_rf2_c001_o3;
+prolongate_3d_rf2<VC, CC, VC, POLY, ENO, POLY, 3, 2, 3>
+    prolongate_ddf_eno_3d_rf2_c010_o3;
+prolongate_3d_rf2<VC, CC, CC, POLY, ENO, ENO, 3, 2, 2>
+    prolongate_ddf_eno_3d_rf2_c011_o3;
+prolongate_3d_rf2<CC, VC, VC, ENO, POLY, POLY, 2, 3, 3>
+    prolongate_ddf_eno_3d_rf2_c100_o3;
+prolongate_3d_rf2<CC, VC, CC, ENO, POLY, ENO, 2, 3, 2>
+    prolongate_ddf_eno_3d_rf2_c101_o3;
+prolongate_3d_rf2<CC, CC, VC, ENO, ENO, POLY, 2, 2, 3>
+    prolongate_ddf_eno_3d_rf2_c110_o3;
+prolongate_3d_rf2<CC, CC, CC, ENO, ENO, ENO, 2, 2, 2>
+    prolongate_ddf_eno_3d_rf2_c111_o3;
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 5, 5, 5>
+    prolongate_ddf_eno_3d_rf2_c000_o5;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, ENO, 5, 5, 4>
+    prolongate_ddf_eno_3d_rf2_c001_o5;
+prolongate_3d_rf2<VC, CC, VC, POLY, ENO, POLY, 5, 4, 5>
+    prolongate_ddf_eno_3d_rf2_c010_o5;
+prolongate_3d_rf2<VC, CC, CC, POLY, ENO, ENO, 5, 4, 4>
+    prolongate_ddf_eno_3d_rf2_c011_o5;
+prolongate_3d_rf2<CC, VC, VC, ENO, POLY, POLY, 4, 5, 5>
+    prolongate_ddf_eno_3d_rf2_c100_o5;
+prolongate_3d_rf2<CC, VC, CC, ENO, POLY, ENO, 4, 5, 4>
+    prolongate_ddf_eno_3d_rf2_c101_o5;
+prolongate_3d_rf2<CC, CC, VC, ENO, ENO, POLY, 4, 4, 5>
+    prolongate_ddf_eno_3d_rf2_c110_o5;
+prolongate_3d_rf2<CC, CC, CC, ENO, ENO, ENO, 4, 4, 4>
+    prolongate_ddf_eno_3d_rf2_c111_o5;
 
 // Hermite interpolation
 

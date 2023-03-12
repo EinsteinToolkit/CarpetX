@@ -387,6 +387,7 @@ KEYWORD prolongation_type "Prolongation type"
   "interpolate" :: "interpolate between data points"
   "conservative" :: "interpolate cell averages, ensuring conservation"
   "ddf" :: "interpolate in vertex centred and conserve in cell centred directions"
+  "ddf-eno" :: "interpolate in vertex centred and ENO-conserve in cell centred directions"
   "ddf-hermite" :: "Hermite-interpolate in vertex centred and conserve in cell centred directions"
 } "ddf"
 
