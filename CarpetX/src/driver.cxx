@@ -520,19 +520,27 @@ vector<CCTK_REAL> get_group_robin_values(const int gi) {
 amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
   DECLARE_CCTK_PARAMETERS;
 
-  enum class interp_t { unset, interpolate, conservative, ddf, ddf_hermite };
+  enum class interp_t {
+    unset,
+    interpolate,
+    conservative,
+    ddf,
+    ddf_eno,
+    ddf_hermite
+  };
   static interp_t interp = [&]() {
-    if (CCTK_EQUALS(prolongation_type, "interpolate")) {
+    if (CCTK_EQUALS(prolongation_type, "interpolate"))
       return interp_t::interpolate;
-    } else if (CCTK_EQUALS(prolongation_type, "conservative")) {
+    else if (CCTK_EQUALS(prolongation_type, "conservative"))
       return interp_t::conservative;
-    } else if (CCTK_EQUALS(prolongation_type, "ddf")) {
+    else if (CCTK_EQUALS(prolongation_type, "ddf"))
       return interp_t::ddf;
-    } else if (CCTK_EQUALS(prolongation_type, "ddf-hermite")) {
+    else if (CCTK_EQUALS(prolongation_type, "ddf-eno"))
+      return interp_t::ddf_eno;
+    else if (CCTK_EQUALS(prolongation_type, "ddf-hermite"))
       return interp_t::ddf_hermite;
-    } else {
+    else
       assert(0);
-    }
   }();
 
   switch (interp) {
@@ -620,57 +628,73 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
 
     case 0b000:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c000_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c000_o1;
       }
       break;
 
     case 0b001:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c001_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c001_o1;
       }
       break;
 
     case 0b010:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c010_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c010_o1;
       }
       break;
 
     case 0b011:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c011_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c011_o1;
       }
       break;
 
     case 0b100:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c100_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c100_o1;
       }
       break;
 
     case 0b101:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c101_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c101_o1;
       }
       break;
 
     case 0b110:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c110_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c110_o1;
       }
       break;
 
     case 0b111:
       switch (prolongation_order) {
-      case 1:
+      case 0:
         return &prolongate_cons_3d_rf2_c111_o0;
+      case 1:
+        return &prolongate_cons_3d_rf2_c111_o1;
       }
       break;
     }
@@ -740,6 +764,96 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
         return &prolongate_ddf_3d_rf2_c110_o5;
       case 0b111:
         return &prolongate_ddf_3d_rf2_c111_o5;
+      }
+      break;
+
+    case 7:
+      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
+      case 0b000:
+        return &prolongate_ddf_3d_rf2_c000_o7;
+      case 0b001:
+        return &prolongate_ddf_3d_rf2_c001_o7;
+      case 0b010:
+        return &prolongate_ddf_3d_rf2_c010_o7;
+      case 0b011:
+        return &prolongate_ddf_3d_rf2_c011_o7;
+      case 0b100:
+        return &prolongate_ddf_3d_rf2_c100_o7;
+      case 0b101:
+        return &prolongate_ddf_3d_rf2_c101_o7;
+      case 0b110:
+        return &prolongate_ddf_3d_rf2_c110_o7;
+      case 0b111:
+        return &prolongate_ddf_3d_rf2_c111_o7;
+      }
+      break;
+    }
+    break;
+
+  case interp_t::ddf_eno:
+
+    switch (prolongation_order) {
+
+    case 1:
+      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
+      case 0b000:
+        return &prolongate_ddf_eno_3d_rf2_c000_o1;
+      case 0b001:
+        return &prolongate_ddf_eno_3d_rf2_c001_o1;
+      case 0b010:
+        return &prolongate_ddf_eno_3d_rf2_c010_o1;
+      case 0b011:
+        return &prolongate_ddf_eno_3d_rf2_c011_o1;
+      case 0b100:
+        return &prolongate_ddf_eno_3d_rf2_c100_o1;
+      case 0b101:
+        return &prolongate_ddf_eno_3d_rf2_c101_o1;
+      case 0b110:
+        return &prolongate_ddf_eno_3d_rf2_c110_o1;
+      case 0b111:
+        return &prolongate_ddf_eno_3d_rf2_c111_o1;
+      }
+      break;
+
+    case 3:
+      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
+      case 0b000:
+        return &prolongate_ddf_eno_3d_rf2_c000_o3;
+      case 0b001:
+        return &prolongate_ddf_eno_3d_rf2_c001_o3;
+      case 0b010:
+        return &prolongate_ddf_eno_3d_rf2_c010_o3;
+      case 0b011:
+        return &prolongate_ddf_eno_3d_rf2_c011_o3;
+      case 0b100:
+        return &prolongate_ddf_eno_3d_rf2_c100_o3;
+      case 0b101:
+        return &prolongate_ddf_eno_3d_rf2_c101_o3;
+      case 0b110:
+        return &prolongate_ddf_eno_3d_rf2_c110_o3;
+      case 0b111:
+        return &prolongate_ddf_eno_3d_rf2_c111_o3;
+      }
+      break;
+
+    case 5:
+      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
+      case 0b000:
+        return &prolongate_ddf_eno_3d_rf2_c000_o5;
+      case 0b001:
+        return &prolongate_ddf_eno_3d_rf2_c001_o5;
+      case 0b010:
+        return &prolongate_ddf_eno_3d_rf2_c010_o5;
+      case 0b011:
+        return &prolongate_ddf_eno_3d_rf2_c011_o5;
+      case 0b100:
+        return &prolongate_ddf_eno_3d_rf2_c100_o5;
+      case 0b101:
+        return &prolongate_ddf_eno_3d_rf2_c101_o5;
+      case 0b110:
+        return &prolongate_ddf_eno_3d_rf2_c110_o5;
+      case 0b111:
+        return &prolongate_ddf_eno_3d_rf2_c111_o5;
       }
       break;
     }
