@@ -1,6 +1,5 @@
 # Schedule definitions for thorn TestProlongate
 
-STORAGE: data
 STORAGE: gf000
 STORAGE: gf001
 STORAGE: gf010
@@ -9,6 +8,42 @@ STORAGE: gf100
 STORAGE: gf101
 STORAGE: gf110
 STORAGE: gf111
+
+STORAGE: gf000_error
+STORAGE: gf001_error
+STORAGE: gf010_error
+STORAGE: gf011_error
+STORAGE: gf100_error
+STORAGE: gf101_error
+STORAGE: gf110_error
+STORAGE: gf111_error
+
+STORAGE: gf000_count
+STORAGE: gf001_count
+STORAGE: gf010_count
+STORAGE: gf011_count
+STORAGE: gf100_count
+STORAGE: gf101_count
+STORAGE: gf110_count
+STORAGE: gf111_count
+
+STORAGE: gf000_max_error
+STORAGE: gf001_max_error
+STORAGE: gf010_max_error
+STORAGE: gf011_max_error
+STORAGE: gf100_max_error
+STORAGE: gf101_max_error
+STORAGE: gf110_max_error
+STORAGE: gf111_max_error
+
+STORAGE: gf000_sum_count
+STORAGE: gf001_sum_count
+STORAGE: gf010_sum_count
+STORAGE: gf011_sum_count
+STORAGE: gf100_sum_count
+STORAGE: gf101_sum_count
+STORAGE: gf110_sum_count
+STORAGE: gf111_sum_count
 
 
 
@@ -37,8 +72,6 @@ SCHEDULE GROUP TestProlongate_SetValue AT evol
 SCHEDULE TestProlongate_Set IN TestProlongate_SetValue
 {
   LANG: C
-  WRITES: max_diff(interior)
-  WRITES: data(interior)
   WRITES: gf000(interior)
   WRITES: gf001(interior)
   WRITES: gf010(interior)
@@ -47,12 +80,28 @@ SCHEDULE TestProlongate_Set IN TestProlongate_SetValue
   WRITES: gf101(interior)
   WRITES: gf110(interior)
   WRITES: gf111(interior)
+
+  WRITES: gf000_max_error
+  WRITES: gf001_max_error
+  WRITES: gf010_max_error
+  WRITES: gf011_max_error
+  WRITES: gf100_max_error
+  WRITES: gf101_max_error
+  WRITES: gf110_max_error
+  WRITES: gf111_max_error
+  WRITES: gf000_sum_count
+  WRITES: gf001_sum_count
+  WRITES: gf010_sum_count
+  WRITES: gf011_sum_count
+  WRITES: gf100_sum_count
+  WRITES: gf101_sum_count
+  WRITES: gf110_sum_count
+  WRITES: gf111_sum_count
 } "Set up test data"
 
 SCHEDULE TestProlongate_Sync IN TestProlongate_SetValue AFTER TestProlongate_Set
 {
   LANG: C
-  SYNC: data
   SYNC: gf000
   SYNC: gf001
   SYNC: gf010
@@ -61,12 +110,11 @@ SCHEDULE TestProlongate_Sync IN TestProlongate_SetValue AFTER TestProlongate_Set
   SYNC: gf101
   SYNC: gf110
   SYNC: gf111
-} "Sync up test data"
+} "Sync test data"
 
 SCHEDULE TestProlongate_Sync AT postregrid
 {
   LANG: C
-  SYNC: data
   SYNC: gf000
   SYNC: gf001
   SYNC: gf010
@@ -75,12 +123,11 @@ SCHEDULE TestProlongate_Sync AT postregrid
   SYNC: gf101
   SYNC: gf110
   SYNC: gf111
-} "Sync up test data"
+} "Sync test data"
 
 SCHEDULE TestProlongate_Sync AT postrestrict
 {
   LANG: C
-  SYNC: data
   SYNC: gf000
   SYNC: gf001
   SYNC: gf010
@@ -89,13 +136,70 @@ SCHEDULE TestProlongate_Sync AT postrestrict
   SYNC: gf101
   SYNC: gf110
   SYNC: gf111
-} "Sync up test data"
+} "Sync test data"
 
 
 
 SCHEDULE TestProlongate_Check AT analysis
 {
   LANG: C
-  READS: max_diff(interior)
-  WRITES: max_diff(interior)
-} "Compute max difference"
+  READS: gf000(everywhere)
+  READS: gf001(everywhere)
+  READS: gf010(everywhere)
+  READS: gf011(everywhere)
+  READS: gf100(everywhere)
+  READS: gf101(everywhere)
+  READS: gf110(everywhere)
+  READS: gf111(everywhere)
+
+  WRITES: gf000_error(everywhere)
+  WRITES: gf001_error(everywhere)
+  WRITES: gf010_error(everywhere)
+  WRITES: gf011_error(everywhere)
+  WRITES: gf100_error(everywhere)
+  WRITES: gf101_error(everywhere)
+  WRITES: gf110_error(everywhere)
+  WRITES: gf111_error(everywhere)
+  WRITES: gf000_count(everywhere)
+  WRITES: gf001_count(everywhere)
+  WRITES: gf010_count(everywhere)
+  WRITES: gf011_count(everywhere)
+  WRITES: gf100_count(everywhere)
+  WRITES: gf101_count(everywhere)
+  WRITES: gf110_count(everywhere)
+  WRITES: gf111_count(everywhere)
+
+  READS: gf000_max_error
+  READS: gf001_max_error
+  READS: gf010_max_error
+  READS: gf011_max_error
+  READS: gf100_max_error
+  READS: gf101_max_error
+  READS: gf110_max_error
+  READS: gf111_max_error
+  READS: gf000_sum_count
+  READS: gf001_sum_count
+  READS: gf010_sum_count
+  READS: gf011_sum_count
+  READS: gf100_sum_count
+  READS: gf101_sum_count
+  READS: gf110_sum_count
+  READS: gf111_sum_count
+
+  WRITES: gf000_max_error
+  WRITES: gf001_max_error
+  WRITES: gf010_max_error
+  WRITES: gf011_max_error
+  WRITES: gf100_max_error
+  WRITES: gf101_max_error
+  WRITES: gf110_max_error
+  WRITES: gf111_max_error
+  WRITES: gf000_sum_count
+  WRITES: gf001_sum_count
+  WRITES: gf010_sum_count
+  WRITES: gf011_sum_count
+  WRITES: gf100_sum_count
+  WRITES: gf101_sum_count
+  WRITES: gf110_sum_count
+  WRITES: gf111_sum_count
+} "Compute error"
