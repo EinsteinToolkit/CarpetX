@@ -440,16 +440,8 @@ void setup_cctkGH(cGH *restrict cctkGH) {
   }
 
   // Initialize time stepping
-  CCTK_REAL mindx = 1.0 / 0.0;
-  for (const auto &patchdata : ghext->patchdata) {
-    const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
-    const CCTK_REAL *restrict const dx = geom.CellSize();
-    for (int d = 0; d < dim; ++d)
-      mindx = fmin(mindx, dx[d]);
-  }
-  mindx /= 1 << (max_num_levels - 1);
-  cctkGH->cctk_time = 0.0;
-  cctkGH->cctk_delta_time = dtfac * mindx;
+  cctkGH->cctk_time = 0;
+  cctkGH->cctk_delta_time = NAN;
 
   // init into meta mode
   cctkGH->cctk_lsh[0] = undefined;
@@ -1079,9 +1071,28 @@ int Initialise(tFleshConfig *config) {
       static Timer timer("InitialiseRegrid [coarse]");
       Interval interval(timer);
 
-      const CCTK_REAL time = 0.0; // dummy time
+      const CCTK_REAL time = 0; // dummy time
       for (const auto &patchdata : ghext->patchdata)
         patchdata.amrcore->MakeNewGrids(time);
+
+      // Determine time step size
+      {
+        CCTK_REAL mindx = 1.0 / 0.0;
+        for (const auto &patchdata : ghext->patchdata) {
+          const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
+          const CCTK_REAL *restrict const dx = geom.CellSize();
+          CCTK_REAL mindx1 = 1.0 / 0.0;
+          for (int d = 0; d < dim; ++d)
+            mindx1 = fmin(mindx1, dx[d]);
+          mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
+          mindx = fmin(mindx, mindx1);
+        }
+        cctkGH->cctk_delta_time = dtfac * mindx;
+#pragma omp critical
+        CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                   cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                   double(cctkGH->cctk_delta_time));
+      }
 
       assert(!active_levels);
       active_levels = make_optional<active_levels_t>(0, 1);
@@ -1124,9 +1135,9 @@ int Initialise(tFleshConfig *config) {
                      double(x1[1]), double(x1[2]));
           CCTK_VINFO("    base dx=[%.17g,%.17g,%.17g]", double(dx[0]),
                      double(dx[1]), double(dx[2]));
-          CCTK_VINFO("  Time stepping:");
-          CCTK_VINFO("    t0=%.17g", double(patchGH->cctk_time));
-          CCTK_VINFO("    dt=%.17g", double(patchGH->cctk_delta_time));
+          // CCTK_VINFO("  Time stepping:");
+          // CCTK_VINFO("    t0=%.17g", double(patchGH->cctk_time));
+          // CCTK_VINFO("    dt=%.17g", double(patchGH->cctk_delta_time));
         }
       }
     }
@@ -1169,7 +1180,7 @@ int Initialise(tFleshConfig *config) {
           const int old_numlevels = patchdata.amrcore->finestLevel() + 1;
           patchdata.amrcore->level_modified.clear();
           patchdata.amrcore->level_modified.resize(old_numlevels, false);
-          const CCTK_REAL time = 0.0; // dummy time
+          const CCTK_REAL time = 0; // dummy time
           patchdata.amrcore->regrid(0, time);
 
           const int new_numlevels = patchdata.amrcore->finestLevel() + 1;
@@ -1186,18 +1197,21 @@ int Initialise(tFleshConfig *config) {
               const int sz = leveldata.fab->size();
               const double pts = leveldata.fab->boxArray().d_numPts();
               if (leveldata.level == 0) {
-                CCTK_VINFO("  level %d: %d boxes, %.0f cells (%.4g%%)",
-                           leveldata.level, sz, pts,
-                           100 * pts /
-                               (pow(2.0, dim * leveldata.level) * pts0));
+                CCTK_VINFO(
+                    "  level %d: %d boxes, %.0f cells (%.4g%%)",
+                    leveldata.level, sz, pts,
+                    100 * pts /
+                        (ldexp(CCTK_REAL(1), dim * leveldata.level) * pts0));
               } else {
                 const double ptsc = patchdata.leveldata.at(leveldata.level - 1)
                                         .fab->boxArray()
                                         .d_numPts();
-                CCTK_VINFO("  level %d: %d boxes, %.0f cells (%.4g%%, %.0f%%)",
-                           leveldata.level, sz, pts,
-                           100 * pts / (pow(2.0, dim * leveldata.level) * pts0),
-                           100 * pts / (pow(2.0, dim) * ptsc));
+                CCTK_VINFO(
+                    "  level %d: %d boxes, %.0f cells (%.4g%%, %.0f%%)",
+                    leveldata.level, sz, pts,
+                    100 * pts /
+                        (ldexp(CCTK_REAL(1), dim * leveldata.level) * pts0),
+                    100 * pts / (ldexp(CCTK_REAL(1), dim) * ptsc));
               }
             }
           } // omp critical
@@ -1217,6 +1231,25 @@ int Initialise(tFleshConfig *config) {
         did_modify_any_level = last_modified_level >= first_modified_level;
 
         if (did_modify_any_level) {
+          // Determine time step size
+          {
+            CCTK_REAL mindx = 1.0 / 0.0;
+            for (const auto &patchdata : ghext->patchdata) {
+              const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
+              const CCTK_REAL *restrict const dx = geom.CellSize();
+              CCTK_REAL mindx1 = 1.0 / 0.0;
+              for (int d = 0; d < dim; ++d)
+                mindx1 = fmin(mindx1, dx[d]);
+              mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
+              mindx = fmin(mindx, mindx1);
+            }
+            cctkGH->cctk_delta_time = dtfac * mindx;
+#pragma omp critical
+            CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                       cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                       double(cctkGH->cctk_delta_time));
+          }
+
           assert(!active_levels);
           active_levels = make_optional<active_levels_t>(
               first_modified_level, last_modified_level + 1);
@@ -1465,7 +1498,7 @@ int Evolve(tFleshConfig *config) {
         const int old_numlevels = patchdata.amrcore->finestLevel() + 1;
         patchdata.amrcore->level_modified.clear();
         patchdata.amrcore->level_modified.resize(old_numlevels, false);
-        CCTK_REAL time = 0.0; // dummy time
+        const CCTK_REAL time = 0; // dummy time
         patchdata.amrcore->regrid(0, time);
 
         const int new_numlevels = patchdata.amrcore->finestLevel() + 1;
@@ -1482,17 +1515,21 @@ int Evolve(tFleshConfig *config) {
             const int sz = leveldata.fab->size();
             const double pts = leveldata.fab->boxArray().d_numPts();
             if (leveldata.level == 0) {
-              CCTK_VINFO("  level %d: %d boxes, %.0f cells (%.4g%%)",
-                         leveldata.level, sz, pts,
-                         100 * pts / (pow(2.0, dim * leveldata.level) * pts0));
+              CCTK_VINFO(
+                  "  level %d: %d boxes, %.0f cells (%.4g%%)", leveldata.level,
+                  sz, pts,
+                  100 * pts /
+                      (ldexp(CCTK_REAL(1), dim * leveldata.level) * pts0));
             } else {
               const double ptsc = patchdata.leveldata.at(leveldata.level - 1)
                                       .fab->boxArray()
                                       .d_numPts();
-              CCTK_VINFO("  level %d: %d boxes, %.0f cells (%.4g%%, %.0f%%)",
-                         leveldata.level, sz, pts,
-                         100 * pts / (pow(2.0, dim * leveldata.level) * pts0),
-                         100 * pts / (pow(2.0, dim) * ptsc));
+              CCTK_VINFO(
+                  "  level %d: %d boxes, %.0f cells (%.4g%%, %.0f%%)",
+                  leveldata.level, sz, pts,
+                  100 * pts /
+                      (ldexp(CCTK_REAL(1), dim * leveldata.level) * pts0),
+                  100 * pts / (ldexp(CCTK_REAL(1), dim) * ptsc));
             }
           }
         } // omp critical
@@ -1513,6 +1550,25 @@ int Evolve(tFleshConfig *config) {
           last_modified_level >= first_modified_level;
 
       if (did_modify_any_level) {
+        // Determine time step size
+        {
+          CCTK_REAL mindx = 1.0 / 0.0;
+          for (const auto &patchdata : ghext->patchdata) {
+            const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
+            const CCTK_REAL *restrict const dx = geom.CellSize();
+            CCTK_REAL mindx1 = 1.0 / 0.0;
+            for (int d = 0; d < dim; ++d)
+              mindx1 = fmin(mindx1, dx[d]);
+            mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
+            mindx = fmin(mindx, mindx1);
+          }
+          cctkGH->cctk_delta_time = dtfac * mindx;
+#pragma omp critical
+          CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                     cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                     double(cctkGH->cctk_delta_time));
+        }
+
         assert(!active_levels);
         active_levels = make_optional<active_levels_t>(first_modified_level,
                                                        last_modified_level + 1);
