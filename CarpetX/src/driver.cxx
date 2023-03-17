@@ -2294,13 +2294,15 @@ CarpetX_GetDomainSpecification(const CCTK_INT patch, const CCTK_INT size,
     physical_min[d] = geom.ProbDomain().lo(d);
     physical_max[d] = geom.ProbDomain().hi(d);
     // domain without boundary points (last interior cell centre)
-    interior_min[d] = geom.ProbDomain().lo(d) + 0.5 * geom.CellSize(d);
-    interior_max[d] = geom.ProbDomain().hi(d) - 0.5 * geom.CellSize(d);
+    interior_min[d] =
+        geom.ProbDomain().lo(d) + CCTK_REAL(0.5) * geom.CellSize(d);
+    interior_max[d] =
+        geom.ProbDomain().hi(d) - CCTK_REAL(0.5) * geom.CellSize(d);
     // domain including boundary/ghost points (last boundary/ghost cell centre)
-    exterior_min[d] =
-        geom.ProbDomain().lo(d) - (fab.nGrow(d) - 0.5) * geom.CellSize(d);
-    exterior_max[d] =
-        geom.ProbDomain().hi(d) + (fab.nGrow(d) - 0.5) * geom.CellSize(d);
+    exterior_min[d] = geom.ProbDomain().lo(d) -
+                      (fab.nGrow(d) - CCTK_REAL(0.5)) * geom.CellSize(d);
+    exterior_max[d] = geom.ProbDomain().hi(d) +
+                      (fab.nGrow(d) - CCTK_REAL(0.5)) * geom.CellSize(d);
     spacing[d] = geom.CellSize(d);
   }
   return 0;
