@@ -351,16 +351,24 @@ array<int, dim> get_group_indextype(const int gi) {
   DECLARE_CCTK_PARAMETERS;
 
   assert(gi >= 0);
+
   const int tags = CCTK_GroupTagsTableI(gi);
   assert(tags >= 0);
   array<CCTK_INT, dim> index;
+
+  // The CST stage doesn't look for the `index` tag, and
+  // `CCTK_ARGUMENTSX_...` would thus ignore it
   int iret = Util_TableGetIntArray(tags, dim, index.data(), "index");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    // Fallback: use centering table
-    const int centering = CCTK_GroupCenteringTableI(gi);
-    assert(centering >= 0);
-    iret = Util_TableGetIntArray(centering, dim, index.data(), "centering");
-  }
+  if (iret != UTIL_ERROR_TABLE_NO_SUCH_KEY)
+    CCTK_VERROR(
+        "The grid function group %s has a tag `index=...`. This is not "
+        "supported any more; use a `CENTERING{...}` declaration instead.",
+        CCTK_FullGroupName(gi));
+
+  // Use the centering table
+  const int centering = CCTK_GroupCenteringTableI(gi);
+  assert(centering >= 0);
+  iret = Util_TableGetIntArray(centering, dim, index.data(), "centering");
   if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
     // Default: vertex-centred
     index = {0, 0, 0};

@@ -28,50 +28,50 @@ CCTK_REAL fun(const Loop::PointDesc &p, const bool avgx, const bool avgy,
 }
 
 extern "C" void TestNorms_SetError(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS;
+  DECLARE_CCTK_ARGUMENTSX_TestNorms_SetError;
   DECLARE_CCTK_PARAMETERS;
 
   Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     if (fabs(p.x) <= refined_radius && fabs(p.y) <= refined_radius &&
         fabs(p.z) <= refined_radius) {
-      regrid_error[p.idx] = 1;
+      regrid_error(p.I) = 1;
     } else {
-      regrid_error[p.idx] = 0;
+      regrid_error(p.I) = 0;
     }
   });
 }
 
 extern "C" void TestNorms_Set(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestNorms_Set;
   DECLARE_CCTK_PARAMETERS;
-  DECLARE_CCTK_ARGUMENTS;
 
   const int order = 3; // an order that is higher than linear so that the value
                        // at the cell center is not the same as the average
                        // over the cell
 
   Loop::loop_all<0, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    gf000[p.idx] = fun(p, 0, 0, 0, order);
+    gf000(p.I) = fun(p, 0, 0, 0, order);
   });
   Loop::loop_all<0, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    gf001[p.idx] = fun(p, 0, 0, 1, order);
+    gf001(p.I) = fun(p, 0, 0, 1, order);
   });
   Loop::loop_all<0, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    gf010[p.idx] = fun(p, 0, 1, 0, order);
+    gf010(p.I) = fun(p, 0, 1, 0, order);
   });
   Loop::loop_all<0, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    gf011[p.idx] = fun(p, 0, 1, 1, order);
+    gf011(p.I) = fun(p, 0, 1, 1, order);
   });
   Loop::loop_all<1, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    gf100[p.idx] = fun(p, 1, 0, 0, order);
+    gf100(p.I) = fun(p, 1, 0, 0, order);
   });
   Loop::loop_all<1, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    gf101[p.idx] = fun(p, 1, 0, 1, order);
+    gf101(p.I) = fun(p, 1, 0, 1, order);
   });
   Loop::loop_all<1, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    gf110[p.idx] = fun(p, 1, 1, 0, order);
+    gf110(p.I) = fun(p, 1, 1, 0, order);
   });
   Loop::loop_all<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    gf111[p.idx] = fun(p, 1, 1, 1, order);
+    gf111(p.I) = fun(p, 1, 1, 1, order);
   });
 }
 

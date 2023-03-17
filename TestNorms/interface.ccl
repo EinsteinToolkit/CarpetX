@@ -6,11 +6,11 @@ uses include header: loop.hxx
 
 private:
 
-CCTK_REAL gf000 TYPE=gf TAGS='index={0 0 0}' "Test grid function"
-CCTK_REAL gf001 TYPE=gf TAGS='index={0 0 1}' "Test grid function"
-CCTK_REAL gf010 TYPE=gf TAGS='index={0 1 0}' "Test grid function"
-CCTK_REAL gf011 TYPE=gf TAGS='index={0 1 1}' "Test grid function"
-CCTK_REAL gf100 TYPE=gf TAGS='index={1 0 0}' "Test grid function"
-CCTK_REAL gf101 TYPE=gf TAGS='index={1 0 1}' "Test grid function"
-CCTK_REAL gf110 TYPE=gf TAGS='index={1 1 0}' "Test grid function"
-CCTK_REAL gf111 TYPE=gf TAGS='index={1 1 1}' "Test grid function"
+CCTK_REAL gf000 TYPE=gf CENTERING={VVV} "Test grid function"
+CCTK_REAL gf001 TYPE=gf CENTERING={VVC} "Test grid function"
+CCTK_REAL gf010 TYPE=gf CENTERING={VCV} "Test grid function"
+CCTK_REAL gf011 TYPE=gf CENTERING={VCC} "Test grid function"
+CCTK_REAL gf100 TYPE=gf CENTERING={CVV} "Test grid function"
+CCTK_REAL gf101 TYPE=gf CENTERING={CVC} "Test grid function"
+CCTK_REAL gf110 TYPE=gf CENTERING={CCV} "Test grid function"
+CCTK_REAL gf111 TYPE=gf CENTERING={CCC} "Test grid function"
