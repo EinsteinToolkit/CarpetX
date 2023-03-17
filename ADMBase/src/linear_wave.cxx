@@ -34,11 +34,12 @@ extern "C" void ADMBase_linear_wave(CCTK_ARGUMENTS) {
 
   const auto b = [&](const PointDesc &p) {
     return linear_wave_amplitude *
-           sin(2 * M_PI * (p.x - t) / linear_wave_wavelength);
+           sin(2 * CCTK_REAL(M_PI) * (p.x - t) / linear_wave_wavelength);
   };
   const auto bt = [&](const PointDesc &p) {
-    return -2 * M_PI * linear_wave_amplitude / linear_wave_wavelength *
-           cos(2 * M_PI * (p.x - t) / linear_wave_wavelength);
+    return -2 * CCTK_REAL(M_PI) * linear_wave_amplitude /
+           linear_wave_wavelength *
+           cos(2 * CCTK_REAL(M_PI) * (p.x - t) / linear_wave_wavelength);
   };
 
   loop_all<0, 0, 0>(cctkGH, [&](const PointDesc &p) { gxx_(p.I) = 1; });

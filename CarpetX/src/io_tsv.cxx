@@ -59,7 +59,8 @@ void WriteTSVold(const cGH *restrict cctkGH, const string &filename, int gi,
               array<CCTK_REAL, dim> x;
               for (int d = 0; d < dim; ++d)
                 x[d] = geom.ProbLo(d) +
-                       (I[d] + 0.5 * groupdata.indextype[d]) * geom.CellSize(d);
+                       (I[d] + CCTK_REAL(0.5) * groupdata.indextype[d]) *
+                           geom.CellSize(d);
               file << cctkGH->cctk_iteration << sep << cctkGH->cctk_time << sep
                    << patchdata.patch << sep << leveldata.level << sep
                    << mfi.index() << sep << I[0] << sep << I[1] << sep << I[2]
@@ -185,7 +186,8 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
       vect<CCTK_REAL, dim> x0, dx;
       for (int d = 0; d < dim; ++d) {
         dx[d] = geom.CellSize(d);
-        x0[d] = geom.ProbLo(d) + 0.5 * groupdata.indextype[d] * dx[d];
+        x0[d] =
+            geom.ProbLo(d) + CCTK_REAL(0.5) * groupdata.indextype[d] * dx[d];
       }
       vect<int, dim> icoord;
       for (int d = 0; d < dim; ++d)
