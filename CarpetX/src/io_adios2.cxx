@@ -11,7 +11,9 @@
 
 #ifdef HAVE_CAPABILITY_ADIOS2
 
-#define ADIOS2_USE_MPI 1
+#if !defined ADIOS2_USE_MPI || ADIOS2_USE_MPI != 1
+#error "CarpetX requires `ADIOS2_USE_MPI=1`; check your ADIOS2 installation"
+#endif
 #include <adios2.h>
 
 #ifdef _OPENMP
