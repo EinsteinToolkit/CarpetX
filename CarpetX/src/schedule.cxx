@@ -2099,14 +2099,11 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
         }
         if(need_sync) {
           new_groups.push_back(gi);
-        } else {
-          std::cout << ">> skipping: " << gi << std::endl;
         }
       }
       groups = new_groups;
     });
     if(groups.size() == 0) {
-      std::cout << ">> skipping all!" << std::endl;
       return 0;
     }
   }
