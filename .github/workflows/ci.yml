@@ -3,6 +3,7 @@ name: CI
 # Control when the workflow will run
 on:
   push:
+  pull_request:
   # Allow running this workflow manually from the Actions tab
   workflow_dispatch:
 

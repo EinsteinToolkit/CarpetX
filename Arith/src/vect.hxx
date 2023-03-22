@@ -234,6 +234,10 @@ template <typename T, int D> struct vect {
   operator-(const vect &x) {
     return fmap([](const T &a) ARITH_INLINE { return -a; }, x);
   }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator~(const vect &x) {
+    return fmap([](const T &a) ARITH_INLINE { return ~a; }, x);
+  }
 
   template <typename U,
             typename R = decltype(std::declval<T>() + std::declval<U>())>
@@ -282,6 +286,41 @@ template <typename T, int D> struct vect {
                     ARITH_INLINE { return mod_floor(a, b); },
                 x, y);
   }
+  template <typename U,
+            typename R = decltype(std::declval<T>() & std::declval<U>())>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<R, D>
+  operator&(const vect &x, const vect<U, D> &y) {
+    return fmap([](const T &a, const U &b) ARITH_INLINE { return a & b; }, x,
+                y);
+  }
+  template <typename U,
+            typename R = decltype(std::declval<T>() | std::declval<U>())>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<R, D>
+  operator|(const vect &x, const vect<U, D> &y) {
+    return fmap([](const T &a, const U &b) ARITH_INLINE { return a | b; }, x,
+                y);
+  }
+  template <typename U,
+            typename R = decltype(std::declval<T>() ^ std::declval<U>())>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<R, D>
+  operator^(const vect &x, const vect<U, D> &y) {
+    return fmap([](const T &a, const U &b) ARITH_INLINE { return a ^ b; }, x,
+                y);
+  }
+  template <typename U,
+            typename R = decltype(std::declval<T>() << std::declval<U>())>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<R, D>
+  operator<<(const vect &x, const vect<U, D> &y) {
+    return fmap([](const T &a, const U &b) ARITH_INLINE { return a << b; }, x,
+                y);
+  }
+  template <typename U,
+            typename R = decltype(std::declval<T>() >> std::declval<U>())>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<R, D>
+  operator>>(const vect &x, const vect<U, D> &y) {
+    return fmap([](const T &a, const U &b) ARITH_INLINE { return a >> b; }, x,
+                y);
+  }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
   operator+(const T &a, const vect &x) {
@@ -311,6 +350,26 @@ template <typename T, int D> struct vect {
   mod_floor(const T &a, const vect &x) {
     return fmap([&](const T &b) ARITH_INLINE { return mod_floor(a, b); }, x);
   }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator&(const T &a, const vect &x) {
+    return fmap([&](const T &b) ARITH_INLINE { return a & b; }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator|(const T &a, const vect &x) {
+    return fmap([&](const T &b) ARITH_INLINE { return a | b; }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator^(const T &a, const vect &x) {
+    return fmap([&](const T &b) ARITH_INLINE { return a ^ b; }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator<<(const T &a, const vect &x) {
+    return fmap([&](const T &b) ARITH_INLINE { return a << b; }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator>>(const T &a, const vect &x) {
+    return fmap([&](const T &b) ARITH_INLINE { return a >> b; }, x);
+  }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
   operator+(const vect &x, const T &a) {
@@ -339,6 +398,26 @@ template <typename T, int D> struct vect {
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
   mod_floor(const vect &x, const T &a) {
     return fmap([&](const T &b) ARITH_INLINE { return mod_floor(b, a); }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator&(const vect &x, const T &a) {
+    return fmap([&](const T &b) ARITH_INLINE { return b & a; }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator|(const vect &x, const T &a) {
+    return fmap([&](const T &b) ARITH_INLINE { return b | a; }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator^(const vect &x, const T &a) {
+    return fmap([&](const T &b) ARITH_INLINE { return b ^ a; }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator<<(const vect &x, const T &a) {
+    return fmap([&](const T &b) ARITH_INLINE { return b << a; }, x);
+  }
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator>>(const vect &x, const T &a) {
+    return fmap([&](const T &b) ARITH_INLINE { return b >> a; }, x);
   }
 
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
@@ -374,6 +453,29 @@ template <typename T, int D> struct vect {
   operator%=(const vect<U, D> &x) {
     return *this = *this % x;
   }
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator&=(const vect &x) {
+    return *this = *this & x;
+  }
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator|=(const vect &x) {
+    return *this = *this | x;
+  }
+  template <typename U>
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator^=(const vect<U, D> &x) {
+    return *this = *this ^ x;
+  }
+  template <typename U>
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator<<=(const vect<U, D> &x) {
+    return *this = *this << x;
+  }
+  template <typename U>
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  operator>>=(const vect<U, D> &x) {
+    return *this = *this >> x;
+  }
 
   template <typename U>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect operator+=(const U &a) {
@@ -394,6 +496,26 @@ template <typename T, int D> struct vect {
   template <typename U>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect operator%=(const U &a) {
     return *this = *this % a;
+  }
+  template <typename U>
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect operator&=(const U &a) {
+    return *this = *this & a;
+  }
+  template <typename U>
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect operator|=(const U &a) {
+    return *this = *this | a;
+  }
+  template <typename U>
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect operator^=(const U &a) {
+    return *this = *this ^ a;
+  }
+  template <typename U>
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect operator<<=(const U &a) {
+    return *this = *this << a;
+  }
+  template <typename U>
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect operator>>=(const U &a) {
+    return *this = *this >> a;
   }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<bool, D>
