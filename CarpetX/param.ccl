@@ -479,7 +479,7 @@ STRING out_adios2_vars "Variables to output in ADIOS2 format" STEERABLE=always
 INT out_adios2_every "Output in ADIOS2 format every that many iterations" STEERABLE=always
 {
   -1 :: "use value of IO::out_every"
-  0 :: "never output ADOIS2"
+  0 :: "never output ADIOS2"
   1:* :: "every that many iterations"
 } -1
 
