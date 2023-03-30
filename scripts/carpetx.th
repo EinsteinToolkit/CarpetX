@@ -713,6 +713,7 @@ CarpetX/TestInterpolate
 CarpetX/TestNorms
 CarpetX/TestODESolvers
 CarpetX/TestODESolvers2
+CarpetX/TestOutput
 CarpetX/TestProlongate
 CarpetX/TestSymmetries
 CarpetX/TmunuBase
