@@ -1061,6 +1061,25 @@ int Initialise(tFleshConfig *config) {
     for (auto &patchdata : ghext->patchdata)
       patchdata.amrcore->cactus_is_initialized = true;
 
+    // Determine time step size
+    {
+      CCTK_REAL mindx = 1.0 / 0.0;
+      for (const auto &patchdata : ghext->patchdata) {
+        const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
+        const CCTK_REAL *restrict const dx = geom.CellSize();
+        CCTK_REAL mindx1 = 1.0 / 0.0;
+        for (int d = 0; d < dim; ++d)
+          mindx1 = fmin(mindx1, dx[d]);
+        mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
+        mindx = fmin(mindx, mindx1);
+      }
+      cctkGH->cctk_delta_time = dtfac * mindx;
+#pragma omp critical
+      CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                 cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                 double(cctkGH->cctk_delta_time));
+    }
+
   } else {
     // Set up initial conditions
 #pragma omp critical
