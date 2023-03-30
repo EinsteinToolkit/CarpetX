@@ -469,47 +469,113 @@ KEYWORD checkpoint_method "I/O method for checkpointing" STEERABLE=recover
   "silo" :: ""
 } "error"
 
+
+
 STRING out_adios2_vars "Variables to output in ADIOS2 format" STEERABLE=always
 {
   ".*" :: ""
 } ""
 
+INT out_adios2_every "Output in ADIOS2 format every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output ADIOS2"
+  1:* :: "every that many iterations"
+} -1
+
+
+
 BOOLEAN out_metadata "Output metadata in YAML format?" STEERABLE=always
 {
 } yes
+
+INT out_metadata_every "Output metadata every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output metadata"
+  1:* :: "every that many iterations"
+} -1
+
+
 
 STRING out_norm_vars "Variables to output as norms" STEERABLE=always
 {
   ".*" :: ""
 } ""
 
+INT out_norm_every "Output norms every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output norms"
+  1:* :: "every that many iterations"
+} -1
+
 BOOLEAN out_norm_omit_unstable "Omit unstable norms (e.g. maxloc)" STEERABLE=always
 {
 } no
+
+
 
 STRING out_openpmd_vars "Variables to output in openPMD format" STEERABLE=always
 {
   ".*" :: ""
 } ""
 
+INT out_openpmd_every "Output in openPMD format every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output openPMD"
+  1:* :: "every that many iterations"
+} -1
+
+
+
 STRING out_plotfile_groups "Groups to output as AMReX plotfile" STEERABLE=always
 {
   ".*" :: ""
 } ""
+
+INT out_plotfile_every "Output in plotfile format every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output plotfile"
+  1:* :: "every that many iterations"
+} -1
+
+
 
 STRING out_silo_vars "Variables to output in Silo format" STEERABLE=always
 {
   ".*" :: ""
 } ""
 
-BOOLEAN out_tsv "Output in TSV (tab-separated values) format?" STEERABLE=always
+INT out_silo_every "Output in Silo format every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output Silo"
+  1:* :: "every that many iterations"
+} -1
+
+
+
+
+BOOLEAN out_tsv "3d Output in TSV (tab-separated values) format?" STEERABLE=always
 {
 } no
 
-STRING out_tsv_vars "Variables to output in TSV format" STEERABLE=always
+
+
+STRING out_tsv_vars "Variables to output in 1d TSV format" STEERABLE=always
 {
   ".*" :: ""
 } ""
+
+INT out_tsv_every "Output in TSV format every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output TSV"
+  1:* :: "every that many iterations"
+} -1
 
 
 

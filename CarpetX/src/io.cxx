@@ -502,13 +502,23 @@ int OutputGH(const cGH *restrict cctkGH) {
     CCTK_VINFO("OutputGH: iteration %d, time %f, run time %d s", cctk_iteration,
                double(cctk_time), CCTK_RunTime());
 
-  if (out_every > 0 && cctk_iteration % out_every == 0) {
+  {
+    const int every = out_metadata_every == -1 ? out_every : out_metadata_every;
+    if (every > 0 && cctk_iteration % every == 0) {
+      OutputMetadata(cctkGH);
+    }
+  }
 
-    OutputMetadata(cctkGH);
+  {
+    const int every = out_norm_every == -1 ? out_every : out_norm_every;
+    if (every > 0 && cctk_iteration % every == 0) {
+      OutputNorms(cctkGH);
+    }
+  }
 
-    OutputNorms(cctkGH);
-
-    {
+  {
+    const int every = out_adios2_every == -1 ? out_every : out_adios2_every;
+    if (every > 0 && cctk_iteration % every == 0) {
       const vector<bool> group_enabled = find_groups("ADIOS2", out_adios2_vars);
 #ifdef HAVE_CAPABILITY_ADIOS2
       // TODO: Stop at paramcheck time when ADIOS2 output parameters
@@ -523,39 +533,56 @@ int OutputGH(const cGH *restrict cctkGH) {
     }
 
     {
-      const vector<bool> group_enabled =
-          find_groups("openPMD", out_openpmd_vars);
+      const int every = out_openpmd_every == -1 ? out_every : out_openpmd_every;
+      if (every > 0 && cctk_iteration % every == 0) {
+        const vector<bool> group_enabled =
+            find_groups("openPMD", out_openpmd_vars);
 #ifdef HAVE_CAPABILITY_openPMD_api
-      // TODO: Stop at paramcheck time when openPMD output parameters
-      // are set, but openPMD is not available
-      const string simulation_name = get_simulation_name();
-      OutputOpenPMD(cctkGH, group_enabled, out_dir, simulation_name);
+        // TODO: Stop at paramcheck time when openPMD output parameters
+        // are set, but openPMD is not available
+        const string simulation_name = get_simulation_name();
+        OutputOpenPMD(cctkGH, group_enabled, out_dir, simulation_name);
 #else
-      if (strlen(out_openpmd_vars) != 0)
-        CCTK_VERROR("openPMD is not enabled. The parameter "
-                    "CarpetX::out_openpmd_vars must be empty.");
+        if (strlen(out_openpmd_vars) != 0)
+          CCTK_VERROR("openPMD is not enabled. The parameter "
+                      "CarpetX::out_openpmd_vars must be empty.");
 #endif
+      }
     }
 
-    OutputPlotfile(cctkGH);
+    {
+      const int every =
+          out_plotfile_every == -1 ? out_every : out_plotfile_every;
+      if (every > 0 && cctk_iteration % every == 0) {
+        OutputPlotfile(cctkGH);
+      }
+    }
 
     {
-      const vector<bool> group_enabled = find_groups("Silo", out_silo_vars);
+      const int every = out_silo_every == -1 ? out_every : out_silo_every;
+      if (every > 0 && cctk_iteration % every == 0) {
+        const vector<bool> group_enabled = find_groups("Silo", out_silo_vars);
 #ifdef HAVE_CAPABILITY_Silo
-      // TODO: Stop at paramcheck time when Silo output parameters are
-      // set, but Silo is not available
-      const string simulation_name = get_simulation_name();
-      OutputSilo(cctkGH, group_enabled, out_dir, simulation_name);
+        // TODO: Stop at paramcheck time when Silo output parameters are
+        // set, but Silo is not available
+        const string simulation_name = get_simulation_name();
+        OutputSilo(cctkGH, group_enabled, out_dir, simulation_name);
 #else
-      if (strlen(out_silo_vars) != 0)
-        CCTK_VERROR("Silo is not enabled. The parameter CarpetX::out_silo_vars "
-                    "must be empty.");
+        if (strlen(out_silo_vars) != 0)
+          CCTK_VERROR("Silo is not enabled. The parameter "
+                      "CarpetX::out_silo_vars must be empty.");
 #endif
+      }
     }
 
     OutputTSVold(cctkGH);
 
-    OutputTSV(cctkGH);
+    {
+      const int every = out_tsv_every == -1 ? out_every : out_tsv_every;
+      if (every > 0 && cctk_iteration % every == 0) {
+        OutputTSV(cctkGH);
+      }
+    }
 
     // Describe all output files
     OutputMeta(cctkGH);
