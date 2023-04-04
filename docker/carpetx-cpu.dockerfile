@@ -1,12 +1,12 @@
 # How to build this Docker image:
 
-#     docker build --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx-cpu-real64 .
-#     docker push einsteintoolkit/carpetx-cpu-real64
+#     docker build --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real64 .
+#     docker push einsteintoolkit/carpetx:cpu-real64
 
-#     docker build --build-arg real_precision=real32 --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx-cpu-real32 .
-#     docker push einsteintoolkit/carpetx-cpu-real32
+#     docker build --build-arg real_precision=real32 --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real32 .
+#     docker push einsteintoolkit/carpetx:cpu-real32
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -47,13 +47,13 @@ RUN apt-get update && \
         && \
     rm -rf /var/lib/apt/lists/*
 
-# jinja2 >= 3.1 removes jinja2.Markup, causing failures:
-# https://github.com/bokeh/bokeh/pull/11174
-RUN pip install jinja2==3.0.3 && \
-    pip install bokeh==2.0.1 && \
-    pip install matplotlib && \
-    pip install requests && \
-    pip install pygit2==1.0.3
+# # jinja2 >= 3.1 removes jinja2.Markup, causing failures:
+# # https://github.com/bokeh/bokeh/pull/11174
+# RUN pip install jinja2==3.0.3 && \
+#     pip install bokeh==2.0.1 && \
+#     pip install matplotlib && \
+#     pip install requests && \
+#     pip install pygit2==1.0.3
 
 # Install cmake
 # We need a modern cmake to build AMReX
@@ -69,9 +69,9 @@ RUN mkdir dist && \
 # ADIOS2 is a parallel I/O library, comparable to HDF5
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.8.3.tar.gz && \
-    tar xzf v2.8.3.tar.gz && \
-    cd ADIOS2-2.8.3 && \
+    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.9.0.tar.gz && \
+    tar xzf v2.9.0.tar.gz && \
+    cd ADIOS2-2.9.0 && \
     mkdir build && \
     cd build && \
     cmake .. && \
@@ -107,9 +107,9 @@ RUN mkdir src && \
 # - Depends on ADIOS2
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.14.5.tar.gz && \
-    tar xzf 0.14.5.tar.gz && \
-    cd openPMD-api-0.14.5 && \
+    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.0.tar.gz && \
+    tar xzf 0.15.0.tar.gz && \
+    cd openPMD-api-0.15.0 && \
     mkdir build && \
     cd build && \
     cmake .. && \
@@ -176,9 +176,9 @@ ARG real_precision=real64
 # Should we  keep AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/23.03.tar.gz && \
-    tar xzf 23.03.tar.gz && \
-    cd amrex-23.03 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/23.04.tar.gz && \
+    tar xzf 23.04.tar.gz && \
+    cd amrex-23.04 && \
     mkdir build && \
     cd build && \
     case $real_precision in \
