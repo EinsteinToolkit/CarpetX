@@ -56,8 +56,8 @@ namespace CarpetX {
 
 constexpr bool io_verbose = true;
 
-// HDF5, ADIOS1, ADIOS2, ADIOS2_SST, ADIOS2_SSC, JSON, DUMMY
-constexpr openPMD::Format format = openPMD::Format::ADIOS2;
+// HDF5, ADIOS1, ADIOS2_BP, ADIOS2_BP4, ADIOS2_BP5, ADIOS2_SST, ADIOS2_SSC, JSON, DUMMY
+constexpr openPMD::Format format = openPMD::Format::ADIOS2_BP5;
 
 // - fileBased: One file per iteration. Needs templated file name to encode
 //   iteration number.

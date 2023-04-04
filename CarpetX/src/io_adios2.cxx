@@ -11,8 +11,9 @@
 
 #ifdef HAVE_CAPABILITY_ADIOS2
 
-#if !defined ADIOS2_USE_MPI || ADIOS2_USE_MPI != 1
-#error "CarpetX requires `ADIOS2_USE_MPI=1`; check your ADIOS2 installation"
+#if !defined ADIOS2_USE_MPI || !ADIOS2_USE_MPI
+#error                                                                         \
+    "CarpetX requires an MPI-enabled ADIOS2 library. Please compile ADIOS2 with MPI support and enable its use by defining ADIOS2_USE_MPI."
 #endif
 #include <adios2.h>
 
@@ -209,7 +210,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
       if (io_verbose)
         CCTK_VINFO("  Creating ADIOS object...");
       // "Fortran" enables column-major mode
-      adios = adios2::ADIOS(MPI_COMM_WORLD, "Fortran");
+      adios = adios2::ADIOS("", MPI_COMM_WORLD, "Fortran");
 
       if (io_verbose)
         CCTK_VINFO("  Creating IO object...");
@@ -240,10 +241,10 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
         const int ierr = CCTK_CreateDirectory(mode, output_dir.c_str());
         assert(ierr >= 0);
       });
-      buf << output_dir << "/" << output_file << ".bp";
+      buf << output_dir << "/" << output_file << ".bp5";
       const std::string filename = buf.str();
       // This just confirms the default
-      // io.SetEngine("BP4");
+      // io.SetEngine("BP5");
       engine = io.Open(filename, adios2::Mode::Write);
 
       if (io_verbose)
