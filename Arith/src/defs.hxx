@@ -14,9 +14,12 @@
 #define ARITH_INLINE CCTK_ATTRIBUTE_ALWAYS_INLINE
 #endif
 
-// For CUDA: Declare whether a function should live on the device or
-// the host (or both)
-#ifdef __CUDACC__
+// For accelerators: Declare whether a function should live on the device or the
+// host (or both)
+#if defined __CUDACC__
+#define ARITH_DEVICE __device__
+#define ARITH_HOST __host__
+#elif defined __HIPCC__
 #define ARITH_DEVICE __device__
 #define ARITH_HOST __host__
 #else
