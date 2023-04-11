@@ -3,8 +3,10 @@
 
 #include "defs.hxx"
 
+#ifndef SIMD_CPU
 #include <nsimd/nsimd-all.hpp>
 #undef vec // This should arguably not be defined in C++
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -22,6 +24,7 @@ using namespace std;
 template <typename T> struct simd;
 template <typename T> struct simdl;
 
+#ifndef SIMD_CPU
 namespace detail {
 struct reinterpret32 {
   typedef i32 int_type;
@@ -47,6 +50,7 @@ template <typename T>
 using unsigned_type = typename reinterpret<T>::unsigned_type;
 template <typename T> using float_type = typename reinterpret<T>::float_type;
 } // namespace detail
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 
