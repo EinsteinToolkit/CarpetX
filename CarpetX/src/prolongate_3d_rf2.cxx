@@ -8,13 +8,11 @@
 
 #include <AMReX_Gpu.H>
 
-#ifdef _OPENMP
+#if defined _OPENMP || defined __HIPCC__
 #include <omp.h>
 #else
-namespace {
-inline int omp_get_num_threads() { return 1; }
-inline int omp_get_thread_num() { return 0; }
-} // namespace
+static inline int omp_get_num_threads() { return 1; }
+static inline int omp_get_thread_num() { return 0; }
 #endif
 
 #include <array>
