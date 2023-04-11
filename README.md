@@ -13,3 +13,11 @@ for the [Einstein Toolkit](https://einsteintoolkit.org/).
   CI](https://github.com/eschnett/CarpetX/workflows/CI/badge.svg)](https://github.com/eschnett/CarpetX/actions)
 
 ## Overview
+
+CarpetX is almost ready for production. You are welcome to give it a try, to look at what changes your code might need to benefit from CarpetX's new features, and to give us feedback.
+
+The recorded talk "[Using CarpetX: A Guide for Early Adopters](http://einsteintoolkit.org/seminars/2021_03_18/index.html)". This presentation provides an overview of the current capabilities of CarpetX and showcases how to write Cactus code using it.
+
+## Getting started
+
+Instructions for downloading the Einstein Toolkit including CarpetX, building, and running an example are available on the [wiki](https://github.com/eschnett/CarpetX/wiki/Getting-Started)
