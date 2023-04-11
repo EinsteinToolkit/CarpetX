@@ -11,8 +11,10 @@
 #ifdef _OPENMP
 #include <omp.h>
 #else
-static inline int omp_get_num_threads() { return 1; }
-static inline int omp_get_thread_num() { return 0; }
+namespace {
+inline int omp_get_num_threads() { return 1; }
+inline int omp_get_thread_num() { return 0; }
+} // namespace
 #endif
 
 #include <array>
