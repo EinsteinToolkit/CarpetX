@@ -61,7 +61,7 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
   if (any(imax <= imin))
     return;
 
-#ifndef __CUDACC__
+#if !defined __CUDACC__ && !defined __HIPCC__
   // CPU
 
   // #pragma omp task final(true) untied
