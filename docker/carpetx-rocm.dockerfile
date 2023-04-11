@@ -197,10 +197,10 @@ RUN mkdir src && \
         -DAMReX_PRECISION="$precision" \
         -DBUILD_SHARED_LIBS=ON \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-        -DCMAKE_C_COMPILER=/opt/rocm-5.4.3/llvm/bin/clang \
-        -DCMAKE_CXX_COMPILER=/opt/rocm-5.4.3/llvm/bin/clang++ \
+        -DCMAKE_C_COMPILER=/opt/rocm/llvm/bin/clang \
+        -DCMAKE_CXX_COMPILER=/opt/rocm/llvm/bin/clang++ \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
-        -DCMAKE_PREFIX_PATH='/opt/rocm-5.4.3/lib/cmake/AMDDeviceLibs;/opt/rocm-5.4.3/lib/cmake/amd_comgr;/opt/rocm-5.4.3/lib/cmake/hip;/opt/rocm-5.4.3/lib/cmake/hiprand;/opt/rocm-5.4.3/lib/cmake/hsa-runtime64;/opt/rocm-5.4.3/lib/cmake/rocprim;/opt/rocm-5.4.3/lib/cmake/rocrand' \
+        -DCMAKE_PREFIX_PATH='/opt/rocm/lib/cmake/AMDDeviceLibs;/opt/rocm/lib/cmake/amd_comgr;/opt/rocm/lib/cmake/hip;/opt/rocm/lib/cmake/hiprand;/opt/rocm/lib/cmake/hsa-runtime64;/opt/rocm/lib/cmake/rocprim;/opt/rocm/lib/cmake/rocrand' \
         -DMPI_C_ADDITIONAL_INCLUDE_DIRS='/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi;/usr/lib/x86_64-linux-gnu/openmpi/include' \
         -DMPI_C_LIB_NAMES='mpi;open-rte;open-pal;hwloc' \
         -DMPI_CXX_ADDITIONAL_INCLUDE_DIRS='/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi;/usr/lib/x86_64-linux-gnu/openmpi/include' \
