@@ -17,8 +17,10 @@ jobs:
   download-build-test:
     strategy:
       matrix:
-        accelerator: [cpu, cuda]
+        accelerator: [cpu, cuda, rocm]
         real-precision: [real32, real64]
+        exclude:
+          - {accelerator: rocm, real-precision: real32}
     env:
       ACCELERATOR: ${{matrix.accelerator}}
       REAL_PRECISION: ${{matrix.real-precision}}
@@ -48,7 +50,7 @@ jobs:
         run: /bin/bash $GITHUB_WORKSPACE/scripts/build.sh
       
       - name: Test Cactus
-        if: ${{matrix.accelerator != 'cuda'}}
+        if: ${{matrix.accelerator != 'cuda' && matrix.accelerator != 'rocm'}}
         run: /bin/bash $GITHUB_WORKSPACE/scripts/test.sh
       
       # Set exit code based on test status

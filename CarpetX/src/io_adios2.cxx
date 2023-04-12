@@ -17,7 +17,7 @@
 #endif
 #include <adios2.h>
 
-#ifdef _OPENMP
+#if defined _OPENMP || defined __HIPCC__
 #include <omp.h>
 #else
 static inline int omp_get_max_threads() { return 1; }

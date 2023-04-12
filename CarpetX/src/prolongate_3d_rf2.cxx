@@ -8,7 +8,7 @@
 
 #include <AMReX_Gpu.H>
 
-#ifdef _OPENMP
+#if defined _OPENMP || defined __HIPCC__
 #include <omp.h>
 #else
 static inline int omp_get_num_threads() { return 1; }
@@ -61,7 +61,7 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
   if (any(imax <= imin))
     return;
 
-#ifndef __CUDACC__
+#if !defined __CUDACC__ && !defined __HIPCC__
   // CPU
 
   // #pragma omp task final(true) untied

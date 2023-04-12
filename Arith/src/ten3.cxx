@@ -21,7 +21,7 @@ constexpr bool eqm(const gten3<T, D, symm> &x, const gten3<T, D, symm> &y) {
 // compile time. If this function compiles, the tests pass.
 void TestTen3() {
   // nvcc V11.1.74 doesn't accept this as "constexpr" values
-#ifndef __CUDACC__
+#if !defined __CUDACC__ && !defined __HIPCC__
   using T3D = sten3<CCTK_REAL, 3>;
 
   constexpr CCTK_REAL N = nan<CCTK_REAL>();
