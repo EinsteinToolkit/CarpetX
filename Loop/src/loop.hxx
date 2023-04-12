@@ -53,9 +53,7 @@ struct PointDesc {
   vect<int, dim> I;
   vect<int, dim> NI; // outward boundary normal, or zero
   vect<int, dim> I0; // nearest interior point
-  static constexpr vect<vect<int, dim>, dim> DI = {vect<int, dim>::unit(0),
-                                                   vect<int, dim>::unit(1),
-                                                   vect<int, dim>::unit(2)};
+  vect<vect<int, dim>, dim> DI;
   vect<CCTK_REAL, dim> X;
   vect<CCTK_REAL, dim> DX;
 
@@ -131,16 +129,27 @@ public:
     const CCTK_REAL y = x0[1] + (lbnd[1] + j - CCTK_REAL(!CJ) / 2) * dx[1];
     const CCTK_REAL z = x0[2] + (lbnd[2] + k - CCTK_REAL(!CK) / 2) * dx[2];
     const int idx = i * di + j * dj + k * dk;
-    return PointDesc{imin,      imax,         //
-                     i,         j,     k,     //
-                     x,         y,     z,     //
-                     dx[0],     dx[1], dx[2], //
-                     idx,                     //
-                     dj,        dk,    np,    //
-                     {i, j, k},               //
-                     NI,                      //
-                     I0,                      //
-                     {x, y, z},               //
+    return PointDesc{imin,
+                     imax, //
+                     i,
+                     j,
+                     k, //
+                     x,
+                     y,
+                     z, //
+                     dx[0],
+                     dx[1],
+                     dx[2], //
+                     idx,   //
+                     dj,
+                     dk,
+                     np,        //
+                     {i, j, k}, //
+                     NI,        //
+                     I0,        //
+                     {vect<int, dim>::unit(0), vect<int, dim>::unit(1),
+                      vect<int, dim>::unit(2)}, //
+                     {x, y, z},                 //
                      dx};
   }
 
