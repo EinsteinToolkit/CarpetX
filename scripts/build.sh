@@ -23,9 +23,11 @@ git config --global user.name "Github Actions"
 
 # Build
 # The build log needs to be stored for later.
-time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build --jobs $(nproc) sim 2>&1 |
-    tee build.log ||
-make sim VERBOSE=yes
+{
+    time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build --jobs $(nproc) sim 2>&1 |
+        tee build.log
+} ||
+    make sim VERBOSE=yes
 
 # Check whether the executable exists and is executable
 test -x exe/cactus_sim
