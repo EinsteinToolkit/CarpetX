@@ -1600,6 +1600,7 @@ int Evolve(tFleshConfig *config) {
     // Find smallest iteration number. Levels at this iteration will
     // be evolved.
     rat64 iteration = ghext->patchdata.at(0).leveldata.at(0).iteration;
+    using std::min;
     for (const auto &patchdata : ghext->patchdata)
       for (const auto &leveldata : patchdata.leveldata)
         iteration = min(iteration, leveldata.iteration);
