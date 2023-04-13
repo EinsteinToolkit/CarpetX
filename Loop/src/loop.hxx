@@ -40,11 +40,11 @@ std::ostream &operator<<(std::ostream &os, const where_t where);
 struct GridDescBase;
 
 struct PointDesc {
-  vect<vect<int, dim>, dim> DI; // direction unit vectors
-
   vect<int, dim> I;  // grid point
   vect<int, dim> NI; // outward boundary normal, or zero
   vect<int, dim> I0; // nearest interior point
+
+  vect<vect<int, dim>, dim> DI; // direction unit vectors
 
   vect<CCTK_REAL, dim> X;  // grid point coordinates
   vect<CCTK_REAL, dim> DX; // grid spacing
@@ -66,11 +66,11 @@ struct PointDesc {
   PointDesc(const vect<int, dim> &I, const vect<int, dim> &NI,
             const vect<int, dim> &I0, const vect<CCTK_REAL, dim> &X,
             const vect<CCTK_REAL, dim> &DX, const int imin, const int imax)
-      : DI{vect<int, dim>::unit(0), vect<int, dim>::unit(1),
-           vect<int, dim>::unit(2)},
-        I(I), NI(NI), I0(I0), X(X), DX(DX), imin(imin), imax(imax), i(I[0]),
-        j(I[1]), k(I[2]), x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]),
-        dz(DX[2]) {}
+      : I(I), NI(NI),
+        I0(I0), DI{vect<int, dim>::unit(0), vect<int, dim>::unit(1),
+                   vect<int, dim>::unit(2)},
+        X(X), DX(DX), imin(imin), imax(imax), i(I[0]), j(I[1]), k(I[2]),
+        x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
 
   friend std::ostream &operator<<(std::ostream &os, const PointDesc &p);
 };
