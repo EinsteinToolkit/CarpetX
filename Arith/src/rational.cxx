@@ -95,7 +95,7 @@ void TestRational() {
   static_assert(isgood(min(x, y)));
 
   using std::pow;
-  static_assert(isgood(pow(x, a)));
+  static_assert(isgood(pown(x, a)));
 
   static_assert(+x == n + x);
   static_assert(x + n == x);

@@ -168,7 +168,7 @@ template <typename I> struct rational {
   }
 
   template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
-  friend constexpr rational pow(rational x, J a) {
+  friend constexpr rational pown(rational x, J a) {
     if (a < 0) {
       x = 1 / x;
       a = -a;
