@@ -12,7 +12,6 @@
 #include <cctk.h>
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <cstddef>
 #include <climits>
@@ -38,134 +37,118 @@ constexpr int undefined = (INT_MAX / 2 + 1) + 666;
 enum class where_t { everywhere, interior, boundary, ghosts_inclusive, ghosts };
 std::ostream &operator<<(std::ostream &os, const where_t where);
 
-// TODO: Add this `template <int CI, int CJ, int CK>` here, and to `GF3D2` etc.
+struct GridDescBase;
+
 struct PointDesc {
-  // static constexpr vect<int, dim> centering{CI, CJ, CK};
-  int imin, imax;
-  int i, j, k;
-  CCTK_REAL x, y, z;
-  CCTK_REAL dx, dy, dz;
-  int idx;
-  static constexpr int di = 1;
-  int dj; // stride in the j direction
-  int dk; // stride in the k direction
-  int np; // number of grid points
-  vect<int, dim> I;
+  vect<vect<int, dim>, dim> DI; // direction unit vectors
+
+  vect<int, dim> I;  // grid point
   vect<int, dim> NI; // outward boundary normal, or zero
   vect<int, dim> I0; // nearest interior point
-  vect<vect<int, dim>, dim> DI;
-  vect<CCTK_REAL, dim> X;
-  vect<CCTK_REAL, dim> DX;
 
-  friend std::ostream &operator<<(std::ostream &os, const PointDesc &p) {
-    os << "PointDesc{"
-       << "imin,imax:{" << p.imin << "," << p.imax << "}, "
-       << "ijk:[" << p.i << "," << p.j << "," << p.k << "], "
-       << "xyz:[" << p.x << "," << p.y << "," << p.z << "], "
-       << "dxyz:[" << p.dx << "," << p.dy << "," << p.dz << "], "
-       << "idx:" << p.idx << ", "
-       << "dijk:[" << p.di << "," << p.dj << "," << p.dk << "], "
-       << "np:" << p.np << ", "
-       << "NI:" << p.NI << ", "
-       << "I0:" << p.I0 << "}";
-    return os;
-  }
+  vect<CCTK_REAL, dim> X;  // grid point coordinates
+  vect<CCTK_REAL, dim> DX; // grid spacing
+
+  int imin, imax; // loop bounds, for SIMD vectorization
+
+  // Deprecated
+  int i, j, k;          // grid point
+  CCTK_REAL x, y, z;    // grid point coordinates
+  CCTK_REAL dx, dy, dz; // grid spacing
+
+  PointDesc() = delete;
+  PointDesc(const PointDesc &) = default;
+  PointDesc(PointDesc &&) = default;
+  PointDesc &operator=(const PointDesc &) = default;
+  PointDesc &operator=(PointDesc &&) = default;
+
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
+  PointDesc(const vect<int, dim> &I, const vect<int, dim> &NI,
+            const vect<int, dim> &I0, const vect<CCTK_REAL, dim> &X,
+            const vect<CCTK_REAL, dim> &DX, const int imin, const int imax)
+      : DI{vect<int, dim>::unit(0), vect<int, dim>::unit(1),
+           vect<int, dim>::unit(2)},
+        I(I), NI(NI), I0(I0), X(X), DX(DX), imin(imin), imax(imax), i(I[0]),
+        j(I[1]), k(I[2]), x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]),
+        dz(DX[2]) {}
+
+  friend std::ostream &operator<<(std::ostream &os, const PointDesc &p);
 };
 
 struct GridDescBase {
-  std::array<int, dim> gsh;
-  std::array<int, dim> lbnd, ubnd;
-  std::array<int, dim> lsh;
-  std::array<int, dim> ash;
-  std::array<int, 2 * dim> bbox;
-  std::array<int, dim> nghostzones;
-  std::array<int, dim> tmin, tmax;
+  vect<int, dim> gsh;
+  vect<int, dim> lbnd, ubnd;
+  vect<int, dim> lsh;
+  vect<int, dim> ash;
+  vect<int, 2 * dim> bbox;
+  vect<int, dim> nghostzones;
+  vect<int, dim> tmin, tmax;
 
   // for current level
-  std::array<CCTK_REAL, dim> x0;
-  std::array<CCTK_REAL, dim> dx;
+  vect<CCTK_REAL, dim> x0;
+  vect<CCTK_REAL, dim> dx;
 
-  template <typename T, std::size_t N>
-  static void output(std::ostream &os, const std::string &str,
-                     const std::array<T, N> &arr) {
-    os << str << ":[";
-    for (std::size_t n = 0; n < N; ++n) {
-      if (n > 0)
-        os << ",";
-      os << arr[n];
-    }
-    os << "]";
-  }
-  friend std::ostream &operator<<(std::ostream &os, const GridDescBase &grid) {
-    os << "GridDescBase{";
-    output(os, "gsh", grid.gsh);
-    output(os, ",lbnd", grid.lbnd);
-    output(os, ",ubnd", grid.ubnd);
-    output(os, ",lsh", grid.lsh);
-    output(os, ",bbox", grid.bbox);
-    output(os, ",nghostzones", grid.nghostzones);
-    output(os, ",tmin", grid.tmin);
-    output(os, ",tmax", grid.tmax);
-    os << "}";
-    return os;
-  }
+  friend std::ostream &operator<<(std::ostream &os, const GridDescBase &grid);
 
 protected:
   GridDescBase();
 
 public:
+  GridDescBase(const GridDescBase &) = default;
+  GridDescBase(GridDescBase &&) = default;
+  GridDescBase &operator=(const GridDescBase &) = default;
+  GridDescBase &operator=(GridDescBase &&) = default;
+
   GridDescBase(const cGH *cctkGH);
 
-  template <int CI, int CJ, int CK>
   constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
-  point_desc(const vect<int, dim> &restrict NI,
-             const vect<int, dim> &restrict I0, const int imin, const int imax,
-             const int i, const int j, const int k) const {
-    constexpr int di = 1;
-    const int dj = di * (ash[0] - CI);
-    const int dk = dj * (ash[1] - CJ);
-    const int np = dk * (ash[2] - CK);
-    const CCTK_REAL x = x0[0] + (lbnd[0] + i - CCTK_REAL(!CI) / 2) * dx[0];
-    const CCTK_REAL y = x0[1] + (lbnd[1] + j - CCTK_REAL(!CJ) / 2) * dx[1];
-    const CCTK_REAL z = x0[2] + (lbnd[2] + k - CCTK_REAL(!CK) / 2) * dx[2];
-    const int idx = i * di + j * dj + k * dk;
-    return PointDesc{imin,
-                     imax, //
-                     i,
-                     j,
-                     k, //
-                     x,
-                     y,
-                     z, //
-                     dx[0],
-                     dx[1],
-                     dx[2], //
-                     idx,   //
-                     dj,
-                     dk,
-                     np,        //
-                     {i, j, k}, //
-                     NI,        //
-                     I0,        //
-                     {vect<int, dim>::unit(0), vect<int, dim>::unit(1),
-                      vect<int, dim>::unit(2)}, //
-                     {x, y, z},                 //
-                     dx};
+  point_desc(const vect<bool, dim> &CI, const vect<int, dim> &I,
+             const vect<int, dim> &NI, const vect<int, dim> &I0, const int imin,
+             const int imax) const {
+    const vect<CCTK_REAL, dim> X =
+        x0 + (lbnd + I - vect<CCTK_REAL, dim>(!CI) / 2) * dx;
+    const vect<CCTK_REAL, dim> DX = dx;
+    return PointDesc(I, NI, I0, X, DX, imin, imax);
   }
 
-  template <int CI, int CJ, int CK>
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
-  point_desc(const PointDesc &p) const {
-    return point_desc<CI, CJ, CK>(p.NI, p.I0, p.imin, p.imax, p.i, p.j, p.k);
-  }
-
-  // Loop over a given box
+  // Loop over a given box in the interior
   template <int CI, int CJ, int CK, int VS = 1, typename F>
   // inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   CCTK_ATTRIBUTE_NOINLINE void
-  loop_box(const F &f, const std::array<int, dim> &restrict imin,
-           const std::array<int, dim> &restrict imax,
-           const std::array<int, dim> &restrict inormal) const {
+  loop_box_interior(const F &f, const vect<int, dim> &restrict imin,
+                    const vect<int, dim> &restrict imax) const {
+    // TODO: convert array to vect (and everywhere nearby)
+    static_assert(CI == 0 || CI == 1, "");
+    static_assert(CJ == 0 || CJ == 1, "");
+    static_assert(CK == 0 || CK == 1, "");
+    static_assert(VS > 0, "");
+
+    for (int d = 0; d < dim; ++d)
+      if (imin[d] >= imax[d])
+        return;
+
+    for (int k = imin[2]; k < imax[2]; ++k) {
+      for (int j = imin[1]; j < imax[1]; ++j) {
+#pragma omp simd
+        for (int i = imin[0]; i < imax[0]; i += VS) {
+          const vect<int, dim> I = {i, j, k};
+          const vect<int, dim> NI = {0, 0, 0};
+          const vect<int, dim> I0 = {i, j, k};
+          const PointDesc p =
+              point_desc({CI, CJ, CK}, I, NI, I0, imin[0], imax[0]);
+          f(p);
+        }
+      }
+    }
+  }
+
+  // Loop over a given box at a boundary
+  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  // inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+  CCTK_ATTRIBUTE_NOINLINE void
+  loop_box_boundary(const F &f, const vect<int, dim> &restrict imin,
+                    const vect<int, dim> &restrict imax,
+                    const vect<int, dim> &restrict inormal) const {
     // TODO: convert array to vect (and everywhere nearby)
     static_assert(CI == 0 || CI == 1, "");
     static_assert(CJ == 0 || CJ == 1, "");
@@ -179,43 +162,28 @@ public:
     bool has_normal = false;
     for (int d = 0; d < dim; ++d)
       has_normal |= inormal[d] != 0;
+    assert(has_normal);
 
-    if (!has_normal) {
-      // Loop over an interior box
-
-      constexpr std::array<int, dim> izero = {0, 0, 0};
-      for (int k = imin[2]; k < imax[2]; ++k) {
-        for (int j = imin[1]; j < imax[1]; ++j) {
+    for (int k = imin[2]; k < imax[2]; ++k) {
+      for (int j = imin[1]; j < imax[1]; ++j) {
 #pragma omp simd
-          for (int i = imin[0]; i < imax[0]; i += VS) {
-            const std::array<int, dim> I = {i, j, k};
-            f(point_desc<CI, CJ, CK>(izero, I, imin[0], imax[0], i, j, k));
+        for (int i = imin[0]; i < imax[0]; i += VS) {
+          const vect<int, dim> I = {i, j, k};
+          vect<int, dim> I0;
+          for (int d = 0; d < dim; ++d) {
+            if (inormal[d] == 0)
+              // interior
+              I0[d] = I[d];
+            else if (inormal[d] < 0)
+              // left boundary
+              I0[d] = imin[d];
+            else
+              // right boundary
+              I0[d] = imax[d] - 1;
           }
-        }
-      }
-
-    } else {
-      // Loop over a box at a boundary
-
-      for (int k = imin[2]; k < imax[2]; ++k) {
-        for (int j = imin[1]; j < imax[1]; ++j) {
-#pragma omp simd
-          for (int i = imin[0]; i < imax[0]; i += VS) {
-            const std::array<int, dim> I = {i, j, k};
-            std::array<int, dim> I0;
-            for (int d = 0; d < dim; ++d) {
-              if (inormal[d] == 0)
-                // interior
-                I0[d] = I[d];
-              else if (inormal[d] < 0)
-                // left boundary
-                I0[d] = imax[d];
-              else
-                // right boundary
-                I0[d] = imin[d] - 1;
-            }
-            f(point_desc<CI, CJ, CK>(inormal, I0, imin[0], imax[0], i, j, k));
-          }
+          const PointDesc p =
+              point_desc({CI, CJ, CK}, I, inormal, I0, imin[0], imax[0]);
+          f(p);
         }
       }
     }
@@ -223,10 +191,10 @@ public:
 
   // Box including all points
   template <int CI, int CJ, int CK>
-  void box_all(const std::array<int, dim> &group_nghostzones,
+  void box_all(const vect<int, dim> &group_nghostzones,
                vect<int, dim> &restrict imin,
                vect<int, dim> &restrict imax) const {
-    const std::array<int, dim> offset{CI, CJ, CK};
+    const vect<int, dim> offset{CI, CJ, CK};
     for (int d = 0; d < dim; ++d) {
       int ghost_offset = nghostzones[d] - group_nghostzones[d];
       using std::max, std::min;
@@ -237,11 +205,11 @@ public:
 
   // Box including all interior points
   template <int CI, int CJ, int CK>
-  void box_int(const std::array<int, dim> &group_nghostzones,
+  void box_int(const vect<int, dim> &group_nghostzones,
                vect<int, dim> &restrict imin,
                vect<int, dim> &restrict imax) const {
     // TODO: call box_int instead
-    const std::array<int, dim> offset{CI, CJ, CK};
+    const vect<int, dim> offset{CI, CJ, CK};
     for (int d = 0; d < dim; ++d) {
       using std::max, std::min;
       imin[d] = max(tmin[d], nghostzones[d]);
@@ -252,46 +220,44 @@ public:
   // Loop over all points
   template <int CI, int CJ, int CK, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_all(const std::array<int, dim> &group_nghostzones, const F &f) const {
+  loop_all(const vect<int, dim> &group_nghostzones, const F &f) const {
     // TODO: call box_all instead
-    const std::array<int, dim> offset{CI, CJ, CK};
-    std::array<int, dim> imin, imax;
+    const vect<int, dim> offset{CI, CJ, CK};
+    vect<int, dim> imin, imax;
     for (int d = 0; d < dim; ++d) {
       int ghost_offset = nghostzones[d] - group_nghostzones[d];
       using std::max, std::min;
       imin[d] = max(tmin[d], ghost_offset);
       imax[d] = min(tmax[d], lsh[d] - offset[d] - ghost_offset);
     }
-    const std::array<int, dim> inormal{0, 0, 0};
 
-    loop_box<CI, CJ, CK>(f, imin, imax, inormal);
+    loop_box_interior<CI, CJ, CK>(f, imin, imax);
   }
 
   // Loop over all interior points
   template <int CI, int CJ, int CK, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_int(const std::array<int, dim> &group_nghostzones, const F &f) const {
+  loop_int(const vect<int, dim> &group_nghostzones, const F &f) const {
     // TODO: call box_int instead
-    const std::array<int, dim> offset{CI, CJ, CK};
-    std::array<int, dim> imin, imax;
+    const vect<int, dim> offset{CI, CJ, CK};
+    vect<int, dim> imin, imax;
     for (int d = 0; d < dim; ++d) {
       using std::max, std::min;
       imin[d] = max(tmin[d], nghostzones[d]);
       imax[d] = min(tmax[d], lsh[d] - offset[d] - nghostzones[d]);
     }
-    const std::array<int, dim> inormal{0, 0, 0};
 
-    loop_box<CI, CJ, CK>(f, imin, imax, inormal);
+    loop_box_interior<CI, CJ, CK>(f, imin, imax);
   }
 
   // Loop over a part of the domain. Loop over the interior first,
   // then faces, then edges, then corners.
   template <int CI, int CJ, int CK, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop_there(
-      const std::array<int, dim> &group_nghostzones,
-      const std::array<std::array<std::array<bool, dim>, dim>, dim> &there,
-      const F &f) const {
-    const std::array<int, dim> offset{CI, CJ, CK};
+  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  loop_there(const vect<int, dim> &group_nghostzones,
+             const vect<vect<vect<bool, dim>, dim>, dim> &there,
+             const F &f) const {
+    const vect<int, dim> offset{CI, CJ, CK};
 
     for (int rank = dim; rank >= 0; --rank) {
 
@@ -302,9 +268,9 @@ public:
 
               if (there[ni + 1][nj + 1][nk + 1]) {
 
-                const std::array<int, dim> inormal{ni, nj, nk};
+                const vect<int, dim> inormal{ni, nj, nk};
 
-                std::array<int, dim> imin, imax;
+                vect<int, dim> imin, imax;
                 for (int d = 0; d < dim; ++d) {
                   const int ghost_offset =
                       nghostzones[d] - group_nghostzones[d];
@@ -354,7 +320,10 @@ public:
                 }
 #endif
 
-                loop_box<CI, CJ, CK>(f, imin, imax, inormal);
+                if (rank == dim)
+                  loop_box_interior<CI, CJ, CK>(f, imin, imax);
+                else
+                  loop_box_boundary<CI, CJ, CK>(f, imin, imax, inormal);
               }
             } // if rank
           }
@@ -369,8 +338,8 @@ public:
   // then edges, then corners.
   template <int CI, int CJ, int CK, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_bnd(const std::array<int, dim> &group_nghostzones, const F &f) const {
-    const std::array<int, dim> offset{CI, CJ, CK};
+  loop_bnd(const vect<int, dim> &group_nghostzones, const F &f) const {
+    const vect<int, dim> offset{CI, CJ, CK};
 
     for (int rank = dim - 1; rank >= 0; --rank) {
 
@@ -383,9 +352,9 @@ public:
                   (nj != 0 && bbox[2 + (nj == -1 ? 0 : 1)]) ||
                   (nk != 0 && bbox[4 + (nk == -1 ? 0 : 1)])) {
 
-                const std::array<int, dim> inormal{ni, nj, nk};
+                const vect<int, dim> inormal{ni, nj, nk};
 
-                std::array<int, dim> imin, imax;
+                vect<int, dim> imin, imax;
                 for (int d = 0; d < dim; ++d) {
                   const int ghost_offset =
                       nghostzones[d] - group_nghostzones[d];
@@ -435,7 +404,7 @@ public:
                 }
 #endif
 
-                loop_box<CI, CJ, CK>(f, imin, imax, inormal);
+                loop_box_boundary<CI, CJ, CK>(f, imin, imax, inormal);
               }
             } // if rank
           }
@@ -449,9 +418,9 @@ public:
   // non-ghost faces. Loop over faces first, then edges, then corners.
   template <int CI, int CJ, int CK, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_ghosts_inclusive(const std::array<int, dim> &group_nghostzones,
+  loop_ghosts_inclusive(const vect<int, dim> &group_nghostzones,
                         const F &f) const {
-    const std::array<int, dim> offset{CI, CJ, CK};
+    const vect<int, dim> offset{CI, CJ, CK};
 
     for (int rank = dim - 1; rank >= 0; --rank) {
 
@@ -464,9 +433,9 @@ public:
                   (nj != 0 && !bbox[2 + (nj == -1 ? 0 : 1)]) ||
                   (nk != 0 && !bbox[4 + (nk == -1 ? 0 : 1)])) {
 
-                const std::array<int, dim> inormal{ni, nj, nk};
+                const vect<int, dim> inormal{ni, nj, nk};
 
-                std::array<int, dim> imin, imax;
+                vect<int, dim> imin, imax;
                 for (int d = 0; d < dim; ++d) {
                   const int ghost_offset =
                       nghostzones[d] - group_nghostzones[d];
@@ -516,7 +485,7 @@ public:
                 }
 #endif
 
-                loop_box<CI, CJ, CK>(f, imin, imax, inormal);
+                loop_box_boundary<CI, CJ, CK>(f, imin, imax, inormal);
               }
             } // if rank
           }
@@ -529,8 +498,8 @@ public:
   // non-ghost faces. Loop over faces first, then edges, then corners.
   template <int CI, int CJ, int CK, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_ghosts(const std::array<int, dim> &group_nghostzones, const F &f) const {
-    const std::array<int, dim> offset{CI, CJ, CK};
+  loop_ghosts(const vect<int, dim> &group_nghostzones, const F &f) const {
+    const vect<int, dim> offset{CI, CJ, CK};
 
     for (int rank = dim - 1; rank >= 0; --rank) {
 
@@ -543,9 +512,9 @@ public:
                   (nj == 0 || !bbox[2 + (nj == -1 ? 0 : 1)]) &&
                   (nk == 0 || !bbox[4 + (nk == -1 ? 0 : 1)])) {
 
-                const std::array<int, dim> inormal{ni, nj, nk};
+                const vect<int, dim> inormal{ni, nj, nk};
 
-                std::array<int, dim> imin, imax;
+                vect<int, dim> imin, imax;
                 for (int d = 0; d < dim; ++d) {
                   const int ghost_offset =
                       nghostzones[d] - group_nghostzones[d];
@@ -595,7 +564,7 @@ public:
                 }
 #endif
 
-                loop_box<CI, CJ, CK>(f, imin, imax, inormal);
+                loop_box_boundary<CI, CJ, CK>(f, imin, imax, inormal);
               }
             } // if rank
           }
@@ -607,37 +576,37 @@ public:
   template <int CI, int CJ, int CK, where_t where, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE
       std::enable_if_t<(where == where_t::everywhere), void>
-      loop(const std::array<int, dim> &group_nghostzones, const F &f) const {
+      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_all<CI, CJ, CK>(group_nghostzones, f);
   }
   template <int CI, int CJ, int CK, where_t where, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE
       std::enable_if_t<(where == where_t::interior), void>
-      loop(const std::array<int, dim> &group_nghostzones, const F &f) const {
+      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_int<CI, CJ, CK>(group_nghostzones, f);
   }
   template <int CI, int CJ, int CK, where_t where, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE
       std::enable_if_t<(where == where_t::boundary), void>
-      loop(const std::array<int, dim> &group_nghostzones, const F &f) const {
+      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_bnd<CI, CJ, CK>(group_nghostzones, f);
   }
   template <int CI, int CJ, int CK, where_t where, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE
       std::enable_if_t<(where == where_t::ghosts_inclusive), void>
-      loop(const std::array<int, dim> &group_nghostzones, const F &f) const {
+      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_ghosts_inclusive<CI, CJ, CK>(group_nghostzones, f);
   }
   template <int CI, int CJ, int CK, where_t where, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE
       std::enable_if_t<(where == where_t::ghosts), void>
-      loop(const std::array<int, dim> &group_nghostzones, const F &f) const {
+      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_ghosts<CI, CJ, CK>(group_nghostzones, f);
   }
 
   template <int CI, int CJ, int CK, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop(where_t where, const std::array<int, dim> &group_nghostzones,
+  loop(where_t where, const vect<int, dim> &group_nghostzones,
        const F &f) const {
     switch (where) {
     case where_t::everywhere:
@@ -679,8 +648,8 @@ public:
 
   template <typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_idx(where_t where, const std::array<int, dim> &indextype,
-           const std::array<int, dim> &group_nghostzones, const F &f) const {
+  loop_idx(where_t where, const vect<int, dim> &indextype,
+           const vect<int, dim> &group_nghostzones, const F &f) const {
     switch (indextype[0] + 2 * indextype[1] + 4 * indextype[2]) {
     case 0b000:
       return noinline(
@@ -713,24 +682,22 @@ public:
 
   template <typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_idx(where_t where, const std::array<int, dim> &indextype,
-           const F &f) const {
+  loop_idx(where_t where, const vect<int, dim> &indextype, const F &f) const {
     loop_idx(where, indextype, nghostzones, f);
   }
 };
 
 template <typename F>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-loop_idx(const cGH *cctkGH, where_t where,
-         const std::array<int, dim> &indextype,
-         const std::array<int, dim> &nghostzones, const F &f) {
+loop_idx(const cGH *cctkGH, where_t where, const vect<int, dim> &indextype,
+         const vect<int, dim> &nghostzones, const F &f) {
   GridDescBase(cctkGH).loop_idx(where, indextype, nghostzones, f);
 }
 
 template <typename F>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-loop_idx(const cGH *cctkGH, where_t where,
-         const std::array<int, dim> &indextype, const F &f) {
+loop_idx(const cGH *cctkGH, where_t where, const vect<int, dim> &indextype,
+         const F &f) {
   GridDescBase(cctkGH).loop_idx(where, indextype, f);
 }
 
@@ -787,8 +754,7 @@ template <typename T, int CI, int CJ, int CK> struct GF3D {
   const int dj, dk, np;
   const int ni, nj, nk;
   T *restrict const ptr;
-  static constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, dim>
-  indextype() {
+  static constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE vect<int, dim> indextype() {
     return {CI, CJ, CK};
   }
   GF3D() = delete;
@@ -828,8 +794,8 @@ template <typename T> struct GF3D1 {
   typedef T value_type;
   T *restrict ptr;
 #ifdef CCTK_DEBUG
-  std::array<int, dim> imin, imax;
-  std::array<int, dim> ash;
+  vect<int, dim> imin, imax;
+  vect<int, dim> ash;
 #endif
   static constexpr int di = 1;
   int dj, dk, np;
@@ -839,8 +805,8 @@ template <typename T> struct GF3D1 {
   GF3D1(GF3D1 &&) = default;
   GF3D1 &operator=(const GF3D1 &) = default;
   GF3D1 &operator=(GF3D1 &&) = default;
-  GF3D1(T *restrict ptr, const std::array<int, dim> &imin,
-        const std::array<int, dim> &imax, const std::array<int, dim> &ash)
+  GF3D1(T *restrict ptr, const vect<int, dim> &imin, const vect<int, dim> &imax,
+        const vect<int, dim> &ash)
       : ptr(ptr),
 #ifdef CCTK_DEBUG
         imin(imin), imax(imax), ash(ash),
@@ -848,21 +814,21 @@ template <typename T> struct GF3D1 {
         dj(di * ash[0]), dk(dj * ash[1]), np(dk * ash[2]),
         off(imin[0] * di + imin[1] * dj + imin[2] * dk) {
   }
-  GF3D1(const cGH *restrict cctkGH, const std::array<int, dim> &indextype,
-        const std::array<int, dim> &nghostzones, T *restrict ptr) {
+  GF3D1(const cGH *restrict cctkGH, const vect<int, dim> &indextype,
+        const vect<int, dim> &nghostzones, T *restrict ptr) {
     for (int d = 0; d < dim; ++d)
       assert(indextype[d] == 0 || indextype[d] == 1);
     for (int d = 0; d < dim; ++d) {
       assert(nghostzones[d] >= 0);
       assert(nghostzones[d] <= cctkGH->cctk_nghostzones[d]);
     }
-    std::array<int, dim> imin, imax;
+    vect<int, dim> imin, imax;
     for (int d = 0; d < dim; ++d) {
       imin[d] = cctkGH->cctk_nghostzones[d] - nghostzones[d];
       imax[d] = cctkGH->cctk_lsh[d] - indextype[d] -
                 (cctkGH->cctk_nghostzones[d] - nghostzones[d]);
     }
-    std::array<int, dim> ash;
+    vect<int, dim> ash;
     for (int d = 0; d < dim; ++d)
       ash[d] = cctkGH->cctk_ash[d] - indextype[d] -
                2 * (cctkGH->cctk_nghostzones[d] - nghostzones[d]);
@@ -915,8 +881,10 @@ struct GF3D2layout {
   GF3D2layout(const vect<int, dim> &imin, const vect<int, dim> &imax)
       : GF3D2layout(imin, imax, imax - imin) {
 #ifdef CCTK_DEBUG
-    assert(linear(imin[0], imin[1], imin[2]) == 0);
-    assert(linear(imax[0] - 1, imax[1] - 1, imax[2] - 1) == np - 1);
+    if (np > 0) {
+      assert(linear(imin[0], imin[1], imin[2]) == 0);
+      assert(linear(imax[0] - 1, imax[1] - 1, imax[2] - 1) == np - 1);
+    }
 #endif
   }
   GF3D2layout(const cGH *restrict cctkGH, const vect<int, dim> &indextype,
@@ -1141,7 +1109,7 @@ struct GF3D3 : GF3D3layout<NI, NJ, NK, OFF> {
   using GF3D3layout<NI, NJ, NK, OFF>::np;
   using GF3D3layout<NI, NJ, NK, OFF>::linear;
 
-  std::array<T, np> arr;
+  vect<T, np> arr;
 
   constexpr T &restrict operator()(int i, int j, int k) {
     return arr[linear(i, j, k)];
@@ -1204,8 +1172,10 @@ struct GF3D5layout {
                                     const vect<int, dim> &imax)
       : GF3D5layout(imin, imax, imax - imin) {
 #ifdef CCTK_DEBUG
-    assert(linear(imin[0], imin[1], imin[2]) == 0);
-    assert(linear(imax[0] - 1, imax[1] - 1, imax[2] - 1) == np - 1);
+    if (np > 0) {
+      assert(linear(imin[0], imin[1], imin[2]) == 0);
+      assert(linear(imax[0] - 1, imax[1] - 1, imax[2] - 1) == np - 1);
+    }
 #endif
   }
   CCTK_DEVICE CCTK_HOST GF3D5layout(const cGH *restrict cctkGH,
@@ -1357,6 +1327,9 @@ template <typename T> struct GF3D5 {
     CCTK_DEVICE CCTK_HOST operator value_type() const {
       return Arith::maskz_loadu(mask, ptr);
     }
+    CCTK_DEVICE CCTK_HOST value_type operator()() const {
+      return Arith::maskz_loadu(mask, ptr);
+    }
     template <typename U>
     CCTK_DEVICE CCTK_HOST simd_reference operator=(const Arith::simd<U> value) {
       mask_storeu(mask, ptr, value);
@@ -1454,7 +1427,7 @@ public:
 #ifdef CARPETX_GF3D5
 
 #define CCTK_CENTERING_LAYOUT(L, V)                                            \
-  constexpr std::array<int, Loop::dim> L##_centered V;                         \
+  constexpr Arith::vect<int, Loop::dim> L##_centered V;                        \
   const Loop::GF3D5layout L##gf_layout(cctkGH, L##_centered)
 #define CCTK_CENTERING_GF(C, L, N)                                             \
   const Loop::GF3D5<C CCTK_REAL> N(L##gf_layout, cctk_ptr_##N)
@@ -1462,7 +1435,7 @@ public:
 #else
 
 #define CCTK_CENTERING_LAYOUT(L, V)                                            \
-  constexpr std::array<int, Loop::dim> L##_centered V;                         \
+  constexpr Arith::vect<int, Loop::dim> L##_centered V;                        \
   const Loop::GF3D2layout L##gf_layout(cctkGH, L##_centered)
 #define CCTK_CENTERING_GF(C, L, N)                                             \
   const Loop::GF3D2<C CCTK_REAL> N(L##gf_layout, cctk_ptr_##N)

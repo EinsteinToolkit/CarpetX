@@ -19,6 +19,16 @@ std::ostream &operator<<(std::ostream &os, const where_t where) {
   }
 }
 
+std::ostream &operator<<(std::ostream &os, const PointDesc &p) {
+  return os << "PointDesc{"
+            << "I:" << p.I << ", "
+            << "NI:" << p.NI << ", "
+            << "I0:" << p.I0 << ", "
+            << "X:" << p.X << ", "
+            << "DX:" << p.DX << ", "
+            << "imin,imax:{" << p.imin << "," << p.imax << "}}";
+}
+
 GridDescBase::GridDescBase() {}
 
 GridDescBase::GridDescBase(const cGH *restrict cctkGH) {
@@ -65,6 +75,14 @@ GridDescBase::GridDescBase(const cGH *restrict cctkGH) {
     x0[d] = cctkGH->cctk_origin_space[d] +
             dx[d] * cctkGH->cctk_levoff[d] / cctkGH->cctk_levoffdenom[d];
   }
+}
+
+std::ostream &operator<<(std::ostream &os, const GridDescBase &grid) {
+  return os << "GridDescBase{"
+            << "gsh" << grid.gsh << ",lbnd" << grid.lbnd << ",ubnd" << grid.ubnd
+            << ",lsh" << grid.lsh << ",bbox" << grid.bbox << ",nghostzones"
+            << grid.nghostzones << ",tmin" << grid.tmin << ",tmax" << grid.tmax
+            << "}";
 }
 
 } // namespace Loop
