@@ -192,7 +192,7 @@ RUN mkdir src && \
     cmake \
         -DAMReX_GPU_BACKEND=HIP \
         -DAMReX_AMD_ARCH=gfx908 \
-        -DAMReX_OMP=ON \
+        -DAMReX_OMP=OFF \
         -DAMReX_PARTICLES=ON \
         -DAMReX_PRECISION="$precision" \
         -DBUILD_SHARED_LIBS=ON \
