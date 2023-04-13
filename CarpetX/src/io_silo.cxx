@@ -246,11 +246,11 @@ int InputSiloParameters(const std::string &input_dir,
       int ndims = DBGetVarDims(metafile.get(), "AllParameters", 1, &length);
       assert(ndims == 1);
 
-      const auto data = unique_ptr<char>(
-          static_cast<char *>(DBGetVar(metafile.get(), "AllParameters")));
+      char *const data =
+          static_cast<char *>(DBGetVar(metafile.get(), "AllParameters"));
       assert(data);
-
-      parameters = string(data.get(), length);
+      parameters = string(data, length);
+      std::free(data);
     }
 
     int length = parameters.size();
@@ -759,8 +759,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
     if (write_file) {
       {
-        const string parameters =
-            unique_ptr<char>(IOUtil_GetAllParameters(cctkGH, 1 /*all*/)).get();
+        char *const data = IOUtil_GetAllParameters(cctkGH, 1 /*all*/);
+        const std::string parameters(data);
+        std::free(data);
         const int dims = parameters.length();
         ierr = DBWrite(file.get(), "AllParameters", parameters.data(), &dims, 1,
                        DB_CHAR);
@@ -1014,8 +1015,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
     assert(metafile);
 
     {
-      const string parameters =
-          unique_ptr<char>(IOUtil_GetAllParameters(cctkGH, 1 /*all*/)).get();
+      char *const data = IOUtil_GetAllParameters(cctkGH, 1 /*all*/);
+      const std::string parameters(data);
+      std::free(data);
       const int dims = parameters.length();
       ierr = DBWrite(metafile.get(), "AllParameters", parameters.data(), &dims,
                      1, DB_CHAR);

@@ -56,7 +56,8 @@ namespace CarpetX {
 
 constexpr bool io_verbose = true;
 
-// HDF5, ADIOS1, ADIOS2_BP, ADIOS2_BP4, ADIOS2_BP5, ADIOS2_SST, ADIOS2_SSC, JSON, DUMMY
+// HDF5, ADIOS1, ADIOS2_BP, ADIOS2_BP4, ADIOS2_BP5, ADIOS2_SST, ADIOS2_SSC,
+// JSON, DUMMY
 constexpr openPMD::Format format = openPMD::Format::ADIOS2_BP5;
 
 // - fileBased: One file per iteration. Needs templated file name to encode
@@ -1036,8 +1037,9 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
   // Write parameters
   if (myproc == ioproc) {
-    const std::string parameters =
-        std::unique_ptr<char>(IOUtil_GetAllParameters(cctkGH, 1 /*all*/)).get();
+    char *const data = IOUtil_GetAllParameters(cctkGH, 1 /*all*/);
+    const std::string parameters(data);
+    std::free(data);
     iter.setAttribute("AllParameters", parameters);
   }
 
