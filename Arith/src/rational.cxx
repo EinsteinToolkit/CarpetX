@@ -87,12 +87,15 @@ void TestRational() {
   x <= a;
   x >= a;
 
+  using std::abs;
   static_assert(isgood(abs(x)));
 
+  using std::max, std::min;
   static_assert(isgood(max(x, y)));
   static_assert(isgood(min(x, y)));
 
-  static_assert(isgood(pow(x, a)));
+  using std::pow;
+  static_assert(isgood(pown(x, a)));
 
   static_assert(+x == n + x);
   static_assert(x + n == x);

@@ -155,6 +155,38 @@ template <typename I> struct rational {
     return *this = *this / rational(x);
   }
 
+  friend constexpr rational abs(const rational &x) {
+    // std::abs is not constexpr
+    return rational(x.num >= 0 ? x.num : -x.num, x.den);
+  }
+
+  friend constexpr rational max(const rational &x, const rational &y) {
+    return x >= y ? x : y;
+  }
+  friend constexpr rational min(const rational &x, const rational &y) {
+    return x <= y ? x : y;
+  }
+
+  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  friend constexpr rational pown(rational x, J a) {
+    if (a < 0) {
+      x = 1 / x;
+      a = -a;
+    }
+    rational r = 1;
+    while (a > 0) {
+      if (a % 2)
+        r *= x;
+      x *= x;
+      a /= 2;
+    }
+    return r;
+  }
+  friend constexpr double pow(const rational &x, const rational &y) {
+    using std::pow;
+    return pow(double(x), double(y));
+  }
+
   friend constexpr bool operator==(const rational &x, const rational &y) {
     return x.num * y.den == x.den * y.num;
   }
@@ -236,41 +268,6 @@ template <typename I> struct rational {
   }
 #endif
 };
-
-template <typename I> constexpr rational<I> abs(const rational<I> &x) {
-  // std::abs is not constexpr
-  return rational<I>(x.num >= 0 ? x.num : -x.num, x.den);
-}
-
-template <typename I>
-constexpr rational<I> max(const rational<I> &x, const rational<I> &y) {
-  return x >= y ? x : y;
-}
-
-template <typename I>
-constexpr rational<I> min(const rational<I> &x, const rational<I> &y) {
-  return x <= y ? x : y;
-}
-
-template <typename I, typename J, enable_if_t<is_integral_v<J> > * = nullptr>
-constexpr rational<I> pow(rational<I> x, J a) {
-  if (a < 0) {
-    x = 1 / x;
-    a = -a;
-  }
-  rational<I> r = 1;
-  while (a > 0) {
-    if (a % 2)
-      r *= x;
-    x *= x;
-    a /= 2;
-  }
-  return r;
-}
-template <typename I>
-constexpr double pow(const rational<I> &x, const rational<I> &y) {
-  return std::pow(double(x), double(y));
-}
 
 } // namespace Arith
 
