@@ -844,7 +844,7 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
         T x = int(CENT) / T(4) + off / T(2);
         T y = f(x);
         T y1 = stencil1d(
-            [&](int i) {
+            [&, rmin, rmax](int i) {
               assert(i >= rmin);
               assert(i <= rmax);
               return ys[i];
@@ -935,7 +935,7 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
 
         x1[off] = int(CC) / T(4) + off / T(2);
         y1[off] = stencil1d(
-            [&](const int i) {
+            [&, rmin, rmax](const int i) {
               assert(i >= rmin);
               assert(i <= rmax);
               return ys[i];
