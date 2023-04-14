@@ -828,7 +828,8 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
     for (int order = 0; order <= ORDER; ++order) {
       auto f = [&](T x) { return pown(x, order); };
       for (int off = 0; off < 2; ++off) {
-        const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
+        const T rmin = stencil1d.stencil_radius(0, off)[0];
+        const T rmax = stencil1d.stencil_radius(0, off)[1];
         assert(rmin <= 0 && rmin >= -nghosts);
         assert(rmax >= 0 && rmax <= +nghosts);
         for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
@@ -844,7 +845,7 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
         T x = int(CENT) / T(4) + off / T(2);
         T y = f(x);
         T y1 = stencil1d(
-            [&, rmin, rmax](int i) {
+            [&](int i) {
               assert(i >= rmin);
               assert(i <= rmax);
               return ys[i];
