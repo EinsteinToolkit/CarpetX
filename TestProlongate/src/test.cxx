@@ -118,6 +118,12 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
     cc_eno = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
+  } else if (CCTK_EQUALS(prolongation_type, "natural")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = false;
+    vc_order = operator_order;
+    cc_order = operator_order;
   } else {
     assert(0);
   }
@@ -276,6 +282,12 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     cc_eno = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
+  } else if (CCTK_EQUALS(prolongation_type, "natural")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = false;
+    vc_order = operator_order;
+    cc_order = operator_order;
   } else {
     assert(0);
   }
