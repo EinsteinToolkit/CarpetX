@@ -914,7 +914,8 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
       std::array<T, 2> x1;
       std::array<T, 2> y1;
       for (int off = 0; off < 2; ++off) {
-        const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
+        const T rmin = stencil1d.stencil_radius(0, off)[0];
+        const T rmax = stencil1d.stencil_radius(0, off)[1];
         assert(rmin <= 0 && rmin >= -nghosts);
         assert(rmax >= 0 && rmax <= +nghosts);
         for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
@@ -935,7 +936,7 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
 
         x1[off] = int(CC) / T(4) + off / T(2);
         y1[off] = stencil1d(
-            [&, rmin, rmax](const int i) {
+            [&](const int i) {
               assert(i >= rmin);
               assert(i <= rmax);
               return ys[i];
@@ -982,7 +983,8 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
         std::array<T, 2> x1;
         std::array<T, 2> y1;
         for (int off = 0; off < 2; ++off) {
-          const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
+          const T rmin = stencil1d.stencil_radius(0, off)[0];
+          const T rmax = stencil1d.stencil_radius(0, off)[1];
           assert(rmin >= -nghosts && rmax <= +nghosts);
           for (int i = -1; i < n + 1; ++i) {
             if (i - i0 < rmin || i - i0 > rmax) {
