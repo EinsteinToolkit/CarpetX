@@ -615,9 +615,9 @@ template <int ORDER> struct interp1d<CC, CONS, ORDER> {
     assert(off == 0 || off == 1);
 #endif
     if (off == 0)
-      return {(ORDER + 1) / 2, ORDER / 2};
+      return {-((ORDER + 1) / 2), +(ORDER / 2)};
     else
-      return {ORDER / 2, (ORDER + 1) / 2};
+      return {-(ORDER / 2), +((ORDER + 1) / 2)};
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
   CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
@@ -663,12 +663,24 @@ template <int ORDER> struct interp1d<CC, CONS, ORDER> {
         }
       }
     } else {
-      if (off == 0)
-        for (int i = 0; i < N; ++i)
+      if (off == 0) {
+        y = 0;
+        for (int i = 0; i < N; ++i) {
+          assert(i - i0 >= -((ORDER + 1) / 2));
+          assert(i - i0 <= +(ORDER / 2));
           y += cs[i] * crse(i - i0);
-      else
-        for (int i = 0; i < N; ++i)
-          y += cs[(N - 1) - i] * crse(i - (i0 - 1));
+        }
+      } else {
+        y = 0;
+        for (int i = 0; i < N; ++i) {
+          // TODO y += cs[(N - 1) - i] * crse(i - (i0 - 1));
+          static_assert((+((ORDER + 1) / 2)) - (-(ORDER / 2)) + 1 == N);
+          assert((ORDER + 1) / 2 - i >= -(ORDER / 2));
+          assert((ORDER + 1) / 2 - i <= +((ORDER + 1) / 2));
+          y += cs[i] * crse((ORDER + 1) / 2 - i);
+          // TODO y += cs[(N - 1) - i] * crse(i + i0 + 1);
+        }
+      }
     }
     return y;
   }
@@ -808,28 +820,36 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
     constexpr interp1d<CENT, POLY, ORDER> stencil1d;
     constexpr int nghosts = stencil1d.required_ghosts;
     static_assert(nghosts >= 0);
-    constexpr int n = 1 + 2 * nghosts;
+    constexpr int n = 1 + 2 * (nghosts + 1);
     constexpr int i0 = n / 2;
-    std::array<T, n + 2> ys;
+    std::array<T, n> ysarr;
+    T *restrict const ys = &ysarr[i0];
 
     for (int order = 0; order <= ORDER; ++order) {
       auto f = [&](T x) { return pown(x, order); };
       for (int off = 0; off < 2; ++off) {
         const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
-        assert(rmin >= -nghosts && rmax <= +nghosts);
-        for (int i = -1; i < n + 1; ++i) {
-          if (i - i0 < rmin || i - i0 > rmax) {
-            ys[i + 1] = 0 / T(0);
+        assert(rmin <= 0 && rmin >= -nghosts);
+        assert(rmax >= 0 && rmax <= +nghosts);
+        for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
+          if (i < rmin || i > rmax) {
+            ys[i] = 0 / T(0);
           } else {
-            T x = (i - i0) + int(CENT) / T(2);
+            T x = i + int(CENT) / T(2);
             T y = f(x);
-            ys[i + 1] = y;
+            ys[i] = y;
           }
         }
 
         T x = int(CENT) / T(4) + off / T(2);
         T y = f(x);
-        T y1 = stencil1d([&](int i) { return ys[i0 + 1 + i]; }, 0, off);
+        T y1 = stencil1d(
+            [&](int i) {
+              assert(i >= rmin);
+              assert(i <= rmax);
+              return ys[i];
+            },
+            0, off);
         // We carefully choose the test problem so that round-off
         // cannot be a problem here
         assert(isfinite(y1));
@@ -880,9 +900,11 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
     constexpr interp1d<CC, CONS, ORDER> stencil1d;
     constexpr int nghosts = stencil1d.required_ghosts;
     static_assert(nghosts >= 0);
-    constexpr int n = 1 + 2 * nghosts;
+    constexpr int n = 1 + 2 * (nghosts + 1);
     constexpr int i0 = n / 2;
-    std::array<T, n + 2> xs, ys;
+    std::array<T, n> xsarr, ysarr;
+    T *restrict const xs = &xsarr[i0];
+    T *restrict const ys = &ysarr[i0];
 
     for (int order = 0; order <= ORDER; ++order) {
       // Function f, a polynomial
@@ -893,28 +915,35 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
       std::array<T, 2> y1;
       for (int off = 0; off < 2; ++off) {
         const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
-        assert(rmin >= -nghosts && rmax <= +nghosts);
-        for (int i = -1; i < n + 1; ++i) {
-          if (i - i0 < rmin || i - i0 > rmax) {
-            xs[i + 1] = 0 / T(0);
-            ys[i + 1] = 0 / T(0);
+        assert(rmin <= 0 && rmin >= -nghosts);
+        assert(rmax >= 0 && rmax <= +nghosts);
+        for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
+          if (i < rmin || i > rmax) {
+            xs[i] = 0 / T(0);
+            ys[i] = 0 / T(0);
           } else {
-            T x = (i - i0) + int(CC) / T(2);
+            T x = i + int(CC) / T(2);
             // T y = f(x);
             const T dx = 1;
             const T xlo = x - dx / 2;
             const T xhi = x + dx / 2;
             const T y = fint(xhi) - fint(xlo); // average of f over cell
-            xs[i + 1] = x;
-            ys[i + 1] = y;
+            xs[i] = x;
+            ys[i] = y;
           }
         }
 
         x1[off] = int(CC) / T(4) + off / T(2);
-        y1[off] = stencil1d([&](int i) { return ys[i0 + 1 + i]; }, 0, off);
+        y1[off] = stencil1d(
+            [&](const int i) {
+              assert(i >= rmin);
+              assert(i <= rmax);
+              return ys[i];
+            },
+            0, off);
         assert(isfinite(y1[off]));
       } // for off
-      assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
+      assert(y1[0] / 2 + y1[1] / 2 == ys[0]);
       const T dx = x1[1] - x1[0];
       const T xlo = x1[0] - dx / 2;
       const T xhi = x1[1] + dx / 2;
