@@ -534,7 +534,8 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
     conservative,
     ddf,
     ddf_eno,
-    ddf_hermite
+    ddf_hermite,
+    natural,
   };
   static interp_t interp = [&]() {
     if (CCTK_EQUALS(prolongation_type, "interpolate"))
@@ -547,6 +548,8 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
       return interp_t::ddf_eno;
     else if (CCTK_EQUALS(prolongation_type, "ddf-hermite"))
       return interp_t::ddf_hermite;
+    else if (CCTK_EQUALS(prolongation_type, "natural"))
+      return interp_t::natural;
     else
       assert(0);
   }();
