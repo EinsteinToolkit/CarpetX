@@ -389,6 +389,7 @@ KEYWORD prolongation_type "Prolongation type"
   "ddf" :: "interpolate in vertex centred and conserve in cell centred directions"
   "ddf-eno" :: "interpolate in vertex centred and ENO-conserve in cell centred directions"
   "ddf-hermite" :: "Hermite-interpolate in vertex centred and conserve in cell centred directions"
+  "natural" :: "interpolate in vertex centred and conserve in cell centred directions, using the same order"
 } "ddf"
 
 CCTK_INT prolongation_order "Prolongation order"

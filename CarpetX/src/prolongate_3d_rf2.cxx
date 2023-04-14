@@ -240,6 +240,12 @@ template <typename T> struct coeffs1d<CC, CONS, /*order*/ 0, T> {
       +1 / T(1),
   };
 };
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 1, T> {
+  static constexpr std::array<T, 2> coeffs = {
+      +1 / T(4),
+      +3 / T(4),
+  };
+};
 template <typename T> struct coeffs1d<CC, CONS, /*order*/ 2, T> {
   static constexpr std::array<T, 3> coeffs = {
       +1 / T(8),
@@ -247,15 +253,42 @@ template <typename T> struct coeffs1d<CC, CONS, /*order*/ 2, T> {
       -1 / T(8),
   };
 };
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 3, T> {
+  static constexpr std::array<T, 4> coeffs = {
+      -3 / T(64),
+      +17 / T(64),
+      +55 / T(64),
+      -5 / T(64),
+  };
+};
 template <typename T> struct coeffs1d<CC, CONS, /*order*/ 4, T> {
   static constexpr std::array<T, 5> coeffs = {
       -3 / T(128), +11 / T(64), +1 / T(1), -11 / T(64), +3 / T(128),
+  };
+};
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 5, T> {
+  static constexpr std::array<T, 6> coeffs = {
+      +5 / T(512),   -37 / T(512), +69 / T(256),
+      +231 / T(256), -63 / T(512), +7 / T(512),
   };
 };
 template <typename T> struct coeffs1d<CC, CONS, /*order*/ 6, T> {
   static constexpr std::array<T, 7> coeffs = {
       +5 / T(1024),   -11 / T(256), +201 / T(1024), +1 / T(1),
       -201 / T(1024), +11 / T(256), -5 / T(1024),
+  };
+};
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 7, T> {
+  static constexpr std::array<T, 8> coeffs = {
+      -35 / T(16384),    +325 / T(16384),  -1439 / T(16384), +4441 / T(16384),
+      +15159 / T(16384), -2481 / T(16384), +459 / T(16384),  -45 / T(16384),
+  };
+};
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 8, T> {
+  static constexpr std::array<T, 9> coeffs = {
+      -35 / T(32768),   +185 / T(16384), -949 / T(16384),
+      +3461 / T(16384), +1 / T(1),       -3461 / T(16384),
+      +949 / T(16384),  -185 / T(16384), +35 / T(32768),
   };
 };
 
@@ -532,6 +565,7 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
   CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
   stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
+    assert(shift == 0);
     assert(off == 0 || off == 1);
 #endif
     if (off == 0) {
@@ -546,6 +580,7 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
   CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
+    assert(shift == 0);
     assert(off == 0 || off == 1);
 #endif
 
@@ -571,22 +606,24 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
 // off=0: left sub-cell
 // off=1: right sub-cell
 template <int ORDER> struct interp1d<CC, CONS, ORDER> {
-  static_assert(ORDER % 2 == 0, "");
   static constexpr int required_ghosts = (ORDER + 1) / 2;
   CCTK_DEVICE
   CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
   stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
+    assert(shift == 0);
     assert(off == 0 || off == 1);
 #endif
-    constexpr int N = ORDER + 1;
-    constexpr int i0 = N / 2;
-    return {0 - i0, ORDER - i0};
+    if (off == 0)
+      return {-((ORDER + 1) / 2), +(ORDER / 2)};
+    else
+      return {-(ORDER / 2), +((ORDER + 1) / 2)};
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
   CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
+    assert(shift == 0);
     assert(off == 0 || off == 1);
 #endif
 
@@ -603,25 +640,46 @@ template <int ORDER> struct interp1d<CC, CONS, ORDER> {
 #endif
 
     T y;
-    if (off == 0) {
-      y = cs[ORDER / 2] * crse(ORDER / 2 - i0);
-      // Make use of symmetry in coefficients
-      for (int i = 0; i < ORDER / 2; ++i) {
-        const int i1 = ORDER - i;
+    if (ORDER % 2 == 0) {
+      if (off == 0) {
+        y = cs[ORDER / 2] * crse(ORDER / 2 - i0);
+        // Make use of symmetry in coefficients
+        for (int i = 0; i < ORDER / 2; ++i) {
+          const int i1 = ORDER - i;
 #ifdef CCTK_DEBUG
-        assert(cs[i1] == -cs[i]);
+          assert(cs[i1] == -cs[i]);
 #endif
-        y += cs[i] * (crse(i - i0) - crse(i1 - i0));
+          y += cs[i] * (crse(i - i0) - crse(i1 - i0));
+        }
+      } else {
+        y = cs[ORDER / 2] * crse(ORDER / 2 - i0);
+        // Make use of symmetry in coefficients
+        for (int i = 0; i < ORDER / 2; ++i) {
+          const int i1 = ORDER - i;
+#ifdef CCTK_DEBUG
+          assert(cs[i1] == -cs[i]);
+#endif
+          y += cs[i] * (crse(i1 - i0) - crse(i - i0));
+        }
       }
     } else {
-      y = cs[ORDER / 2] * crse(ORDER / 2 - i0);
-      // Make use of symmetry in coefficients
-      for (int i = 0; i < ORDER / 2; ++i) {
-        const int i1 = ORDER - i;
-#ifdef CCTK_DEBUG
-        assert(cs[i1] == -cs[i]);
-#endif
-        y += cs[i] * (crse(i1 - i0) - crse(i - i0));
+      if (off == 0) {
+        y = 0;
+        for (int i = 0; i < N; ++i) {
+          assert(i - i0 >= -((ORDER + 1) / 2));
+          assert(i - i0 <= +(ORDER / 2));
+          y += cs[i] * crse(i - i0);
+        }
+      } else {
+        y = 0;
+        for (int i = 0; i < N; ++i) {
+          // TODO y += cs[(N - 1) - i] * crse(i - (i0 - 1));
+          static_assert((+((ORDER + 1) / 2)) - (-(ORDER / 2)) + 1 == N);
+          assert((ORDER + 1) / 2 - i >= -(ORDER / 2));
+          assert((ORDER + 1) / 2 - i <= +((ORDER + 1) / 2));
+          y += cs[i] * crse((ORDER + 1) / 2 - i);
+          // TODO y += cs[(N - 1) - i] * crse(i + i0 + 1);
+        }
       }
     }
     return y;
@@ -762,28 +820,37 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
     constexpr interp1d<CENT, POLY, ORDER> stencil1d;
     constexpr int nghosts = stencil1d.required_ghosts;
     static_assert(nghosts >= 0);
-    constexpr int n = 1 + 2 * nghosts;
+    constexpr int n = 1 + 2 * (nghosts + 1);
     constexpr int i0 = n / 2;
-    std::array<T, n + 2> ys;
+    std::array<T, n> ysarr;
+    T *restrict const ys = &ysarr[i0];
 
     for (int order = 0; order <= ORDER; ++order) {
       auto f = [&](T x) { return pown(x, order); };
       for (int off = 0; off < 2; ++off) {
-        const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
-        assert(rmin >= -nghosts && rmax <= +nghosts);
-        for (int i = -1; i < n + 1; ++i) {
-          if (i - i0 < rmin || i - i0 > rmax) {
-            ys[i + 1] = 0 / T(0);
+        const T rmin = stencil1d.stencil_radius(0, off)[0];
+        const T rmax = stencil1d.stencil_radius(0, off)[1];
+        assert(rmin <= 0 && rmin >= -nghosts);
+        assert(rmax >= 0 && rmax <= +nghosts);
+        for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
+          if (i < rmin || i > rmax) {
+            ys[i] = 0 / T(0);
           } else {
-            T x = (i - i0) + int(CENT) / T(2);
+            T x = i + int(CENT) / T(2);
             T y = f(x);
-            ys[i + 1] = y;
+            ys[i] = y;
           }
         }
 
         T x = int(CENT) / T(4) + off / T(2);
         T y = f(x);
-        T y1 = stencil1d([&](int i) { return ys[i0 + 1 + i]; }, 0, off);
+        T y1 = stencil1d(
+            [&](int i) {
+              assert(i >= rmin);
+              assert(i <= rmax);
+              return ys[i];
+            },
+            0, off);
         // We carefully choose the test problem so that round-off
         // cannot be a problem here
         assert(isfinite(y1));
@@ -834,9 +901,11 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
     constexpr interp1d<CC, CONS, ORDER> stencil1d;
     constexpr int nghosts = stencil1d.required_ghosts;
     static_assert(nghosts >= 0);
-    constexpr int n = 1 + 2 * nghosts;
+    constexpr int n = 1 + 2 * (nghosts + 1);
     constexpr int i0 = n / 2;
-    std::array<T, n + 2> xs, ys;
+    std::array<T, n> xsarr, ysarr;
+    T *restrict const xs = &xsarr[i0];
+    T *restrict const ys = &ysarr[i0];
 
     for (int order = 0; order <= ORDER; ++order) {
       // Function f, a polynomial
@@ -846,29 +915,37 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
       std::array<T, 2> x1;
       std::array<T, 2> y1;
       for (int off = 0; off < 2; ++off) {
-        const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
-        assert(rmin >= -nghosts && rmax <= +nghosts);
-        for (int i = -1; i < n + 1; ++i) {
-          if (i - i0 < rmin || i - i0 > rmax) {
-            xs[i + 1] = 0 / T(0);
-            ys[i + 1] = 0 / T(0);
+        const T rmin = stencil1d.stencil_radius(0, off)[0];
+        const T rmax = stencil1d.stencil_radius(0, off)[1];
+        assert(rmin <= 0 && rmin >= -nghosts);
+        assert(rmax >= 0 && rmax <= +nghosts);
+        for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
+          if (i < rmin || i > rmax) {
+            xs[i] = 0 / T(0);
+            ys[i] = 0 / T(0);
           } else {
-            T x = (i - i0) + int(CC) / T(2);
+            T x = i + int(CC) / T(2);
             // T y = f(x);
             const T dx = 1;
             const T xlo = x - dx / 2;
             const T xhi = x + dx / 2;
             const T y = fint(xhi) - fint(xlo); // average of f over cell
-            xs[i + 1] = x;
-            ys[i + 1] = y;
+            xs[i] = x;
+            ys[i] = y;
           }
         }
 
         x1[off] = int(CC) / T(4) + off / T(2);
-        y1[off] = stencil1d([&](int i) { return ys[i0 + 1 + i]; }, 0, off);
+        y1[off] = stencil1d(
+            [&](const int i) {
+              assert(i >= rmin);
+              assert(i <= rmax);
+              return ys[i];
+            },
+            0, off);
         assert(isfinite(y1[off]));
       } // for off
-      assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
+      assert(y1[0] / 2 + y1[1] / 2 == ys[0]);
       const T dx = x1[1] - x1[0];
       const T xlo = x1[0] - dx / 2;
       const T xhi = x1[1] + dx / 2;
@@ -907,7 +984,8 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
         std::array<T, 2> x1;
         std::array<T, 2> y1;
         for (int off = 0; off < 2; ++off) {
-          const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
+          const T rmin = stencil1d.stencil_radius(0, off)[0];
+          const T rmax = stencil1d.stencil_radius(0, off)[1];
           assert(rmin >= -nghosts && rmax <= +nghosts);
           for (int i = -1; i < n + 1; ++i) {
             if (i - i0 < rmin || i - i0 > rmax) {
@@ -1578,5 +1656,75 @@ prolongate_3d_rf2<CC, CC, VC, CONS, CONS, HERMITE, 4, 4, 5>
     prolongate_ddfh_3d_rf2_c110_o5;
 prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 4, 4, 4>
     prolongate_ddfh_3d_rf2_c111_o5;
+
+// Natural interpolation
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1>
+    prolongate_natural_3d_rf2_c000_o1;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 1, 1, 1>
+    prolongate_natural_3d_rf2_c001_o1;
+prolongate_3d_rf2<VC, CC, VC, POLY, CONS, POLY, 1, 1, 1>
+    prolongate_natural_3d_rf2_c010_o1;
+prolongate_3d_rf2<VC, CC, CC, POLY, CONS, CONS, 1, 1, 1>
+    prolongate_natural_3d_rf2_c011_o1;
+prolongate_3d_rf2<CC, VC, VC, CONS, POLY, POLY, 1, 1, 1>
+    prolongate_natural_3d_rf2_c100_o1;
+prolongate_3d_rf2<CC, VC, CC, CONS, POLY, CONS, 1, 1, 1>
+    prolongate_natural_3d_rf2_c101_o1;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 1, 1, 1>
+    prolongate_natural_3d_rf2_c110_o1;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 1, 1, 1>
+    prolongate_natural_3d_rf2_c111_o1;
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 3, 3, 3>
+    prolongate_natural_3d_rf2_c000_o3;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 3, 3, 3>
+    prolongate_natural_3d_rf2_c001_o3;
+prolongate_3d_rf2<VC, CC, VC, POLY, CONS, POLY, 3, 3, 3>
+    prolongate_natural_3d_rf2_c010_o3;
+prolongate_3d_rf2<VC, CC, CC, POLY, CONS, CONS, 3, 3, 3>
+    prolongate_natural_3d_rf2_c011_o3;
+prolongate_3d_rf2<CC, VC, VC, CONS, POLY, POLY, 3, 3, 3>
+    prolongate_natural_3d_rf2_c100_o3;
+prolongate_3d_rf2<CC, VC, CC, CONS, POLY, CONS, 3, 3, 3>
+    prolongate_natural_3d_rf2_c101_o3;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 3, 3, 3>
+    prolongate_natural_3d_rf2_c110_o3;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 3, 3, 3>
+    prolongate_natural_3d_rf2_c111_o3;
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 5, 5, 5>
+    prolongate_natural_3d_rf2_c000_o5;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 5, 5, 5>
+    prolongate_natural_3d_rf2_c001_o5;
+prolongate_3d_rf2<VC, CC, VC, POLY, CONS, POLY, 5, 5, 5>
+    prolongate_natural_3d_rf2_c010_o5;
+prolongate_3d_rf2<VC, CC, CC, POLY, CONS, CONS, 5, 5, 5>
+    prolongate_natural_3d_rf2_c011_o5;
+prolongate_3d_rf2<CC, VC, VC, CONS, POLY, POLY, 5, 5, 5>
+    prolongate_natural_3d_rf2_c100_o5;
+prolongate_3d_rf2<CC, VC, CC, CONS, POLY, CONS, 5, 5, 5>
+    prolongate_natural_3d_rf2_c101_o5;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 5, 5, 5>
+    prolongate_natural_3d_rf2_c110_o5;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 5, 5, 5>
+    prolongate_natural_3d_rf2_c111_o5;
+
+prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 7, 7, 7>
+    prolongate_natural_3d_rf2_c000_o7;
+prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 7, 7, 7>
+    prolongate_natural_3d_rf2_c001_o7;
+prolongate_3d_rf2<VC, CC, VC, POLY, CONS, POLY, 7, 7, 7>
+    prolongate_natural_3d_rf2_c010_o7;
+prolongate_3d_rf2<VC, CC, CC, POLY, CONS, CONS, 7, 7, 7>
+    prolongate_natural_3d_rf2_c011_o7;
+prolongate_3d_rf2<CC, VC, VC, CONS, POLY, POLY, 7, 7, 7>
+    prolongate_natural_3d_rf2_c100_o7;
+prolongate_3d_rf2<CC, VC, CC, CONS, POLY, CONS, 7, 7, 7>
+    prolongate_natural_3d_rf2_c101_o7;
+prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 7, 7, 7>
+    prolongate_natural_3d_rf2_c110_o7;
+prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 7, 7, 7>
+    prolongate_natural_3d_rf2_c111_o7;
 
 } // namespace CarpetX
