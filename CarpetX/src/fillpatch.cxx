@@ -134,7 +134,6 @@ task2 FillPatch_ProlongateGhosts(
     };
   };
 }
-}
 
 void FillPatch_NewLevel(const GHExt::PatchData::LevelData::GroupData &groupdata,
                         MultiFab &mfab, const MultiFab &cmfab,
