@@ -1732,7 +1732,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         });
       }
     }
-    if (sync_set.empty()) {
+    if (!sync_set.empty()) {
       std::vector<int> sync_vec(sync_set.begin(), sync_set.end());
       SyncGroupsByDirI(cctkGH, sync_vec.size(), sync_vec.data(), nullptr);
     }
