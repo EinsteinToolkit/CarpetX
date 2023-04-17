@@ -1009,7 +1009,7 @@ int Initialise(tFleshConfig *config) {
   if (!CCTK_EQUALS(presync_mode, "mixed-error") &&
       !CCTK_EQUALS(presync_mode, "presync-only"))
     CCTK_ERROR("CarpetX currently requires Cactus::presync_mode = "
-               "\"mixed-error\" or \"presnyc-only\"");
+               "\"mixed-error\" or \"presync-only\"");
 
   // Initialise iteration and time
   cctkGH->cctk_iteration = 0;
