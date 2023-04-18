@@ -28,6 +28,7 @@
 #include <cmath>
 #include <memory>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1098,6 +1099,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
     const int ierr = MultiPatch_GetBoundarySpecification2(
         patch, 2 * dim, is_interpatch_boundary);
     assert(!ierr);
+    // TODO: Set this in get_symmetries()
     for (int f = 0; f < 2; ++f)
       for (int d = 0; d < dim; ++d)
         symmetries[f][d] = is_interpatch_boundary[2 * d + f]
@@ -1384,6 +1386,8 @@ GHExt::PatchData::LevelData::GroupData::alloc_tmp_mfab() const {
 void GHExt::PatchData::LevelData::GroupData::free_tmp_mfabs() const {
   next_tmp_mfab = 0;
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     amrex::MultiFab &mfab) const {

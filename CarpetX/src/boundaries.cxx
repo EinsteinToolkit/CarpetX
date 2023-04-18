@@ -19,22 +19,7 @@ namespace CarpetX {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// CarpetX::loop_region<CarpetX::BoundaryCondition::apply_on_face_symbcxyz<1, 1,
-// 0, (CarpetX::symmetry_t)0, (CarpetX::boundary_t)0, (CarpetX::symmetry_t)0,
-// (CarpetX::boundary_t)2, (CarpetX::symmetry_t)0,
-// (CarpetX::boundary_t)0>(Arith::vect<int, 3> const&, Arith::vect<int, 3>
-// const&) const::{lambda(Arith::vect<int, 3>
-// const&)#1}>(CarpetX::BoundaryCondition::apply_on_face_symbcxyz<1, 1, 0,
-// (CarpetX::symmetry_t)0, (CarpetX::boundary_t)0, (CarpetX::symmetry_t)0,
-// (CarpetX::boundary_t)2, (CarpetX::symmetry_t)0,
-// (CarpetX::boundary_t)0>(Arith::vect<int, 3> const&, Arith::vect<int, 3>
-// const&) const::{lambda(Arith::vect<int, 3> const&)#1} const&,
-// Arith::vect<int, 3> const&, Arith::vect<int, 3> const&)
-//
-// _ZN7CarpetX11loop_regionIZNKS_17BoundaryCondition22apply_on_face_symbcxyzILin1ELin1ELin1ELNS_10symmetry_tE0ELNS_10boundary_tE5ELS3_4ELS4_0ELS3_4ELS4_0EEEvRKN5Arith4vectIiLi3EEES9_EUlS9_E_EEvRKT_S9_S9_
-
-////////////////////////////////////////////////////////////////////////////////
-
+namespace {
 // TODO: Move this function to loop.hxx
 template <typename F>
 // inline CCTK_ATTRIBUTE_ALWAYS_INLINE
@@ -45,19 +30,6 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
   if (any(imax <= imin))
     return;
 
-#if !defined __CUDACC__ && !defined __HIPCC__
-  // CPU
-  for (int k = imin[2]; k < imax[2]; ++k) {
-    for (int j = imin[1]; j < imax[1]; ++j) {
-      // #pragma omp simd
-      for (int i = imin[0]; i < imax[0]; ++i) {
-        const Arith::vect<int, dim> p{i, j, k};
-        f(p);
-      }
-    }
-  }
-#else
-  // GPU
   const amrex::Box box(amrex::IntVect(imin[0], imin[1], imin[2]),
                        amrex::IntVect(imax[0] - 1, imax[1] - 1, imax[2] - 1));
   amrex::ParallelFor(box, [=] CCTK_DEVICE(const int i, const int j, const int k)
@@ -65,8 +37,8 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
                                 const Arith::vect<int, dim> p{i, j, k};
                                 f(p);
                               });
-#endif
 }
+} // namespace
 
 BoundaryCondition::BoundaryCondition(
     const GHExt::PatchData::LevelData::GroupData &groupdata,
@@ -327,9 +299,6 @@ void BoundaryCondition::apply_on_face_symbcxyz(
     for (int comp = 0; comp < ncomps; ++comp) {
       const CCTK_REAL dirichlet_value = groupdata.dirichlet_values.at(comp);
       Loop::GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
-      // #ifndef __CUDACC__
-      // #pragma omp task final(true) untied
-      // #endif
       loop_region(
           [
 #ifdef CCTK_DEBUG
@@ -423,9 +392,6 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       assert(fabs(reflection_parity) == 1);
 
       Loop::GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
-      // #ifndef __CUDACC__
-      // #pragma omp task final(true) untied
-      // #endif
       loop_region(
           [
 #ifdef CCTK_DEBUG

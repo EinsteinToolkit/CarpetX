@@ -2356,24 +2356,21 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     task1();
   tasks1.clear();
 
-  if (CCTK_IsImplementationActive("MultiPatch") &&
-      CCTK_IsFunctionAliased("MultiPatch_Interpolate")) {
-#warning                                                                       \
-    "TODO: loop over `multipatch_interpolations` on all patches/levels, scatter/interpolate/gather"
-#warning "TODO: check `multipatch_interpolations` size before and after"
-    assert(0);
-    MultiPatch_Interpolate(cctkGH, groups.size(), groups.data());
-  } else {
-    for (const auto &patch : ghext->patchdata)
-      for (const auto &level : patch.leveldata)
-        for (const auto &group : level.groupdata)
-          if (group)
-            assert(group->interp.empty());
-  }
-
   for (auto task2 : tasks2)
     task2();
   tasks2.clear();
+
+  if (CCTK_IsImplementationActive("MultiPatch") &&
+      CCTK_IsFunctionAliased("MultiPatch_Interpolate")) {
+    std::vector<CCTK_INT> cactusvarinds;
+    for (int group : groups) {
+      const auto &groupdata =
+          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(group);
+      for (int var = 0; var < groupdata.numvars; ++var)
+        cactusvarinds.push_back(groupdata.firstvarindex + var);
+    }
+    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
+  }
 
   assert(sync_active);
 
