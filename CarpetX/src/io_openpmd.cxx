@@ -1072,6 +1072,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
       for (const auto &leveldata : patchdata.leveldata) {
         const int level = leveldata.level;
         std::ostringstream buf;
+        // The suffix should be `_lvl<N>`. No `setfill`?
         buf << patch_suffixes.at(patch) << "_lev" << setw(2) << setfill('0')
             << level;
         level_suffixes.at(level) = buf.str();

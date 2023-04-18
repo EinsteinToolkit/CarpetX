@@ -104,7 +104,7 @@ void error_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
     CCTK_VERROR("%s: Grid function \"%s\" is invalid on patch %d, refinement "
-                "level %d, time level %d; required %s, found %s",
+                "level %d, time level %d; required: %s, found: %s",
                 msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
                 groupdata.patch, groupdata.level, tl,
                 required.explanation().c_str(),
@@ -117,7 +117,7 @@ void warn_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
     CCTK_VWARN(CCTK_WARN_ALERT,
                "%s: Grid function \"%s\" is invalid on patch %d, refinement "
-               "level %d, time level %d; required %s, found %s",
+               "level %d, time level %d; required: %s, found: %s",
                msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
                groupdata.patch, groupdata.level, tl,
                required.explanation().c_str(),

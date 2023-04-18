@@ -272,18 +272,6 @@ struct GHExt {
         // Apply outer (physical) boundary conditions to a MultiFab
         void apply_boundary_conditions(amrex::MultiFab &mfab) const;
 
-        // To interpolate boundaries from other patches:
-        struct interp_t {
-          // interpolation points
-          std::vector<std::array<int, dim> > indices; // [cell]
-          // scatter interpolation results for all coords for one varind
-          // TODO: Use better C++ mechanism to iterate over all elements
-          std::vector<std::vector<std::function<void(
-              std::vector<CCTK_REAL>::const_iterator &iter)> > >
-              scatter_data; // [var][iter]
-        };
-        mutable std::vector<interp_t> interp; // [block]
-
         // each amrex::MultiFab has numvars components
         vector<unique_ptr<amrex::MultiFab> > mfab; // [time level]
 
