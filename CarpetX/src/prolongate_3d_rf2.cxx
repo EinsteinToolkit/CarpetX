@@ -1360,47 +1360,27 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
             }
           }
 
+          const CCTK_REAL val = call_stencil_3d(
+              [&](const int di, const int dj, const int dk) {
+                return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
+              },
+              [&](const auto &crse) {
+                return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0], off[0]);
+              },
+              [&](const auto &crse) {
+                return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1], off[1]);
+              },
+              [&](const auto &crse) {
+                return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2], off[2]);
+              });
+
           if constexpr (FB == FB_NONE || ((INTPI != CONS || ORDERI <= 1) &&
                                           (INTPJ != CONS || ORDERJ <= 1) &&
                                           (INTPK != CONS || ORDERK <= 1))) {
 
-            setfine(
-                ifine[0], ifine[1], ifine[2],
-                call_stencil_3d(
-                    [&](const int di, const int dj, const int dk) {
-                      return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
-                    },
-                    [&](const auto &crse) {
-                      return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0],
-                                                              off[0]);
-                    },
-                    [&](const auto &crse) {
-                      return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1],
-                                                              off[1]);
-                    },
-                    [&](const auto &crse) {
-                      return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2],
-                                                              off[2]);
-                    }));
+            setfine(ifine[0], ifine[1], ifine[2], val);
 
           } else {
-
-            const CCTK_REAL val_acc = call_stencil_3d(
-                [&](const int di, const int dj, const int dk) {
-                  return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
-                },
-                [&](const auto &crse) {
-                  return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0],
-                                                          off[0]);
-                },
-                [&](const auto &crse) {
-                  return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1],
-                                                          off[1]);
-                },
-                [&](const auto &crse) {
-                  return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2],
-                                                          off[2]);
-                });
 
             constexpr int LINORDERI = INTPI == CONS ? 1 : ORDERI;
             constexpr int LINORDERJ = INTPJ == CONS ? 1 : ORDERJ;
@@ -1442,7 +1422,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                   }
                 }
               }
-              need_fallback |= val_acc < minval || val_acc > maxval;
+              need_fallback |= val < minval || val > maxval;
 
               if constexpr (INTPI == CONS) {
                 bool need_fallback_i = false;
@@ -1505,9 +1485,8 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
               }
             }
 
-            const CCTK_REAL val = need_fallback ? val_lin : val_acc;
-
-            setfine(ifine[0], ifine[1], ifine[2], val);
+            setfine(ifine[0], ifine[1], ifine[2],
+                    need_fallback ? val_lin : val);
           }
         },
         imin, imax);
