@@ -26,12 +26,18 @@ bool is_near_outer_boundary(const cGH *const cctkGH, const Loop::PointDesc &p) {
 }
 
 bool is_near_jump(const Loop::PointDesc &p, const bool enox, const bool enoy,
-                  const bool enoz) {
+                  const bool enoz, const bool fbx, const bool fby,
+                  const bool fbz, const int orderx, const int ordery,
+                  const int orderz) {
   // Stay away from the discontinuity.
   // `1 dx` on the coarse grid is `2 dx` on the fine grid. The coarse grid is
   // also offset by 1/2 grid spacing if it's cell centred.
+  using std::max;
   return (enox && fabs(p.x) < 2.1 * p.dx) || (enoy && fabs(p.y) < 2.1 * p.dy) ||
-         (enoz && fabs(p.z) < 2.1 * p.dz);
+         (enoz && fabs(p.z) < 2.1 * p.dz) ||
+         (fbx && fabs(p.x) < (max(2, orderx) + 0.1) * p.dx) ||
+         (fby && fabs(p.y) < (max(2, ordery) + 0.1) * p.dy) ||
+         (fbz && fabs(p.z) < (max(2, orderz) + 0.1) * p.dz);
 }
 
 template <typename T> T fun1d_base(const T x, const int order) {
@@ -58,11 +64,12 @@ T fun1d(const T x, const T dx, const bool consx, const int orderx) {
 template <typename T>
 T fun(const T x, const T y, const T z, const T dx, const T dy, const T dz,
       const bool consx, const bool consy, const bool consz, const bool enox,
-      const bool enoy, const bool enoz, const int orderx, const int ordery,
-      const int orderz) {
+      const bool enoy, const bool enoz, const bool lfbx, const bool lfby,
+      const bool lfbz, const int orderx, const int ordery, const int orderz) {
   return fun1d(x, dx, consx, orderx) * fun1d(y, dy, consy, ordery) *
              fun1d(z, dz, consz, orderz) +
-         ((enox * signbit(x)) ^ (enoy * signbit(y)) ^ (enoz * signbit(z)));
+         (((enox | lfbx) * signbit(x)) ^ ((enoy | lfby) * signbit(y)) ^
+          ((enoz | lfbz) * signbit(z)));
 }
 
 extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
@@ -85,95 +92,110 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
   assert(prolongation_type_type == PARAMETER_KEYWORD);
   const char *const prolongation_type =
       *static_cast<const char *const *>(prolongation_type_p);
-  bool vc_cons, cc_cons, cc_eno;
+  bool vc_cons, cc_cons, cc_eno, cc_lfb;
   constexpr bool vc_eno = false;
+  constexpr bool vc_lfb = false;
   int vc_order, cc_order;
   if (CCTK_EQUALS(prolongation_type, "interpolate")) {
     vc_cons = false;
     cc_cons = false;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order;
   } else if (CCTK_EQUALS(prolongation_type, "conservative")) {
     vc_cons = true;
     cc_cons = true;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order == 0 ? 0 : operator_order + 1;
   } else if (CCTK_EQUALS(prolongation_type, "ddf")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
   } else if (CCTK_EQUALS(prolongation_type, "ddf-eno")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = true;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
   } else if (CCTK_EQUALS(prolongation_type, "ddf-hermite")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
   } else if (CCTK_EQUALS(prolongation_type, "natural")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order;
+  } else if (CCTK_EQUALS(prolongation_type, "poly-cons3lfb")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = false;
+    cc_lfb = true;
+    vc_order = operator_order;
+    using std::min;
+    cc_order = min(3, operator_order);
   } else {
     assert(0);
   }
 
   Loop::loop_int<0, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, vc_cons, vc_cons, vc_eno,
-            vc_eno, vc_eno, vc_order, vc_order, vc_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, vc_cons, vc_cons, vc_eno,
+        vc_eno, vc_eno, vc_lfb, vc_lfb, vc_lfb, vc_order, vc_order, vc_order);
     gf000(p.I) = good_data;
   });
   Loop::loop_int<0, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, vc_cons, cc_cons, vc_eno,
-            vc_eno, cc_eno, vc_order, vc_order, cc_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, vc_cons, cc_cons, vc_eno,
+        vc_eno, cc_eno, vc_lfb, vc_lfb, cc_lfb, vc_order, vc_order, cc_order);
     gf001(p.I) = good_data;
   });
   Loop::loop_int<0, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, cc_cons, vc_cons, vc_eno,
-            cc_eno, vc_eno, vc_order, cc_order, vc_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, cc_cons, vc_cons, vc_eno,
+        cc_eno, vc_eno, vc_lfb, cc_lfb, vc_lfb, vc_order, cc_order, vc_order);
     gf010(p.I) = good_data;
   });
   Loop::loop_int<0, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, cc_cons, cc_cons, vc_eno,
-            cc_eno, cc_eno, vc_order, cc_order, cc_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, cc_cons, cc_cons, vc_eno,
+        cc_eno, cc_eno, vc_lfb, cc_lfb, cc_lfb, vc_order, cc_order, cc_order);
     gf011(p.I) = good_data;
   });
   Loop::loop_int<1, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, vc_cons, vc_cons, cc_eno,
-            vc_eno, vc_eno, cc_order, vc_order, vc_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, vc_cons, vc_cons, cc_eno,
+        vc_eno, vc_eno, cc_lfb, vc_lfb, vc_lfb, cc_order, vc_order, vc_order);
     gf100(p.I) = good_data;
   });
   Loop::loop_int<1, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, vc_cons, cc_cons, cc_eno,
-            vc_eno, cc_eno, cc_order, vc_order, cc_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, vc_cons, cc_cons, cc_eno,
+        vc_eno, cc_eno, cc_lfb, vc_lfb, cc_lfb, cc_order, vc_order, cc_order);
     gf101(p.I) = good_data;
   });
   Loop::loop_int<1, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, cc_cons, vc_cons, cc_eno,
-            cc_eno, vc_eno, cc_order, cc_order, vc_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, cc_cons, vc_cons, cc_eno,
+        cc_eno, vc_eno, cc_lfb, cc_lfb, vc_lfb, cc_order, cc_order, vc_order);
     gf110(p.I) = good_data;
   });
   Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    const CCTK_REAL good_data =
-        fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, cc_cons, cc_cons, cc_eno,
-            cc_eno, cc_eno, cc_order, cc_order, cc_order);
+    const CCTK_REAL good_data = fun(
+        p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, cc_cons, cc_cons, cc_eno,
+        cc_eno, cc_eno, cc_lfb, cc_lfb, cc_lfb, cc_order, cc_order, cc_order);
     gf111(p.I) = good_data;
   });
 
@@ -249,45 +271,60 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
   assert(prolongation_type_type == PARAMETER_KEYWORD);
   const char *const prolongation_type =
       *static_cast<const char *const *>(prolongation_type_p);
-  bool vc_cons, cc_cons, cc_eno;
+  bool vc_cons, cc_cons, cc_eno, cc_lfb;
   constexpr bool vc_eno = false;
+  constexpr bool vc_lfb = false;
   int vc_order, cc_order;
   if (CCTK_EQUALS(prolongation_type, "interpolate")) {
     vc_cons = false;
     cc_cons = false;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order;
   } else if (CCTK_EQUALS(prolongation_type, "conservative")) {
     vc_cons = true;
     cc_cons = true;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order == 0 ? 0 : operator_order + 1;
   } else if (CCTK_EQUALS(prolongation_type, "ddf")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
   } else if (CCTK_EQUALS(prolongation_type, "ddf-eno")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = true;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
   } else if (CCTK_EQUALS(prolongation_type, "ddf-hermite")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
   } else if (CCTK_EQUALS(prolongation_type, "natural")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
+    cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order;
+  } else if (CCTK_EQUALS(prolongation_type, "poly-cons3lfb")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = false;
+    cc_lfb = true;
+    vc_order = operator_order;
+    using std::min;
+    cc_order = min(3, operator_order);
   } else {
     assert(0);
   }
@@ -296,13 +333,15 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     CCTK_REAL max_error = 0, sum_count = 0;
     Loop::loop_all<0, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
       if (is_near_outer_boundary<0, 0, 0>(cctkGH, p) ||
-          is_near_jump(p, vc_eno, vc_eno, vc_eno)) {
+          is_near_jump(p, vc_eno, vc_eno, vc_eno, vc_lfb, vc_lfb, vc_lfb,
+                       vc_order, vc_order, vc_order)) {
         gf000_error(p.I) = 0;
         gf000_count(p.I) = 0;
       } else {
         const CCTK_REAL good_data =
             fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, vc_cons, vc_cons,
-                vc_eno, vc_eno, vc_eno, vc_order, vc_order, vc_order);
+                vc_eno, vc_eno, vc_eno, vc_lfb, vc_lfb, vc_lfb, vc_order,
+                vc_order, vc_order);
         gf000_error(p.I) = gf000(p.I) - good_data;
         gf000_count(p.I) = 1;
         max_error = fmax(max_error, fabs(gf000_error(p.I)));
@@ -319,13 +358,15 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     CCTK_REAL max_error = 0, sum_count = 0;
     Loop::loop_all<0, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
       if (is_near_outer_boundary<0, 0, 1>(cctkGH, p) ||
-          is_near_jump(p, vc_eno, vc_eno, cc_eno)) {
+          is_near_jump(p, vc_eno, vc_eno, cc_eno, vc_lfb, vc_lfb, cc_lfb,
+                       vc_order, vc_order, cc_order)) {
         gf001_error(p.I) = 0;
         gf001_count(p.I) = 0;
       } else {
         const CCTK_REAL good_data =
             fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, vc_cons, cc_cons,
-                vc_eno, vc_eno, cc_eno, vc_order, vc_order, cc_order);
+                vc_eno, vc_eno, cc_eno, vc_lfb, vc_lfb, cc_lfb, vc_order,
+                vc_order, cc_order);
         gf001_error(p.I) = gf001(p.I) - good_data;
         gf001_count(p.I) = 1;
         max_error = fmax(max_error, fabs(gf001_error(p.I)));
@@ -342,13 +383,15 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     CCTK_REAL max_error = 0, sum_count = 0;
     Loop::loop_all<0, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
       if (is_near_outer_boundary<0, 1, 0>(cctkGH, p) ||
-          is_near_jump(p, vc_eno, cc_eno, vc_eno)) {
+          is_near_jump(p, vc_eno, cc_eno, vc_eno, vc_lfb, cc_lfb, vc_lfb,
+                       vc_order, cc_order, vc_order)) {
         gf010_error(p.I) = 0;
         gf010_count(p.I) = 0;
       } else {
         const CCTK_REAL good_data =
             fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, cc_cons, vc_cons,
-                vc_eno, cc_eno, vc_eno, vc_order, cc_order, vc_order);
+                vc_eno, cc_eno, vc_eno, vc_lfb, cc_lfb, vc_lfb, vc_order,
+                cc_order, vc_order);
         gf010_error(p.I) = gf010(p.I) - good_data;
         gf010_count(p.I) = 1;
         max_error = fmax(max_error, fabs(gf010_error(p.I)));
@@ -365,13 +408,15 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     CCTK_REAL max_error = 0, sum_count = 0;
     Loop::loop_all<0, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
       if (is_near_outer_boundary<0, 1, 1>(cctkGH, p) ||
-          is_near_jump(p, vc_eno, cc_eno, cc_eno)) {
+          is_near_jump(p, vc_eno, cc_eno, cc_eno, vc_lfb, cc_lfb, cc_lfb,
+                       vc_order, cc_order, cc_order)) {
         gf011_error(p.I) = 0;
         gf011_count(p.I) = 0;
       } else {
         const CCTK_REAL good_data =
             fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, vc_cons, cc_cons, cc_cons,
-                vc_eno, cc_eno, cc_eno, vc_order, cc_order, cc_order);
+                vc_eno, cc_eno, cc_eno, vc_lfb, cc_lfb, cc_lfb, vc_order,
+                cc_order, cc_order);
         gf011_error(p.I) = gf011(p.I) - good_data;
         gf011_count(p.I) = 1;
         max_error = fmax(max_error, fabs(gf011_error(p.I)));
@@ -388,13 +433,15 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     CCTK_REAL max_error = 0, sum_count = 0;
     Loop::loop_all<1, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
       if (is_near_outer_boundary<1, 0, 0>(cctkGH, p) ||
-          is_near_jump(p, cc_eno, vc_eno, vc_eno)) {
+          is_near_jump(p, cc_eno, vc_eno, vc_eno, cc_lfb, vc_lfb, vc_lfb,
+                       cc_order, vc_order, vc_order)) {
         gf100_error(p.I) = 0;
         gf100_count(p.I) = 0;
       } else {
         const CCTK_REAL good_data =
             fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, vc_cons, vc_cons,
-                cc_eno, vc_eno, vc_eno, cc_order, vc_order, vc_order);
+                cc_eno, vc_eno, vc_eno, cc_lfb, vc_lfb, vc_lfb, cc_order,
+                vc_order, vc_order);
         gf100_error(p.I) = gf100(p.I) - good_data;
         gf100_count(p.I) = 1;
         max_error = fmax(max_error, fabs(gf100_error(p.I)));
@@ -411,13 +458,15 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     CCTK_REAL max_error = 0, sum_count = 0;
     Loop::loop_all<1, 0, 1>(cctkGH, [&](const Loop::PointDesc &p) {
       if (is_near_outer_boundary<1, 0, 1>(cctkGH, p) ||
-          is_near_jump(p, cc_eno, vc_eno, cc_eno)) {
+          is_near_jump(p, cc_eno, vc_eno, cc_eno, cc_lfb, vc_lfb, vc_lfb,
+                       cc_order, vc_order, cc_order)) {
         gf101_error(p.I) = 0;
         gf101_count(p.I) = 0;
       } else {
         const CCTK_REAL good_data =
             fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, vc_cons, cc_cons,
-                cc_eno, vc_eno, cc_eno, cc_order, vc_order, cc_order);
+                cc_eno, vc_eno, cc_eno, cc_lfb, vc_lfb, cc_lfb, cc_order,
+                vc_order, cc_order);
         gf101_error(p.I) = gf101(p.I) - good_data;
         gf101_count(p.I) = 1;
         max_error = fmax(max_error, fabs(gf101_error(p.I)));
@@ -434,13 +483,15 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     CCTK_REAL max_error = 0, sum_count = 0;
     Loop::loop_all<1, 1, 0>(cctkGH, [&](const Loop::PointDesc &p) {
       if (is_near_outer_boundary<1, 1, 0>(cctkGH, p) ||
-          is_near_jump(p, cc_eno, cc_eno, vc_eno)) {
+          is_near_jump(p, cc_eno, cc_eno, vc_eno, cc_lfb, cc_lfb, vc_lfb,
+                       cc_order, cc_order, vc_order)) {
         gf110_error(p.I) = 0;
         gf110_count(p.I) = 0;
       } else {
         const CCTK_REAL good_data =
             fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, cc_cons, vc_cons,
-                cc_eno, cc_eno, vc_eno, cc_order, cc_order, vc_order);
+                cc_eno, cc_eno, vc_eno, cc_lfb, cc_lfb, vc_lfb, cc_order,
+                cc_order, vc_order);
         gf110_error(p.I) = gf110(p.I) - good_data;
         gf110_count(p.I) = 1;
         max_error = fmax(max_error, fabs(gf110_error(p.I)));
@@ -457,13 +508,15 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     CCTK_REAL max_error = 0, sum_count = 0;
     Loop::loop_all<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
       if (is_near_outer_boundary<1, 1, 1>(cctkGH, p) ||
-          is_near_jump(p, cc_eno, cc_eno, cc_eno)) {
+          is_near_jump(p, cc_eno, cc_eno, cc_eno, cc_lfb, cc_lfb, cc_lfb,
+                       cc_order, cc_order, cc_order)) {
         gf111_error(p.I) = 0;
         gf111_count(p.I) = 0;
       } else {
         const CCTK_REAL good_data =
             fun(p.x, p.y, p.z, p.dx, p.dy, p.dz, cc_cons, cc_cons, cc_cons,
-                cc_eno, cc_eno, cc_eno, cc_order, cc_order, cc_order);
+                cc_eno, cc_eno, cc_eno, cc_lfb, cc_lfb, cc_lfb, cc_order,
+                cc_order, cc_order);
         gf111_error(p.I) = gf111(p.I) - good_data;
         gf111_count(p.I) = 1;
         max_error = fmax(max_error, fabs(gf111_error(p.I)));
