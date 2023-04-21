@@ -6,8 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real32 .
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
-# FROM rocm/dev-ubuntu-22.04
-FROM rocm/dev-ubuntu-20.04
+FROM rocm/dev-ubuntu-22.04
+# FROM rocm/dev-ubuntu-20.04
 
 RUN mkdir /cactus
 WORKDIR /cactus
