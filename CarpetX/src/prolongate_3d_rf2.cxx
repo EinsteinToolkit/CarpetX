@@ -1374,11 +1374,13 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                 return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2], off[2]);
               });
 
+          CCTK_REAL res;
+
           if constexpr (FB == FB_NONE || ((INTPI != CONS || ORDERI <= 1) &&
                                           (INTPJ != CONS || ORDERJ <= 1) &&
                                           (INTPK != CONS || ORDERK <= 1))) {
 
-            setfine(ifine[0], ifine[1], ifine[2], val);
+            res = val;
 
           } else {
 
@@ -1485,9 +1487,10 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
               }
             }
 
-            setfine(ifine[0], ifine[1], ifine[2],
-                    need_fallback ? val_lin : val);
+            res = need_fallback ? val_lin : val;
           }
+
+          setfine(ifine[0], ifine[1], ifine[2], res);
         },
         imin, imax);
 
