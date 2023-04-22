@@ -23,7 +23,7 @@ git config --global user.name "Github Actions"
 
 case "$MODE" in
     debug) mode='--debug';;
-    optimize) mode='';;
+    optimize) mode='--optimise';;
     *) exit 1;;
 esac
 
