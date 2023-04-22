@@ -35,7 +35,6 @@ SRCS =							\
 	prolongate_3d_rf2_impl_poly_cons3lfb.cxx	\
 	reduction.cxx					\
 	regrid_error.cxx				\
-	restrict_3d_rf2.cxx				\
 	schedule.cxx					\
 	timer.cxx					\
 	valid.cxx
