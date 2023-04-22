@@ -19,15 +19,18 @@ jobs:
       matrix:
         accelerator: [cpu, cuda, rocm]
         real-precision: [real32, real64]
+        mode: [debug, optimize]
         exclude:
           - {accelerator: rocm, real-precision: real32}
+          - {real-precision: real32, mode: optimize}
     env:
       ACCELERATOR: ${{matrix.accelerator}}
       REAL_PRECISION: ${{matrix.real-precision}}
+      MODE: ${{matrix.mode}}
 
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    container: einsteintoolkit/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}
+    container: einsteintoolkit/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}-${{matrix.mode}}
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -50,11 +53,11 @@ jobs:
         run: /bin/bash $GITHUB_WORKSPACE/scripts/build.sh
       
       - name: Test Cactus
-        if: ${{matrix.accelerator != 'cuda' && matrix.accelerator != 'rocm'}}
+        if: ${{matrix.accelerator != 'cuda' && matrix.accelerator != 'rocm' && matrix.mode == 'debug'}}
         run: /bin/bash $GITHUB_WORKSPACE/scripts/test.sh
       
       # Set exit code based on test status
       - name: Set exit code
         # Only look at the test results for `carpetx-cpu-real64` runs
-        if: ${{matrix.accelerator == 'cpu' && matrix.real-precision == 'real64' && env.TESTS_FAILED == 'True'}}
+        if: ${{matrix.accelerator == 'cpu' && matrix.real-precision == 'real64' && matrix.mode == 'debug' && env.TESTS_FAILED == 'True'}}
         run: exit 1

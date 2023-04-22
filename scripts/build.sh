@@ -21,17 +21,16 @@ cp "$CARPETXSPACE/scripts/defs.local.ini" ./simfactory/etc
 git config --global user.email "carpetx@einsteintoolkit.org"
 git config --global user.name "Github Actions"
 
-# Build debug configuration
+case "$MODE" in
+    debug) mode='--debug';;
+    optimze) mode='';;
+    *) exit 1;;
+esac
+
+# Build
 # The build log needs to be stored for later.
-time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build --debug --jobs $(nproc) sim 2>&1 |
+time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build "$mode" --jobs $(nproc) sim 2>&1 |
     tee build.log
 
 # Check whether the executable exists and is executable
 test -x exe/cactus_sim
-
-# Build optimized configuration (mostly checking for compiler errors)
-time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build --jobs 1 sim-opt 2>&1 |
-    tee build-opt.log
-
-# Check whether the executable exists and is executable
-test -x exe/cactus_sim-opt
