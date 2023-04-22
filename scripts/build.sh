@@ -30,7 +30,7 @@ time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build
 test -x exe/cactus_sim
 
 # Build optimized configuration (mostly checking for compiler errors)
-time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build --jobs $(nproc) sim-opt 2>&1 |
+time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build --jobs 1 sim-opt 2>&1 |
     tee build-opt.log
 
 # Check whether the executable exists and is executable
