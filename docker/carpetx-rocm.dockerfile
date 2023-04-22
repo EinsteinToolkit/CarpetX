@@ -6,8 +6,7 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real32 .
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
-# FROM rocm/dev-ubuntu-22.04
-FROM rocm/dev-ubuntu-20.04
+FROM rocm/dev-ubuntu-22.04
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -191,7 +190,7 @@ RUN mkdir src && \
     esac && \
     cmake \
         -DAMReX_GPU_BACKEND=HIP \
-        -DAMReX_AMD_ARCH=gfx908 \
+        -DAMReX_AMD_ARCH=gfx90a \
         -DAMReX_OMP=OFF \
         -DAMReX_PARTICLES=ON \
         -DAMReX_PRECISION="$precision" \

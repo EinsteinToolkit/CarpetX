@@ -1,26 +1,42 @@
 # Main make.code.defn file for thorn CarpetX
 
 # Source files in this directory
-SRCS =						\
-	boundaries.cxx				\
-	driver.cxx				\
-	fillpatch.cxx				\
-	interpolate.cxx				\
-	io.cxx					\
-	io_adios2.cxx				\
-	io_meta.cxx				\
-	io_norm.cxx				\
-	io_openpmd.cxx				\
-	io_silo.cxx				\
-	io_tsv.cxx				\
-	linsolve.cxx				\
-	logo.cxx				\
-	mpi_types.cxx				\
-	prolongate_3d_rf2.cxx			\
-	reduction.cxx				\
-	regrid_error.cxx			\
-	schedule.cxx				\
-	timer.cxx				\
+SRCS =							\
+	boundaries.cxx					\
+	boundaries_impl_int_int.cxx			\
+	boundaries_impl_int_neg.cxx			\
+	boundaries_impl_int_pos.cxx			\
+	boundaries_impl_neg_int.cxx			\
+	boundaries_impl_neg_neg.cxx			\
+	boundaries_impl_neg_pos.cxx			\
+	boundaries_impl_pos_int.cxx			\
+	boundaries_impl_pos_neg.cxx			\
+	boundaries_impl_pos_pos.cxx			\
+	driver.cxx					\
+	fillpatch.cxx					\
+	interpolate.cxx					\
+	io.cxx						\
+	io_adios2.cxx					\
+	io_meta.cxx					\
+	io_norm.cxx					\
+	io_openpmd.cxx					\
+	io_silo.cxx					\
+	io_tsv.cxx					\
+	linsolve.cxx					\
+	logo.cxx					\
+	mpi_types.cxx					\
+	prolongate_3d_rf2.cxx				\
+	prolongate_3d_rf2_impl_cons.cxx			\
+	prolongate_3d_rf2_impl_ddf.cxx			\
+	prolongate_3d_rf2_impl_ddf_eno.cxx		\
+	prolongate_3d_rf2_impl_hermite.cxx		\
+	prolongate_3d_rf2_impl_natural.cxx		\
+	prolongate_3d_rf2_impl_poly.cxx			\
+	prolongate_3d_rf2_impl_poly_cons3lfb.cxx	\
+	reduction.cxx					\
+	regrid_error.cxx				\
+	schedule.cxx					\
+	timer.cxx					\
 	valid.cxx
 
 # Subdirectories containing source files

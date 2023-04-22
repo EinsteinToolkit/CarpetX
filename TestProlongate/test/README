@@ -1,0 +1,3 @@
+The test `test_ddf_eno_o5.par` is disabled because it is very slow
+when run in debug mode. It takes about 30 minutes to run on Github's
+CI.

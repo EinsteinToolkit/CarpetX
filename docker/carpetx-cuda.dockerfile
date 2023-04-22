@@ -6,9 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-cuda.dockerfile --tag einsteintoolkit/carpetx:cuda-real32 .
 #     docker push einsteintoolkit/carpetx:cuda-real32
 
-# AMReX 23.04 segfaults on Ubuntu 22.04 with CUDA 12.0.1 and 12.1.0
+# AMReX 23.04 segfaults on Ubuntu 22.04 with CUDA 12.1.0
 # FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
-# FROM nvidia/cuda:12.1.0-devel-ubuntu20.04
 FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
 
 RUN mkdir /cactus
