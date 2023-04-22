@@ -1100,6 +1100,7 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
       }
       break;
 
+#if 0
     case 7:
       switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
       case 0b000:
@@ -1120,6 +1121,7 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
         return &prolongate_poly_cons3lfb_3d_rf2_c111_o7;
       }
       break;
+#endif
     }
     break;
 

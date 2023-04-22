@@ -474,6 +474,7 @@ extern prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 3, 3, 5, FB_LINEAR>
 extern prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 3, 3, 3, FB_LINEAR>
     prolongate_poly_cons3lfb_3d_rf2_c111_o5;
 
+#if 0
 extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 7, 7, 7, FB_LINEAR>
     prolongate_poly_cons3lfb_3d_rf2_c000_o7;
 extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 7, 7, 3, FB_LINEAR>
@@ -490,6 +491,7 @@ extern prolongate_3d_rf2<CC, CC, VC, CONS, CONS, POLY, 3, 3, 7, FB_LINEAR>
     prolongate_poly_cons3lfb_3d_rf2_c110_o7;
 extern prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 3, 3, 3, FB_LINEAR>
     prolongate_poly_cons3lfb_3d_rf2_c111_o7;
+#endif
 
 } // namespace CarpetX
 
