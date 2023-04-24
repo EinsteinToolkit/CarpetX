@@ -649,6 +649,12 @@ template <typename T, int D> struct vect {
                                                               const vect &y) {
     return sum(x * y);
   }
+  template <typename U,
+            typename R = decltype(std::declval<T>() * std::declval<U>())>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST R
+  dot(const vect &x, const vect<U, D> &y) {
+    return sum(x * y);
+  }
 
   template <typename C>
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
