@@ -2,6 +2,10 @@
 
 IMPLEMENTS: WaveToyX
 
+USES INCLUDE HEADER: vect.hxx
+
+
+
 CCTK_REAL ustate TYPE=gf TAGS='rhs="urhs"'
 {
   u
