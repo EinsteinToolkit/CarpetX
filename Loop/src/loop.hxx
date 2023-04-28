@@ -45,9 +45,6 @@ enum class where_t {
 };
 std::ostream &operator<<(std::ostream &os, const where_t where);
 
-extern bool use_itiling;
-extern "C" void Loop_Init(CCTK_ARGUMENTS);
-
 struct GridDescBase;
 
 template <typename T, int D> struct units_t {
