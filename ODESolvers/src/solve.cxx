@@ -22,9 +22,11 @@ static inline int omp_get_max_threads() { return 1; }
 #include <cassert>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -521,6 +523,32 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+int groupindex(const int other_gi, std::string gn) {
+  // If the group name does not contain a colon, then prefix the current group's
+  // implementation or thorn name
+  if (gn.find(':') == std::string::npos) {
+    const char *const thorn_or_impl = CCTK_GroupImplementationI(other_gi);
+    assert(thorn_or_impl);
+    const char *const impl = CCTK_ThornImplementation(thorn_or_impl);
+    const char *const thorn = CCTK_ImplementationThorn(thorn_or_impl);
+    assert(impl || thorn);
+    const char *prefix;
+    if (!impl) {
+      prefix = thorn;
+    } else if (!thorn) {
+      prefix = impl;
+    } else {
+      assert(strcmp(impl, thorn) == 0);
+      prefix = impl;
+    }
+    std::ostringstream buf;
+    buf << prefix << "::" + gn;
+    gn = buf.str();
+  }
+  const int gi = CCTK_GroupIndex(gn.c_str());
+  return gi;
+}
+
 int get_group_rhs(const int gi) {
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
@@ -540,15 +568,11 @@ int get_group_rhs(const int gi) {
   if (str.empty())
     return -1; // No RHS specified
 
-  auto str1 = str;
-  if (str1.find(':') == std::string::npos) {
-    const char *impl = CCTK_GroupImplementationI(gi);
-    str1 = string(impl) + "::" + str1;
-  }
-  const int gi1 = CCTK_GroupIndex(str1.c_str());
-  assert(gi1 >= 0); // Check RHSs are valid groups
-  const int rhs = gi1;
-
+  const int rhs = groupindex(gi, str);
+  if (rhs < 0)
+    CCTK_VERROR("Variable group \"%s\" declares a RHS group \"%s\". "
+                "That group does not exist.",
+                CCTK_FullGroupName(gi), str.c_str());
   assert(rhs != gi);
 
   return rhs;
@@ -585,9 +609,12 @@ std::vector<int> get_group_dependents(const int gi) {
     const std::size_t group_end = pos;
     const std::string groupname =
         str.substr(group_begin, group_end - group_begin);
-    const int gi = CCTK_GroupIndex(groupname.c_str());
-    assert(gi >= 0); // Check dependents are valid groups
-    dependents.push_back(gi);
+    const int dep_gi = groupindex(gi, groupname);
+    if (dep_gi < 0)
+      CCTK_VERROR("Variable group \"%s\" declares a dependent group \"%s\". "
+                  "That group does not exist.",
+                  CCTK_FullGroupName(gi), groupname.c_str());
+    dependents.push_back(dep_gi);
   }
 
   return dependents;
