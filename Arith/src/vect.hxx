@@ -663,6 +663,35 @@ template <typename T, int D> struct vect {
                     ARITH_INLINE { return if_else(c, x, y); },
                 cond, x, y);
   }
+  template <typename C, typename U,
+            typename R = decltype(if_else(std::declval<C>(), std::declval<T>(),
+                                          std::declval<U>()))>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<R, D>
+  if_else(const vect<C, D> &cond, const vect &x, const vect<U, D> &y) {
+    return fmap([](const C &c, const T &x, const U &y)
+                    ARITH_INLINE { return if_else(c, x, y); },
+                cond, x, y);
+  }
+  template <typename C>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  if_else(const vect<C, D> &cond, const T &a, const vect &y) {
+    return fmap([a](const C &c, const T &y)
+                    ARITH_INLINE { return if_else(c, a, y); },
+                cond, y);
+  }
+  template <typename C>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  if_else(const vect<C, D> &cond, const vect &x, const T &b) {
+    return fmap([b](const C &c, const T &x)
+                    ARITH_INLINE { return if_else(c, x, b); },
+                cond, x);
+  }
+  template <typename C>
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect
+  if_else(const vect<C, D> &cond, const T &a, const T &b) {
+    return fmap([a, b](const C &c) ARITH_INLINE { return if_else(c, a, b); },
+                cond);
+  }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*vect<bool, D>*/
   isnan(const vect &x) {
