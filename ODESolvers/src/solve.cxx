@@ -546,7 +546,6 @@ int groupindex(const int other_gi, std::string gn) {
     gn = buf.str();
   }
   const int gi = CCTK_GroupIndex(gn.c_str());
-  assert(gi >= 0);
   return gi;
 }
 
@@ -570,6 +569,10 @@ int get_group_rhs(const int gi) {
     return -1; // No RHS specified
 
   const int rhs = groupindex(gi, str);
+  if (rhs < 0)
+    CCTK_VERROR("Variable group \"%s\" declares a RHS group \"%s\". "
+                "That group does not exist.",
+                CCTK_FullGroupName(gi), str.c_str());
   assert(rhs != gi);
 
   return rhs;
