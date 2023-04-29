@@ -34,5 +34,6 @@ CCTK_REAL gaussian_width "width of Gaussian"
 KEYWORD boundary_condition "Boundary condition"
 {
   "CarpetX" :: "Apply boundary conditions via CarpetX"
+  "reflecting" :: "Apply a reflecting boundary condition"
   "radiative" :: "Apply a radiative boundary condition"
 } "CarpetX"

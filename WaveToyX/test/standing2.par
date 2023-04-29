@@ -34,4 +34,5 @@ CarpetX::out_norm_omit_unstable = yes
 
 CarpetX::out_tsv_vars = "
     WavetoyX::ustate
+    WavetoyX::uerror
 "

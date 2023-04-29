@@ -1,0 +1,54 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    ODESolvers
+    TimerReport
+    WaveToyX
+"
+
+$out_every = 16
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::poison_undefined_values = yes
+
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 1.0
+
+WaveToyX::initial_condition = "standing wave"
+WaveToyX::boundary_condition = "reflecting"
+
+# Set the (unused) outer boundary points to reasonable values
+CarpetX::boundary_x = "neumann"
+CarpetX::boundary_y = "neumann"
+CarpetX::boundary_z = "neumann"
+CarpetX::boundary_upper_x = "neumann"
+CarpetX::boundary_upper_y = "neumann"
+CarpetX::boundary_upper_z = "neumann"
+
+ODESolvers::method = "RK3"
+
+IO::out_dir = $parfile
+IO::out_every = $out_every
+
+CarpetX::out_norm_vars = "all"
+
+CarpetX::out_tsv_vars = "
+    WaveToyX::ustate
+    WaveToyX::urhs
+    WaveToyX::uerror
+    WaveToyX::eps
+"
+
+CarpetX::out_silo_vars = "
+    WaveToyX::ustate
+    WaveToyX::urhs
+    WaveToyX::uerror
+    WaveToyX::eps
+"
+
+TimerReport::out_every = $out_every
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 100

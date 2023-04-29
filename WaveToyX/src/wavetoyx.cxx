@@ -85,7 +85,7 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_WaveToyX_RHS;
   DECLARE_CCTK_PARAMETERS;
 
-  if (CCTK_EQUALS(boundary_condition, "Carpetx")) {
+  if (CCTK_EQUALS(boundary_condition, "CarpetX")) {
 
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
@@ -100,80 +100,116 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
           rhodot(p.I) = ddu;
         });
 
-  } else if (CCTK_EQUALS(boundary_condition, "radiative")) {
-
-    const Arith::vect<bool, dim> bboxlo = {
-        (bool)cctk_bbox[0],
-        (bool)cctk_bbox[2],
-        (bool)cctk_bbox[4],
-    };
-    const Arith::vect<bool, dim> bboxhi = {
-        (bool)cctk_bbox[1],
-        (bool)cctk_bbox[3],
-        (bool)cctk_bbox[5],
-    };
-    const Arith::vect<int, dim> domain_imin = {
-        cctk_nghostzones[0],
-        cctk_nghostzones[1],
-        cctk_nghostzones[2],
-    };
-    const Arith::vect<int, dim> domain_imax = {
-        cctk_lsh[0] - cctk_nghostzones[0],
-        cctk_lsh[1] - cctk_nghostzones[1],
-        cctk_lsh[2] - cctk_nghostzones[2],
-    };
+  } else if (CCTK_EQUALS(boundary_condition, "reflecting")) {
 
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const Arith::vect<bool, dim> isbndlo = bboxlo && p.I == domain_imin;
-          const Arith::vect<bool, dim> isbndhi =
-              bboxhi && p.I == domain_imax - 1;
+          using std::pow;
 
-          if (any(isbndlo || isbndhi)) {
-            // boundary
+          Arith::vect<CCTK_REAL, dim> ddu;
+          for (int d = 0; d < dim; ++d)
+            if (p.BI[d] < 0)
+              ddu[d] = (u(p.I) - 2 * u(p.I + p.DI[d]) + u(p.I + 2 * p.DI[d])) /
+                       pow(p.DX[d], 2);
+            else if (p.BI[d] > 0)
+              ddu[d] = (u(p.I - 2 * p.DI[d]) - 2 * u(p.I - p.DI[d]) + u(p.I)) /
+                       pow(p.DX[d], 2);
+            else
+              ddu[d] = (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
+                       pow(p.DX[d], 2);
 
-            // Split potential into its two characteristics:
-            // (We use the notation for the upper x boundary here.)
-            //     u(t,x) = f(t-x) + g(t+x)
-            // "Radiative" means the incoming characteristic is zero:
-            //     g(v) = 0
-            // This is equivalent to:
-            //     d_t u(t,x) + d_x u(t,x) = 0
-            // The boundary condition then follows as:
-            //     d_t u(t,x) = - d_x u(t,x)
+          udot(p.I) = rho(p.I);
+          rhodot(p.I) = ddu[0] + ddu[1] + ddu[2];
+        });
 
-            // Take another time derivative for a first-order-in-time system:
-            //     rho(t,x) = - d_x rho(t,x)
+  } else if (CCTK_EQUALS(boundary_condition, "radiative")) {
 
-            // In general, with the outward boundary normal n^i:
-            //     d_t u = - n^i d_i u
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          // Scalar wave equation in a first-order formulation:
+          //     rho = dt u
+          //     v   = grad u
 
-            const Arith::vect<int, dim> n = isbndhi - isbndlo; // outward normal
+          //     dot u   = rho
+          //     dot rho = div v
+          //     dot v   = grad rho
 
-            Arith::vect<CCTK_REAL, dim> drho;
-            for (int d = 0; d < dim; ++d)
-              if (isbndlo[d])
-                drho[d] = (rho(p.I + p.DI[d]) - rho(p.I)) / p.DX[d];
-              else if (isbndhi[d])
-                drho[d] = (rho(p.I) - rho(p.I - p.DI[d])) / p.DX[d];
-              else
-                drho[d] = 0;
+          // Non-trivial characteristics (with outward normal n):
+          //     a = rho + n v   (incoming)
+          //     b = rho - n v   (outgoing)
 
-            udot(p.I) = rho(p.I);
-            rhodot(p.I) = -dot(n, drho);
+          //     rho = (a + b) / 2
+          //     n v = (a - b) / 2
 
-          } else {
-            // interior
+          // Set incoming mode to zero ("radiative"):
+          //     a = 0
 
-            using std::pow;
-            CCTK_REAL ddu = 0;
-            for (int d = 0; d < dim; ++d)
-              ddu += (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
-                     pow(p.DX[d], 2);
+          // Calculate new state variables:
 
-            udot(p.I) = rho(p.I);
-            rhodot(p.I) = ddu;
+          //     rho_new = (a + b) / 2
+          //     n v_new = (a - b) / 2
+
+          //     rho_new = + b / 2
+          //     n v_new = - b / 2
+
+          //     rho_new = + (rho - n v) / 2
+          //     n v_new = - (rho - n v) / 2
+
+          // We're actually using a second order formulation.
+          // Insert the definitions for rho and v:
+
+          //     dot u_new    = + (dot u - n grad u) / 2
+          //     n grad u_new = - (dot u - n grad u) / 2
+
+          // Take a time derivative:
+
+          //     dot rho_new = + (dot rho - n grad rho) / 2
+          //     n grad rho_new = - (dot rho - n grad rho) / 2
+
+          // Extract the definitions for dot rho and dot u from this.
+
+          using std::pow;
+
+          Arith::vect<CCTK_REAL, dim> ddu;
+          for (int d = 0; d < dim; ++d)
+            if (p.BI[d] < 0)
+              ddu[d] = (u(p.I) - 2 * u(p.I + p.DI[d]) + u(p.I + 2 * p.DI[d])) /
+                       pow(p.DX[d], 2);
+            else if (p.BI[d] > 0)
+              ddu[d] = (u(p.I - 2 * p.DI[d]) - 2 * u(p.I - p.DI[d]) + u(p.I)) /
+                       pow(p.DX[d], 2);
+            else
+              ddu[d] = (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
+                       pow(p.DX[d], 2);
+
+          Arith::vect<CCTK_REAL, dim> du;
+          for (int d = 0; d < dim; ++d)
+            if (p.BI[d] < 0)
+              du[d] = (u(p.I + p.DI[d]) - u(p.I)) / p.DX[d];
+            else if (p.BI[d] > 0)
+              du[d] = (u(p.I) - u(p.I - p.DI[d])) / p.DX[d];
+            else
+              du[d] = (u(p.I + p.DI[d]) - u(p.I - p.DI[d])) / (2 * p.DX[d]);
+
+          Arith::vect<CCTK_REAL, dim> drho;
+          for (int d = 0; d < dim; ++d)
+            if (p.BI[d] < 0)
+              drho[d] = (rho(p.I + p.DI[d]) - rho(p.I)) / p.DX[d];
+            else if (p.BI[d] > 0)
+              drho[d] = (rho(p.I) - rho(p.I - p.DI[d])) / p.DX[d];
+            else
+              drho[d] =
+                  (rho(p.I + p.DI[d]) - rho(p.I - p.DI[d])) / (2 * p.DX[d]);
+
+          udot(p.I) = rho(p.I);
+          rhodot(p.I) = ddu[0] + ddu[1] + ddu[2];
+
+          if (any(p.BI != 0)) {
+            // We are on the boundary
+            udot(p.I) = (udot(p.I) - dot(p.BI, du)) / 2;
+            rhodot(p.I) = (rhodot(p.I) - dot(p.BI, drho)) / 2;
           }
         });
 
