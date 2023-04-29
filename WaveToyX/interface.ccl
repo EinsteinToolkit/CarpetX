@@ -6,7 +6,7 @@ USES INCLUDE HEADER: vect.hxx
 
 
 
-CCTK_REAL ustate TYPE=gf TAGS='rhs="urhs"'
+CCTK_REAL ustate TYPE=gf TAGS='rhs="urhs" dependents="uerror eps"'
 {
   u
   rho
