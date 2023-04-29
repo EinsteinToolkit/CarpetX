@@ -10,8 +10,10 @@ std::ostream &operator<<(std::ostream &os, const where_t where) {
     return os << "interior";
   case where_t::boundary:
     return os << "boundary";
+#if 0
   case where_t::ghosts_inclusive:
     return os << "ghosts_inclusive";
+#endif
   case where_t::ghosts:
     return os << "ghosts";
   default:
@@ -24,6 +26,7 @@ std::ostream &operator<<(std::ostream &os, const PointDesc &p) {
             << "I:" << p.I << ", "
             << "NI:" << p.NI << ", "
             << "I0:" << p.I0 << ", "
+            << "BI:" << p.BI << ", "
             << "X:" << p.X << ", "
             << "DX:" << p.DX << ", "
             << "imin,imax:{" << p.imin << "," << p.imax << "}}";
@@ -56,10 +59,10 @@ GridDescBase::GridDescBase(const cGH *restrict cctkGH) {
     assert(cctkGH->cctk_ash[d] != undefined);
     ash[d] = cctkGH->cctk_ash[d];
   }
-  for (int d = 0; d < dim; ++d) {
-    for (int f = 0; f < 2; ++f) {
+  for (int f = 0; f < 2; ++f) {
+    for (int d = 0; d < dim; ++d) {
       assert(cctkGH->cctk_bbox[2 * d + f] != undefined);
-      bbox[2 * d + f] = cctkGH->cctk_bbox[2 * d + f];
+      bbox[f][d] = cctkGH->cctk_bbox[2 * d + f];
     }
   }
   for (int d = 0; d < dim; ++d) {

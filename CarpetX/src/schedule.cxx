@@ -120,8 +120,8 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
   const auto &symmetries = ghext->patchdata.at(leveldata.patch).symmetries;
   for (int d = 0; d < dim; ++d)
     for (int f = 0; f < 2; ++f)
-      bbox[2 * d + f] = vbx[orient(d, f)] == domain[orient(d, f)] &&
-                        symmetries[f][d] != symmetry_t::none;
+      bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)] &&
+                   symmetries[f][d] != symmetry_t::none;
 
   // Thread tile box
   for (int d = 0; d < dim; ++d) {
@@ -222,8 +222,8 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
   const auto &symmetries = ghext->patchdata.at(leveldata.patch).symmetries;
   for (int d = 0; d < dim; ++d)
     for (int f = 0; f < 2; ++f)
-      bbox[2 * d + f] = vbx[orient(d, f)] == domain[orient(d, f)] &&
-                        symmetries[f][d] != symmetry_t::none;
+      bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)] &&
+                   symmetries[f][d] != symmetry_t::none;
 
   // Thread tile box
   for (int d = 0; d < dim; ++d) {
@@ -633,7 +633,7 @@ void enter_local_mode(cGH *restrict cctkGH,
   }
   for (int d = 0; d < dim; ++d)
     for (int f = 0; f < 2; ++f)
-      cctkGH->cctk_bbox[2 * d + f] = grid.bbox[2 * d + f];
+      cctkGH->cctk_bbox[2 * d + f] = grid.bbox[f][d];
 
   // Grid function pointers
   const int num_groups = CCTK_NumGroups();
@@ -2167,11 +2167,11 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       for (const int gi : groups) {
         auto &restrict groupdata = *leveldata.groupdata.at(gi);
         bool need_sync = false;
-        for (int tl = 0; tl < groupdata.valid.size(); tl++) {
+        for (int tl = 0; tl < int(groupdata.valid.size()); tl++) {
           if (need_sync)
             break;
           auto &timeleveldata = groupdata.valid.at(tl);
-          for (int vi = 0; vi < timeleveldata.size(); vi++) {
+          for (int vi = 0; vi < int(timeleveldata.size()); vi++) {
             if (need_sync)
               break;
             valid_t have = groupdata.valid.at(tl).at(vi).get();
