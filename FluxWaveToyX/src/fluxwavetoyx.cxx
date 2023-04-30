@@ -282,7 +282,7 @@ extern "C" void FluxWaveToyX_Energy(CCTK_ARGUMENTS) {
                                       for (int d = 0; d < dim; ++d)
                                         f2 += pow(f[d](p.I), 2);
 
-                                      eps(p.I) = (pow(fx(p.I), 2) + f2) / 2;
+                                      eps(p.I) = (pow(ft(p.I), 2) + f2) / 2;
                                     });
 }
 
