@@ -51,7 +51,7 @@ SCHEDULE FluxWaveToyX_Energy IN ODESolvers_PostStep
 SCHEDULE FluxWaveToyX_Error IN ODESolvers_PostStep
 {
   LANG: C
-  READS: state(everywhere)
+  READS: state(interior)
   WRITES: error(interior)
   SYNC: error
 } "Calculate error in scalar wave state"
