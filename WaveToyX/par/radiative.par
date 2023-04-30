@@ -11,7 +11,7 @@ $out_every = 16
 Cactus::cctk_show_schedule = no
 Cactus::presync_mode = "mixed-error"
 
-CarpetX::poison_undefined_values = yes
+CarpetX::poison_undefined_values = no
 
 Cactus::terminate = "time"
 Cactus::cctk_final_time = 1.0
