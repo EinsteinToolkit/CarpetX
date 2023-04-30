@@ -703,6 +703,7 @@ CarpetX/CarpetX
 CarpetX/Coordinates
 CarpetX/Derivs
 CarpetX/ErrorEstimator
+CarpetX/FluxWaveToyX
 CarpetX/HydroBase
 CarpetX/Loop
 CarpetX/ODESolvers
