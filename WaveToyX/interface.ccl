@@ -18,13 +18,13 @@ CCTK_REAL urhs TYPE=gf
   rhodot
 } "RHS of scalar wave state vector"
 
+CCTK_REAL eps TYPE=gf
+{
+  eps
+} "Energy density"
+
 CCTK_REAL uerror TYPE=gf
 {
   uerr
   rhoerr
 } "Error in scalar wave state vector"
-
-CCTK_REAL eps TYPE=gf
-{
-  eps
-} "Energy density"
