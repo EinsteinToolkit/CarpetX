@@ -17,7 +17,7 @@ Cactus::terminate = "time"
 Cactus::cctk_final_time = 1.0
 
 WaveToyX::initial_condition = "Gaussian"
-WaveToyX::gaussian_width = 0.5
+WaveToyX::gaussian_width = 0.125
 WaveToyX::boundary_condition = "radiative"
 
 # Set the (unused) outer boundary points to reasonable values
@@ -38,15 +38,15 @@ CarpetX::out_norm_vars = "all"
 CarpetX::out_tsv_vars = "
     WaveToyX::ustate
     WaveToyX::urhs
-    WaveToyX::uerror
     WaveToyX::eps
+    WaveToyX::uerror
 "
 
 CarpetX::out_silo_vars = "
     WaveToyX::ustate
     WaveToyX::urhs
-    WaveToyX::uerror
     WaveToyX::eps
+    WaveToyX::uerror
 "
 
 TimerReport::out_every = $out_every

@@ -28,7 +28,7 @@ SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep
 SCHEDULE WaveToyX_Error IN ODESolvers_PostStep
 {
   LANG: C
-  READS: ustate(everywhere)
+  READS: ustate(interior)
   WRITES: uerror(interior)
   SYNC: uerror
 } "Calculate error in scalar wave state"

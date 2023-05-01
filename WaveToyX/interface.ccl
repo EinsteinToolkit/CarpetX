@@ -12,18 +12,18 @@ CCTK_REAL ustate TYPE=gf TAGS='rhs="urhs" dependents="uerror eps"'
   rho
 } "Scalar wave state vector"
 
-CCTK_REAL urhs TYPE=gf
+CCTK_REAL urhs TYPE=gf TAGS='checkpoint="no"'
 {
   udot
   rhodot
 } "RHS of scalar wave state vector"
 
-CCTK_REAL eps TYPE=gf
+CCTK_REAL eps TYPE=gf TAGS='checkpoint="no"'
 {
   eps
 } "Energy density"
 
-CCTK_REAL uerror TYPE=gf
+CCTK_REAL uerror TYPE=gf TAGS='checkpoint="no"'
 {
   uerr
   rhoerr

@@ -34,24 +34,24 @@ CCTK_REAL flux_z TYPE=gf CENTERING={ccv} TAGS='parities={+1 +1 -1   +1 +1 -1   -
   fx_flux_z fy_flux_z fz_flux_z
 } "Flux in z direction"
 
-CCTK_REAL rhs TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1 +1 +1   +1 -1 +1   +1 +1 -1}'
+CCTK_REAL rhs TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"'
 {
   u_rhs
   ft_rhs
   fx_rhs fy_rhs fz_rhs
 } "RHS"
 
-CCTK_REAL cons TYPE=gf CENTERING={ccc} TAGS='parities={+1 -1 -1   -1 +1 -1   -1 -1 +1}'
+CCTK_REAL cons TYPE=gf CENTERING={ccc} TAGS='parities={+1 -1 -1   -1 +1 -1   -1 -1 +1} checkpoint="no"'
 {
   curlfx curlfy curlfz
 } "Constraints"
 
-CCTK_REAL energy TYPE=gf CENTERING={ccc}
+CCTK_REAL energy TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"'
 {
   eps
 } "Energy density"
 
-CCTK_REAL error TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1 +1 +1   +1 -1 +1   +1 +1 -1}'
+CCTK_REAL error TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"'
 {
   u_error
   ft_error

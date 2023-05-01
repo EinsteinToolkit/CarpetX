@@ -32,15 +32,15 @@ CarpetX::out_norm_vars = "all"
 CarpetX::out_tsv_vars = "
     WaveToyX::ustate
     WaveToyX::urhs
-    WaveToyX::uerror
     WaveToyX::eps
+    WaveToyX::uerror
 "
 
 CarpetX::out_silo_vars = "
     WaveToyX::ustate
     WaveToyX::urhs
-    WaveToyX::uerror
     WaveToyX::eps
+    WaveToyX::uerror
 "
 
 TimerReport::out_every = $out_every
