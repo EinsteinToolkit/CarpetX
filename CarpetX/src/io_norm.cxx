@@ -193,7 +193,7 @@ void OutputNorms(const cGH *restrict cctkGH) {
       file << setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1)
            << scientific;
 
-      file << cctk_iteration << sep << cctk_time << sep;
+      file << cctk_iteration << sep << cctk_time;
     }
 
     for (int vi = 0; vi < groupdata.numvars; ++vi) {
@@ -206,9 +206,9 @@ void OutputNorms(const cGH *restrict cctkGH) {
       const reduction<CCTK_REAL, dim> red = reduce(gi, vi, tl);
 
       if (is_root) {
-        file << red.min << sep << red.max << sep << red.sum << sep << red.avg()
-             << sep << red.sdv() << sep << red.norm0() << sep << red.norm1()
-             << sep << red.norm2() << sep << red.norm_inf();
+        file << sep << red.min << sep << red.max << sep << red.sum << sep
+             << red.avg() << sep << red.sdv() << sep << red.norm0() << sep
+             << red.norm1() << sep << red.norm2() << sep << red.norm_inf();
         if (!out_norm_omit_unstable) {
           for (int d = 0; d < dim; ++d)
             file << sep << red.minloc[d];
