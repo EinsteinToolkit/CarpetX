@@ -6,9 +6,7 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-cuda.dockerfile --tag einsteintoolkit/carpetx:cuda-real32 .
 #     docker push einsteintoolkit/carpetx:cuda-real32
 
-# AMReX 23.04 segfaults on Ubuntu 22.04 with CUDA 12.1.0
-# FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
-FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -178,9 +176,9 @@ ARG real_precision=real64
 # Should we  keep AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/23.04.tar.gz && \
-    tar xzf 23.04.tar.gz && \
-    cd amrex-23.04 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/23.05.tar.gz && \
+    tar xzf 23.05.tar.gz && \
+    cd amrex-23.05 && \
     mkdir build && \
     cd build && \
     case $real_precision in \
