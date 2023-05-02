@@ -2205,6 +2205,9 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   std::vector<std::function<void()> > tasks1;
   std::vector<std::function<void()> > tasks2;
 
+  const bool have_multipatch_boundaries =
+      CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+
   active_levels->loop([&](auto &restrict leveldata) {
     for (const int gi : groups) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
@@ -2243,13 +2246,14 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                              ghext->patchdata.at(leveldata.patch)
                                  .amrcore->Geom(leveldata.level));
 
-          tasks1.emplace_back([&tasks2, &leveldata, &groupdata, nan_handling,
-                               tl,
+          tasks1.emplace_back([&tasks2, &leveldata, &groupdata,
+                               have_multipatch_boundaries, nan_handling, tl,
                                fillpatch_continue =
                                    std::move(fillpatch_continue)]() {
             auto fillpatch_finish = fillpatch_continue();
 
-            tasks2.emplace_back([&leveldata, &groupdata, nan_handling, tl,
+            tasks2.emplace_back([&leveldata, &groupdata,
+                                 have_multipatch_boundaries, nan_handling, tl,
                                  fillpatch_finish =
                                      std::move(fillpatch_finish)]() {
               fillpatch_finish();
@@ -2266,8 +2270,10 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                            "Mark outer boundaries as valid";
                   });
                 poison_invalid(leveldata, groupdata, vi, tl);
-                check_valid(leveldata, groupdata, vi, tl, nan_handling,
-                            []() { return "SyncGroupsByDirI after syncing"; });
+                if (!have_multipatch_boundaries)
+                  check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
+                    return "SyncGroupsByDirI after syncing";
+                  });
               }
             });
           });
@@ -2360,8 +2366,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     task2();
   tasks2.clear();
 
-  if (CCTK_IsImplementationActive("MultiPatch") &&
-      CCTK_IsFunctionAliased("MultiPatch_Interpolate")) {
+  if (CCTK_IsFunctionAliased("MultiPatch_Interpolate")) {
     std::vector<CCTK_INT> cactusvarinds;
     for (int group : groups) {
       const auto &groupdata =
@@ -2370,6 +2375,28 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
         cactusvarinds.push_back(groupdata.firstvarindex + var);
     }
     MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
+
+    active_levels->loop([&](auto &restrict leveldata) {
+      for (const int gi : groups) {
+        auto &restrict groupdata = *leveldata.groupdata.at(gi);
+        const nan_handling_t nan_handling = groupdata.do_checkpoint
+                                                ? nan_handling_t::forbid_nans
+                                                : nan_handling_t::allow_nans;
+        const int ntls = groupdata.mfab.size();
+        const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+
+        assert(leveldata.level == 0);
+
+        for (int tl = 0; tl < sync_tl; ++tl)
+          for (int vi = 0; vi < groupdata.numvars; ++vi)
+            check_valid(leveldata, groupdata, vi, tl, nan_handling,
+                        []() { return "SyncGroupsByDirI after syncing"; });
+
+      } // for gi
+    });
+
+  } else {
+    assert(ghext->num_patches() == 1);
   }
 
   assert(sync_active);

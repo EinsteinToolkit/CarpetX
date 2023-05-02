@@ -1170,8 +1170,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   // Number of coarse grid cells
   amrex::Vector<int> ncells{ncells_x, ncells_y, ncells_z};
 
-  if (CCTK_IsImplementationActive("MultiPatch") &&
-      CCTK_IsFunctionAliased("MultiPatch_GetPatchSpecification")) {
+  if (CCTK_IsFunctionAliased("MultiPatch_GetPatchSpecification")) {
     CCTK_INT ncells1[dim];
     CCTK_REAL xmin1[dim], xmax1[dim];
     const int ierr =
@@ -1188,8 +1187,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   const amrex::Vector<amrex::IntVect> reffacts{}; // empty
 
   // Symmetries
-  if (CCTK_IsImplementationActive("MultiPatch") &&
-      CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2")) {
+  if (CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2")) {
     CCTK_INT is_interpatch_boundary[2 * dim];
     const int ierr = MultiPatch_GetBoundarySpecification2(
         patch, 2 * dim, is_interpatch_boundary);
@@ -2360,8 +2358,7 @@ int InitGH(cGH *restrict cctkGH) {
   // Set up patch system
   assert(ghext->patchdata.size() == 0);
   CCTK_INT num_patches = 1;
-  if (CCTK_IsImplementationActive("MultiPatch") &&
-      CCTK_IsFunctionAliased("MultiPatch_GetSystemSpecification")) {
+  if (CCTK_IsFunctionAliased("MultiPatch_GetSystemSpecification")) {
     const int ierr = MultiPatch_GetSystemSpecification(&num_patches);
     assert(!ierr);
   }

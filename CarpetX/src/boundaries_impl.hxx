@@ -86,6 +86,8 @@ void BoundaryCondition::apply_on_face() const {
     if ((symmetry_x == symmetry_t::none && boundary_x == boundary_t::none) ||
         (symmetry_x == symmetry_t::outer_boundary &&
          boundary_x == boundary_t::none) ||
+        (symmetry_x == symmetry_t::interpatch &&
+         boundary_x == boundary_t::none) ||
         symmetry_x == symmetry_t::periodic)
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::none>(
           bmin, bmax);
@@ -105,7 +107,8 @@ void BoundaryCondition::apply_on_face() const {
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::robin>(
           bmin, bmax);
     else
-      assert(0);
+#pragma omp critical
+      CCTK_ERROR("internal error");
   }
 }
 
@@ -128,6 +131,8 @@ void BoundaryCondition::apply_on_face_symbcx(
     if ((symmetry_y == symmetry_t::none && boundary_y == boundary_t::none) ||
         (symmetry_y == symmetry_t::outer_boundary &&
          boundary_y == boundary_t::none) ||
+        (symmetry_y == symmetry_t::interpatch &&
+         boundary_y == boundary_t::none) ||
         symmetry_y == symmetry_t::periodic)
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::none>(bmin, bmax);
@@ -147,7 +152,8 @@ void BoundaryCondition::apply_on_face_symbcx(
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::robin>(bmin, bmax);
     else
-      assert(0);
+#pragma omp critical
+      CCTK_ERROR("internal error");
   }
 }
 
@@ -171,6 +177,8 @@ void BoundaryCondition::apply_on_face_symbcxy(
     if ((symmetry_z == symmetry_t::none && boundary_z == boundary_t::none) ||
         (symmetry_z == symmetry_t::outer_boundary &&
          boundary_z == boundary_t::none) ||
+        (symmetry_z == symmetry_t::interpatch &&
+         boundary_z == boundary_t::none) ||
         symmetry_z == symmetry_t::periodic)
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::none>(bmin, bmax);
@@ -191,7 +199,8 @@ void BoundaryCondition::apply_on_face_symbcxy(
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::robin>(bmin, bmax);
     else
-      assert(0);
+#pragma omp critical
+      CCTK_ERROR("internal error");
   }
 }
 
