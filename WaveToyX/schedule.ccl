@@ -17,14 +17,6 @@ SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
   SYNC: urhs
 } "Calculate scalar wave RHS"
 
-SCHEDULE WaveToyX_Error IN ODESolvers_PostStep
-{
-  LANG: C
-  READS: ustate(everywhere)
-  WRITES: uerror(interior)
-  SYNC: uerror
-} "Calculate error in scalar wave state"
-
 SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep
 {
   LANG: C
@@ -32,3 +24,11 @@ SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep
   WRITES: eps(interior)
   SYNC: eps
 } "Calculate scalar wave energy density"
+
+SCHEDULE WaveToyX_Error IN ODESolvers_PostStep
+{
+  LANG: C
+  READS: ustate(interior)
+  WRITES: uerror(interior)
+  SYNC: uerror
+} "Calculate error in scalar wave state"

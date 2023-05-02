@@ -1,0 +1,59 @@
+# Interface definition for thorn FluxWaveToyX
+
+IMPLEMENTS: FluxWaveToyX
+
+USES INCLUDE HEADER: vect.hxx
+
+
+
+CCTK_REAL state TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="rhs" dependents="flux_x flux_y flux_z rhs cons energy error"'
+{
+  u
+  ft
+  fx fy fz
+} "State vector"
+
+CCTK_REAL flux_x TYPE=gf CENTERING={vcc} TAGS='parities={-1 +1 +1   -1 +1 +1   +1 +1 +1   -1 -1 +1   -1 +1 -1} dependents="rhs"'
+{
+  u_flux_x
+  ft_flux_x
+  fx_flux_x fy_flux_x fz_flux_x
+} "Flux in x direction"
+
+CCTK_REAL flux_y TYPE=gf CENTERING={cvc} TAGS='parities={+1 -1 +1   +1 -1 +1   -1 -1 +1   +1 +1 +1   +1 -1 -1} dependents="rhs"'
+{
+  u_flux_y
+  ft_flux_y
+  fx_flux_y fy_flux_y fz_flux_y
+} "Flux in y direction"
+
+CCTK_REAL flux_z TYPE=gf CENTERING={ccv} TAGS='parities={+1 +1 -1   +1 +1 -1   -1 +1 -1   +1 -1 -1   +1 +1 +1} dependents="rhs"'
+{
+  u_flux_z
+  ft_flux_z
+  fx_flux_z fy_flux_z fz_flux_z
+} "Flux in z direction"
+
+CCTK_REAL rhs TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"'
+{
+  u_rhs
+  ft_rhs
+  fx_rhs fy_rhs fz_rhs
+} "RHS"
+
+CCTK_REAL cons TYPE=gf CENTERING={ccc} TAGS='parities={+1 -1 -1   -1 +1 -1   -1 -1 +1} checkpoint="no"'
+{
+  curlfx curlfy curlfz
+} "Constraints"
+
+CCTK_REAL energy TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"'
+{
+  eps
+} "Energy density"
+
+CCTK_REAL error TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"'
+{
+  u_error
+  ft_error
+  fx_error fy_error fz_error
+} "Error"

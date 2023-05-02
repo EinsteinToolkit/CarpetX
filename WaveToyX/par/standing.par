@@ -11,7 +11,7 @@ $out_every = 16
 Cactus::cctk_show_schedule = no
 Cactus::presync_mode = "mixed-error"
 
-CarpetX::poison_undefined_values = yes
+CarpetX::poison_undefined_values = no
 
 CarpetX::periodic_x = yes
 CarpetX::periodic_y = yes
@@ -32,15 +32,15 @@ CarpetX::out_norm_vars = "all"
 CarpetX::out_tsv_vars = "
     WaveToyX::ustate
     WaveToyX::urhs
-    WaveToyX::uerror
     WaveToyX::eps
+    WaveToyX::uerror
 "
 
 CarpetX::out_silo_vars = "
     WaveToyX::ustate
     WaveToyX::urhs
-    WaveToyX::uerror
     WaveToyX::eps
+    WaveToyX::uerror
 "
 
 TimerReport::out_every = $out_every

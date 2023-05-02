@@ -1,0 +1,43 @@
+ActiveThorns = "
+    CarpetX
+    FluxWaveToyX
+    IOUtil
+    ODESolvers
+"
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::poison_undefined_values = yes
+
+CarpetX::ncells_x = 8
+CarpetX::ncells_y = 8
+CarpetX::ncells_z = 8
+
+Cactus::cctk_itlast = 10
+
+FluxWaveToyX::initial_condition = "standing wave"
+FluxWaveToyX::boundary_condition = "reflecting"
+
+# Set the (unused) outer boundary points to reasonable values
+CarpetX::boundary_x = "neumann"
+CarpetX::boundary_y = "neumann"
+CarpetX::boundary_z = "neumann"
+CarpetX::boundary_upper_x = "neumann"
+CarpetX::boundary_upper_y = "neumann"
+CarpetX::boundary_upper_z = "neumann"
+
+ODESolvers::method = "RK3"
+
+IO::out_dir = $parfile
+IO::out_every = 10
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+CarpetX::out_norm_vars = "all"
+CarpetX::out_norm_omit_unstable = yes
+
+CarpetX::out_tsv_vars = "
+    WavetoyX::state
+    WavetoyX::error
+"

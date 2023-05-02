@@ -218,6 +218,20 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
   }
 }
 
+extern "C" void WaveToyX_Energy(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_WaveToyX_Energy;
+  grid.loop_int_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        using std::pow;
+        CCTK_REAL du2 = 0;
+        for (int d = 0; d < dim; ++d)
+          du2 += pow((u(p.I + p.DI[d]) - u(p.I + p.DI[d])) / (2 * p.DX[d]), 2);
+
+        eps(p.I) = (pow(rho(p.I), 2) + du2) / 2;
+      });
+}
+
 extern "C" void WaveToyX_Error(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_WaveToyX_Error;
   DECLARE_CCTK_PARAMETERS;
@@ -249,20 +263,6 @@ extern "C" void WaveToyX_Error(CCTK_ARGUMENTS) {
   } else {
     CCTK_ERROR("Unknown initial condition");
   }
-}
-
-extern "C" void WaveToyX_Energy(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_WaveToyX_Energy;
-  grid.loop_int_device<0, 0, 0>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        using std::pow;
-        CCTK_REAL du2 = 0;
-        for (int d = 0; d < dim; ++d)
-          du2 += pow((u(p.I + p.DI[d]) - u(p.I + p.DI[d])) / (2 * p.DX[d]), 2);
-
-        eps(p.I) = (pow(rho(p.I), 2) + du2) / 2;
-      });
 }
 
 } // namespace WaveToyX
