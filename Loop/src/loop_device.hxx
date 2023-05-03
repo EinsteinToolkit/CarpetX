@@ -42,12 +42,12 @@ public:
   template <int CI, int CJ, int CK, int VS = 1, typename F>
   void loop_box_device(const F &f, const vect<int, dim> &restrict bnd_min,
                        const vect<int, dim> &restrict bnd_max,
-                       const vect<int, dim> &restrict imin,
-                       const vect<int, dim> &restrict imax) const {
+                       const vect<int, dim> &restrict loop_min,
+                       const vect<int, dim> &restrict loop_max) const {
 #ifndef AMREX_USE_GPU
 
-    return this->template loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin,
-                                                   imax);
+    return this->template loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max,
+                                                   loop_min, loop_max);
 
 #else
 
@@ -56,23 +56,23 @@ public:
     static_assert(CK == 0 || CK == 1);
     static_assert(VS > 0);
 
-    if (any(imin >= imax))
+    if (any(loop_min >= loop_max))
       return;
 
     // Run on GPU
     static_assert(VS == 1, "Only vector size 1 is supported on GPUs");
 
-    // For some reason, the arguments imin and imax cannot be captured
+    // For some reason, the arguments loop_min and loop_max cannot be captured
     // correctly in CUDA, but copies of them can
     const auto bnd_min1 = bnd_min;
     const auto bnd_max1 = bnd_max;
-    const auto imin1 = imin;
-    const auto imax1 = imax;
+    const auto loop_min1 = loop_min;
+    const auto loop_max1 = loop_max;
 
     // Convert to AMReX box
     const amrex::Box box(
-        amrex::IntVect(imin[0], imin[1], imin[2]),
-        amrex::IntVect(imax[0] - 1, imax[1] - 1, imax[2] - 1),
+        amrex::IntVect(loop_min[0], loop_min[1], loop_min[2]),
+        amrex::IntVect(loop_max[0] - 1, loop_max[1] - 1, loop_max[2] - 1),
         amrex::IntVect(CI ? amrex::IndexType::CELL : amrex::IndexType::NODE,
                        CJ ? amrex::IndexType::CELL : amrex::IndexType::NODE,
                        CK ? amrex::IndexType::CELL : amrex::IndexType::NODE));
@@ -87,8 +87,8 @@ public:
               if_else(NI == 0, 0, if_else(NI < 0, bnd_min1, bnd_max1 - 1));
           const vect<int, dim> BI =
               vect<int, dim>(I == bnd_max1 - 1) - vect<int, dim>(I == bnd_min1);
-          const PointDesc p =
-              point_desc({CI, CJ, CK}, I, NI, I0, BI, imin1[0], imax1[0]);
+          const PointDesc p = point_desc({CI, CJ, CK}, I, NI, I0, BI, bnd_min1,
+                                         bnd_max1, loop_min1, loop_max1);
           f(p);
         });
 
