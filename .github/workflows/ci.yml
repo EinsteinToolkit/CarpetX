@@ -53,7 +53,8 @@ jobs:
         run: /bin/bash $GITHUB_WORKSPACE/scripts/build.sh
       
       - name: Test Cactus
-        if: ${{matrix.accelerator != 'cuda' && matrix.accelerator != 'rocm' && matrix.mode == 'debug'}}
+        # We cannot run with cuda nor with rocm. Debug builds run too slowly.
+        if: ${{matrix.accelerator != 'cuda' && matrix.accelerator != 'rocm' && matrix.mode != 'debug'}}
         run: /bin/bash $GITHUB_WORKSPACE/scripts/test.sh
       
       # Set exit code based on test status

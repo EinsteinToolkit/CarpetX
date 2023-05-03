@@ -193,7 +193,7 @@ RUN mkdir src && \
         -DAMReX_PARTICLES=ON \
         -DAMReX_PRECISION="$precision" \
         -DBUILD_SHARED_LIBS=ON \
-        -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         .. && \
     make -j$(nproc) && \
