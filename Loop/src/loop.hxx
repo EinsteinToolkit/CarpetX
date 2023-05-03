@@ -64,12 +64,16 @@ struct PointDesc {
   // outward boundary normal (if on outermost interior point), else zero
   vect<int, dim> BI;
 
+  // outer boundary points for this grid function (might be outside the current
+  // grid function block)
+  vect<int, dim> bnd_min, bnd_max;
+  vect<int, dim> loop_min, loop_max; // loop shape
+
   vect<CCTK_REAL, dim> X;  // grid point coordinates
   vect<CCTK_REAL, dim> DX; // grid spacing
 
-  int imin, imax; // loop bounds, for SIMD vectorization
-
   // Deprecated
+  int imin, imax;       // loop bounds, for SIMD vectorization
   int i, j, k;          // grid point
   CCTK_REAL x, y, z;    // grid point coordinates
   CCTK_REAL dx, dy, dz; // grid spacing
@@ -83,11 +87,13 @@ struct PointDesc {
   constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
   PointDesc(const vect<int, dim> &I, const vect<int, dim> &NI,
             const vect<int, dim> &I0, const vect<int, dim> &BI,
-            const vect<CCTK_REAL, dim> &X, const vect<CCTK_REAL, dim> &DX,
-            const int imin, const int imax)
-      : I(I), NI(NI), I0(I0), BI(BI), X(X), DX(DX), imin(imin), imax(imax),
-        i(I[0]), j(I[1]), k(I[2]), x(X[0]), y(X[1]), z(X[2]), dx(DX[0]),
-        dy(DX[1]), dz(DX[2]) {}
+            const vect<int, dim> &bnd_min, const vect<int, dim> &bnd_max,
+            const vect<int, dim> &loop_min, const vect<int, dim> &loop_max,
+            const vect<CCTK_REAL, dim> &X, const vect<CCTK_REAL, dim> &DX)
+      : I(I), NI(NI), I0(I0), BI(BI), bnd_min(bnd_min), bnd_max(bnd_max),
+        loop_min(loop_min), loop_max(loop_max), X(X), DX(DX), imin(loop_min[0]),
+        imax(loop_max[0]), i(I[0]), j(I[1]), k(I[2]), x(X[0]), y(X[1]), z(X[2]),
+        dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
 
   friend std::ostream &operator<<(std::ostream &os, const PointDesc &p);
 };
@@ -121,31 +127,34 @@ public:
   constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
   point_desc(const vect<bool, dim> &CI, const vect<int, dim> &I,
              const vect<int, dim> &NI, const vect<int, dim> &I0,
-             const vect<int, dim> &BI, const int imin, const int imax) const {
+             const vect<int, dim> &BI, const vect<int, dim> &bnd_min,
+             const vect<int, dim> &bnd_max, const vect<int, dim> &loop_min,
+             const vect<int, dim> &loop_max) const {
     const vect<CCTK_REAL, dim> X =
         x0 + (lbnd + I - vect<CCTK_REAL, dim>(!CI) / 2) * dx;
     const vect<CCTK_REAL, dim> DX = dx;
-    return PointDesc(I, NI, I0, BI, X, DX, imin, imax);
+    return PointDesc(I, NI, I0, BI, bnd_min, bnd_max, loop_min, loop_max, X,
+                     DX);
   }
 
   // Loop over a given box
   template <int CI, int CJ, int CK, int VS = 1, typename F>
   void loop_box(const F &f, const vect<int, dim> &restrict bnd_min,
                 const vect<int, dim> &restrict bnd_max,
-                const vect<int, dim> &restrict imin,
-                const vect<int, dim> &restrict imax) const {
+                const vect<int, dim> &restrict loop_min,
+                const vect<int, dim> &restrict loop_max) const {
     static_assert(CI == 0 || CI == 1);
     static_assert(CJ == 0 || CJ == 1);
     static_assert(CK == 0 || CK == 1);
     static_assert(VS > 0);
 
-    if (any(imin >= imax))
+    if (any(loop_min >= loop_max))
       return;
 
-    for (int k = imin[2]; k < imax[2]; ++k) {
-      for (int j = imin[1]; j < imax[1]; ++j) {
+    for (int k = loop_min[2]; k < loop_max[2]; ++k) {
+      for (int j = loop_min[1]; j < loop_max[1]; ++j) {
 #pragma omp simd
-        for (int i = imin[0]; i < imax[0]; i += VS) {
+        for (int i = loop_min[0]; i < loop_max[0]; i += VS) {
           const vect<int, dim> I = {i, j, k};
           const vect<int, dim> NI =
               vect<int, dim>(I > bnd_max - 1) - vect<int, dim>(I < bnd_min);
@@ -153,16 +162,15 @@ public:
               if_else(NI == 0, 0, if_else(NI < 0, bnd_min, bnd_max - 1));
           const vect<int, dim> BI =
               vect<int, dim>(I == bnd_max - 1) - vect<int, dim>(I == bnd_min);
-          const PointDesc p =
-              point_desc({CI, CJ, CK}, I, NI, I0, BI, imin[0], imax[0]);
+          const PointDesc p = point_desc({CI, CJ, CK}, I, NI, I0, BI, bnd_min,
+                                         bnd_max, loop_min, loop_max);
           f(p);
         }
       }
     }
   }
 
-  // Boxes for outer boundaries (might be outside the current grid function
-  // block)
+  // Box for outer boundaries (might be outside the current grid function block)
   template <int CI, int CJ, int CK>
   void boundary_box(const vect<int, dim> &group_nghostzones,
                     vect<int, dim> &restrict bnd_min,
@@ -174,8 +182,8 @@ public:
         if_else(bbox[1], gsh - offset - nghostzones - lbnd, gsh + 1000000);
   }
 
-  // Boxes for all points and for interior (non-ghost) points in the current
-  // grid function block (not restricted to a single tile)
+  // Box for all points and for interior (non-ghost) points in the current grid
+  // function block (not restricted to a single tile)
   template <int CI, int CJ, int CK>
   void domain_boxes(const vect<int, dim> &group_nghostzones,
                     vect<int, dim> &restrict all_min,
