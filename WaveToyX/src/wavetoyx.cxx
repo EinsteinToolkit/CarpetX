@@ -172,6 +172,11 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
 
           using std::pow;
 
+          assert(all(p.loop_min <= p.I && p.I < p.loop_max));
+          assert(all(if_else(p.BI < 0, p.I == p.bnd_min,
+                             if_else(p.BI > 0, p.I == p.bnd_max - 1,
+                                     p.bnd_min < p.I && p.I < p.bnd_max - 1))));
+
           Arith::vect<CCTK_REAL, dim> ddu;
           for (int d = 0; d < dim; ++d)
             if (p.BI[d] < 0)
