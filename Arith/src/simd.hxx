@@ -865,25 +865,51 @@ masko_loadu(const simdl<T> &mask, const T *ptr, const U &other) {
 }
 
 template <typename T>
+ARITH_DEVICE ARITH_HOST inline simd<T> acos(const simd<T> &x) {
+  alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
+  storea(xarr, x);
+  alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
+  using std::acos;
+  for (std::size_t n = 0; n < x.size(); ++n)
+    yarr[n] = acos(xarr[n]);
+  const simd<T> y = loada<simd<T> >(yarr);
+  return y;
+}
+
+template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> cbrt(const simd<T> &x) {
   alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
   storea(xarr, x);
   alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
-  for (std::size_t n = 0; n < x.size(); ++n) {
-    using std::cbrt;
+  using std::cbrt;
+  for (std::size_t n = 0; n < x.size(); ++n)
     yarr[n] = cbrt(xarr[n]);
-  }
   const simd<T> y = loada<simd<T> >(yarr);
   return y;
-  // T xarr[storage_size];
-  // storeu(xarr, x);
-  // T yarr[storage_size];
-  // for (std::size_t n = 0; n < storage_size; ++n) {
-  //   using std::cbrt;
-  //   yarr[n] = cbrt(xarr[n]);
-  // }
-  // const simd<T> y = loadu<simd<T> >(yarr);
-  // return y;
+}
+
+template <typename T>
+ARITH_DEVICE ARITH_HOST inline simd<T> cos(const simd<T> &x) {
+  alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
+  storea(xarr, x);
+  alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
+  using std::cos;
+  for (std::size_t n = 0; n < x.size(); ++n)
+    yarr[n] = cos(xarr[n]);
+  const simd<T> y = loada<simd<T> >(yarr);
+  return y;
+}
+
+template <typename T>
+ARITH_DEVICE ARITH_HOST inline simd<T> exp(const simd<T> &x) {
+  alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
+  storea(xarr, x);
+  alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
+  using std::exp;
+  for (std::size_t n = 0; n < x.size(); ++n)
+    yarr[n] = exp(xarr[n]);
+  const simd<T> y = loada<simd<T> >(yarr);
+  return y;
 }
 
 template <typename T>
@@ -891,19 +917,17 @@ ARITH_DEVICE ARITH_HOST inline simd<T> sin(const simd<T> &x) {
   alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
   storea(xarr, x);
   alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
-  for (std::size_t n = 0; n < x.size(); ++n) {
-    using std::sin;
+  using std::sin;
+  for (std::size_t n = 0; n < x.size(); ++n)
     yarr[n] = sin(xarr[n]);
-  }
   const simd<T> y = loada<simd<T> >(yarr);
   return y;
   // T xarr[storage_size];
   // storeu(xarr, x);
   // T yarr[storage_size];
-  // for (std::size_t n = 0; n < storage_size; ++n) {
-  //   using std::sin;
+  // using std::sin;
+  // for (std::size_t n = 0; n < storage_size; ++n)
   //   yarr[n] = sin(xarr[n]);
-  // }
   // const simd<T> y = loadu<simd<T> >(yarr);
   // return y;
 }
