@@ -1,0 +1,33 @@
+# Interface definition for thorn SIMDWaveToyX
+
+IMPLEMENTS: SIMDWaveToyX
+
+USES INCLUDE HEADER: defs.hxx
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: simd.hxx
+USES INCLUDE HEADER: vect.hxx
+
+
+
+CCTK_REAL ustate TYPE=gf TAGS='rhs="urhs" dependents="uerror eps"'
+{
+  u
+  rho
+} "Scalar wave state vector"
+
+CCTK_REAL urhs TYPE=gf TAGS='checkpoint="no"'
+{
+  udot
+  rhodot
+} "RHS of scalar wave state vector"
+
+CCTK_REAL eps TYPE=gf TAGS='checkpoint="no"'
+{
+  eps
+} "Energy density"
+
+CCTK_REAL uerror TYPE=gf TAGS='checkpoint="no"'
+{
+  uerr
+  rhoerr
+} "Error in scalar wave state vector"
