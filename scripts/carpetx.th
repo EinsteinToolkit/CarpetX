@@ -709,6 +709,7 @@ CarpetX/Loop
 CarpetX/ODESolvers
 CarpetX/PDESolvers
 CarpetX/Poisson2
+CarpetX/SIMDWaveToyX
 CarpetX/TestArrayGroup
 CarpetX/TestInterpolate
 CarpetX/TestNorms
