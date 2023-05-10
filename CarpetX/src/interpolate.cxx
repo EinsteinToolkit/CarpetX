@@ -25,33 +25,36 @@
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
-
 using Arith::pown;
 
 namespace {
 
 // Interpolate a grid function at one point, dimensionally recursive
-template <typename T, int order> struct interpolator {
+template <typename T, int order, int centering> struct interpolator {
   const amrex::Array4<const T> &vars;
   const int vi;
   const vect<int, dim> &derivs;
+  const T *restrict const x0;
   const T *restrict const dx;
 
-#warning "TODO: Check whether interpolated variables are valid"
+  // TODO: Check whether interpolated variables are valid
 
   // Base case: only access a grid point
   template <int dir>
-  enable_if_t<(dir == -1), T>
+  std::enable_if_t<(dir == -1), T>
   interpolate(const vect<int, dim> &i, const vect<CCTK_REAL, dim> &di) const {
     return vars(i[0], i[1], i[2], vi);
   }
 
   // General case: interpolate in one direction, then recurse
   template <int dir>
-  enable_if_t<(dir >= 0), T> interpolate(const vect<int, dim> &i,
-                                         const vect<CCTK_REAL, dim> &di) const {
+  std::enable_if_t<(dir >= 0), T>
+  interpolate(const vect<int, dim> &i, const vect<CCTK_REAL, dim> &di) const {
     const auto DI = vect<int, dim>::unit(dir);
+
+    // Ignore the centering for interpolation
+    // switch ((centering >> (2 - dir)) & 1)
+
     switch (order) {
     case 0: {
 #ifdef CCTK_DEBUG
@@ -190,6 +193,25 @@ template <typename T, int order> struct interpolator {
     }
     default:
       assert(0);
+    } // switch order
+  }
+
+  template <typename Particles>
+  void interpolate3d(const Particles &particles,
+                     std::vector<T> &varresult) const {
+    const int np = int(varresult.size());
+#pragma omp simd
+    for (int n = 0; n < np; ++n) {
+      vect<int, dim> i;
+      vect<T, dim> di;
+      for (int d = 0; d < dim; ++d) {
+        T x = particles[n].pos(d);
+        T ri = (x - x0[d]) / dx[d];
+        using std::lrint;
+        i[d] = lrint(ri - (order / T(2)));
+        di[d] = ri - i[d];
+      }
+      varresult[n] = interpolate<dim - 1>(i, di);
     }
   }
 };
@@ -238,7 +260,7 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
   assert(n_elems == 1);
   assert(order == interpolation_order);
 
-  vector<CCTK_INT> varinds;
+  std::vector<CCTK_INT> varinds;
   varinds.resize(N_output_arrays);
   n_elems = Util_TableGetIntArray(param_table_handle, N_output_arrays,
                                   varinds.data(), "operand_indices");
@@ -256,7 +278,7 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
     CCTK_ERROR("TableGetIntArray failed.");
   }
 
-  vector<CCTK_INT> operations;
+  std::vector<CCTK_INT> operations;
   operations.resize(N_output_arrays, 0);
   n_elems = Util_TableGetIntArray(param_table_handle, N_output_arrays,
                                   operations.data(), "operation_codes");
@@ -285,10 +307,6 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
                                     const CCTK_INT *restrict const varinds,
                                     const CCTK_INT *restrict const operations,
                                     const CCTK_POINTER resultptrs_) {
-#ifdef __CUDACC__
-  abort();
-#else
-
   DECLARE_CCTK_PARAMETERS;
   const cGH *restrict const cctkGH = static_cast<const cGH *>(cctkGH_);
   assert(in_global_mode(cctkGH));
@@ -379,14 +397,14 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     container.Redistribute();
 
   // Define result variables
-  map<int, vector<CCTK_REAL> > results;
+  std::map<int, std::vector<CCTK_REAL> > results;
 
   // Interpolate
   constexpr int tl = 0;
   struct givi_t {
     int gi, vi;
   };
-  vector<givi_t> givis(nvars);
+  std::vector<givi_t> givis(nvars);
   for (int v = 0; v < nvars; ++v) {
     int gi = CCTK_GroupIndexFromVarI(varinds[v]);
     assert(gi >= 0);
@@ -414,7 +432,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
 
-        vector<vector<CCTK_REAL> > varresults(nvars);
+        std::vector<std::vector<CCTK_REAL> > varresults(nvars);
 
         // TODO: Don't re-calculate interpolation coefficients for each
         // variable
@@ -423,9 +441,9 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
           const int gi = givis.at(v).gi;
           const int vi = givis.at(v).vi;
           const auto &restrict groupdata = *leveldata.groupdata.at(gi);
-          // Ensure interpolated variables are vertex centred
-          // TODO: Generalize this
-          assert((groupdata.indextype == array<int, dim>{0, 0, 0}));
+          const int centering = groupdata.indextype[0] * 0b100 +
+                                groupdata.indextype[1] * 0b010 +
+                                groupdata.indextype[2] * 0b001;
           const amrex::Array4<const CCTK_REAL> &vars =
               groupdata.mfab.at(tl)->array(pti);
           vect<int, dim> derivs;
@@ -441,96 +459,100 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
           auto &varresult = varresults.at(v);
           varresult.resize(np);
 
-          switch (interpolation_order) {
-          case 0: {
-            constexpr int order = 0;
-#pragma omp simd
-            for (int n = 0; n < np; ++n) {
-              vect<int, dim> i;
-              vect<CCTK_REAL, dim> di;
-              for (int d = 0; d < dim; ++d) {
-                CCTK_REAL x = particles[n].pos(d);
-                CCTK_REAL ri = (x - x0[d]) / dx[d];
-                i[d] = lrint(ri - (order / CCTK_REAL(2)));
-                di[d] = ri - i[d];
-              }
-              const interpolator<CCTK_REAL, order> interp{vars, vi, derivs, dx};
-              varresult.at(n) = interp.interpolate<dim - 1>(i, di);
+          switch (centering) {
+          case 0b000: {
+            // Vertex centering
+
+            switch (interpolation_order) {
+            case 0: {
+              const interpolator<CCTK_REAL, 0, 0b000> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
             }
-            break;
-          }
-          case 1: {
-            constexpr int order = 1;
-#pragma omp simd
-            for (int n = 0; n < np; ++n) {
-              vect<int, dim> i;
-              vect<CCTK_REAL, dim> di;
-              for (int d = 0; d < dim; ++d) {
-                CCTK_REAL x = particles[n].pos(d);
-                CCTK_REAL ri = (x - x0[d]) / dx[d];
-                i[d] = lrint(ri - (order / CCTK_REAL(2)));
-                di[d] = ri - i[d];
-              }
-              const interpolator<CCTK_REAL, order> interp{vars, vi, derivs, dx};
-              varresult.at(n) = interp.interpolate<dim - 1>(i, di);
+            case 1: {
+              const interpolator<CCTK_REAL, 1, 0b000> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
             }
-            break;
-          }
-          case 2: {
-            constexpr int order = 2;
-#pragma omp simd
-            for (int n = 0; n < np; ++n) {
-              vect<int, dim> i;
-              vect<CCTK_REAL, dim> di;
-              for (int d = 0; d < dim; ++d) {
-                CCTK_REAL x = particles[n].pos(d);
-                CCTK_REAL ri = (x - x0[d]) / dx[d];
-                i[d] = lrint(ri - (order / CCTK_REAL(2)));
-                di[d] = ri - i[d];
-              }
-              const interpolator<CCTK_REAL, order> interp{vars, vi, derivs, dx};
-              varresult.at(n) = interp.interpolate<dim - 1>(i, di);
+            case 2: {
+              const interpolator<CCTK_REAL, 2, 0b000> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
             }
-            break;
-          }
-          case 3: {
-            constexpr int order = 3;
-#pragma omp simd
-            for (int n = 0; n < np; ++n) {
-              vect<int, dim> i;
-              vect<CCTK_REAL, dim> di;
-              for (int d = 0; d < dim; ++d) {
-                CCTK_REAL x = particles[n].pos(d);
-                CCTK_REAL ri = (x - x0[d]) / dx[d];
-                i[d] = lrint(ri - (order / CCTK_REAL(2)));
-                di[d] = ri - i[d];
-              }
-              const interpolator<CCTK_REAL, order> interp{vars, vi, derivs, dx};
-              varresult.at(n) = interp.interpolate<dim - 1>(i, di);
+            case 3: {
+              const interpolator<CCTK_REAL, 3, 0b000> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
             }
-            break;
-          }
-          case 4: {
-            constexpr int order = 4;
-#pragma omp simd
-            for (int n = 0; n < np; ++n) {
-              vect<int, dim> i;
-              vect<CCTK_REAL, dim> di;
-              for (int d = 0; d < dim; ++d) {
-                CCTK_REAL x = particles[n].pos(d);
-                CCTK_REAL ri = (x - x0[d]) / dx[d];
-                i[d] = lrint(ri - (order / CCTK_REAL(2)));
-                di[d] = ri - i[d];
-              }
-              const interpolator<CCTK_REAL, order> interp{vars, vi, derivs, dx};
-              varresult.at(n) = interp.interpolate<dim - 1>(i, di);
+            case 4: {
+              const interpolator<CCTK_REAL, 4, 0b000> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
             }
+            default:
+              CCTK_VERROR("Interpolation order %d for centering [%d,%d,%d] not "
+                          "yet supported",
+                          int(interpolation_order), groupdata.indextype[0],
+                          groupdata.indextype[1], groupdata.indextype[2]);
+            } // switch interpolation_order
             break;
-          }
+          } // case 0b000
+
+          case 0b111: {
+            // Cell centering
+
+            switch (interpolation_order) {
+            case 0: {
+              const interpolator<CCTK_REAL, 0, 0b111> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
+            }
+            case 1: {
+              const interpolator<CCTK_REAL, 1, 0b111> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
+            }
+            case 2: {
+              const interpolator<CCTK_REAL, 2, 0b111> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
+            }
+            case 3: {
+              const interpolator<CCTK_REAL, 3, 0b111> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
+            }
+            case 4: {
+              const interpolator<CCTK_REAL, 4, 0b111> interp{vars, vi, derivs,
+                                                             x0, dx};
+              interp.interpolate3d(particles, varresult);
+              break;
+            }
+            default:
+              CCTK_VERROR("Interpolation order %d for centering [%d,%d,%d] not "
+                          "yet supported",
+                          int(interpolation_order), groupdata.indextype[0],
+                          groupdata.indextype[1], groupdata.indextype[2]);
+            } // switch interpolation_order
+            break;
+          } // case 0b111
+
           default:
-            assert(0);
-          }
-        }
+            CCTK_VERROR("Centering [%d,%d,%d] not yet supported",
+                        groupdata.indextype[0], groupdata.indextype[1],
+                        groupdata.indextype[2]);
+          } // switch centering
+
+        } // for var
 
         for (int n = 0; n < np; ++n) {
           const int proc = particles[n].idata(0);
@@ -559,13 +581,13 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
   const MPI_Datatype datatype = mpi_datatype<CCTK_REAL>::value;
 
-  vector<int> sendcounts(nprocs, 0);
+  std::vector<int> sendcounts(nprocs, 0);
   for (const auto &proc_result : results) {
     const int p = proc_result.first;
     const auto &result = proc_result.second;
     sendcounts.at(p) = result.size();
   }
-  vector<int> senddispls(nprocs);
+  std::vector<int> senddispls(nprocs);
   int sendcount = 0;
   for (int p = 0; p < nprocs; ++p) {
     senddispls.at(p) = sendcount;
@@ -575,10 +597,10 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   //   CCTK_VINFO("[%d] senddispl=%d sendcount=%d", p, senddispls.at(p),
   //              sendcounts.at(p));
   // CCTK_VINFO("sendcount=%d", sendcount);
-  vector<int> recvcounts(nprocs);
+  std::vector<int> recvcounts(nprocs);
   MPI_Alltoall(sendcounts.data(), 1, MPI_INT, recvcounts.data(), 1, MPI_INT,
                comm);
-  vector<int> recvdispls(nprocs);
+  std::vector<int> recvdispls(nprocs);
   int recvcount = 0;
   for (int p = 0; p < nprocs; ++p) {
     recvdispls.at(p) = recvcount;
@@ -590,19 +612,19 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   // CCTK_VINFO("recvcount=%d", recvcount);
   // If this fails then there might be particles out of bounds
   assert(recvcount == (nvars + 1) * npoints);
-  vector<CCTK_REAL> sendbuf(sendcount);
+  std::vector<CCTK_REAL> sendbuf(sendcount);
   for (const auto &proc_result : results) {
     const int p = proc_result.first;
     const auto &result = proc_result.second;
     copy(result.begin(), result.end(), &sendbuf.at(senddispls.at(p)));
   }
-  vector<CCTK_REAL> recvbuf(recvcount);
+  std::vector<CCTK_REAL> recvbuf(recvcount);
   MPI_Alltoallv(sendbuf.data(), sendcounts.data(), senddispls.data(), datatype,
                 recvbuf.data(), recvcounts.data(), recvdispls.data(), datatype,
                 comm);
 #ifdef CCTK_DEBUG
   // Check consistency of received ids
-  vector<bool> idxs(npoints, false);
+  std::vector<bool> idxs(npoints, false);
   for (int n = 0; n < npoints; ++n) {
     const int offset = (nvars + 1) * n;
     const int idx = int(recvbuf.at(offset));
@@ -645,7 +667,5 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
       }
     }
   }
-
-#endif
 }
 } // namespace CarpetX
