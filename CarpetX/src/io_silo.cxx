@@ -25,7 +25,12 @@
 #include <array>
 #include <cassert>
 #include <cstdlib>
+#if defined __cpp_lib_filesystem && __cpp_lib_filesystem < 201703L
+#include <experimental/filesystem>
+using namespace std::experimental;
+#else
 #include <filesystem>
+#endif
 #include <fstream>
 #include <iomanip>
 #include <memory>
