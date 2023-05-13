@@ -867,8 +867,10 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
               if (output_ghosts || intbox == extbox) {
                 CCTK_REAL *const ptr = fab.dataPtr() + vi * np;
-                record_components.at(vi).loadChunk(openPMD::shareRaw(ptr),
-                                                   start, count);
+                // record_components.at(vi).loadChunk(openPMD::shareRaw(ptr),
+                //                                    start, count);
+                record_components.at(vi).loadChunkRaw(ptr, start, count);
+
               } else {
                 const int amrex_size = extbox.size();
                 CCTK_REAL *const ptr = fab.dataPtr() + vi * amrex_size;
@@ -1297,8 +1299,9 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             for (int vi = 0; vi < numvars; ++vi) {
               if (output_ghosts || intbox == extbox) {
                 const CCTK_REAL *const ptr = fab.dataPtr() + vi * np;
-                record_components.at(vi).storeChunk(openPMD::shareRaw(ptr),
-                                                    start, count);
+                // record_components.at(vi).storeChunk(openPMD::shareRaw(ptr),
+                //                                     start, count);
+                record_components.at(vi).storeChunkRaw(ptr, start, count);
               } else {
                 std::shared_ptr<CCTK_REAL> ptr(
                     new CCTK_REAL[np], std::default_delete<CCTK_REAL[]>());
