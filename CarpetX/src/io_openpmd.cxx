@@ -61,9 +61,26 @@ namespace CarpetX {
 
 constexpr bool io_verbose = true;
 
-// HDF5, ADIOS1, ADIOS2_BP, ADIOS2_BP4, ADIOS2_BP5, ADIOS2_SST, ADIOS2_SSC,
-// JSON, DUMMY
-constexpr openPMD::Format format = openPMD::Format::ADIOS2_BP5;
+openPMD::Format get_format() {
+  DECLARE_CCTK_PARAMETERS;
+  if (CCTK_EQUALS(openpmd_format, "HDF5"))
+    return openPMD::Format::HDF5;
+  if (CCTK_EQUALS(openpmd_format, "ADIOS1"))
+    return openPMD::Format::ADIOS1;
+  if (CCTK_EQUALS(openpmd_format, "ADIOS2_BP"))
+    return openPMD::Format::ADIOS2_BP;
+  if (CCTK_EQUALS(openpmd_format, "ADIOS2_BP4"))
+    return openPMD::Format::ADIOS2_BP4;
+  if (CCTK_EQUALS(openpmd_format, "ADIOS2_BP5"))
+    return openPMD::Format::ADIOS2_BP5;
+  if (CCTK_EQUALS(openpmd_format, "ADIOS2_SST"))
+    return openPMD::Format::ADIOS2_SST;
+  if (CCTK_EQUALS(openpmd_format, "ADIOS2_SSC"))
+    return openPMD::Format::ADIOS2_SSC;
+  if (CCTK_EQUALS(openpmd_format, "JSON"))
+    return openPMD::Format::JSON;
+  CCTK_ERROR("Internal error");
+}
 
 // - fileBased: One file per iteration. Needs templated file name to encode
 //   iteration number.
@@ -408,6 +425,8 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
   if (io_verbose)
     CCTK_VINFO("InputOpenPMDParameters...");
 
+  const openPMD::Format format = get_format();
+
   if (!series) {
     if (io_verbose)
       CCTK_VINFO("Creating openPMD object...");
@@ -616,6 +635,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
   if (!series) {
     if (io_verbose)
       CCTK_VINFO("Creating openPMD object...");
+    const openPMD::Format format = get_format();
     std::ostringstream buf;
     switch (iterationEncoding) {
     case openPMD::IterationEncoding::fileBased:
@@ -965,6 +985,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
   if (io_verbose)
     CCTK_VINFO("OutputOpenPMD...");
+
+  const openPMD::Format format = get_format();
 
   if (!series) {
 
