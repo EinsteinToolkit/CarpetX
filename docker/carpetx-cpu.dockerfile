@@ -107,9 +107,9 @@ RUN mkdir src && \
 # - Depends on ADIOS2
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.0.tar.gz && \
-    tar xzf 0.15.0.tar.gz && \
-    cd openPMD-api-0.15.0 && \
+    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.1.tar.gz && \
+    tar xzf 0.15.1.tar.gz && \
+    cd openPMD-api-0.15.1 && \
     mkdir build && \
     cd build && \
     cmake .. && \
