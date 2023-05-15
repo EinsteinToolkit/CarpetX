@@ -7,6 +7,7 @@
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
 FROM rocm/dev-ubuntu-22.04:5.4.2
+# FROM rocm/dev-ubuntu-22.04:5.5
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -109,9 +110,9 @@ RUN mkdir src && \
 # - Depends on ADIOS2
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.0.tar.gz && \
-    tar xzf 0.15.0.tar.gz && \
-    cd openPMD-api-0.15.0 && \
+    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.1.tar.gz && \
+    tar xzf 0.15.1.tar.gz && \
+    cd openPMD-api-0.15.1 && \
     mkdir build && \
     cd build && \
     cmake .. && \
