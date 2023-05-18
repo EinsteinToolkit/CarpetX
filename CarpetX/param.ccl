@@ -304,6 +304,11 @@ CCTK_INT blocking_factor_z "Blocking factor"
   1:* :: "must be a power of 2"
 } 8
 
+CCTK_REAL grid_efficiency "Minimum AMR grid efficiency"
+{
+  0.0:* :: ""
+} 0.7
+
 CCTK_INT max_grid_size_x "Maximum grid size"
 {
   1:* :: "must be a multiple of the blocking factor"
@@ -319,6 +324,10 @@ CCTK_INT max_grid_size_z "Maximum grid size"
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
+BOOLEAN refine_grid_layout "Ensure that each MPI process has at least one grid"
+{
+} yes
+
 CCTK_INT max_tile_size_x "Maximum tile size"
 {
   1:* :: ""
@@ -333,11 +342,6 @@ CCTK_INT max_tile_size_z "Maximum tile size"
 {
   1:* :: ""
 } 32
-
-CCTK_REAL grid_efficiency "Minimum AMR grid efficiency"
-{
-  0.0:* :: ""
-} 0.7
 
 
 
