@@ -692,7 +692,8 @@ extern "C" void CarpetX_CheckpointInitial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
-  const int runtime = CCTK_RunTime(); // seconds
+  int runtime = CCTK_RunTime(); // seconds
+  MPI_Bcast(&runtime, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (checkpoint_ID) {
     CCTK_VINFO("Checkpointing initial conditions at iteration %d, time %f, run "
@@ -707,7 +708,8 @@ extern "C" void CarpetX_Checkpoint(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
-  const int runtime = CCTK_RunTime(); // seconds
+  int runtime = CCTK_RunTime(); // seconds
+  MPI_Bcast(&runtime, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   const bool checkpoint_by_iteration =
       checkpoint_every > 0 && cctk_iteration % checkpoint_every == 0;
