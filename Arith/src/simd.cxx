@@ -6,6 +6,25 @@
 
 namespace Arith {
 
+std::size_t flop_count, memop_count;
+
+void reset_counts() {
+#pragma omp parallel
+  flop_count = memop_count = 0;
+}
+std::size_t get_flop_count() {
+  std::size_t count = 0;
+#pragma omp parallel reduction(+ : count)
+  count += flop_count;
+  return count;
+}
+std::size_t get_memop_count() {
+  std::size_t count = 0;
+#pragma omp parallel reduction(+ : count)
+  count += memop_count;
+  return count;
+}
+
 void TestSIMD() {
   // nvcc V11.1.74 doesn't accept this as "constexpr" values
 #ifndef __CUDACC__
