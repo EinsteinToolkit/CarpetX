@@ -54,6 +54,15 @@ template <typename T> using float_type = typename reinterpret<T>::float_type;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+extern std::size_t flop_count, memop_count;
+#pragma omp threadprivate(flop_count, memop_count)
+
+void reset_counts();
+std::size_t get_flop_count();
+std::size_t get_memop_count();
+
+////////////////////////////////////////////////////////////////////////////////
+
 // A SIMD vector, holding elements of type `T`. `T` can be a
 // floating-point or an integer type. To represent logical values
 // (i.e. booleans), see `simdl` below.
@@ -87,6 +96,19 @@ template <typename T> struct simd {
       : elts(elts) {}
 #endif
 
+  static inline CCTK_ATTRIBUTE_ALWAYS_INLINE ARITH_DEVICE ARITH_HOST void
+  count_flop(const std::size_t n = 1) {
+#ifdef ARITH_COUNT_OPS
+    flop_count += n * storage_size;
+#endif
+  }
+  static inline CCTK_ATTRIBUTE_ALWAYS_INLINE ARITH_DEVICE ARITH_HOST void
+  count_memop(const std::size_t n = 1) {
+#ifdef ARITH_COUNT_OPS
+    memop_count += n * storage_size;
+#endif
+  }
+
   constexpr ARITH_DEVICE ARITH_HOST std::size_t size() const {
 #ifndef SIMD_CPU
     return sizeof(nsimd::pack<T>) / sizeof(T);
@@ -116,115 +138,143 @@ template <typename T> struct simd {
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator!(const simd &x) {
+    count_flop();
     return !x.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator~(const simd &x) {
+    count_flop();
     return ~x.elts;
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator+(const simd &x) {
+    count_flop();
     return +x.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator-(const simd &x) {
+    count_flop();
     return -x.elts;
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator&(const simd &x,
                                                           const simd &y) {
+    count_flop();
     return x.elts & y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator|(const simd &x,
                                                           const simd &y) {
+    count_flop();
     return x.elts | y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator^(const simd &x,
                                                           const simd &y) {
+    count_flop();
     return x.elts ^ y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator+(const simd &x,
                                                           const simd &y) {
+    count_flop();
     return x.elts + y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator-(const simd &x,
                                                           const simd &y) {
+    count_flop();
     return x.elts - y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator*(const simd &x,
                                                           const simd &y) {
+    count_flop();
     return x.elts * y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator/(const simd &x,
                                                           const simd &y) {
+    count_flop(10);
     return x.elts / y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator%(const simd &x,
                                                           const simd &y) {
+    count_flop();
     return x.elts % y.elts;
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator&(const T &a,
                                                           const simd &y) {
+    count_flop();
     return a & y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator|(const T &a,
                                                           const simd &y) {
+    count_flop();
     return a | y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator^(const T &a,
                                                           const simd &y) {
+    count_flop();
     return a ^ y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator+(const T &a,
                                                           const simd &y) {
+    count_flop();
     return a + y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator-(const T &a,
                                                           const simd &y) {
+    count_flop();
     return a - y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator*(const T &a,
                                                           const simd &y) {
+    count_flop();
     return a * y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator/(const T &a,
                                                           const simd &y) {
+    count_flop(10);
     return a / y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator%(const T &a,
                                                           const simd &y) {
+    count_flop();
     return a % y.elts;
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator&(const simd &x,
                                                           const T &b) {
+    count_flop();
     return x.elts & b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator|(const simd &x,
                                                           const T &b) {
+    count_flop();
     return x.elts | b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator^(const simd &x,
                                                           const T &b) {
+    count_flop();
     return x.elts ^ b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator+(const simd &x,
                                                           const T &b) {
+    count_flop();
     return x.elts + b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator-(const simd &x,
                                                           const T &b) {
+    count_flop();
     return x.elts - b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator*(const simd &x,
                                                           const T &b) {
+    count_flop();
     return x.elts * b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator/(const simd &x,
                                                           const T &b) {
+    count_flop(10);
     return x.elts / b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator%(const simd &x,
                                                           const T &b) {
+    count_flop();
     return x.elts % b;
   }
 
@@ -280,80 +330,99 @@ template <typename T> struct simd {
 
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator==(const simd &x,
                                                                const simd &y) {
+    count_flop();
     return x.elts == y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator!=(const simd &x,
                                                                const simd &y) {
+    count_flop();
     return x.elts != y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator<(const simd &x,
                                                               const simd &y) {
+    count_flop();
     return x.elts < y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator>(const simd &x,
                                                               const simd &y) {
+    count_flop();
     return x.elts > y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator<=(const simd &x,
                                                                const simd &y) {
+    count_flop();
     return x.elts <= y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator>=(const simd &x,
                                                                const simd &y) {
+    count_flop();
     return x.elts >= y.elts;
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator==(const T &a,
                                                                const simd &y) {
+    count_flop();
     return a == y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator!=(const T &a,
                                                                const simd &y) {
+    count_flop();
     return a != y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator<(const T &a,
                                                               const simd &y) {
+    count_flop();
     return a < y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator>(const T &a,
                                                               const simd &y) {
+    count_flop();
     return a > y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator<=(const T &a,
                                                                const simd &y) {
+    count_flop();
     return a <= y.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator>=(const T &a,
                                                                const simd &y) {
+    count_flop();
     return a >= y.elts;
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator==(const simd &x,
                                                                const T &b) {
+    count_flop();
     return x.elts == b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator!=(const simd &x,
                                                                const T &b) {
+    count_flop();
     return x.elts != b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator<(const simd &x,
                                                               const T &b) {
+    count_flop();
     return x.elts < b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator>(const simd &x,
                                                               const T &b) {
+    count_flop();
     return x.elts > b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator<=(const simd &x,
                                                                const T &b) {
+    count_flop();
     return x.elts <= b;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> operator>=(const simd &x,
                                                                const T &b) {
+    count_flop();
     return x.elts >= b;
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd abs(const simd &x) {
+    count_flop();
     using std::abs;
     return abs(x.elts);
   }
@@ -361,6 +430,7 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd andnot(const simd &x,
                                                        const simd &y) {
 #ifndef SIMD_CPU
+    count_flop();
     return andnotb(x.elts, y.elts);
 #else
     return x & ~y;
@@ -385,12 +455,14 @@ template <typename T> struct simd {
         nsimd::scalar_reinterpret(T{}, U(1) << (8 * sizeof(U) - 1));
     return andnot(x, signmask) | (y & signmask);
 #else
+    count_flop();
     using std::copysign;
     return copysign(x.elts, y.elts);
 #endif
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd fabs(const simd &x) {
+    count_flop();
     using std::abs;
     return abs(x.elts);
   }
@@ -403,6 +475,7 @@ template <typename T> struct simd {
         nsimd::scalar_reinterpret(T{}, U(1) << (8 * sizeof(U) - 1));
     return x ^ (y & signmask);
 #else
+    count_flop();
     using std::copysign;
     return copysign(1, y) * x;
 #endif
@@ -410,32 +483,38 @@ template <typename T> struct simd {
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmax(const simd &x,
                                                      const simd &y) {
+    count_flop();
     using std::max;
     return max(x.elts, y.elts);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmax(const T &a,
                                                      const simd &y) {
+    count_flop();
     using std::max;
     return max(simd(a), y.elts);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmax(const simd &x,
                                                      const T &b) {
+    count_flop();
     using std::max;
     return max(x.elts, simd(b));
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmin(const simd &x,
                                                      const simd &y) {
+    count_flop();
     using std::min;
     return min(x.elts, y.elts);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmin(const T &a,
                                                      const simd &y) {
+    count_flop();
     using std::min;
     return min(simd(a), y.elts);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmin(const simd &x,
                                                      const T &b) {
+    count_flop();
     using std::min;
     return min(x.elts, simd(b));
   }
@@ -460,14 +539,17 @@ template <typename T> struct simd {
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd max(const simd &x,
                                                     const simd &y) {
+    count_flop();
     using std::max;
     return max(x.elts, y.elts);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd max(const simd &x, const T &b) {
+    count_flop();
     using std::max;
     return max(x.elts, simd(b));
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd max(const T &a, const simd &y) {
+    count_flop();
     using std::max;
     return max(simd(a), y.elts);
   }
@@ -482,14 +564,17 @@ template <typename T> struct simd {
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd min(const simd &x,
                                                     const simd &y) {
+    count_flop();
     using std::min;
     return min(x.elts, y.elts);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd min(const T &a, const simd &y) {
+    count_flop();
     using std::min;
     return min(simd(a), y.elts);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd min(const simd &x, const T &b) {
+    count_flop();
     using std::min;
     return min(x.elts, simd(b));
   }
@@ -505,6 +590,7 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd muladd(const simd &x,
                                                        const simd &y,
                                                        const simd &z) {
+    count_flop(2);
 #ifndef SIMD_CPU
     return nsimd::fma(x.elts, y.elts, z.elts);
 #else
@@ -543,6 +629,7 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd mulsub(const simd &x,
                                                        const simd &y,
                                                        const simd &z) {
+    count_flop(2);
 #ifndef SIMD_CPU
     return nsimd::fms(x.elts, y.elts, z.elts);
 #else
@@ -581,6 +668,7 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd negmuladd(const simd &x,
                                                           const simd &y,
                                                           const simd &z) {
+    count_flop(2);
 #ifndef SIMD_CPU
     return nsimd::fnma(x.elts, y.elts, z.elts);
 #else
@@ -621,6 +709,7 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd negmulsub(const simd &x,
                                                           const simd &y,
                                                           const simd &z) {
+    count_flop(2);
 #ifndef SIMD_CPU
     return nsimd::fnms(x.elts, y.elts, z.elts);
 #else
@@ -671,6 +760,7 @@ template <typename T> struct simd {
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd sqrt(const simd &x) {
+    count_flop(10);
     using std::sqrt;
     return sqrt(x.elts);
   }
@@ -680,6 +770,7 @@ template <typename T> struct simd {
   }
 
   friend ARITH_DEVICE ARITH_HOST void storea(T *ptr, const simd &x) {
+    count_memop();
 #ifndef SIMD_CPU
     storea(ptr, x.elts);
 #else
@@ -687,6 +778,7 @@ template <typename T> struct simd {
 #endif
   }
   friend ARITH_DEVICE ARITH_HOST void storeu(T *ptr, const simd &x) {
+    count_memop();
 #ifndef SIMD_CPU
     storeu(ptr, x.elts);
 #else
@@ -695,6 +787,7 @@ template <typename T> struct simd {
   }
   friend ARITH_DEVICE ARITH_HOST void mask_storea(const simdl<T> &mask, T *ptr,
                                                   const simd &x) {
+    count_memop();
 #ifndef SIMD_CPU
     mask_storea(mask.elts, ptr, x.elts);
 #else
@@ -704,6 +797,7 @@ template <typename T> struct simd {
   }
   friend ARITH_DEVICE ARITH_HOST void mask_storeu(const simdl<T> &mask, T *ptr,
                                                   const simd &x) {
+    count_memop();
 #ifndef SIMD_CPU
     mask_storeu(mask.elts, ptr, x.elts);
 #else
@@ -777,6 +871,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> iota() {
 template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simdl<T> mask_for_loop_tail(const int i,
                                                            const int n) {
+  simd<T>::count_flop();
 #ifndef SIMD_CPU
   return nsimd::mask_for_loop_tail<nsimd::packl<T> >(i, n);
 #else
@@ -786,6 +881,7 @@ ARITH_DEVICE ARITH_HOST inline simdl<T> mask_for_loop_tail(const int i,
 
 template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simd<T> loada(const T *ptr) {
+  simd<T>::count_memop();
 #ifndef SIMD_CPU
   return nsimd::loada<nsimd::pack<T> >(ptr);
 #else
@@ -795,6 +891,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> loada(const T *ptr) {
 
 template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simd<T> loadu(const T *ptr) {
+  simd<T>::count_memop();
 #ifndef SIMD_CPU
   return nsimd::loadu<nsimd::pack<T> >(ptr);
 #else
@@ -805,6 +902,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> loadu(const T *ptr) {
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loada(const simdl<T> &mask,
                                                    const T *ptr) {
+  simd<T>::count_memop();
 #ifndef SIMD_CPU
   return nsimd::maskz_loada(mask.elts, ptr);
 #else
@@ -815,6 +913,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loada(const simdl<T> &mask,
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loadu(const simdl<T> &mask,
                                                    const T *ptr) {
+  simd<T>::count_memop();
 #ifndef SIMD_CPU
   return nsimd::maskz_loadu(mask.elts, ptr);
 #else
@@ -825,6 +924,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loadu(const simdl<T> &mask,
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loada(const simdl<T> &mask, const T *ptr, const simd<T> &other) {
+  simd<T>::count_memop();
 #ifndef SIMD_CPU
   return masko_loada(mask.elts, ptr, other.elts);
 #else
@@ -835,6 +935,7 @@ masko_loada(const simdl<T> &mask, const T *ptr, const simd<T> &other) {
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loadu(const simdl<T> &mask, const T *ptr, const simd<T> &other) {
+  simd<T>::count_memop();
 #ifndef SIMD_CPU
   return masko_loadu(mask.elts, ptr, other.elts);
 #else
@@ -846,6 +947,7 @@ template <typename T, typename U,
           enable_if_t<is_convertible_v<T, U> > * = nullptr>
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loada(const simdl<T> &mask, const T *ptr, const U &other) {
+  simd<T>::count_memop();
 #ifndef SIMD_CPU
   return masko_loada(mask, ptr, simd<T>(other));
 #else
@@ -857,6 +959,7 @@ template <typename T, typename U,
           enable_if_t<is_convertible_v<T, U> > * = nullptr>
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loadu(const simdl<T> &mask, const T *ptr, const U &other) {
+  simd<T>::count_memop();
 #ifndef SIMD_CPU
   return masko_loadu(mask, ptr, simd<T>(other));
 #else
@@ -866,6 +969,7 @@ masko_loadu(const simdl<T> &mask, const T *ptr, const U &other) {
 
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> acos(const simd<T> &x) {
+  simd<T>::count_memop(10);
   alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
   storea(xarr, x);
   alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
@@ -878,6 +982,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> acos(const simd<T> &x) {
 
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> cbrt(const simd<T> &x) {
+  simd<T>::count_memop(10);
   alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
   storea(xarr, x);
   alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
@@ -890,6 +995,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> cbrt(const simd<T> &x) {
 
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> cos(const simd<T> &x) {
+  simd<T>::count_memop(10);
   alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
   storea(xarr, x);
   alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
@@ -902,6 +1008,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> cos(const simd<T> &x) {
 
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> exp(const simd<T> &x) {
+  simd<T>::count_memop(10);
   alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
   storea(xarr, x);
   alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
@@ -914,6 +1021,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> exp(const simd<T> &x) {
 
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> sin(const simd<T> &x) {
+  simd<T>::count_memop(10);
   alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
   storea(xarr, x);
   alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
@@ -955,10 +1063,10 @@ template <typename T> struct simdl {
   storage_type elts;
   static constexpr std::size_t storage_size = simd<T>::storage_size;
 
-  simdl(const simdl &) = default;
-  simdl(simdl &&) = default;
-  simdl &operator=(const simdl &) = default;
-  simdl &operator=(simdl &&) = default;
+  constexpr simdl(const simdl &) = default;
+  constexpr simdl(simdl &&) = default;
+  constexpr simdl &operator=(const simdl &) = default;
+  constexpr simdl &operator=(simdl &&) = default;
 
   constexpr ARITH_DEVICE ARITH_HOST simdl() {}
   constexpr ARITH_DEVICE ARITH_HOST simdl(bool a) : elts(a) {}
