@@ -1331,7 +1331,9 @@ bool EvolutionIsDone(cGH *restrict const cctkGH) {
           ? cctkGH->cctk_time >= cctk_final_time
           : cctkGH->cctk_time <= cctk_final_time;
 
-  const bool max_runtime_reached = CCTK_RunTime() >= 60 * max_runtime;
+  int runtime = CCTK_RunTime();
+  MPI_Bcast(&runtime, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  const bool max_runtime_reached = runtime >= 60 * max_runtime;
 
   if (CCTK_Equals(terminate, "iteration"))
     return max_iteration_reached;
