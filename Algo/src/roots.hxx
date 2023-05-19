@@ -1,6 +1,7 @@
 #ifndef ALGO_HXX
 #define ALGO_HXX
 
+#include "loop.hxx"
 #include <mat.hxx>
 #include <sum.hxx>
 #include <vec.hxx>
@@ -70,6 +71,7 @@ std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
 
 // See <https://en.wikipedia.org/wiki/Brent%27s_method>
 template <typename F, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST CCTK_DEVICE
 std::pair<T, T> brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
   using std::abs, std::min, std::max;
 
@@ -184,6 +186,7 @@ T schroder(F f, T guess, T min, T max, int min_bits, int max_iters,
 }
 
 template <typename F, typename T, int N>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST CCTK_DEVICE
 Arith::vec<T, N> newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
                                    const Arith::vec<T, N> &min,
                                    const Arith::vec<T, N> &max, int min_bits,
