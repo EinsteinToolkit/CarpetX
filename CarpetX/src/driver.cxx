@@ -1226,12 +1226,13 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   // know them when its constructor is running, but there are no
   // constructor arguments for them
   amrex::ParmParse pp;
-  pp.add("amr.blocking_factor_x", blocking_factor_x);
-  pp.add("amr.blocking_factor_y", blocking_factor_y);
-  pp.add("amr.blocking_factor_z", blocking_factor_z);
   pp.add("amr.max_grid_size_x", max_grid_size_x);
   pp.add("amr.max_grid_size_y", max_grid_size_y);
   pp.add("amr.max_grid_size_z", max_grid_size_z);
+  pp.add("amr.refine_grid_layout", refine_grid_layout);
+  pp.add("amr.blocking_factor_x", blocking_factor_x);
+  pp.add("amr.blocking_factor_y", blocking_factor_y);
+  pp.add("amr.blocking_factor_z", blocking_factor_z);
   pp.add("amr.grid_eff", grid_efficiency);
   if (poison_undefined_values) {
     // Tell AMReX to initialize FArrayBoxes with nans
