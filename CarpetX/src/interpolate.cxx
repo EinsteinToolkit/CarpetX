@@ -34,8 +34,8 @@ template <typename T, int order, int centering> struct interpolator {
   const amrex::Array4<const T> &vars;
   const int vi;
   const vect<int, dim> &derivs;
-  const T *restrict const x0;
-  const T *restrict const dx;
+  const vect<T, dim> &x0;
+  const vect<T, dim> &dx;
 
   // TODO: Check whether interpolated variables are valid
 
@@ -43,7 +43,15 @@ template <typename T, int order, int centering> struct interpolator {
   template <int dir>
   std::enable_if_t<(dir == -1), T>
   interpolate(const vect<int, dim> &i, const vect<CCTK_REAL, dim> &di) const {
-    return vars(i[0], i[1], i[2], vi);
+#ifdef CCTK_DEBUG
+    assert(vars.contains(i[0], i[1], i[2]));
+#endif
+    const auto val = vars(i[0], i[1], i[2], vi);
+#ifdef CCTK_DEBUG
+    using std::isfinite;
+    assert(isfinite(val));
+#endif
+    return val;
   }
 
   // General case: interpolate in one direction, then recurse
@@ -202,11 +210,13 @@ template <typename T, int order, int centering> struct interpolator {
     const int np = int(varresult.size());
 #pragma omp simd
     for (int n = 0; n < np; ++n) {
+      // const vect<int, dim> imin{vars.begin.x, vars.begin.y, vars.begin.z};
+      // const vect<int, dim> imax{vars.end.x, vars.end.y, vars.end.z};
       vect<int, dim> i;
       vect<T, dim> di;
       for (int d = 0; d < dim; ++d) {
-        T x = particles[n].pos(d);
-        T ri = (x - x0[d]) / dx[d];
+        const T x = particles[n].rdata(d);
+        const T ri = (x - x0[d]) / dx[d];
         using std::lrint;
         i[d] = lrint(ri - (order / T(2)));
         di[d] = ri - i[d];
@@ -300,9 +310,9 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
 
 extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
                                     const CCTK_INT npoints,
-                                    const CCTK_REAL *restrict const coordsx,
-                                    const CCTK_REAL *restrict const coordsy,
-                                    const CCTK_REAL *restrict const coordsz,
+                                    const CCTK_REAL *restrict const globalsx,
+                                    const CCTK_REAL *restrict const globalsy,
+                                    const CCTK_REAL *restrict const globalsz,
                                     const CCTK_INT nvars,
                                     const CCTK_INT *restrict const varinds,
                                     const CCTK_INT *restrict const operations,
@@ -311,13 +321,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   const cGH *restrict const cctkGH = static_cast<const cGH *>(cctkGH_);
   assert(in_global_mode(cctkGH));
 
-  static bool checked_MultiPatch_GlobalToLocal = false;
-  static bool have_MultiPatch_GlobalToLocal;
-  if (!checked_MultiPatch_GlobalToLocal) {
-    checked_MultiPatch_GlobalToLocal = true;
-    have_MultiPatch_GlobalToLocal =
-        CCTK_IsFunctionAliased("MultiPatch_GlobalToLocal");
-  }
+  static const bool have_MultiPatch_GlobalToLocal =
+      CCTK_IsFunctionAliased("MultiPatch_GlobalToLocal");
 
   // Convert global to patch-local coordinates
   // TODO: Call this only if there is a non-trivial patch system
@@ -326,15 +331,16 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   std::vector<CCTK_REAL> localsy(npoints);
   std::vector<CCTK_REAL> localsz(npoints);
   if (have_MultiPatch_GlobalToLocal) {
-    MultiPatch_GlobalToLocal(npoints, coordsx, coordsy, coordsz, patches.data(),
-                             localsx.data(), localsy.data(), localsz.data());
+    MultiPatch_GlobalToLocal(npoints, globalsx, globalsy, globalsz,
+                             patches.data(), localsx.data(), localsy.data(),
+                             localsz.data());
   } else {
     // TODO: Don't copy
     for (int n = 0; n < npoints; ++n) {
       patches[n] = 0;
-      localsx[n] = coordsx[n];
-      localsy[n] = coordsy[n];
-      localsz[n] = coordsz[n];
+      localsx[n] = globalsx[n];
+      localsy[n] = globalsy[n];
+      localsz[n] = globalsz[n];
     }
   }
 
@@ -359,8 +365,29 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     }
   }
 
+  // Project particles into the domain for AMReX's distribution
+  // AMReX silently drops particles that are outside the domain. We
+  // can't have this. We thus push them back into the domain. Of
+  // course, these modified coordinates are not useful for
+  // interpolating, so we have both the `local` (true) and the `pos`
+  // (AMReX) coordinates.
+  std::vector<CCTK_REAL> posx(npoints);
+  std::vector<CCTK_REAL> posy(npoints);
+  std::vector<CCTK_REAL> posz(npoints);
+  for (int n = 0; n < npoints; ++n) {
+    const int patch = patches[n];
+    const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
+    const CCTK_REAL *restrict const xmin = geom.ProbLo();
+    const CCTK_REAL *restrict const xmax = geom.ProbHi();
+    const CCTK_REAL *restrict const dx = geom.CellSize();
+    using std::clamp;
+    posx[n] = clamp(localsx[n], xmin[0] + dx[0] / 2, xmax[0] - dx[0] / 2);
+    posy[n] = clamp(localsy[n], xmin[1] + dx[1] / 2, xmax[1] - dx[1] / 2);
+    posz[n] = clamp(localsz[n], xmin[2] + dx[2] / 2, xmax[2] - dx[2] / 2);
+  }
+
   // Create particle containers
-  using Container = amrex::AmrParticleContainer<0, 2>;
+  using Container = amrex::AmrParticleContainer<3, 2>;
   using ParticleTile = Container::ParticleTileType;
   std::vector<Container> containers(ghext->num_patches());
   std::vector<ParticleTile *> particle_tiles(ghext->num_patches());
@@ -380,12 +407,15 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     const int proc = amrex::ParallelDescriptor::MyProc();
     for (int n = 0; n < npoints; ++n) {
       const int patch = patches[n];
-      amrex::Particle<0, 2> p;
+      amrex::Particle<3, 2> p;
       p.id() = Container::ParticleType::NextID();
       p.cpu() = proc;
-      p.pos(0) = localsx[n];
-      p.pos(1) = localsy[n];
-      p.pos(2) = localsz[n];
+      p.pos(0) = posx[n]; // AMReX distribution position
+      p.pos(1) = posy[n];
+      p.pos(2) = posz[n];
+      p.rdata(0) = localsx[n]; // actual particle coordinate
+      p.rdata(1) = localsy[n];
+      p.rdata(2) = localsz[n];
       p.idata(0) = proc; // source process
       p.idata(1) = n;    // source index
       particle_tiles.at(patch)->push_back(p);
@@ -393,8 +423,35 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   }
 
   // Send particles to interpolation points
-  for (auto &container : containers)
+  for (auto &container : containers) {
+#ifdef CCTK_DEBUG
+    std::size_t old_nparticles = 0;
+    {
+      const auto &levels = container.GetParticles();
+      for (const auto &level : levels) {
+        for (const auto &[grid_tile, particle_tile] : level) {
+          CCTK_VINFO("old_nparticles: %zu", particle_tile.size());
+          old_nparticles += particle_tile.size();
+        }
+      }
+    }
+#endif
     container.Redistribute();
+#ifdef CCTK_DEBUG
+    std::size_t new_nparticles = 0;
+    {
+      const auto &levels = container.GetParticles();
+      for (const auto &level : levels) {
+        for (const auto &[grid_tile, particle_tile] : level) {
+          CCTK_VINFO("new_nparticles: %zu", particle_tile.size());
+          new_nparticles += particle_tile.size();
+        }
+      }
+    }
+    if (new_nparticles != old_nparticles)
+      CCTK_ERROR("We lost interpolation points");
+#endif
+  }
 
   // Define result variables
   std::map<int, std::vector<CCTK_REAL> > results;
@@ -422,12 +479,15 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
       const int level = leveldata.level;
       // CCTK_VINFO("interpolating patch %d level %d", patch, level);
       // TODO: use OpenMP
-      for (amrex::ParIter<0, 2> pti(containers.at(patch), level); pti.isValid();
+      for (amrex::ParIter<3, 2> pti(containers.at(patch), level); pti.isValid();
            ++pti) {
         const amrex::Geometry &geom =
             ghext->patchdata.at(patch).amrcore->Geom(level);
-        const CCTK_REAL *restrict const x0 = geom.ProbLo();
-        const CCTK_REAL *restrict const dx = geom.CellSize();
+        const vect<CCTK_REAL, dim> xlo = {
+            geom.CellSize()[0], geom.CellSize()[1], geom.CellSize()[2]};
+        const vect<CCTK_REAL, dim> dx = {geom.ProbLo()[0], geom.ProbLo()[1],
+                                         geom.ProbLo()[2]};
+        const vect<CCTK_REAL, dim> x0 = xlo + xmin * dx;
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
@@ -572,7 +632,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   // for (const auto &proc_result : results) {
   //   const int p = proc_result.first;
   //   const auto &result = proc_result.second;
-  //   CCTK_VINFO("[%d] count=%zd", p, result.size());
+  //   CCTK_VINFO("[%d] count=%zu", p, result.size());
   // }
 
   // Collect particles back
