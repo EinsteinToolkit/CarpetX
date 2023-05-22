@@ -1,5 +1,5 @@
-#ifndef DRIVER_HXX
-#define DRIVER_HXX
+#ifndef CARPETX_CARPETX_DRIVER_HXX
+#define CARPETX_CARPETX_DRIVER_HXX
 
 #include "loop.hxx"
 #include "valid.hxx"
@@ -347,4 +347,4 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype);
 
 } // namespace CarpetX
 
-#endif // #ifndef DRIVER_HXX
+#endif // #ifndef CARPETX_CARPETX_DRIVER_HXX

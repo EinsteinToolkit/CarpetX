@@ -1,5 +1,5 @@
-#ifndef MAT_HXX
-#define MAT_HXX
+#ifndef CARPETX_ARITH_MAT_HXX
+#define CARPETX_ARITH_MAT_HXX
 
 #include "defs.hxx"
 #include "simd.hxx"
@@ -696,4 +696,4 @@ calc_inv(const mat<T, 4> &g, const T &detg) {
 
 } // namespace Arith
 
-#endif // #ifndef MAT_HXX
+#endif // #ifndef CARPETX_ARITH_MAT_HXX

@@ -1,5 +1,5 @@
-#ifndef DIV_HXX
-#define DIV_HXX
+#ifndef CARPETX_ARITH_DIV_HXX
+#define CARPETX_ARITH_DIV_HXX
 
 #include "defs.hxx"
 
@@ -40,4 +40,4 @@ template <typename T> constexpr ARITH_INLINE T mod_ceil(T x, T y) {
 
 } // namespace Arith
 
-#endif // #ifndef DIV_HXX
+#endif // #ifndef CARPETX_ARITH_DIV_HXX

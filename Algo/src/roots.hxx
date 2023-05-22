@@ -1,5 +1,5 @@
-#ifndef ALGO_HXX
-#define ALGO_HXX
+#ifndef CARPETX_ALGO_ROOTS_HXX
+#define CARPETX_ALGO_ROOTS_HXX
 
 #include <mat.hxx>
 #include <sum.hxx>
@@ -214,4 +214,4 @@ Arith::vec<T, N> newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
 
 } // namespace Algo
 
-#endif // #ifndef ALGO_HXX
+#endif // #ifndef CARPETX_ALGO_ROOTS_HXX

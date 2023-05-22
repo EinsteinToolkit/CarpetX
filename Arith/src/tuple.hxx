@@ -1,5 +1,5 @@
-#ifndef TUPLE_HXX
-#define TUPLE_HXX
+#ifndef CARPETX_ARITH_TUPLE_HXX
+#define CARPETX_ARITH_TUPLE_HXX
 
 #include <cstddef>
 #include <type_traits>
@@ -56,4 +56,4 @@ constexpr decltype(auto) get(std_tuple<Args...> &&x) {
 
 #endif
 
-#endif // #ifndef TUPLE_HXX
+#endif // #ifndef CARPETX_ARITH_TUPLE_HXX

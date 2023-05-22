@@ -1,5 +1,5 @@
-#ifndef PROLONGATE_3D_RF2_HXX
-#define PROLONGATE_3D_RF2_HXX
+#ifndef CARPETX_CARPETX_PROLONGATE_3D_RF2_HXX
+#define CARPETX_CARPETX_PROLONGATE_3D_RF2_HXX
 
 #include "driver.hxx"
 
@@ -495,4 +495,4 @@ extern prolongate_3d_rf2<CC, CC, CC, CONS, CONS, CONS, 3, 3, 3, FB_LINEAR>
 
 } // namespace CarpetX
 
-#endif // #ifndef PROLONGATE_3D_RF2_HXX
+#endif // #ifndef CARPETX_CARPETX_PROLONGATE_3D_RF2_HXX

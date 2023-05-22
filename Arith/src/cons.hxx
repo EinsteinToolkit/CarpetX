@@ -1,5 +1,5 @@
-#ifndef CONS_HXX
-#define CONS_HXX
+#ifndef CARPETX_ARITH_CONS_HXX
+#define CARPETX_ARITH_CONS_HXX
 
 #include "defs.hxx"
 
@@ -107,4 +107,4 @@ struct tuple_element<1, Arith::cons<T1, T2> > {
 
 } // namespace std
 
-#endif // #ifndef CONS_HXX
+#endif // #ifndef CARPETX_ARITH_CONS_HXX

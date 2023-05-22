@@ -1,9 +1,9 @@
-#ifndef FILLPATCH_HXX
-#define FILLPATCH_HXX
-
-#include <functional>
+#ifndef CARPETX_CARPETX_FILLPATCH_HXX
+#define CARPETX_CARPETX_FILLPATCH_HXX
 
 #include "driver.hxx"
+
+#include <functional>
 
 namespace CarpetX {
 
@@ -41,4 +41,4 @@ void FillPatch_RemakeLevel(
 
 } // namespace CarpetX
 
-#endif // #ifndef FILLPATCH_HXX
+#endif // #ifndef CARPETX_CARPETX_FILLPATCH_HXX

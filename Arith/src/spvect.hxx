@@ -1,5 +1,5 @@
-#ifndef SPVECT_HXX
-#define SPVECT_HXX
+#ifndef CARPETX_ARITH_SPVECT_HXX
+#define CARPETX_ARITH_SPVECT_HXX
 
 #include "cons.hxx"
 #include "defs.hxx"
@@ -349,4 +349,4 @@ struct nan<spvect<I, T, V> > {
 
 } // namespace Arith
 
-#endif // #ifndef SPVECT_HXX
+#endif // #ifndef CARPETX_ARITH_SPVECT_HXX

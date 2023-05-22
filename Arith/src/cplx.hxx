@@ -1,5 +1,5 @@
-#ifndef CPLX_HXX
-#define CPLX_HXX
+#ifndef CARPETX_ARITH_CPLX_HXX
+#define CARPETX_ARITH_CPLX_HXX
 
 #include "defs.hxx"
 #include "vect.hxx"
@@ -260,4 +260,4 @@ template <typename T> struct less<Arith::cplx<T> > {
 };
 } // namespace std
 
-#endif // #ifndef CPLX_HXX
+#endif // #ifndef CARPETX_ARITH_CPLX_HXX

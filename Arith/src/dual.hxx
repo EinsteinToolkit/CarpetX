@@ -1,5 +1,5 @@
-#ifndef DUAL_HXX
-#define DUAL_HXX
+#ifndef CARPETX_ARITH_DUAL_HXX
+#define CARPETX_ARITH_DUAL_HXX
 
 #include "defs.hxx"
 #include "simd.hxx"
@@ -319,4 +319,4 @@ if_else(const simdl<T> &cond, const dual<simd<T>, U> &x, const simd<T> &y) {
 
 } // namespace Arith
 
-#endif // #ifndef DUAL_HXX
+#endif // #ifndef CARPETX_ARITH_DUAL_HXX

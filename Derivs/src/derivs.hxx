@@ -1,5 +1,5 @@
-#ifndef DERIVS_HXX
-#define DERIVS_HXX
+#ifndef CARPETX_DERIVS_DERIVS_HXX
+#define CARPETX_DERIVS_DERIVS_HXX
 
 #include <defs.hxx>
 #include <div.hxx>
@@ -516,4 +516,4 @@ calc_derivs2(const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
 
 } // namespace Derivs
 
-#endif // #ifndef DERIVS_HXX
+#endif // #ifndef CARPETX_DERIVS_DERIVS_HXX

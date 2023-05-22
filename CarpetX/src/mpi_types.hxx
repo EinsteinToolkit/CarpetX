@@ -1,5 +1,5 @@
-#ifndef MPI_TYPES_HXX
-#define MPI_TYPES_HXX
+#ifndef CARPETX_CARPETX_MPI_TYPES_HXX
+#define CARPETX_CARPETX_MPI_TYPES_HXX
 
 #include <mpi.h>
 
@@ -55,4 +55,4 @@ template <> struct mpi_datatype<long double> {
 
 } // namespace CarpetX
 
-#endif // #ifndef MPI_TYPES_HXX
+#endif // #ifndef CARPETX_CARPETX_MPI_TYPES_HXX
