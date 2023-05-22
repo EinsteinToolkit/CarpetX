@@ -1,5 +1,5 @@
-#ifndef PDESOLVERS_HXX
-#define PDESOLVERS_HXX
+#ifndef CARPETX_PDESOLVERS_PDESOLVERS_HXX
+#define CARPETX_PDESOLVERS_PDESOLVERS_HXX
 
 #include <spvect.hxx>
 
@@ -101,4 +101,4 @@ extern std::optional<jacobians_t> jacobians;
 
 } // namespace PDESolvers
 
-#endif // #ifndef PDESOLVERS_HXX
+#endif // #ifndef CARPETX_PDESOLVERS_PDESOLVERS_HXX
