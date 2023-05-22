@@ -1,5 +1,5 @@
-#ifndef LOOP_HXX
-#define LOOP_HXX
+#ifndef CARPETX_LOOP_LOOP_HXX
+#define CARPETX_LOOP_LOOP_HXX
 
 #include <AMReX_FArrayBox.H>
 
@@ -1381,4 +1381,4 @@ public:
 
 #endif
 
-#endif // #ifndef LOOP_HXX
+#endif // #ifndef CARPETX_LOOP_LOOP_HXX

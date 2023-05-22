@@ -1,5 +1,5 @@
-#ifndef LOOP_DEVICE_HXX
-#define LOOP_DEVICE_HXX
+#ifndef CARPETX_LOOP_LOOP_DEVICE_HXX
+#define CARPETX_LOOP_LOOP_DEVICE_HXX
 
 #include "loop.hxx"
 
@@ -501,4 +501,4 @@ loop_device_idx(const cGH *cctkGH, const vect<int, dim> &indextype,
 #undef CCTK_CENTERING_GRID
 #define CCTK_CENTERING_GRID const Loop::GridDescBaseDevice cctk_grid(cctkGH)
 
-#endif // #ifndef LOOP_DEVICE_HXX
+#endif // #ifndef CARPETX_LOOP_LOOP_DEVICE_HXX
