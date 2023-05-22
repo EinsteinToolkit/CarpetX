@@ -129,7 +129,7 @@ void OutputTSVold(const cGH *restrict cctkGH) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void WriteTSVScalars(const cGH *restrict cctkGH, const string &filename,
-                     int gi) {
+                     const int gi) {
   // Output only on root process
   if (CCTK_MyProc(nullptr) > 0)
     return;
@@ -161,8 +161,8 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const string &filename,
   file << "\n";
 }
 
-void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
-                 const vect<bool, dim> outdirs,
+void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
+                 const int gi, const vect<bool, dim> &outdirs,
                  const vect<CCTK_REAL, dim> &outcoords) {
   const auto &groupdata0 =
       *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
@@ -186,8 +186,7 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
       vect<CCTK_REAL, dim> x0, dx;
       for (int d = 0; d < dim; ++d) {
         dx[d] = geom.CellSize(d);
-        x0[d] =
-            geom.ProbLo(d) + CCTK_REAL(0.5) * groupdata.indextype[d] * dx[d];
+        x0[d] = geom.ProbLo(d) + groupdata.indextype[d] * dx[d] / 2;
       }
       vect<int, dim> icoord;
       for (int d = 0; d < dim; ++d)
@@ -199,17 +198,23 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
       const auto &mfab = *groupdata.mfab.at(tl);
       for (amrex::MFIter mfi(mfab); mfi.isValid(); ++mfi) {
         const amrex::Array4<const CCTK_REAL> &vars = mfab.array(mfi);
-        const vect<int, dim> vmin = {vars.begin.x, vars.begin.y, vars.begin.z};
-        const vect<int, dim> vmax = {vars.end.x, vars.end.y, vars.end.z};
+        // Ignore ghosts
+        const vect<int, dim> nghosts = {mfab.nGrow(0), mfab.nGrow(1),
+                                        mfab.nGrow(2)};
+        const vect<int, dim> varmin = {vars.begin.x, vars.begin.y,
+                                       vars.begin.z};
+        const vect<int, dim> varmax = {vars.end.x, vars.end.y, vars.end.z};
+        const vect<int, dim> intmin = varmin + nghosts;
+        const vect<int, dim> intmax = varmax - nghosts;
 
         bool output_something = true;
         vect<int, dim> imin, imax;
         for (int d = 0; d < dim; ++d) {
           if (outdirs[d]) {
             // output everything
-            imin[d] = vmin[d];
-            imax[d] = vmax[d];
-          } else if (icoord[d] >= vmin[d] && icoord[d] < vmax[d]) {
+            imin[d] = intmin[d];
+            imax[d] = intmax[d];
+          } else if (icoord[d] >= intmin[d] && icoord[d] < intmax[d]) {
             // output one point
             imin[d] = icoord[d];
             imax[d] = icoord[d] + 1;
