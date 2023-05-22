@@ -1,5 +1,5 @@
-#ifndef SIMD_HXX
-#define SIMD_HXX
+#ifndef CARPETX_ARITH_SIMD_HXX
+#define CARPETX_ARITH_SIMD_HXX
 
 #include "defs.hxx"
 
@@ -1357,4 +1357,4 @@ template <typename T> struct one<simdl<T> > {
 };
 } // namespace Arith
 
-#endif // #ifndef SIMD_HXX
+#endif // #ifndef CARPETX_ARITH_SIMD_HXX

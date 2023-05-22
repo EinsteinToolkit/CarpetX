@@ -1,5 +1,5 @@
-#ifndef SUM_HXX
-#define SUM_HXX
+#ifndef CARPETX_ARITH_SUM_HXX
+#define CARPETX_ARITH_SUM_HXX
 
 #include "defs.hxx"
 #include "vect.hxx"
@@ -97,4 +97,4 @@ constexpr ARITH_INLINE
 
 } // namespace Arith
 
-#endif
+#endif // #ifndef CARPETX_ARITH_SUM_HXX

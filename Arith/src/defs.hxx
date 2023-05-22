@@ -1,5 +1,5 @@
-#ifndef DEFS_HXX
-#define DEFS_HXX
+#ifndef CARPETX_ARITH_DEFS_HXX
+#define CARPETX_ARITH_DEFS_HXX
 
 #include <cctk.h>
 
@@ -291,4 +291,4 @@ constexpr T lincom(const I &i0, const T &x0, const I &i1, const T &x1,
 
 } // namespace Arith
 
-#endif // #ifndef DEFS_HXX
+#endif // #ifndef CARPETX_ARITH_DEFS_HXX
