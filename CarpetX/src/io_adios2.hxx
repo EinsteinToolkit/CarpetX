@@ -1,5 +1,5 @@
-#ifndef IO_ADIOS2_HXX
-#define IO_ADIOS2_HXX
+#ifndef CARPETX_CARPETX_IO_ADIOS2_HXX
+#define CARPETX_CARPETX_IO_ADIOS2_HXX
 
 #include <cctk.h>
 
@@ -26,4 +26,4 @@ void OutputADIOS2(const cGH *cctkGH, const std::vector<bool> &output_group,
 
 #endif
 
-#endif // #ifndef IO_ADIOS2_HXX
+#endif // #ifndef CARPETX_CARPETX_IO_ADIOS2_HXX

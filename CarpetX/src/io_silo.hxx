@@ -1,5 +1,5 @@
-#ifndef IO_SILO_HXX
-#define IO_SILO_HXX
+#ifndef CARPETX_CARPETX_IO_SILO_HXX
+#define CARPETX_CARPETX_IO_SILO_HXX
 
 #include <cctk.h>
 
@@ -24,4 +24,4 @@ void OutputSilo(const cGH *cctkGH, const std::vector<bool> &output_group,
 
 #endif
 
-#endif // #ifndef IO_SILO_HXX
+#endif // #ifndef CARPETX_CARPETX_IO_SILO_HXX

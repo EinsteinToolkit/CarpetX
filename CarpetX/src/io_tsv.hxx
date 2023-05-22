@@ -1,5 +1,5 @@
-#ifndef IO_TSV_HXX
-#define IO_TSV_HXX
+#ifndef CARPETX_CARPETX_IO_TSV_HXX
+#define CARPETX_CARPETX_IO_TSV_HXX
 
 #include <cctk.h>
 
@@ -10,4 +10,4 @@ void OutputTSV(const cGH *restrict cctkGH);
 
 } // namespace CarpetX
 
-#endif // #ifndef IO_TSV_HXX
+#endif // #ifndef CARPETX_CARPETX_IO_TSV_HXX

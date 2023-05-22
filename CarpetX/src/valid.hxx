@@ -1,5 +1,5 @@
-#ifndef VALID_HXX
-#define VALID_HXX
+#ifndef CARPETX_CARPETX_VALID_HXX
+#define CARPETX_CARPETX_VALID_HXX
 
 #include <tuple.hxx>
 
@@ -228,4 +228,4 @@ void check_checksums(const checksums_t &checksums,
 
 } // namespace CarpetX
 
-#endif // #ifndef VALID_HXX
+#endif // #ifndef CARPETX_CARPETX_VALID_HXX

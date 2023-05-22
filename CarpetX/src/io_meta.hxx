@@ -1,5 +1,5 @@
-#ifndef IO_META_HXX
-#define IO_META_HXX
+#ifndef CARPETX_CARPETX_IO_META_HXX
+#define CARPETX_CARPETX_IO_META_HXX
 
 #include <cctk.h>
 
@@ -53,4 +53,4 @@ void OutputMeta(const cGH *);
 
 } // namespace CarpetX
 
-#endif // #ifndef IO_META_HXX
+#endif // #ifndef CARPETX_CARPETX_IO_META_HXX

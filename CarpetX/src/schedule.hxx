@@ -1,5 +1,5 @@
-#ifndef SCHEDULE_HXX
-#define SCHEDULE_HXX
+#ifndef CARPETX_CARPETX_SCHEDULE_HXX
+#define CARPETX_CARPETX_SCHEDULE_HXX
 
 #include "driver.hxx"
 #include "loop.hxx"
@@ -275,4 +275,4 @@ void check_valid(const GHExt::GlobalData::ArrayGroupData &groupdata, int vi,
 
 } // namespace CarpetX
 
-#endif // #ifndef SCHEDULE_HXX
+#endif // #ifndef CARPETX_CARPETX_SCHEDULE_HXX

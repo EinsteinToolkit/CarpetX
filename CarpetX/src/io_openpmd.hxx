@@ -1,5 +1,5 @@
-#ifndef IO_OPENPMD_HXX
-#define IO_OPENPMD_HXX
+#ifndef CARPETX_CARPETX_IO_OPENPMD_HXX
+#define CARPETX_CARPETX_IO_OPENPMD_HXX
 
 #include <cctk.h>
 
@@ -26,4 +26,4 @@ void OutputOpenPMD(const cGH *cctkGH, const std::vector<bool> &output_group,
 
 #endif
 
-#endif // #ifndef IO_OPENPMD_HXX
+#endif // #ifndef CARPETX_CARPETX_IO_OPENPMD_HXX
