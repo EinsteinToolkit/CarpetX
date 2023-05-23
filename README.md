@@ -20,4 +20,4 @@ The recorded talk "[Using CarpetX: A Guide for Early Adopters](http://einsteinto
 
 ## Getting started
 
-Instructions for downloading the Einstein Toolkit including CarpetX, building, and running an example are available on the [wiki](https://github.com/eschnett/CarpetX/wiki/Getting-Started)
+Instructions for downloading the Einstein Toolkit including CarpetX, building, and running an example are available on the [Wiki](https://github.com/eschnett/CarpetX/wiki/Getting-Started).
