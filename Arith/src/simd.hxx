@@ -491,13 +491,13 @@ template <typename T> struct simd {
                                                      const simd &y) {
     count_flop();
     using std::max;
-    return max(simd(a), y.elts);
+    return max(simd(a), y);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmax(const simd &x,
                                                      const T &b) {
     count_flop();
     using std::max;
-    return max(x.elts, simd(b));
+    return max(x, simd(b));
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmin(const simd &x,
@@ -510,13 +510,13 @@ template <typename T> struct simd {
                                                      const simd &y) {
     count_flop();
     using std::min;
-    return min(simd(a), y.elts);
+    return min(simd(a), y);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmin(const simd &x,
                                                      const T &b) {
     count_flop();
     using std::min;
-    return min(x.elts, simd(b));
+    return min(x, simd(b));
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> isfinite(const simd &x) {
@@ -546,12 +546,12 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd max(const simd &x, const T &b) {
     count_flop();
     using std::max;
-    return max(x.elts, simd(b));
+    return max(x, simd(b));
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd max(const T &a, const simd &y) {
     count_flop();
     using std::max;
-    return max(simd(a), y.elts);
+    return max(simd(a), y);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd
   max(std::initializer_list<simd> xs) {
@@ -571,12 +571,12 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd min(const T &a, const simd &y) {
     count_flop();
     using std::min;
-    return min(simd(a), y.elts);
+    return min(simd(a), y);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd min(const simd &x, const T &b) {
     count_flop();
     using std::min;
-    return min(x.elts, simd(b));
+    return min(x, simd(b));
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd
   min(std::initializer_list<simd> xs) {
