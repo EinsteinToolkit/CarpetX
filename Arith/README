@@ -16,9 +16,6 @@ Licence      : LGPL
 - `dual.hxx`: Dual numbers
   <https://en.wikipedia.org/wiki/Dual_number>.
 
-- `fixmath.hxx`: Work-around for a bug regarding `std::isnan` and
-  friends in the flesh.
-
 - `rational.hxx`: Rational numbers
 
 - `simd.hxx`: SIMD vectors, based on NSIMD
