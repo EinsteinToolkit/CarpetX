@@ -1,6 +1,13 @@
 #ifndef CARPETX_ARITH_SIMD_HXX
 #define CARPETX_ARITH_SIMD_HXX
 
+// Disable SIMD when the `NSIMD` library is not available
+#ifndef HAVE_CAPABILITY_NSIMD
+#ifndef SIMD_CPU
+#define SIMD_CPU
+#endif
+#endif
+
 #include "defs.hxx"
 
 #ifndef SIMD_CPU
