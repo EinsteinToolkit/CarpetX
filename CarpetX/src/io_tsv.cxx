@@ -219,7 +219,9 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
         vect<vect<bool, dim>, 2> bbox;
         for (int d = 0; d < dim; ++d)
           for (int f = 0; f < 2; ++f)
-            bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)] + (f == 1) &&
+            bbox[f][d] = vbx[orient(d, f)] ==
+                             domain[orient(d, f)] +
+                                 (groupdata.indextype[d] == 0 && f == 1) &&
                          symmetries[f][d] != symmetry_t::none;
 
         const vect<int, dim> varmin = {vars.begin.x, vars.begin.y,
