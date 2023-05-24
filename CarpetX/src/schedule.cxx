@@ -120,8 +120,10 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
   const auto &symmetries = ghext->patchdata.at(leveldata.patch).symmetries;
   for (int d = 0; d < dim; ++d)
     for (int f = 0; f < 2; ++f)
-      bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)] + (f == 1) &&
-                   symmetries[f][d] != symmetry_t::none;
+      bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)]
+#warning "TODO"
+                   // TODO + (f == 1)
+                   && symmetries[f][d] != symmetry_t::none;
 
   // Thread tile box
   for (int d = 0; d < dim; ++d) {
