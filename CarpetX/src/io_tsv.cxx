@@ -181,8 +181,17 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
   for (const auto &patchdata : ghext->patchdata) {
     for (const auto &leveldata : patchdata.leveldata) {
       const auto &groupdata = *leveldata.groupdata.at(gi);
+
       const int tl = 0;
+
+      // Convert a (direction, face) pair to an AMReX Orientation
+      const auto orient = [&](int d, int f) {
+        return amrex::Orientation(d, amrex::Orientation::Side(f));
+      };
+
       const auto &geom = patchdata.amrcore->Geom(leveldata.level);
+      const amrex::Box &domain =
+          patchdata.amrcore->Geom(leveldata.level).Domain();
       vect<CCTK_REAL, dim> x0, dx;
       for (int d = 0; d < dim; ++d) {
         dx[d] = geom.CellSize(d);
@@ -195,17 +204,31 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
         else
           icoord[d] = lrint((outcoords[d] - x0[d]) / dx[d]);
 
+      const auto &symmetries = ghext->patchdata.at(leveldata.patch).symmetries;
+
       const auto &mfab = *groupdata.mfab.at(tl);
+
+      const vect<int, dim> nghosts = {mfab.nGrow(0), mfab.nGrow(1),
+                                      mfab.nGrow(2)};
+
       for (amrex::MFIter mfi(mfab); mfi.isValid(); ++mfi) {
         const amrex::Array4<const CCTK_REAL> &vars = mfab.array(mfi);
-        // Ignore ghosts
-        const vect<int, dim> nghosts = {mfab.nGrow(0), mfab.nGrow(1),
-                                        mfab.nGrow(2)};
+
+        const amrex::Box &vbx =
+            mfi.validbox(); // interior region (without ghosts)
+        vect<vect<bool, dim>, 2> bbox;
+        for (int d = 0; d < dim; ++d)
+          for (int f = 0; f < 2; ++f)
+            bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)] + (f == 1) &&
+                         symmetries[f][d] != symmetry_t::none;
+
         const vect<int, dim> varmin = {vars.begin.x, vars.begin.y,
                                        vars.begin.z};
         const vect<int, dim> varmax = {vars.end.x, vars.end.y, vars.end.z};
-        const vect<int, dim> intmin = varmin + nghosts;
-        const vect<int, dim> intmax = varmax - nghosts;
+
+        // Skip ghost points but keep boundary points
+        const vect<int, dim> intmin = varmin + !bbox[0] * nghosts;
+        const vect<int, dim> intmax = varmax - !bbox[1] * nghosts;
 
         bool output_something = true;
         vect<int, dim> imin, imax;
