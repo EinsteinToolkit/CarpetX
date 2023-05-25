@@ -1028,6 +1028,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     series->setIterationEncoding(iterationEncoding);
 
     {
+      // Does not work in containers
       char const *const user = getenv("USER");
       if (user)
         series->setAuthor(user);

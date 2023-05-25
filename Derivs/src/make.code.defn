@@ -1,7 +1,7 @@
 # Main make.code.defn file for thorn Derivs
 
 # Source files in this directory
-SRCS = derivs.cxx
+SRCS =
 
 # Subdirectories containing source files
 SUBDIRS =
