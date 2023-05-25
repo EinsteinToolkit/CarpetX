@@ -1,5 +1,6 @@
-#ifndef Derivs_derivx_hxx
-#define Derivs_derivx_hxx
+#ifndef CARPETX_DERIVS_DERIVS_HXX
+#define CARPETX_DERIVS_DERIVS_HXX
+
 #include <loop_device.hxx>
 #include <mat.hxx>
 #include <simd.hxx>
@@ -507,4 +508,4 @@ void CCTK_ATTRIBUTE_NOINLINE calc_copy(const cGH *restrict const cctkGH,
       calc_copy(cctkGH, gf0_(a, b), gf_(a, b), layout);
 }
 
-#endif
+#endif // #ifndef CARPETX_DERIVS_DERIVS_HXX

@@ -1,5 +1,5 @@
-#ifndef TYPEPROPS_HH
-#define TYPEPROPS_HH
+#ifndef CARPETX_CARPETX_TYPEPROPS_HH
+#define CARPETX_CARPETX_TYPEPROPS_HH
 
 #include <cctk.h>
 
@@ -83,4 +83,4 @@ static inline int specific_cactus_type(int const vartype) {
 }
 } // namespace CarpetLib
 
-#endif // #ifndef TYPEPROPS_HH
+#endif // #ifndef CARPETX_CARPETX_TYPEPROPS_HH

@@ -1,5 +1,5 @@
-#ifndef BOUNDARIES_HXX
-#define BOUNDARIES_HXX
+#ifndef CARPETX_CARPETX_BOUNDARIES_HXX
+#define CARPETX_CARPETX_BOUNDARIES_HXX
 
 #include "driver.hxx"
 #include "loop_device.hxx"
@@ -54,4 +54,4 @@ struct BoundaryCondition {
 
 } // namespace CarpetX
 
-#endif // #ifndef BOUNDARIES_HXX
+#endif // #ifndef CARPETX_CARPETX_BOUNDARIES_HXX

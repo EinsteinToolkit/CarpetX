@@ -1,5 +1,5 @@
-#ifndef REDUCTION_HXX
-#define REDUCTION_HXX
+#ifndef CARPETX_CARPETX_REDUCTION_HXX
+#define CARPETX_CARPETX_REDUCTION_HXX
 
 #include "vect.hxx"
 
@@ -115,4 +115,4 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl);
 
 } // namespace CarpetX
 
-#endif // #ifndef REDUCTION_HXX
+#endif // #ifndef CARPETX_CARPETX_REDUCTION_HXX

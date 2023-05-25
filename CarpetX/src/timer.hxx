@@ -1,5 +1,5 @@
-#ifndef TIMER_HXX
-#define TIMER_HXX
+#ifndef CARPETX_CARPETX_TIMER_HXX
+#define CARPETX_CARPETX_TIMER_HXX
 
 #include <cctk.h>
 
@@ -47,4 +47,4 @@ public:
 
 } // namespace CarpetX
 
-#endif // #ifndef TIMER_HXX
+#endif // #ifndef CARPETX_CARPETX_TIMER_HXX

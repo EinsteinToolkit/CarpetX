@@ -8,6 +8,7 @@
 #include <AMReX_MultiFabUtil.H>
 #include <AMReX_Orientation.H>
 
+#include <bitset>
 #include <cstdlib>
 #include <sstream>
 #include <string>
@@ -82,29 +83,68 @@ namespace {
 template <typename T>
 reduction<T, dim>
 reduce_array(const amrex::Array4<const T> &restrict vars, const int n,
-             const array<int, dim> &imin, const array<int, dim> &imax,
+             const vect<int, dim> &tmin, const vect<int, dim> &tmax,
+             const vect<int, dim> &indextype, const vect<int, dim> &imin,
+             const vect<int, dim> &imax,
              const amrex::Array4<const int> *restrict const finemask,
              const vect<T, dim> &x0, const vect<T, dim> &dx) {
-  CCTK_REAL dV = 1.0;
-  // TODO: correct this for vertex quantities or document / remove sum like
-  // reductions for vertex quantities (though this would affect things like
-  // norm2 as well as "sum" itself)
-  for (int d = 0; d < dim; ++d)
-    dV *= dx[d];
+  constexpr vect<vect<int, dim>, dim> di = {vect<int, dim>::unit(0),
+                                            vect<int, dim>::unit(1),
+                                            vect<int, dim>::unit(2)};
+  constexpr vect<vect<vect<int, dim>, dim>, 2> dirs = {-di, +di};
+
+  constexpr vect<vect<std::bitset<8>, dim>, 2> faces = {
+      {0b01010101, 0b00110011, 0b00001111},
+      {0b10101010, 0b11001100, 0b11110000}};
+
+  const vect<vect<int, dim>, 2> ibnd = {imin, imax - 1};
+
+  const auto masked = [&](const vect<int, dim> &ipos) {
+    return finemask && (*finemask)(ipos[0], ipos[1], ipos[2]);
+  };
+
+  const CCTK_REAL dV = prod(dx);
+
   // Use per-loop reduction objects to reduce round-off error
   reduction<T, dim> redk;
-  // TODO: use loop.hxx codoe to loop over grid
-  for (int k = imin[2]; k < imax[2]; ++k) {
+  // TODO: use loop.hxx code to loop over grid
+  for (int k = tmin[2]; k < tmax[2]; ++k) {
     reduction<T, dim> redj;
-    for (int j = imin[1]; j < imax[1]; ++j) {
-      // #pragma omp simd reduction(red : reduction_CCTK_REAL)
+    for (int j = tmin[1]; j < tmax[1]; ++j) {
       reduction<T, dim> redi;
-      for (int i = imin[0]; i < imax[0]; ++i) {
-        const bool is_masked = finemask && (*finemask)(i, j, k);
-        if (!is_masked) {
-          const vect<T, dim> x = {x0[0] + i * dx[0], x0[1] + j * dx[1],
-                                  x0[2] + k * dx[2]};
-          redi += reduction<T, dim>(x, dV, vars(i, j, k, n));
+      for (int i = tmin[0]; i < tmax[0]; ++i) {
+        const vect<int, dim> ipos = {i, j, k};
+
+        // For vertex-centred grids, ensure that points at the outer boundary
+        // are counted with a weight of 1/2
+        std::bitset<8> outer_active = 0b11111111;
+        for (int f = 0; f < 2; ++f)
+          for (int d = 0; d < dim; ++d)
+            if (indextype[d] == 0 && ipos[d] == ibnd[f][d])
+              outer_active &= ~faces[f][d];
+
+        // For vertex-centred grids, ensure that points at refinement boundaries
+        // are counted with a weight of 1/2
+        std::bitset<8> inner_active;
+        if (!masked(ipos)) {
+          inner_active = 0b11111111;
+        } else {
+          inner_active = 0b00000000;
+          for (int f = 0; f < 2; ++f)
+            for (int d = 0; d < dim; ++d)
+              if (indextype[d] == 0 &&
+                  !(ipos[d] != ibnd[f][d] && masked(ipos + dirs[f][d])))
+                inner_active |= faces[f][d];
+        }
+
+        assert((~outer_active & ~inner_active).none());
+
+        const std::bitset<8> active = outer_active & inner_active;
+        if (active.any()) {
+          const T W = active.count() / T(active.size());
+
+          const vect<T, dim> x = x0 + ipos * dx;
+          redi += reduction<T, dim>(x, W * dV, vars(i, j, k, n));
         }
       }
       redj += redi;
@@ -124,26 +164,24 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
   assert(group.grouptype == CCTK_GF);
 
   reduction<CCTK_REAL, dim> red;
+  // TODO: Parallelize over patches and levels
   for (auto &restrict patchdata : ghext->patchdata) {
     for (auto &restrict leveldata : patchdata.leveldata) {
       const auto &restrict groupdata = *leveldata.groupdata.at(gi);
       const amrex::MultiFab &mfab = *groupdata.mfab.at(tl);
-#warning                                                                       \
-    "TODO: Don't overcount vertex-centred grid boundaries; introduce a weight function"
       unique_ptr<amrex::iMultiFab> finemask_imfab;
 
       warn_if_invalid(groupdata, vi, tl, make_valid_int(),
                       []() { return "Before reduction"; });
 
+      const vect<int, dim> indextype = groupdata.indextype;
+
       const auto &restrict geom = patchdata.amrcore->Geom(leveldata.level);
       const CCTK_REAL *restrict const x01 = geom.ProbLo();
       const CCTK_REAL *restrict const dx1 = geom.CellSize();
       const vect<CCTK_REAL, dim> dx = {dx1[0], dx1[1], dx1[2]};
-      const vect<CCTK_REAL, dim> x0 = {
-          x01[0] + (mfab.ixType()[0] == amrex::IndexType::CELL ? dx[0] / 2 : 0),
-          x01[1] + (mfab.ixType()[1] == amrex::IndexType::CELL ? dx[1] / 2 : 0),
-          x01[2] + (mfab.ixType()[2] == amrex::IndexType::CELL ? dx[2] / 2 : 0),
-      };
+      const vect<CCTK_REAL, dim> x0v = {x01[0], x01[1], x01[2]};
+      const auto x0 = x0v + indextype * dx / 2;
 
       const int fine_level = leveldata.level + 1;
       if (fine_level < int(patchdata.leveldata.size())) {
@@ -153,30 +191,47 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
         const amrex::MultiFab &fine_mfab = *fine_groupdata.mfab.at(tl);
 
         const amrex::IntVect reffact{2, 2, 2};
-        finemask_imfab = make_unique<amrex::iMultiFab>(
-            makeFineMask(mfab, fine_mfab.boxArray(), reffact));
+
+        finemask_imfab = make_unique<amrex::iMultiFab>(makeFineMask(
+            mfab, fine_mfab.boxArray(), reffact, geom.periodicity(),
+            /*coarse value*/ 0, /* fine value */ 1));
       }
 
       auto mfitinfo = amrex::MFItInfo().SetDynamic(true).EnableTiling();
-      // TODO: check that multi-threading actually helps and we are not
-      // dominated my memory latency anyway
+      // TODO: check that multi-threading actually helps (and we are
+      // not dominated by memory latency)
       // TODO: document required version of OpenMP to use custom reductions
 #pragma omp parallel reduction(reduction : red)
       for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi) {
-        const amrex::Box &bx = mfi.tilebox(); // current region (without ghosts)
-        const array<int, dim> imin{bx.smallEnd(0), bx.smallEnd(1),
-                                   bx.smallEnd(2)};
-        const array<int, dim> imax{bx.bigEnd(0) + 1, bx.bigEnd(1) + 1,
-                                   bx.bigEnd(2) + 1};
+        const amrex::Box &bx = mfi.tilebox(); // current tile (without ghosts)
+        const vect<int, dim> tmin{bx.smallEnd(0), bx.smallEnd(1),
+                                  bx.smallEnd(2)};
+        const vect<int, dim> tmax{bx.bigEnd(0) + 1, bx.bigEnd(1) + 1,
+                                  bx.bigEnd(2) + 1};
+        const amrex::Box &vbx =
+            mfi.validbox(); // interior region (without ghosts)
+        const vect<int, dim> imin{vbx.smallEnd(0), vbx.smallEnd(1),
+                                  vbx.smallEnd(2)};
+        const vect<int, dim> imax{vbx.bigEnd(0) + 1, vbx.bigEnd(1) + 1,
+                                  vbx.bigEnd(2) + 1};
 
         const amrex::Array4<const CCTK_REAL> &vars = mfab.array(mfi);
 
         unique_ptr<amrex::Array4<const int> > finemask;
-        if (finemask_imfab)
+        if (finemask_imfab) {
           finemask = make_unique<amrex::Array4<const int> >(
               finemask_imfab->array(mfi));
+          // Ensure the mask has the correct size
+          assert(finemask->begin.x == vars.begin.x);
+          assert(finemask->begin.y == vars.begin.y);
+          assert(finemask->begin.z == vars.begin.z);
+          assert(finemask->end.x == vars.end.x);
+          assert(finemask->end.y == vars.end.y);
+          assert(finemask->end.z == vars.end.z);
+        }
 
-        red += reduce_array(vars, vi, imin, imax, finemask.get(), x0, dx);
+        red += reduce_array(vars, vi, tmin, tmax, indextype, imin, imax,
+                            finemask.get(), x0, dx);
       }
     }
   }

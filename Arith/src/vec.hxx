@@ -1,5 +1,5 @@
-#ifndef VEC_HXX
-#define VEC_HXX
+#ifndef CARPETX_ARITH_VEC_HXX
+#define CARPETX_ARITH_VEC_HXX
 
 #include "defs.hxx"
 #include "dual.hxx"
@@ -356,4 +356,4 @@ constexpr vec<dual<simd<T>, U>, D> if_else(const simdl<T> &cond,
 
 } // namespace Arith
 
-#endif // #ifndef VEC_HXX
+#endif // #ifndef CARPETX_ARITH_VEC_HXX

@@ -1,5 +1,5 @@
-#ifndef RATIONAL_HXX
-#define RATIONAL_HXX
+#ifndef CARPETX_ARITH_RATIONAL_HXX
+#define CARPETX_ARITH_RATIONAL_HXX
 
 #include <cctk.h>
 
@@ -271,4 +271,4 @@ template <typename I> struct rational {
 
 } // namespace Arith
 
-#endif // #ifndef RATIONAL_HXX
+#endif // #ifndef CARPETX_ARITH_RATIONAL_HXX

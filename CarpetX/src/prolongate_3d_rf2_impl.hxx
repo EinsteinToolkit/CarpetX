@@ -1,3 +1,6 @@
+#ifndef CARPETX_CARPETX_PROLONGATE_3D_RF2_IMPL_HXX
+#define CARPETX_CARPETX_PROLONGATE_3D_RF2_IMPL_HXX
+
 #include "prolongate_3d_rf2.hxx"
 
 #include "timer.hxx"
@@ -1493,3 +1496,5 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 }
 
 } // namespace CarpetX
+
+#endif // #ifndef CARPETX_CARPETX_PROLONGATE_3D_RF2_IMPL_HXX

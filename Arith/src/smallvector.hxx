@@ -1,5 +1,5 @@
-#ifndef SMALLVECTOR_HXX
-#define SMALLVECTOR_HXX
+#ifndef CARPETX_ARITH_SMALLVECTOR_HXX
+#define CARPETX_ARITH_SMALLVECTOR_HXX
 
 #include "defs.hxx"
 #include "vect.hxx"
@@ -318,4 +318,4 @@ template <typename T, std::size_t N> struct nan<smallvector<T, N> > {
 
 } // namespace Arith
 
-#endif // #ifndef SMALLVECTOR_HXX
+#endif // #ifndef CARPETX_ARITH_SMALLVECTOR_HXX

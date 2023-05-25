@@ -1,5 +1,5 @@
-#ifndef TEN3_HXX
-#define TEN3_HXX
+#ifndef CARPETX_ARITH_TEN3_HXX
+#define CARPETX_ARITH_TEN3_HXX
 
 #include "defs.hxx"
 #include "simd.hxx"
@@ -424,4 +424,4 @@ constexpr gten3<simd<T>, D, symm> if_else(const simdl<T> &cond,
 
 } // namespace Arith
 
-#endif // #ifndef TEN3_HXX
+#endif // #ifndef CARPETX_ARITH_TEN3_HXX

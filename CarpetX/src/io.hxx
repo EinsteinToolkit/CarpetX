@@ -1,5 +1,5 @@
-#ifndef IO_HXX
-#define IO_HXX
+#ifndef CARPETX_CARPETX_IO_HXX
+#define CARPETX_CARPETX_IO_HXX
 
 #include <cctk.h>
 
@@ -13,4 +13,4 @@ int OutputGH(const cGH *cctkGH);
 
 } // namespace CarpetX
 
-#endif // #ifndef IO_HXX
+#endif // #ifndef CARPETX_CARPETX_IO_HXX

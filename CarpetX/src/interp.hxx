@@ -1,5 +1,5 @@
-#ifndef INTERP_HXX
-#define INTERP_HXX
+#ifndef CARPETX_CARPETX_INTERP_HXX
+#define CARPETX_CARPETX_INTERP_HXX
 
 #include <cctk.h>
 
@@ -22,4 +22,4 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
     CCTK_INT const N_output_arrays, CCTK_INT const output_array_type_codes[],
     CCTK_POINTER const output_arrays[]);
 
-#endif // #ifndef INTERP_HXX
+#endif // #ifndef CARPETX_CARPETX_INTERP_HXX

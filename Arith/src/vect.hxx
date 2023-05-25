@@ -1,5 +1,5 @@
-#ifndef VECT_HXX
-#define VECT_HXX
+#ifndef CARPETX_ARITH_VECT_HXX
+#define CARPETX_ARITH_VECT_HXX
 
 #include "defs.hxx"
 #include "div.hxx"
@@ -863,4 +863,4 @@ constexpr vect<simd<T>, D> if_else(const simdl<T> &cond,
 
 } // namespace Arith
 
-#endif // #ifndef VECT_HXX
+#endif // #ifndef CARPETX_ARITH_VECT_HXX

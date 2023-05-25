@@ -1,11 +1,23 @@
-#ifndef SIMD_HXX
-#define SIMD_HXX
+#ifndef CARPETX_ARITH_SIMD_HXX
+#define CARPETX_ARITH_SIMD_HXX
+
+// This does not work -- when this file `simd.hxx` is `#include`d from
+// other thorns, then `HAVE_CAPABILITY_NSIMD` will not be defined.
+// This needs to be handled in a configuration script instead.
+
+// // Disable SIMD when the `NSIMD` library is not available
+// #ifndef HAVE_CAPABILITY_NSIMD
+// #ifndef SIMD_CPU
+// #define SIMD_CPU
+// #endif
+// #endif
 
 #include "defs.hxx"
 
 #ifndef SIMD_CPU
 #include <nsimd/nsimd-all.hpp>
 #undef vec // This should arguably not be defined in C++
+#else
 #endif
 
 #include <algorithm>
@@ -491,13 +503,13 @@ template <typename T> struct simd {
                                                      const simd &y) {
     count_flop();
     using std::max;
-    return max(simd(a), y.elts);
+    return max(simd(a), y);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmax(const simd &x,
                                                      const T &b) {
     count_flop();
     using std::max;
-    return max(x.elts, simd(b));
+    return max(x, simd(b));
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmin(const simd &x,
@@ -510,13 +522,13 @@ template <typename T> struct simd {
                                                      const simd &y) {
     count_flop();
     using std::min;
-    return min(simd(a), y.elts);
+    return min(simd(a), y);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd fmin(const simd &x,
                                                      const T &b) {
     count_flop();
     using std::min;
-    return min(x.elts, simd(b));
+    return min(x, simd(b));
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> isfinite(const simd &x) {
@@ -546,12 +558,12 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd max(const simd &x, const T &b) {
     count_flop();
     using std::max;
-    return max(x.elts, simd(b));
+    return max(x, simd(b));
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd max(const T &a, const simd &y) {
     count_flop();
     using std::max;
-    return max(simd(a), y.elts);
+    return max(simd(a), y);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd
   max(std::initializer_list<simd> xs) {
@@ -571,12 +583,12 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simd min(const T &a, const simd &y) {
     count_flop();
     using std::min;
-    return min(simd(a), y.elts);
+    return min(simd(a), y);
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd min(const simd &x, const T &b) {
     count_flop();
     using std::min;
-    return min(x.elts, simd(b));
+    return min(x, simd(b));
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd
   min(std::initializer_list<simd> xs) {
@@ -970,9 +982,9 @@ masko_loadu(const simdl<T> &mask, const T *ptr, const U &other) {
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> acos(const simd<T> &x) {
   simd<T>::count_memop(10);
-  alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
+  alignas(simd<T>) T xarr[simd<T>::storage_size];
   storea(xarr, x);
-  alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
+  alignas(simd<T>) T yarr[simd<T>::storage_size];
   using std::acos;
   for (std::size_t n = 0; n < x.size(); ++n)
     yarr[n] = acos(xarr[n]);
@@ -983,9 +995,9 @@ ARITH_DEVICE ARITH_HOST inline simd<T> acos(const simd<T> &x) {
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> cbrt(const simd<T> &x) {
   simd<T>::count_memop(10);
-  alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
+  alignas(simd<T>) T xarr[simd<T>::storage_size];
   storea(xarr, x);
-  alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
+  alignas(simd<T>) T yarr[simd<T>::storage_size];
   using std::cbrt;
   for (std::size_t n = 0; n < x.size(); ++n)
     yarr[n] = cbrt(xarr[n]);
@@ -996,9 +1008,9 @@ ARITH_DEVICE ARITH_HOST inline simd<T> cbrt(const simd<T> &x) {
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> cos(const simd<T> &x) {
   simd<T>::count_memop(10);
-  alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
+  alignas(simd<T>) T xarr[simd<T>::storage_size];
   storea(xarr, x);
-  alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
+  alignas(simd<T>) T yarr[simd<T>::storage_size];
   using std::cos;
   for (std::size_t n = 0; n < x.size(); ++n)
     yarr[n] = cos(xarr[n]);
@@ -1009,9 +1021,9 @@ ARITH_DEVICE ARITH_HOST inline simd<T> cos(const simd<T> &x) {
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> exp(const simd<T> &x) {
   simd<T>::count_memop(10);
-  alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
+  alignas(simd<T>) T xarr[simd<T>::storage_size];
   storea(xarr, x);
-  alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
+  alignas(simd<T>) T yarr[simd<T>::storage_size];
   using std::exp;
   for (std::size_t n = 0; n < x.size(); ++n)
     yarr[n] = exp(xarr[n]);
@@ -1022,22 +1034,14 @@ ARITH_DEVICE ARITH_HOST inline simd<T> exp(const simd<T> &x) {
 template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> sin(const simd<T> &x) {
   simd<T>::count_memop(10);
-  alignas(alignof(simd<T>)) T xarr[simd<T>::storage_size];
+  alignas(simd<T>) T xarr[simd<T>::storage_size];
   storea(xarr, x);
-  alignas(alignof(simd<T>)) T yarr[simd<T>::storage_size];
+  alignas(simd<T>) T yarr[simd<T>::storage_size];
   using std::sin;
   for (std::size_t n = 0; n < x.size(); ++n)
     yarr[n] = sin(xarr[n]);
   const simd<T> y = loada<simd<T> >(yarr);
   return y;
-  // T xarr[storage_size];
-  // storeu(xarr, x);
-  // T yarr[storage_size];
-  // using std::sin;
-  // for (std::size_t n = 0; n < storage_size; ++n)
-  //   yarr[n] = sin(xarr[n]);
-  // const simd<T> y = loadu<simd<T> >(yarr);
-  // return y;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1357,4 +1361,4 @@ template <typename T> struct one<simdl<T> > {
 };
 } // namespace Arith
 
-#endif // #ifndef SIMD_HXX
+#endif // #ifndef CARPETX_ARITH_SIMD_HXX

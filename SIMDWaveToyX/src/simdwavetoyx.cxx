@@ -20,8 +20,8 @@ constexpr int dim = 3;
 //   A cos(2 pi omega t) sin(2 pi kx x) sin(2 pi ky y) sin(2 pi kz z)
 template <typename T, typename VT>
 constexpr void standing_wave(const T A, const T kx, const T ky, const T kz,
-                             const T t, const VT x, const VT y, const VT z,
-                             VT &u, VT &rho) {
+                             const T t, const VT x, const T y, const T z, VT &u,
+                             VT &rho) {
   using Arith::pow2;
   using std::acos, std::cos, std::sin, std::sqrt;
 
@@ -37,8 +37,8 @@ constexpr void standing_wave(const T A, const T kx, const T ky, const T kz,
 // u(t,r) = (f(t-r) - f(t+r)) / r
 // f(v) = A exp(-1/2 (r/W)^2)
 template <typename T, typename VT>
-constexpr void gaussian(const T A, const T W, const T t, const VT x, const VT y,
-                        const VT z, VT &u, VT &rho) {
+constexpr void gaussian(const T A, const T W, const T t, const VT x, const T y,
+                        const T z, VT &u, VT &rho) {
   using Arith::if_else, Arith::pow2, Arith::pown;
   using std::exp, std::sqrt;
 
@@ -58,6 +58,7 @@ extern "C" void SIMDWaveToyX_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_SIMDWaveToyX_Initial;
   DECLARE_CCTK_PARAMETERS;
 
+  using real = CCTK_REAL;
   using vreal = Arith::simd<CCTK_REAL>;
   using vbool = Arith::simdl<CCTK_REAL>;
   constexpr std::size_t vsize = std::tuple_size_v<vreal>;
@@ -69,8 +70,8 @@ extern "C" void SIMDWaveToyX_Initial(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
           const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
-          const vreal y0 = p.y;
-          const vreal z0 = p.z;
+          const real y0 = p.y;
+          const real z0 = p.z;
           vreal u0, rho0;
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, x0, y0, z0, u0, rho0);
@@ -85,8 +86,8 @@ extern "C" void SIMDWaveToyX_Initial(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
           const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
-          const vreal y0 = p.y;
-          const vreal z0 = p.z;
+          const real y0 = p.y;
+          const real z0 = p.z;
           vreal u0, rho0;
           gaussian(amplitude, gaussian_width, cctk_time, x0, y0, z0, u0, rho0);
           u.store(mask, p.I, u0);
@@ -156,6 +157,7 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_SIMDWaveToyX_Error;
   DECLARE_CCTK_PARAMETERS;
 
+  using real = CCTK_REAL;
   using vreal = Arith::simd<CCTK_REAL>;
   using vbool = Arith::simdl<CCTK_REAL>;
   constexpr std::size_t vsize = std::tuple_size_v<vreal>;
@@ -167,8 +169,8 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
           const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
-          const vreal y0 = p.y;
-          const vreal z0 = p.z;
+          const real y0 = p.y;
+          const real z0 = p.z;
           vreal u0, rho0;
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, x0, y0, z0, u0, rho0);
@@ -183,8 +185,8 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
           const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
-          const vreal y0 = p.y;
-          const vreal z0 = p.z;
+          const real y0 = p.y;
+          const real z0 = p.z;
           vreal u0, rho0;
           gaussian(amplitude, gaussian_width, cctk_time, x0, y0, z0, u0, rho0);
           uerr.store(mask, p.I, u(mask, p.I) - u0);

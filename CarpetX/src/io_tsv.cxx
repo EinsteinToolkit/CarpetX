@@ -129,7 +129,7 @@ void OutputTSVold(const cGH *restrict cctkGH) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void WriteTSVScalars(const cGH *restrict cctkGH, const string &filename,
-                     int gi) {
+                     const int gi) {
   // Output only on root process
   if (CCTK_MyProc(nullptr) > 0)
     return;
@@ -161,8 +161,8 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const string &filename,
   file << "\n";
 }
 
-void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
-                 const vect<bool, dim> outdirs,
+void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
+                 const int gi, const vect<bool, dim> &outdirs,
                  const vect<CCTK_REAL, dim> &outcoords) {
   const auto &groupdata0 =
       *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
@@ -170,7 +170,8 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
   // Number of values transmitted per grid point
   const int nintvalues = 1                  // patch
                          + 1                // level
-                         + dim;             // grid point index
+                         + dim              // grid point index
+                         + 1;               // isghost
   const int nvalues = nintvalues            // integer values
                       + dim                 // coordinates
                       + groupdata0.numvars; // grid function values
@@ -181,13 +182,21 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
   for (const auto &patchdata : ghext->patchdata) {
     for (const auto &leveldata : patchdata.leveldata) {
       const auto &groupdata = *leveldata.groupdata.at(gi);
+
       const int tl = 0;
+
+      // Convert a (direction, face) pair to an AMReX Orientation
+      const auto orient = [&](int d, int f) {
+        return amrex::Orientation(d, amrex::Orientation::Side(f));
+      };
+
       const auto &geom = patchdata.amrcore->Geom(leveldata.level);
+      const amrex::Box &domain =
+          patchdata.amrcore->Geom(leveldata.level).Domain();
       vect<CCTK_REAL, dim> x0, dx;
       for (int d = 0; d < dim; ++d) {
         dx[d] = geom.CellSize(d);
-        x0[d] =
-            geom.ProbLo(d) + CCTK_REAL(0.5) * groupdata.indextype[d] * dx[d];
+        x0[d] = geom.ProbLo(d) + groupdata.indextype[d] * dx[d] / 2;
       }
       vect<int, dim> icoord;
       for (int d = 0; d < dim; ++d)
@@ -196,20 +205,42 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
         else
           icoord[d] = lrint((outcoords[d] - x0[d]) / dx[d]);
 
+      const auto &symmetries = ghext->patchdata.at(leveldata.patch).symmetries;
+
       const auto &mfab = *groupdata.mfab.at(tl);
+
+      const vect<int, dim> nghosts = {mfab.nGrow(0), mfab.nGrow(1),
+                                      mfab.nGrow(2)};
+
       for (amrex::MFIter mfi(mfab); mfi.isValid(); ++mfi) {
         const amrex::Array4<const CCTK_REAL> &vars = mfab.array(mfi);
-        const vect<int, dim> vmin = {vars.begin.x, vars.begin.y, vars.begin.z};
-        const vect<int, dim> vmax = {vars.end.x, vars.end.y, vars.end.z};
+
+        const amrex::Box &vbx =
+            mfi.validbox(); // interior region (without ghosts)
+        vect<vect<bool, dim>, 2> bbox;
+        for (int d = 0; d < dim; ++d)
+          for (int f = 0; f < 2; ++f)
+            bbox[f][d] = vbx[orient(d, f)] ==
+                             domain[orient(d, f)] +
+                                 (groupdata.indextype[d] == 0 && f == 1) &&
+                         symmetries[f][d] != symmetry_t::none;
+
+        const vect<int, dim> varmin = {vars.begin.x, vars.begin.y,
+                                       vars.begin.z};
+        const vect<int, dim> varmax = {vars.end.x, vars.end.y, vars.end.z};
+
+        // Skip ghost points but keep boundary points
+        const vect<int, dim> intmin = varmin + !bbox[0] * nghosts;
+        const vect<int, dim> intmax = varmax - !bbox[1] * nghosts;
 
         bool output_something = true;
         vect<int, dim> imin, imax;
         for (int d = 0; d < dim; ++d) {
           if (outdirs[d]) {
             // output everything
-            imin[d] = vmin[d];
-            imax[d] = vmax[d];
-          } else if (icoord[d] >= vmin[d] && icoord[d] < vmax[d]) {
+            imin[d] = varmin[d];
+            imax[d] = varmax[d];
+          } else if (icoord[d] >= varmin[d] && icoord[d] < varmax[d]) {
             // output one point
             imin[d] = icoord[d];
             imax[d] = icoord[d] + 1;
@@ -223,12 +254,14 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
           for (int k = imin[2]; k < imax[2]; ++k) {
             for (int j = imin[1]; j < imax[1]; ++j) {
               for (int i = imin[0]; i < imax[0]; ++i) {
-                const array<int, dim> I{i, j, k};
+                const vect<int, dim> I{i, j, k};
                 const auto old_size = data.size();
                 data.push_back(patchdata.patch);
                 data.push_back(leveldata.level);
                 for (int d = 0; d < dim; ++d)
                   data.push_back(I[d]);
+                const bool isghost = any(I < intmin || I >= intmax);
+                data.push_back(isghost);
                 for (int d = 0; d < dim; ++d)
                   data.push_back(x0[d] + I[d] * dx[d]);
                 for (int vi = 0; vi < groupdata.numvars; ++vi)
@@ -283,8 +316,12 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
       array<int, nintvalues> pi, pj;
       for (int d = 0; d < nintvalues; ++d)
         pi[d] = int(all_data.at(i * nvalues + d));
+      // Ignore `isghost` field
+      pi[dim + 2] = 0;
       for (int d = 0; d < nintvalues; ++d)
         pj[d] = int(all_data.at(j * nvalues + d));
+      // Ignore `isghost` field
+      pj[dim + 2] = 0;
       return pi == pj;
     };
     const auto compare_lt = [&](const int i, const int j) {
@@ -330,7 +367,10 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename, int gi,
       int pos = nvalues * i;
       file << cctkGH->cctk_iteration << sep << cctkGH->cctk_time;
       for (int v = 0; v < nintvalues; ++v)
-        file << sep << int(all_data.at(pos++));
+        if (v != dim + 2) // skip `isghost` marker
+          file << sep << int(all_data.at(pos++));
+        else
+          pos++;
       for (int v = nintvalues; v < nvalues; ++v)
         file << sep << all_data.at(pos++);
       file << "\n";

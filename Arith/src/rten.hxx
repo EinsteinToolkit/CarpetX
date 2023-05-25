@@ -1,5 +1,5 @@
-#ifndef RTEN_HXX
-#define RTEN_HXX
+#ifndef CARPETX_ARITH_RTEN_HXX
+#define CARPETX_ARITH_RTEN_HXX
 
 #include "defs.hxx"
 #include "simd.hxx"
@@ -379,4 +379,4 @@ constexpr rten<simd<T>, D> if_else(const simdl<T> &cond,
 
 } // namespace Arith
 
-#endif // #ifndef RTEN_HXX
+#endif // #ifndef CARPETX_ARITH_RTEN_HXX

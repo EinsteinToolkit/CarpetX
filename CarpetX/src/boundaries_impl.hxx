@@ -1,3 +1,6 @@
+#ifndef CARPETX_CARPETX_BOUNDARIES_IMPL_HXX
+#define CARPETX_CARPETX_BOUNDARIES_IMPL_HXX
+
 #include "boundaries.hxx"
 
 #include <type_traits>
@@ -460,3 +463,5 @@ extern template void BoundaryCondition::apply_on_face<INT, POS, POS>() const;
 extern template void BoundaryCondition::apply_on_face<POS, POS, POS>() const;
 
 } // namespace CarpetX
+
+#endif // #ifndef CARPETX_CARPETX_BOUNDARIES_IMPL_HXX

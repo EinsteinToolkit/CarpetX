@@ -7,7 +7,6 @@ INCLUDES HEADER: cplx.hxx IN cplx.hxx
 INCLUDES HEADER: defs.hxx IN defs.hxx
 INCLUDES HEADER: div.hxx IN div.hxx
 INCLUDES HEADER: dual.hxx IN dual.hxx
-INCLUDES HEADER: fixmath.hxx IN fixmath.hxx
 INCLUDES HEADER: mat.hxx IN mat.hxx
 INCLUDES HEADER: rational.hxx IN rational.hxx
 INCLUDES HEADER: rten.hxx IN rten.hxx
