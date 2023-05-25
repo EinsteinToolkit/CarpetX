@@ -170,7 +170,8 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
   // Number of values transmitted per grid point
   const int nintvalues = 1                  // patch
                          + 1                // level
-                         + dim;             // grid point index
+                         + dim              // grid point index
+                         + 1;               // isghost
   const int nvalues = nintvalues            // integer values
                       + dim                 // coordinates
                       + groupdata0.numvars; // grid function values
@@ -237,9 +238,9 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
         for (int d = 0; d < dim; ++d) {
           if (outdirs[d]) {
             // output everything
-            imin[d] = intmin[d];
-            imax[d] = intmax[d];
-          } else if (icoord[d] >= intmin[d] && icoord[d] < intmax[d]) {
+            imin[d] = varmin[d];
+            imax[d] = varmax[d];
+          } else if (icoord[d] >= varmin[d] && icoord[d] < varmax[d]) {
             // output one point
             imin[d] = icoord[d];
             imax[d] = icoord[d] + 1;
@@ -253,12 +254,14 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
           for (int k = imin[2]; k < imax[2]; ++k) {
             for (int j = imin[1]; j < imax[1]; ++j) {
               for (int i = imin[0]; i < imax[0]; ++i) {
-                const array<int, dim> I{i, j, k};
+                const vect<int, dim> I{i, j, k};
                 const auto old_size = data.size();
                 data.push_back(patchdata.patch);
                 data.push_back(leveldata.level);
                 for (int d = 0; d < dim; ++d)
                   data.push_back(I[d]);
+                const bool isghost = any(I < intmin || I >= intmax);
+                data.push_back(isghost);
                 for (int d = 0; d < dim; ++d)
                   data.push_back(x0[d] + I[d] * dx[d]);
                 for (int vi = 0; vi < groupdata.numvars; ++vi)
@@ -313,8 +316,12 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
       array<int, nintvalues> pi, pj;
       for (int d = 0; d < nintvalues; ++d)
         pi[d] = int(all_data.at(i * nvalues + d));
+      // Ignore `isghost` field
+      pi[dim + 2] = 0;
       for (int d = 0; d < nintvalues; ++d)
         pj[d] = int(all_data.at(j * nvalues + d));
+      // Ignore `isghost` field
+      pj[dim + 2] = 0;
       return pi == pj;
     };
     const auto compare_lt = [&](const int i, const int j) {
@@ -360,7 +367,10 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
       int pos = nvalues * i;
       file << cctkGH->cctk_iteration << sep << cctkGH->cctk_time;
       for (int v = 0; v < nintvalues; ++v)
-        file << sep << int(all_data.at(pos++));
+        if (v != dim + 2) // skip `isghost` marker
+          file << sep << int(all_data.at(pos++));
+        else
+          pos++;
       for (int v = nintvalues; v < nvalues; ++v)
         file << sep << all_data.at(pos++);
       file << "\n";
