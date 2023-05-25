@@ -60,5 +60,5 @@ jobs:
       # Set exit code based on test status
       - name: Set exit code
         # Only look at the test results for `carpetx-cpu-real64` runs
-        if: ${{matrix.accelerator == 'cpu' && matrix.real-precision == 'real64' && matrix.mode == 'debug' && env.TESTS_FAILED == 'True'}}
+        if: ${{matrix.accelerator == 'cpu' && matrix.real-precision == 'real64' && matrix.mode == 'optimize' && env.TESTS_FAILED == 'True'}}
         run: exit 1
