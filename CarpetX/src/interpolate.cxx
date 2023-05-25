@@ -483,11 +483,10 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
            ++pti) {
         const amrex::Geometry &geom =
             ghext->patchdata.at(patch).amrcore->Geom(level);
-        const vect<CCTK_REAL, dim> xlo = {
-            geom.CellSize()[0], geom.CellSize()[1], geom.CellSize()[2]};
-        const vect<CCTK_REAL, dim> dx = {geom.ProbLo()[0], geom.ProbLo()[1],
+        const vect<CCTK_REAL, dim> x0 = {geom.ProbLo()[0], geom.ProbLo()[1],
                                          geom.ProbLo()[2]};
-        const vect<CCTK_REAL, dim> x0 = xlo + xmin * dx;
+        const vect<CCTK_REAL, dim> dx = {geom.CellSize()[0], geom.CellSize()[1],
+                                         geom.CellSize()[2]};
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
@@ -501,6 +500,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
           const int gi = givis.at(v).gi;
           const int vi = givis.at(v).vi;
           const auto &restrict groupdata = *leveldata.groupdata.at(gi);
+          const auto x0group =
+              x0 + vect<int, dim>(groupdata.indextype) * dx / 2;
           const int centering = groupdata.indextype[0] * 0b100 +
                                 groupdata.indextype[1] * 0b010 +
                                 groupdata.indextype[2] * 0b001;
@@ -526,31 +527,31 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
             switch (interpolation_order) {
             case 0: {
               const interpolator<CCTK_REAL, 0, 0b000> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
               const interpolator<CCTK_REAL, 1, 0b000> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
               const interpolator<CCTK_REAL, 2, 0b000> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
               const interpolator<CCTK_REAL, 3, 0b000> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
               const interpolator<CCTK_REAL, 4, 0b000> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
@@ -569,31 +570,31 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
             switch (interpolation_order) {
             case 0: {
               const interpolator<CCTK_REAL, 0, 0b111> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
               const interpolator<CCTK_REAL, 1, 0b111> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
               const interpolator<CCTK_REAL, 2, 0b111> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
               const interpolator<CCTK_REAL, 3, 0b111> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
               const interpolator<CCTK_REAL, 4, 0b111> interp{vars, vi, derivs,
-                                                             x0, dx};
+                                                             x0group, dx};
               interp.interpolate3d(particles, varresult);
               break;
             }
