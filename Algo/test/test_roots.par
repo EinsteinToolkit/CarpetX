@@ -1,7 +1,7 @@
 ActiveThorns = "
+    Algo
     CarpetX
     IOUtil
-    Algo
 "
 
 Cactus::presync_mode = "mixed-error"

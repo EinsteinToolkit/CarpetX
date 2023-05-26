@@ -16,10 +16,10 @@ namespace Algo {
 using Arith::mat, Arith::vec;
 
 namespace {
-template <typename T> CCTK_HOST CCTK_DEVICE vec<T, 2> gn(vec<T, 2> x) {
+template <typename T> CCTK_DEVICE vec<T, 2> gn(vec<T, 2> x) {
   return vec<T, 2>{x(0) * x(0) - 2, x(0) * x(1) - 2};
 }
-template <typename T> CCTK_HOST CCTK_DEVICE
+template <typename T> CCTK_DEVICE
 std::pair<vec<T, 2>, mat<T, 2> > gnd(vec<T, 2> x) {
   return {vec<T, 2>{x(0) * x(0) - 2, x(0) * x(1) - 2},
           mat<T, 2>{2 * x(0), x(1), 0, x(0)}};
@@ -29,10 +29,10 @@ std::pair<vec<T, 2>, mat<T, 2> > gnd(vec<T, 2> x) {
 extern "C" void Test_roots(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS;
 
-  auto fn = []CCTK_HOST CCTK_DEVICE (double x) { return x * x - 2; };
-  auto fnd = []CCTK_HOST CCTK_DEVICE (double x) {
+  auto fn = []CCTK_HOST CCTK_DEVICE (CCTK_REAL x) { return x * x - 2; };
+  auto fnd = []CCTK_HOST CCTK_DEVICE (CCTK_REAL x) {
     return std::make_tuple(x * x - 2, 2 * x); };
-  auto fnd2 = []CCTK_HOST CCTK_DEVICE (double x) {
+  auto fnd2 = []CCTK_HOST CCTK_DEVICE (CCTK_REAL x) {
     return std::make_tuple(x * x - 2, 2 * x, 2); };
 
   {
@@ -105,10 +105,11 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
   }
 
   {
+    CCTK_INT * iters_print =
+      (CCTK_INT *) amrex::The_Arena()->alloc(sizeof(CCTK_INT));
     const amrex::Box box(amrex::IntVect(0), amrex::IntVect(0, 0, 0));
 
-    amrex::ParallelFor(
-        box, [=] CCTK_DEVICE(const int i, const int j, const int k)
+    amrex::launch(box, [=] CCTK_DEVICE(amrex::Box const& tbx)
         CCTK_ATTRIBUTE_ALWAYS_INLINE {
       const int minbits = std::numeric_limits<double>::digits - 4;
       const int maxiters = 100;
@@ -119,12 +120,12 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       assert(iters < maxiters);
       assert(hi >= lo && hi - lo <= std::scalbn(2.0, -minbits));
       assert(fn(lo) <= 0 && fn(hi) >= 0);
-      //CCTK_VINFO("Test_brent succeeded in %d iterations", iters);
-      printf("INFO (Algo): Test_brent succeeded in %d iterations\n", iters);
+      iters_print[0] = iters;
     });
+    amrex::Gpu::Device::streamSynchronize();
+    CCTK_VINFO("Test_brent succeeded in %d iterations", iters_print[0]);
 
-    amrex::ParallelFor(
-        box, [=] CCTK_DEVICE(const int i, const int j, const int k)
+    amrex::launch(box, [=] CCTK_DEVICE(amrex::Box const& tbx)
         CCTK_ATTRIBUTE_ALWAYS_INLINE {
       const int minbits =
           static_cast<int>(0.6 * std::numeric_limits<double>::digits);
@@ -139,9 +140,13 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       // CCTK_VINFO("lo=%.17g hi=%.17g", double(lo), double(hi));
       assert(iters < maxiters);
       assert(sumabs(gn(x)) < 1.0e-9);
-      printf("INFO (Algo): Test_newton_raphson_nd succeeded in %d iterations\n",
-          iters);
+      iters_print[0] = iters;
     });
+    amrex::Gpu::Device::streamSynchronize();
+    CCTK_VINFO("Test_newton_raphson_nd succeeded in %d iterations",
+        iters_print[0]);
+
+    amrex::The_Arena()->free(iters_print);
   }
 
 }

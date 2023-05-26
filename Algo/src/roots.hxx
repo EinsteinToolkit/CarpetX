@@ -1,7 +1,7 @@
 #ifndef ALGO_HXX
 #define ALGO_HXX
 
-#include "loop.hxx"
+#include <loop.hxx>
 #include <mat.hxx>
 #include <sum.hxx>
 #include <vec.hxx>
