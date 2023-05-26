@@ -104,11 +104,11 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
     CCTK_VINFO("Test_schroder succeeded in %d iterations", iters);
   }
 
-  {
-    CCTK_INT * iters_print =
-      (CCTK_INT *) amrex::The_Arena()->alloc(sizeof(CCTK_INT));
-    const amrex::Box box(amrex::IntVect(0), amrex::IntVect(0, 0, 0));
+  amrex::Gpu::Buffer<CCTK_INT> niters({0});
+  auto* pniters = niters.data();
+  const amrex::Box box(amrex::IntVect(0), amrex::IntVect(0, 0, 0));
 
+  {
     amrex::launch(box, [=] CCTK_DEVICE(amrex::Box const& tbx)
         CCTK_ATTRIBUTE_ALWAYS_INLINE {
       const int minbits = std::numeric_limits<double>::digits - 4;
@@ -120,11 +120,13 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       assert(iters < maxiters);
       assert(hi >= lo && hi - lo <= std::scalbn(2.0, -minbits));
       assert(fn(lo) <= 0 && fn(hi) >= 0);
-      iters_print[0] = iters;
+      *pniters = iters;
     });
-    amrex::Gpu::Device::streamSynchronize();
-    CCTK_VINFO("Test_brent succeeded in %d iterations", iters_print[0]);
+    auto* hp = niters.copyToHost();
+    CCTK_VINFO("Test_brent succeeded in %d iterations", *hp);
+  }
 
+  {
     amrex::launch(box, [=] CCTK_DEVICE(amrex::Box const& tbx)
         CCTK_ATTRIBUTE_ALWAYS_INLINE {
       const int minbits =
@@ -140,13 +142,10 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       // CCTK_VINFO("lo=%.17g hi=%.17g", double(lo), double(hi));
       assert(iters < maxiters);
       assert(sumabs(gn(x)) < 1.0e-9);
-      iters_print[0] = iters;
+      *pniters = iters;
     });
-    amrex::Gpu::Device::streamSynchronize();
-    CCTK_VINFO("Test_newton_raphson_nd succeeded in %d iterations",
-        iters_print[0]);
-
-    amrex::The_Arena()->free(iters_print);
+    auto* hp = niters.copyToHost();
+    CCTK_VINFO("Test_newton_raphson_nd succeeded in %d iterations", *hp);
   }
 
 }
