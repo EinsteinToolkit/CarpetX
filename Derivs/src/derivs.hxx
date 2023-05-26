@@ -92,6 +92,7 @@ using Arith::min;
 using std::array;
 using Arith::div_floor;
 using Arith::div_ceil;
+using Arith::align_ceil;
 using Arith::mask_for_loop_tail;
 
 template <typename T>
