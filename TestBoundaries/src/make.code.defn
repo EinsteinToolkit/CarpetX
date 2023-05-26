@@ -1,0 +1,7 @@
+# Main make.code.defn file for thorn TestBoundaries
+
+# Source files in this directory
+SRCS = init.cxx
+
+# Subdirectories containing source files
+SUBDIRS =
