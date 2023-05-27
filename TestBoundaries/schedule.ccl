@@ -1,0 +1,24 @@
+# Schedule definitions for thorn TestBoundaries
+
+SCHEDULE TestBoundaries_Init AT initial
+{
+  LANG: C
+  OPTIONS: global
+} "Initialize"
+
+SCHEDULE TestBoundaries_ReduceLocal AT initial AFTER TestBoundaries_Init
+{
+  LANG: C
+} "Initialize"
+
+SCHEDULE TestBoundaries_ReduceGlobal AT initial AFTER TestBoundaries_ReduceLocal
+{
+  LANG: C
+  OPTIONS: global
+} "Initialize"
+
+SCHEDULE TestBoundaries_Check AT initial AFTER TestBoundaries_ReduceGlobal
+{
+  LANG: C
+  OPTIONS: global
+} "Initialize"
