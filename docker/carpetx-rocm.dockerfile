@@ -7,7 +7,7 @@
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
 FROM rocm/dev-ubuntu-22.04:5.4.2
-# FROM rocm/dev-ubuntu-22.04:5.5
+# FROM rocm/dev-ubuntu-22.04:5.5.1
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -179,9 +179,9 @@ ARG real_precision=real64
 # Should we  keep AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/23.05.tar.gz && \
-    tar xzf 23.05.tar.gz && \
-    cd amrex-23.05 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/23.06.tar.gz && \
+    tar xzf 23.06.tar.gz && \
+    cd amrex-23.06 && \
     mkdir build && \
     cd build && \
     case $real_precision in \
