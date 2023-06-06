@@ -2,6 +2,7 @@
 
 REQUIRES Arith
 REQUIRES Boost
+REQUIRES Loop
 
 PROVIDES Algo
 {
