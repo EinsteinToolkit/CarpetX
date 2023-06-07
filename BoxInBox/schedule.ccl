@@ -1,0 +1,34 @@
+# Schedule definitions for thorn BoxInBox
+
+SCHEDULE BoxInBox_Init AT wragh
+{
+  LANG: C
+  OPTIONS: global
+  WRITES: active
+  WRITES: num_levels
+  WRITES: positions
+  WRITES: radii
+  WRITES: radiixyz
+} "Initialize"
+
+SCHEDULE BoxInBox_Setup AS EstimateError AT postinitial
+{
+  LANG: C
+  READS: active
+  READS: num_levels
+  READS: positions
+  READS: radii
+  READS: radiixyz
+  WRITES: CarpetX::regrid_error(interior)
+} "Estimate error"
+
+SCHEDULE BoxInBox_Setup AS EstimateError AT poststep
+{
+  LANG: C
+  READS: active
+  READS: num_levels
+  READS: positions
+  READS: radii
+  READS: radiixyz
+  WRITES: CarpetX::regrid_error(interior)
+} "Estimate error"

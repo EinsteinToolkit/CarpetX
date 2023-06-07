@@ -699,6 +699,7 @@ Numerical/AEILocalInterp
 CarpetX/ADMBase
 CarpetX/Algo
 CarpetX/Arith
+CarpetX/BoxInBox
 CarpetX/CarpetX
 CarpetX/Coordinates
 CarpetX/Derivs

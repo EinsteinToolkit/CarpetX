@@ -1,0 +1,32 @@
+# Interface definition for thorn BoxInBox
+
+IMPLEMENTS: BoxInBox
+
+INHERITS: CarpetX
+
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: sum.hxx
+USES INCLUDE HEADER: vect.hxx
+
+
+
+PUBLIC:
+
+CCTK_REAL active[2] TYPE=scalar "Whether this region is active"
+
+CCTK_REAL num_levels[2] TYPE=scalar "Number of refinement levels"
+
+CCTK_REAL positions[2] TYPE=scalar
+{
+  position_x position_y position_z
+} "Positions of refined regions"
+
+CCTK_REAL radii[2] TYPE=array DIM=1 SIZE=30 DISTRIB=constant
+{
+  radius
+} "Radii of refined regions for each level"
+
+CCTK_REAL radiixyz[2] TYPE=array DIM=1 SIZE=30 DISTRIB=constant
+{
+  radius_x radius_y radius_z
+} "Radii of refined regions for each level"
