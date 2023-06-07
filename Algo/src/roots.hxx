@@ -10,7 +10,7 @@
 #include <boost/math/tools/roots.hpp>
 
 #ifdef __HIPCC__
-#include <hip/hip_runtime>
+#include <hip/hip_runtime.h>
 #endif
 
 #include <algorithm>
