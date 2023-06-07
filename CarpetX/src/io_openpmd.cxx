@@ -513,16 +513,16 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
 
   openPMD::IndexedIteration iter = *read_iters->begin();
   // TODO: use non-streaming API, ask for `input_iteration` directly;
-  assert(int64_t(iter.iterationIndex) == int64_t(input_iteration));
+  assert(std::int64_t(iter.iterationIndex) == std::int64_t(input_iteration));
 
   cctkGH->cctk_iteration = input_iteration;
   cctkGH->cctk_time = iter.time<double>();
 
   // TODO: Check whether attribute exists and has correct type
-  const int ndims = iter.getAttribute("numDims").get<int64_t>();
+  const int ndims = iter.getAttribute("numDims").get<std::int64_t>();
   assert(ndims >= 0);
 
-  const int npatches = iter.getAttribute("numPatches").get<int64_t>();
+  const int npatches = iter.getAttribute("numPatches").get<std::int64_t>();
   assert(npatches == ghext->num_patches());
   std::vector<std::string> patch_suffixes;
   if (npatches == 1) {
@@ -542,8 +542,8 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
   assert(ghext->num_patches() == 1);
   const int patch = 0;
 
-  const int nlevels =
-      iter.getAttribute("numLevels" + patch_suffixes.at(patch)).get<int64_t>();
+  const int nlevels = iter.getAttribute("numLevels" + patch_suffixes.at(patch))
+                          .get<std::int64_t>();
   assert(nlevels >= 0);
   std::vector<std::string> level_suffixes;
   if (nlevels == 1) {
@@ -572,9 +572,9 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
 
   // Read FabArrayBase (component positions and shapes)
   for (int level = 0; level < nlevels; ++level) {
-    const std::vector<int64_t> chunk_infos =
+    const std::vector<std::int64_t> chunk_infos =
         iter.getAttribute("chunkInfo" + level_suffixes.at(level))
-            .get<std::vector<int64_t> >();
+            .get<std::vector<std::int64_t> >();
     assert(chunk_infos.size() % (2 * ndims) == 0);
     const int nfabs = chunk_infos.size() / (2 * ndims);
     amrex::Vector<amrex::Box> levboxes(nfabs);
@@ -660,7 +660,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
   assert(read_iters->begin() != read_iters->end());
   openPMD::IndexedIteration iter = *read_iters->begin();
-  const uint64_t iterIndex = iter.iterationIndex;
+  const std::uint64_t iterIndex = iter.iterationIndex;
   CCTK_VINFO("  iteration: %d", int(iterIndex));
 
   const CCTK_REAL time = iter.time<CCTK_REAL>();
@@ -875,10 +875,11 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
             assert(int(count.at(0) * count.at(1) * count.at(2)) == np);
             for (int d = 0; d < 3; ++d)
               // assert(start.at(d) >= 0);
-              assert(start.at(d) <
-                     numeric_limits<
-                         remove_reference_t<decltype(start.at(d))> >::max() /
-                         2);
+              assert(
+                  start.at(d) <
+                  std::numeric_limits<
+                      std::remove_reference_t<decltype(start.at(d))> >::max() /
+                      2);
             for (int d = 0; d < 3; ++d)
               assert(start.at(d) + count.at(d) <= extent.at(d));
 
@@ -1074,9 +1075,9 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
   if (myproc == ioproc) {
     const int ndims = Loop::dim;
-    iter.setAttribute<int64_t>("numDims", ndims);
+    iter.setAttribute<std::int64_t>("numDims", ndims);
     const int npatches = ghext->patchdata.size();
-    iter.setAttribute<int64_t>("numPatches", npatches);
+    iter.setAttribute<std::int64_t>("numPatches", npatches);
     std::vector<std::string> patch_suffixes(npatches);
     for (const auto &patchdata : ghext->patchdata) {
       const int patch = patchdata.patch;
@@ -1090,8 +1091,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     for (const auto &patchdata : ghext->patchdata) {
       const int patch = patchdata.patch;
       const int nlevels = patchdata.leveldata.size();
-      iter.setAttribute<int64_t>("numLevels" + patch_suffixes.at(patch),
-                                 nlevels);
+      iter.setAttribute<std::int64_t>("numLevels" + patch_suffixes.at(patch),
+                                      nlevels);
       std::vector<std::string> level_suffixes(nlevels);
       for (const auto &leveldata : patchdata.leveldata) {
         const int level = leveldata.level;
@@ -1107,7 +1108,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         const int level = leveldata.level;
         const amrex::FabArrayBase &mfab = *leveldata.fab;
         const int nchunks = mfab.size();
-        std::vector<int64_t> chunk_infos(2 * ndims * nchunks);
+        std::vector<std::int64_t> chunk_infos(2 * ndims * nchunks);
         for (int component = 0; component < nchunks; ++component) {
           const amrex::Box &box = mfab.box(component);
           for (int d = 0; d < ndims; ++d) {
@@ -1310,10 +1311,11 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             assert(int(count.at(0) * count.at(1) * count.at(2)) == np);
             for (int d = 0; d < 3; ++d)
               // assert(start.at(d) >= 0);
-              assert(start.at(d) <
-                     numeric_limits<
-                         remove_reference_t<decltype(start.at(d))> >::max() /
-                         2);
+              assert(
+                  start.at(d) <
+                  std::numeric_limits<
+                      std::remove_reference_t<decltype(start.at(d))> >::max() /
+                      2);
             for (int d = 0; d < 3; ++d)
               assert(start.at(d) + count.at(d) <= extent.at(d));
 

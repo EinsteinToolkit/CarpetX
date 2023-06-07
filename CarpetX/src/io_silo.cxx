@@ -94,17 +94,17 @@ struct mesh_props_t {
   }
 };
 
-string make_subdirname(const string &file_name, const int iteration) {
-  ostringstream buf;
+std::string make_subdirname(const std::string &file_name, const int iteration) {
+  std::ostringstream buf;
   buf << file_name                                     //
       << ".it" << setw(8) << setfill('0') << iteration //
       << ".silo.dir";
   return buf.str();
 }
 
-string make_filename(const string &file_name, const int iteration,
-                     const int ioserver = -1) {
-  ostringstream buf;
+std::string make_filename(const std::string &file_name, const int iteration,
+                          const int ioserver = -1) {
+  std::ostringstream buf;
   buf << file_name //
       << ".it" << setw(8) << setfill('0') << iteration;
   if (ioserver >= 0)
@@ -113,7 +113,7 @@ string make_filename(const string &file_name, const int iteration,
   return buf.str();
 }
 
-int match_filename(const string &file_name) {
+int match_filename(const std::string &file_name) {
   const regex filename_regex("[.]it(\\d+)[.]silo$",
                              regex_constants::ECMAScript);
   smatch sm;
@@ -123,9 +123,9 @@ int match_filename(const string &file_name) {
   return stoi(sm.str(1));
 }
 
-string make_meshname(const int reflevel = -1, const int component = -1) {
+std::string make_meshname(const int reflevel = -1, const int component = -1) {
   assert((reflevel == -1) == (component == -1));
-  ostringstream buf;
+  std::ostringstream buf;
   if (reflevel < 0)
     buf << "gh";
   else
@@ -135,10 +135,10 @@ string make_meshname(const int reflevel = -1, const int component = -1) {
   return DB::legalize_name(buf.str());
 }
 
-string make_varname(const int gi, const int vi, const int reflevel = -1,
-                    const int component = -1) {
+std::string make_varname(const int gi, const int vi, const int reflevel = -1,
+                         const int component = -1) {
   assert((reflevel == -1) == (component == -1));
-  string varname;
+  std::string varname;
   if (vi < 0) {
     assert(0);
     varname = CCTK_FullGroupName(gi);
@@ -149,7 +149,7 @@ string make_varname(const int gi, const int vi, const int reflevel = -1,
     for (auto &ch : varname)
       ch = tolower(ch);
   }
-  ostringstream buf;
+  std::ostringstream buf;
   buf << varname;
   if (reflevel >= 0)
     buf << ".rl" << setw(2) << setfill('0') << reflevel //
@@ -157,10 +157,10 @@ string make_varname(const int gi, const int vi, const int reflevel = -1,
   return DB::legalize_name(buf.str());
 }
 
-const string driver_name = "CarpetX";
+const std::string driver_name = "CarpetX";
 
-string make_fabarraybasename(const int reflevel) {
-  ostringstream buf;
+std::string make_fabarraybasename(const int reflevel) {
+  std::ostringstream buf;
   buf << "FabArrayBase.rl" << setw(2) << setfill('0') << reflevel;
   return DB::legalize_name(buf.str());
 }
@@ -226,14 +226,14 @@ int InputSiloParameters(const std::string &input_dir,
   }
 
   // Read metadata
-  string parameters;
+  std::string parameters;
   if (read_metafile) {
     CCTK_VINFO(
         "Recovering parameters from checkpoint file \"%s\" iteration %d",
         make_filename(input_dir + "/" + input_file, input_iteration).c_str(),
         input_iteration);
 
-    const string metafilename =
+    const std::string metafilename =
         input_dir + "/" + make_filename(input_file, input_iteration);
     // We could use DB_UNKNOWN instead of DB_HDF5
     // assert(metafilename.size() < 256);
@@ -254,7 +254,7 @@ int InputSiloParameters(const std::string &input_dir,
       char *const data =
           static_cast<char *>(DBGetVar(metafile.get(), "AllParameters"));
       assert(data);
-      parameters = string(data, length);
+      parameters = std::string(data, length);
       std::free(data);
     }
 
@@ -266,7 +266,7 @@ int InputSiloParameters(const std::string &input_dir,
 
     int length;
     MPI_Bcast(&length, 1, MPI_INT, metafile_ioproc, mpi_comm);
-    parameters = string(length, ' ');
+    parameters = std::string(length, ' ');
     MPI_Bcast(parameters.data(), length, MPI_CHAR, metafile_ioproc, mpi_comm);
   }
 
@@ -318,7 +318,7 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
 
   DB::ptr<DBfile> metafile;
   if (read_metafile) {
-    const string metafilename =
+    const std::string metafilename =
         input_dir + "/" + make_filename(input_file, input_iteration);
     // We could use DB_UNKNOWN instead of DB_HDF5
     metafile = DB::make(DBOpen(metafilename.c_str(), DB_HDF5, DB_READ));
@@ -352,7 +352,7 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
   cctkGH->cctk_time = dtime;
 
   // Read internal driver state
-  const string dirname = DB::legalize_name(driver_name);
+  const std::string dirname = DB::legalize_name(driver_name);
 
   // TODOPATCH: Handle multiple patches
   assert(ghext->num_patches() == 1);
@@ -362,7 +362,7 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
   int nlevels;
   if (read_metafile) {
     // Read number of levels
-    const string varname = dirname + "/" + DB::legalize_name("nlevels");
+    const std::string varname = dirname + "/" + DB::legalize_name("nlevels");
     const int vartype = DBGetVarType(metafile.get(), varname.c_str());
     assert(vartype == DB_INT);
     const int varlength = DBGetVarLength(metafile.get(), varname.c_str());
@@ -378,7 +378,7 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
   for (int level = 0; level < nlevels; ++level) {
     CCTK_VINFO("Reading level %d...", level);
 
-    const string varname = dirname + "/" + make_fabarraybasename(level);
+    const std::string varname = dirname + "/" + make_fabarraybasename(level);
 
     int nfabs;
     if (read_metafile) {
@@ -395,7 +395,7 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
     }
     MPI_Bcast(&nfabs, 1, MPI_INT, metafile_ioproc, mpi_comm);
 
-    vector<int> data(2 * ndims * nfabs);
+    std::vector<int> data(2 * ndims * nfabs);
     if (read_metafile) {
       ierr = DBReadVar(metafile.get(), varname.c_str(), data.data());
       assert(!ierr);
@@ -492,8 +492,9 @@ void InputSilo(const cGH *restrict const cctkGH,
   {
     DB::ptr<DBfile> file;
     if (read_file) {
-      const string subdirname = make_subdirname(input_file, cctk_iteration);
-      const string filename =
+      const std::string subdirname =
+          make_subdirname(input_file, cctk_iteration);
+      const std::string filename =
           input_dir + "/" + subdirname + "/" +
           make_filename(input_file, cctk_iteration, myproc / ioproc_every);
       // We could use DB_UNKNOWN instead of DB_HDF5
@@ -561,7 +562,7 @@ void InputSilo(const cGH *restrict const cctkGH,
           static Timer timer_mpi("InputSilo.mpi");
           auto interval_mpi = make_unique<Interval>(timer_mpi);
           const int mpi_tag = 22901; // randomly chosen
-          vector<CCTK_REAL> buffer;
+          std::vector<CCTK_REAL> buffer;
           MPI_Request mpi_req;
           CCTK_REAL *data = nullptr;
           if (recv_this_fab && read_this_fab) {
@@ -585,7 +586,8 @@ void InputSilo(const cGH *restrict const cctkGH,
             static Timer timer_var("InputSilo.var");
             Interval interval_var(timer_var);
 
-            const string meshname = make_meshname(leveldata.level, component);
+            const std::string meshname =
+                make_meshname(leveldata.level, component);
 
             const int centering = [&]() {
               const int rank = indextype.cellCentered(0) +
@@ -614,7 +616,7 @@ void InputSilo(const cGH *restrict const cctkGH,
             }
 
             for (int vi = 0; vi < numvars; ++vi) {
-              const string varname =
+              const std::string varname =
                   make_varname(gi, vi, leveldata.level, component);
               if (io_verbose)
                 CCTK_VINFO("      Reading variable %s", varname.c_str());
@@ -738,8 +740,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
   {
     static Timer timer_mkdir("OutputSilo.mkdir");
     auto interval_mkdir = make_unique<Interval>(timer_mkdir);
-    const string subdirname = make_subdirname(output_file, cctk_iteration);
-    const string pathname = string(output_dir) + "/" + subdirname;
+    const std::string subdirname = make_subdirname(output_file, cctk_iteration);
+    const std::string pathname = std::string(output_dir) + "/" + subdirname;
     const int mode = 0755;
     static once_flag create_directory;
     call_once(create_directory, [&]() {
@@ -752,7 +754,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
     DB::ptr<DBfile> file;
     if (write_file) {
-      const string filename =
+      const std::string filename =
           pathname + "/" +
           make_filename(output_file, cctk_iteration, myproc / ioproc_every);
       // assert(filename.size() < 256);
@@ -835,7 +837,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
             static Timer timer_mesh("OutputSilo.mesh");
             Interval interval_mesh(timer_mesh);
 
-            const string meshname = make_meshname(leveldata.level, component);
+            const std::string meshname =
+                make_meshname(leveldata.level, component);
 
             array<int, ndims> dims_vc;
             for (int d = 0; d < ndims; ++d)
@@ -905,7 +908,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
           static Timer timer_mpi("OutputSilo.mpi");
           auto interval_mpi = make_unique<Interval>(timer_mpi);
           const int mpi_tag = 22900; // randomly chosen
-          vector<CCTK_REAL> buffer;
+          std::vector<CCTK_REAL> buffer;
           const CCTK_REAL *data = nullptr;
           if (send_this_fab && write_this_fab) {
             const amrex::FArrayBox &fab = mfab[component];
@@ -930,7 +933,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
             static Timer timer_var("OutputSilo.var");
             Interval interval_var(timer_var);
 
-            const string meshname = make_meshname(leveldata.level, component);
+            const std::string meshname =
+                make_meshname(leveldata.level, component);
 
             const int centering = [&]() {
               const int rank = indextype.cellCentered(0) +
@@ -986,7 +990,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
             }
 
             for (int vi = 0; vi < numvars; ++vi) {
-              const string varname =
+              const std::string varname =
                   make_varname(gi, vi, leveldata.level, component);
 
               const void *const data_ptr = data + vi * zonecount;
@@ -1012,8 +1016,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
   // Write metadata
   if (write_metafile) {
 
-    const string metafilename =
-        string(output_dir) + "/" + make_filename(output_file, cctk_iteration);
+    const std::string metafilename = std::string(output_dir) + "/" +
+                                     make_filename(output_file, cctk_iteration);
     const DB::ptr<DBfile> metafile =
         DB::make(DBCreate(metafilename.c_str(), DB_CLOBBER, DB_LOCAL,
                           output_file.c_str(), DB_HDF5));
@@ -1061,7 +1065,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
       if (!have_mesh) {
 
-        const string multimeshname = make_meshname();
+        const std::string multimeshname = make_meshname();
 
         // TODOPATCH: Handle multiple patches
         assert(ghext->num_patches() == 1);
@@ -1070,7 +1074,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
         // Count components per level
         const int nlevels = patchdata.leveldata.size();
-        vector<int> ncomps_level;
+        std::vector<int> ncomps_level;
         for (const auto &leveldata : patchdata.leveldata) {
           const auto &groupdata = *leveldata.groupdata.at(gi);
           const amrex::MultiFab &mfab = *groupdata.mfab[tl];
@@ -1078,7 +1082,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
           const int nfabs = dm.size();
           ncomps_level.push_back(nfabs);
         }
-        vector<int> firstcomp_level;
+        std::vector<int> firstcomp_level;
         int ncomps_total = 0;
         for (const int ncomps : ncomps_level) {
           firstcomp_level.push_back(ncomps_total);
@@ -1087,24 +1091,24 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
         // Describe which components belong to which level
         // Question: Can this name be changed?
-        const string levelmaps_name = multimeshname + "_wmrgtree_lvlMaps";
+        const std::string levelmaps_name = multimeshname + "_wmrgtree_lvlMaps";
         {
-          vector<int> segment_types;
-          vector<vector<int> > segment_data;
+          std::vector<int> segment_types;
+          std::vector<vector<int> > segment_data;
           segment_types.reserve(nlevels);
           segment_data.reserve(nlevels);
           for (int l = 0; l < nlevels; ++l) {
             const int comp0 = firstcomp_level.at(l);
             const int ncomps = ncomps_level.at(l);
-            vector<int> data;
+            std::vector<int> data;
             data.reserve(ncomps);
             for (int c = 0; c < ncomps; ++c)
               data.push_back(comp0 + c);
             segment_types.push_back(DB_BLOCKCENT);
             segment_data.push_back(std::move(data));
           }
-          vector<int> segment_lengths;
-          vector<const int *> segment_data_ptrs;
+          std::vector<int> segment_lengths;
+          std::vector<const int *> segment_data_ptrs;
           segment_lengths.reserve(segment_data.size());
           segment_data_ptrs.reserve(segment_data.size());
           for (const auto &data : segment_data) {
@@ -1121,11 +1125,11 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
         // Describe which components are children of which other components
         // Question: Can this name be changed?
-        const string childmaps_name = multimeshname + "_wmrgtree_chldMaps";
-        vector<int> num_children;
+        const std::string childmaps_name = multimeshname + "_wmrgtree_chldMaps";
+        std::vector<int> num_children;
         {
-          vector<int> segment_types;
-          vector<vector<int> > segment_data;
+          std::vector<int> segment_types;
+          std::vector<vector<int> > segment_data;
           segment_types.reserve(ncomps_total);
           segment_data.reserve(ncomps_total);
           for (const auto &leveldata : patchdata.leveldata) {
@@ -1146,9 +1150,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 const amrex::Box &box = mfab.box(component); // interior
                 amrex::Box refined_box(box);
                 refined_box.refine(2);
-                const vector<pair<int, amrex::Box> > child_boxes =
+                const std::vector<pair<int, amrex::Box> > child_boxes =
                     fine_boxarray.intersections(refined_box);
-                vector<int> children;
+                std::vector<int> children;
                 children.reserve(child_boxes.size());
                 for (const auto &ib : child_boxes) {
                   const int fine_component = ib.first;
@@ -1169,8 +1173,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
             }
           }
 
-          vector<int> &segment_lengths = num_children;
-          vector<const int *> segment_data_ptrs;
+          std::vector<int> &segment_lengths = num_children;
+          std::vector<const int *> segment_data_ptrs;
           segment_lengths.reserve(segment_data.size());
           segment_data_ptrs.reserve(segment_data.size());
           for (const auto &data : segment_data) {
@@ -1210,14 +1214,14 @@ void OutputSilo(const cGH *restrict const cctkGH,
             ierr = DBSetCwr(mrgtree.get(), "levels");
             assert(ierr >= 0);
 
-            const vector<string> region_names{"@level%d@n"};
-            vector<const char *> region_name_ptrs;
+            const std::vector<std::string> region_names{"@level%d@n"};
+            std::vector<const char *> region_name_ptrs;
             region_name_ptrs.reserve(region_names.size());
-            for (const string &name : region_names)
+            for (const std::string &name : region_names)
               region_name_ptrs.push_back(name.c_str());
 
-            vector<int> segment_ids;
-            vector<int> segment_types;
+            std::vector<int> segment_ids;
+            std::vector<int> segment_types;
             segment_ids.reserve(nlevels);
             segment_types.reserve(nlevels);
             for (int l = 0; l < nlevels; ++l) {
@@ -1244,14 +1248,14 @@ void OutputSilo(const cGH *restrict const cctkGH,
             ierr = DBSetCwr(mrgtree.get(), "patches");
             assert(ierr >= 0);
 
-            const vector<string> region_names{"@patch%d@n"};
-            vector<const char *> region_name_ptrs;
+            const std::vector<std::string> region_names{"@patch%d@n"};
+            std::vector<const char *> region_name_ptrs;
             region_name_ptrs.reserve(region_names.size());
-            for (const string &name : region_names)
+            for (const std::string &name : region_names)
               region_name_ptrs.push_back(name.c_str());
 
-            vector<int> segment_types;
-            vector<int> segment_ids;
+            std::vector<int> segment_types;
+            std::vector<int> segment_ids;
             segment_types.reserve(ncomps_total);
             segment_ids.reserve(ncomps_total);
             for (int c = 0; c < ncomps_total; ++c) {
@@ -1269,13 +1273,13 @@ void OutputSilo(const cGH *restrict const cctkGH,
           }
 
           {
-            const vector<string> mrgv_onames{
+            const std::vector<std::string> mrgv_onames{
                 multimeshname + "_wmrgtree_lvlRatios",
                 multimeshname + "_wmrgtree_ijkExts",
                 multimeshname + "_wmrgtree_xyzExts", "rank"};
-            vector<const char *> mrgv_oname_ptrs;
+            std::vector<const char *> mrgv_oname_ptrs;
             mrgv_oname_ptrs.reserve(mrgv_onames.size() + 1);
-            for (const string &name : mrgv_onames)
+            for (const std::string &name : mrgv_onames)
               mrgv_oname_ptrs.push_back(name.c_str());
             mrgv_oname_ptrs.push_back(nullptr);
 
@@ -1294,18 +1298,20 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
         // Write refinement ratios
         {
-          const string levelrationame = multimeshname + "_wmrgtree_lvlRatios";
+          const std::string levelrationame =
+              multimeshname + "_wmrgtree_lvlRatios";
 
-          const vector<string> compnames{"iRatio", "jRatio", "kRatio"};
-          vector<const char *> compname_ptrs;
+          const std::vector<std::string> compnames{"iRatio", "jRatio",
+                                                   "kRatio"};
+          std::vector<const char *> compname_ptrs;
           compname_ptrs.reserve(compnames.size());
-          for (const string &name : compnames)
+          for (const std::string &name : compnames)
             compname_ptrs.push_back(name.c_str());
 
-          const vector<string> regionnames{"@level%d@n"};
-          vector<const char *> regionname_ptrs;
+          const std::vector<std::string> regionnames{"@level%d@n"};
+          std::vector<const char *> regionname_ptrs;
           regionname_ptrs.reserve(regionnames.size());
-          for (const string &name : regionnames)
+          for (const std::string &name : regionnames)
             regionname_ptrs.push_back(name.c_str());
 
           array<vector<int>, ndims> data;
@@ -1326,8 +1332,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
         typedef array<array<int, ndims>, 2> iextent_t;
         typedef array<array<CCTK_REAL, ndims>, 2> extent_t;
-        vector<iextent_t> iextents;
-        vector<extent_t> extents;
+        std::vector<iextent_t> iextents;
+        std::vector<extent_t> extents;
         iextents.reserve(ncomps_total);
         extents.reserve(ncomps_total);
         for (const auto &leveldata : patchdata.leveldata) {
@@ -1356,26 +1362,26 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
         // Write extents
         {
-          const string iextentsname = multimeshname + "_wmrgtree_ijkExts";
-          const string extentsname = multimeshname + "_wmrgtree_xyzExts";
+          const std::string iextentsname = multimeshname + "_wmrgtree_ijkExts";
+          const std::string extentsname = multimeshname + "_wmrgtree_xyzExts";
 
-          const vector<string> icompnames{"iMin", "iMax", "jMin",
-                                          "jMax", "kMin", "kMax"};
-          const vector<string> compnames{"xMin", "xMax", "yMin",
-                                         "yMax", "zMin", "zMax"};
-          vector<const char *> icompname_ptrs;
+          const std::vector<std::string> icompnames{"iMin", "iMax", "jMin",
+                                                    "jMax", "kMin", "kMax"};
+          const std::vector<std::string> compnames{"xMin", "xMax", "yMin",
+                                                   "yMax", "zMin", "zMax"};
+          std::vector<const char *> icompname_ptrs;
           icompname_ptrs.reserve(icompnames.size());
-          for (const string &name : icompnames)
+          for (const std::string &name : icompnames)
             icompname_ptrs.push_back(name.c_str());
-          vector<const char *> compname_ptrs;
+          std::vector<const char *> compname_ptrs;
           compname_ptrs.reserve(compnames.size());
-          for (const string &name : compnames)
+          for (const std::string &name : compnames)
             compname_ptrs.push_back(name.c_str());
 
-          const vector<string> regionnames{"@patch%d@n"};
-          vector<const char *> regionname_ptrs;
+          const std::vector<std::string> regionnames{"@patch%d@n"};
+          std::vector<const char *> regionname_ptrs;
           regionname_ptrs.reserve(regionnames.size());
-          for (const string &name : regionnames)
+          for (const std::string &name : regionnames)
             regionname_ptrs.push_back(name.c_str());
 
           array<array<vector<int>, 2>, ndims> idata;
@@ -1416,8 +1422,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
           assert(!ierr);
 
           // Write rank
-          const vector<int> ranks(ncomps_total, ndims);
-          const vector<const void *> rank_ptrs{ranks.data()};
+          const std::vector<int> ranks(ncomps_total, ndims);
+          const std::vector<const void *> rank_ptrs{ranks.data()};
           ierr = DBPutMrgvar(metafile.get(), "rank", "mrgTree", 1, nullptr,
                              ncomps_total, regionname_ptrs.data(), DB_INT,
                              rank_ptrs.data(), nullptr);
@@ -1426,7 +1432,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
         // Write multimesh
 
-        vector<string> meshnames;
+        std::vector<std::string> meshnames;
         for (const auto &leveldata : patchdata.leveldata) {
           const auto &groupdata = *leveldata.groupdata.at(gi);
           const amrex::MultiFab &mfab = *groupdata.mfab[tl];
@@ -1434,15 +1440,15 @@ void OutputSilo(const cGH *restrict const cctkGH,
           const int nfabs = dm.size();
           for (int c = 0; c < nfabs; ++c) {
             const int proc = dm[c];
-            const string proc_filename =
+            const std::string proc_filename =
                 make_subdirname(output_file, cctk_iteration) + "/" +
                 make_filename(output_file, cctk_iteration, proc / ioproc_every);
-            const string meshname =
+            const std::string meshname =
                 proc_filename + ":" + make_meshname(leveldata.level, c);
             meshnames.push_back(meshname);
           }
         }
-        vector<const char *> meshname_ptrs;
+        std::vector<const char *> meshname_ptrs;
         meshname_ptrs.reserve(meshnames.size());
         for (const auto &meshname : meshnames)
           meshname_ptrs.push_back(meshname.c_str());
@@ -1469,9 +1475,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
         // This needs to have type `double`, even if everything else is `float`
         typedef array<array<double, ndims>, 2> dextent_t;
 #ifdef CCTK_REAL_PRECISION_8
-        vector<dextent_t> &dextents = extents;
+        std::vector<dextent_t> &dextents = extents;
 #else
-        vector<dextent_t> dextents;
+        std::vector<dextent_t> dextents;
         dextents.resize(extents.size());
         for (size_t n = 0; n < dextents.size(); ++n) {
           const auto &ext = extents[n];
@@ -1488,7 +1494,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
         ierr = DBAddOption(optlist.get(), DBOPT_EXTENTS, dextents.data());
         assert(!ierr);
 
-        vector<int> zonecounts;
+        std::vector<int> zonecounts;
         zonecounts.reserve(meshnames.size());
         for (const auto &leveldata : patchdata.leveldata) {
           const auto &groupdata = *leveldata.groupdata.at(gi);
@@ -1510,7 +1516,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
         ierr = DBAddOption(optlist.get(), DBOPT_ZONECOUNTS, zonecounts.data());
         assert(!ierr);
 
-        const string mrgtreename = "mrgtree";
+        const std::string mrgtreename = "mrgtree";
         ierr = DBAddOption(optlist.get(), DBOPT_MRGTREE_NAME,
                            const_cast<char *>(mrgtreename.c_str()));
         assert(!ierr);
@@ -1525,7 +1531,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
       // Write multivar
       {
-        const string multimeshname = make_meshname();
+        const std::string multimeshname = make_meshname();
 
         const DB::ptr<DBoptlist> optlist = DB::make(DBMakeOptlist(10));
         assert(optlist);
@@ -1554,9 +1560,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
         assert(!ierr);
 
         for (int vi = 0; vi < numvars; ++vi) {
-          const string multivarname = make_varname(gi, vi);
+          const std::string multivarname = make_varname(gi, vi);
 
-          vector<string> varnames;
+          std::vector<std::string> varnames;
           const int patch = 0;
           const auto &patchdata = ghext->patchdata.at(patch);
           for (const auto &leveldata : patchdata.leveldata) {
@@ -1567,16 +1573,17 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const int nfabs = dm.size();
             for (int c = 0; c < nfabs; ++c) {
               const int proc = dm[c];
-              const string proc_filename =
+              const std::string proc_filename =
                   make_subdirname(output_file, cctk_iteration) + "/" +
                   make_filename(output_file, cctk_iteration,
                                 proc / ioproc_every);
-              const string varname = proc_filename + ":" +
-                                     make_varname(gi, vi, leveldata.level, c);
+              const std::string varname =
+                  proc_filename + ":" +
+                  make_varname(gi, vi, leveldata.level, c);
               varnames.push_back(varname);
             }
           }
-          vector<const char *> varname_ptrs;
+          std::vector<const char *> varname_ptrs;
           varname_ptrs.reserve(varnames.size());
           for (const auto &varname : varnames)
             varname_ptrs.push_back(varname.c_str());
@@ -1592,7 +1599,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
     // Write internal driver state
     {
-      const string dirname = DB::legalize_name(driver_name);
+      const std::string dirname = DB::legalize_name(driver_name);
       ierr = DBMkDir(metafile.get(), dirname.c_str());
       assert(!ierr);
 
@@ -1603,7 +1610,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
       {
         const int dims = 1;
         const int value = patchdata.leveldata.size();
-        const string varname = dirname + "/" + DB::legalize_name("nlevels");
+        const std::string varname =
+            dirname + "/" + DB::legalize_name("nlevels");
         ierr =
             DBWrite(metafile.get(), varname.c_str(), &value, &dims, 1, DB_INT);
         assert(!ierr);
@@ -1613,7 +1621,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
       for (const auto &leveldata : patchdata.leveldata) {
         const amrex::FabArrayBase &fab = *leveldata.fab;
         const int nfabs = fab.size();
-        vector<int> boxes(2 * ndims * nfabs);
+        std::vector<int> boxes(2 * ndims * nfabs);
         for (int component = 0; component < nfabs; ++component) {
           const amrex::Box &fabbox = fab.box(component); // valid region
           for (int d = 0; d < ndims; ++d)
@@ -1622,7 +1630,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
             boxes[d + ndims + 2 * ndims * component] = fabbox.bigEnd(d);
         }
         const int dims[2] = {nfabs, 2 * ndims};
-        const string varname =
+        const std::string varname =
             dirname + "/" + make_fabarraybasename(leveldata.level);
         ierr = DBWrite(metafile.get(), varname.c_str(), boxes.data(), dims, 2,
                        DB_INT);
@@ -1631,8 +1639,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
     }
 
     {
-      const string visitname = [&]() {
-        ostringstream buf;
+      const std::string visitname = [&]() {
+        std::ostringstream buf;
         buf << output_dir << "/" << output_file << ".silo.visit";
         return buf.str();
       }();
