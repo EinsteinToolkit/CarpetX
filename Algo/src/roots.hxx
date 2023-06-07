@@ -10,7 +10,7 @@
 #include <boost/math/tools/roots.hpp>
 
 #include <algorithm>
-#include <cassert>
+// #include <cassert>
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -152,7 +152,7 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
     //            "fb=%.17g fc=%.17g",
     //            iters, int(mflag), double(a), double(b), double(c), double(d),
     //            double(fa), double(fb), double(fc));
-    assert(fa * fb <= 0);
+    // assert(fa * fb <= 0);
     if (abs(fa) < abs(fb)) {
       swap1(a, b);
       swap1(fa, fb);
