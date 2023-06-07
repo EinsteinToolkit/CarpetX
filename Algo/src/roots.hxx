@@ -1,7 +1,6 @@
 #ifndef CARPETX_ALGO_ROOTS_HXX
 #define CARPETX_ALGO_ROOTS_HXX
 
-#include <loop.hxx>
 #include <mat.hxx>
 #include <sum.hxx>
 #include <vec.hxx>
@@ -15,6 +14,19 @@
 #include <cmath>
 #include <limits>
 #include <utility>
+
+// For accelerators: Declare whether a function should live on the device or the
+// host (or both)
+#if defined __CUDACC__
+#define ALGO_DEVICE __device__
+#define ALGO_HOST __host__
+#elif defined __HIPCC__
+#define ALGO_DEVICE __device__
+#define ALGO_HOST __host__
+#else
+#define ALGO_DEVICE
+#define ALGO_HOST
+#endif
 
 namespace Algo {
 
@@ -51,7 +63,7 @@ std::pair<T, T> bisect(F &&f, T min, T max, int min_bits, int max_iters,
   std::uintmax_t max_iter = max_iters;
   auto res = boost::math::tools::bisect(
       std::forward<F>(f), min, max,
-      boost::math::tools::eps_tolerance<double>(min_bits), max_iter);
+      boost::math::tools::eps_tolerance<T>(min_bits), max_iter);
   iters = max_iter;
   return res;
 }
@@ -63,7 +75,7 @@ std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
   std::uintmax_t max_iter = max_iters;
   auto res = boost::math::tools::bracket_and_solve_root(
       std::forward<F>(f), guess, factor, rising,
-      // boost::math::tools::eps_tolerance<double>(min_bits),
+      // boost::math::tools::eps_tolerance<T>(min_bits),
       eps_tolerance<T>(min_bits), max_iter);
   iters = max_iter;
   return res;
@@ -71,8 +83,8 @@ std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
 
 // See <https://en.wikipedia.org/wiki/Brent%27s_method>
 template <typename F, typename T>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST CCTK_DEVICE
-std::pair<T, T> brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE ALGO_HOST ALGO_DEVICE std::pair<T, T>
+brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
   using std::abs, std::min, std::max;
 
   // auto tol = boost::math::tools::eps_tolerance<T>(min_bits);
@@ -186,11 +198,10 @@ T schroder(F f, T guess, T min, T max, int min_bits, int max_iters,
 }
 
 template <typename F, typename T, int N>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST CCTK_DEVICE
-Arith::vec<T, N> newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
-                                   const Arith::vec<T, N> &min,
-                                   const Arith::vec<T, N> &max, int min_bits,
-                                   int max_iters, int &iters, bool &failed) {
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE ALGO_HOST ALGO_DEVICE Arith::vec<T, N>
+newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
+                  const Arith::vec<T, N> &min, const Arith::vec<T, N> &max,
+                  int min_bits, int max_iters, int &iters, bool &failed) {
   using vec = Arith::vec<T, N>;
   using mat = Arith::mat<T, N>;
   failed = false;
