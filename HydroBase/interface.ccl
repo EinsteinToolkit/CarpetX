@@ -18,6 +18,8 @@ CCTK_REAL press TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "pressure p"
 
 CCTK_REAL temperature TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "temperature T"
 
+CCTK_REAL entropy TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "specific entropy S"
+
 CCTK_REAL Ye TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "electron fraction Y_e"
 
 CCTK_REAL Bvec TYPE=gf CENTERING={ccc} TAGS='parities={+1 -1 -1   -1 +1 -1   -1 -1 +1} checkpoint="no"' { Bvecx Bvecy Bvecz } "Magnetic field B^i"

@@ -21,6 +21,7 @@ extern "C" void HydroBase_initial_data(CCTK_ARGUMENTS) {
                                       eps(p.I) = 0;
                                       press(p.I) = 0;
                                       temperature(p.I) = 0;
+                                      entropy(p.I) = 0;
                                       Ye(p.I) = 0;
                                       Bvecx(p.I) = 0;
                                       Bvecy(p.I) = 0;
