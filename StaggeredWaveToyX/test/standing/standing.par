@@ -1,0 +1,53 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    ODESolvers
+    StaggeredWaveToyX
+"
+
+$out_every = 16
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::poison_undefined_values = yes
+
+CarpetX::ncells_x = 8
+CarpetX::ncells_y = 8
+CarpetX::ncells_z = 8
+
+CarpetX::periodic_x = yes
+CarpetX::periodic_y = yes
+CarpetX::periodic_z = yes
+
+Cactus::cctk_itlast = 10
+
+StaggeredWaveToyX::initial_condition = "standing wave"
+
+ODESolvers::method = "RK3"
+
+IO::out_dir = $parfile
+IO::out_every = $out_every
+
+CarpetX::out_metadata = no
+CarpetX::out_norm_vars = "all"
+CarpetX::out_norm_omit_unstable = yes
+
+CarpetX::out_tsv_vars = "
+    StaggeredWaveToyX::ustate
+    StaggeredWaveToyX::fxstate
+    StaggeredWaveToyX::fystate
+    StaggeredWaveToyX::fzstate
+    StaggeredWaveToyX::urhs
+    StaggeredWaveToyX::fxrhs
+    StaggeredWaveToyX::fyrhs
+    StaggeredWaveToyX::fzrhs
+    StaggeredWaveToyX::curlfx
+    StaggeredWaveToyX::curlfy
+    StaggeredWaveToyX::curlfz
+    StaggeredWaveToyX::energy
+    StaggeredWaveToyX::uerror
+    StaggeredWaveToyX::fxerror
+    StaggeredWaveToyX::fyerror
+    StaggeredWaveToyX::fzerror
+"

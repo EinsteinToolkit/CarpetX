@@ -1,0 +1,2 @@
+# 1:iteration	2:time	3:staggeredwavetoyx::curlfy.min	4:staggeredwavetoyx::curlfy.max	5:staggeredwavetoyx::curlfy.sum	6:staggeredwavetoyx::curlfy.avg	7:staggeredwavetoyx::curlfy.stddev	8:staggeredwavetoyx::curlfy.volume	9:staggeredwavetoyx::curlfy.L1norm	10:staggeredwavetoyx::curlfy.L2norm	11:staggeredwavetoyx::curlfy.maxabs
+0	0.0000000000000000e+00	-1.3322676295501878e-15	1.3322676295501878e-15	0.0000000000000000e+00	0.0000000000000000e+00	4.9650683064945462e-16	8.0000000000000000e+00	2.4980018054066022e-16	4.9650683064945462e-16	1.3322676295501878e-15

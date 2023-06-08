@@ -1,0 +1,9 @@
+Cactus Code Thorn StaggeredWaveToyX
+Author(s)    : Erik Schnetter <schnetter@gmail.com>
+Maintainer(s): Erik Schnetter <schnetter@gmail.com>
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Solve the scalar wave equation using staggered grids.
