@@ -23,3 +23,7 @@ CCTK_REAL entropy TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "specific entro
 CCTK_REAL Ye TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "electron fraction Y_e"
 
 CCTK_REAL Bvec TYPE=gf CENTERING={ccc} TAGS='parities={+1 -1 -1   -1 +1 -1   -1 -1 +1} checkpoint="no"' { Bvecx Bvecy Bvecz } "Magnetic field B^i"
+
+CCTK_REAL Avecx TYPE=gf CENTERING={cvv} TAGS='parities={-1 +1 +1} checkpoint="no"' "Magnetic vector potential A^x"
+CCTK_REAL Avecy TYPE=gf CENTERING={vcv} TAGS='parities={+1 -1 +1} checkpoint="no"' "Magnetic vector potential A^y"
+CCTK_REAL Avecz TYPE=gf CENTERING={vvc} TAGS='parities={+1 +1 -1} checkpoint="no"' "Magnetic vector potential A^z"
