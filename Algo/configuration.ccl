@@ -3,6 +3,9 @@
 REQUIRES Arith
 REQUIRES Boost
 
+# Only for self-tests
+REQUIRES AMReX
+
 PROVIDES Algo
 {
 }

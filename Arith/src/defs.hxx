@@ -3,6 +3,10 @@
 
 #include <cctk.h>
 
+#ifdef __HIPCC__
+#include <hip/hip_runtime.h>
+#endif
+
 #include <cmath>
 #include <limits>
 #include <type_traits>

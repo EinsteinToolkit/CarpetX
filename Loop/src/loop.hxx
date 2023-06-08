@@ -3,13 +3,16 @@
 
 #include <AMReX_FArrayBox.H>
 
-#define CCTK_DEVICE AMREX_GPU_DEVICE
-#define CCTK_HOST AMREX_GPU_HOST
-
 #include <simd.hxx>
 #include <vect.hxx>
 
 #include <cctk.h>
+#include <cctk_Arguments.h>
+#include <cctk_Parameters.h>
+
+#ifdef __HIPCC__
+#include <hip/hip_runtime.h>
+#endif
 
 #include <algorithm>
 #include <cassert>
@@ -18,6 +21,9 @@
 #include <ostream>
 #include <string>
 #include <type_traits>
+
+#define CCTK_DEVICE AMREX_GPU_DEVICE
+#define CCTK_HOST AMREX_GPU_HOST
 
 namespace Loop {
 
