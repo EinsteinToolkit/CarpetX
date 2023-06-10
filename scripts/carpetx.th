@@ -710,6 +710,8 @@ CarpetX/ODESolvers
 CarpetX/PDESolvers
 CarpetX/Poisson2
 CarpetX/SIMDWaveToyX
+CarpetX/SpacetimeWaveToyX
+CarpetX/StaggeredWaveToyX
 CarpetX/TestArrayGroup
 CarpetX/TestBoundaries
 CarpetX/TestInterpolate

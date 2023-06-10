@@ -9,25 +9,25 @@ USES INCLUDE HEADER: vect.hxx
 
 
 
-CCTK_REAL ustate TYPE=gf TAGS='rhs="urhs" dependents="uerror eps"'
+CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="energy error"'
 {
   u
   rho
 } "Scalar wave state vector"
 
-CCTK_REAL urhs TYPE=gf TAGS='checkpoint="no"'
+CCTK_REAL rhs TYPE=gf TAGS='checkpoint="no"'
 {
-  udot
-  rhodot
+  u_rhs
+  rho_rhs
 } "RHS of scalar wave state vector"
 
-CCTK_REAL eps TYPE=gf TAGS='checkpoint="no"'
+CCTK_REAL energy TYPE=gf TAGS='checkpoint="no"'
 {
   eps
 } "Energy density"
 
-CCTK_REAL uerror TYPE=gf TAGS='checkpoint="no"'
+CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
 {
-  uerr
-  rhoerr
+  u_err
+  rho_err
 } "Error in scalar wave state vector"

@@ -1,0 +1,99 @@
+# Interface definition for thorn StaggeredWaveToyX
+
+IMPLEMENTS: StaggeredWaveToyX
+
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: vect.hxx
+
+
+
+CCTK_REAL ustate TYPE=gf CENTERING={vvv} TAGS='rhs="urhs" dependents="uerror energy"'
+{
+  u
+  ft
+} "Scalar wave state vector"
+
+CCTK_REAL fxstate TYPE=gf CENTERING={cvv} TAGS='parities={-1 +1 +1} rhs="fxrhs" dependents="fxerror energy"'
+{
+  fx
+} "Scalar wave state vector, staggered in x direction"
+
+CCTK_REAL fystate TYPE=gf CENTERING={vcv} TAGS='parities={+1 -1 +1} rhs="fyrhs" dependents="fyerror energy"'
+{
+  fy
+} "Scalar wave state vector, staggered in y direction"
+
+CCTK_REAL fzstate TYPE=gf CENTERING={vvc} TAGS='parities={+1 +1 -1} rhs="fzrhs" dependents="fzerror energy"'
+{
+  fz
+} "Scalar wave state vector, staggered in z direction"
+
+
+
+CCTK_REAL urhs TYPE=gf CENTERING={vvv} TAGS='checkpoint="no"'
+{
+  u_rhs
+  ft_rhs
+} "Scalar wave rhs"
+
+CCTK_REAL fxrhs TYPE=gf CENTERING={cvv} TAGS='parities={-1 +1 +1} checkpoint="no"'
+{
+  fx_rhs
+} "Scalar wave rhs, staggered in x direction"
+
+CCTK_REAL fyrhs TYPE=gf CENTERING={vcv} TAGS='parities={+1 -1 +1} checkpoint="no"'
+{
+  fy_rhs
+} "Scalar wave rhs, staggered in y direction"
+
+CCTK_REAL fzrhs TYPE=gf CENTERING={vvc} TAGS='parities={+1 +1 -1} checkpoint="no"'
+{
+  fz_rhs
+} "Scalar wave rhs, staggered in z direction"
+
+
+
+CCTK_REAL curlfx TYPE=gf CENTERING={vcc} TAGS='parities={+1 -1 -1} checkpoint="no"'
+{
+  curlfx
+} "Constraints, staggered in x direction"
+
+CCTK_REAL curlfy TYPE=gf CENTERING={cvc} TAGS='parities={-1 +1 -1} checkpoint="no"'
+{
+  curlfy
+} "Constraints, staggered in y direction"
+
+CCTK_REAL curlfz TYPE=gf CENTERING={ccv} TAGS='parities={-1 -1 +1} checkpoint="no"'
+{
+  curlfz
+} "Constraints, staggered in z direction"
+
+
+
+CCTK_REAL energy CENTERING={CCC} TYPE=gf TAGS='checkpoint="no"'
+{
+  eps
+} "Energy density"
+
+
+
+CCTK_REAL uerror TYPE=gf CENTERING={vvv} TAGS='checkpoint="no"'
+{
+  u_err
+  ft_err
+} "Scalar wave error"
+
+CCTK_REAL fxerror TYPE=gf CENTERING={cvv} TAGS='parities={-1 +1 +1} checkpoint="no"'
+{
+  fx_err
+} "Scalar wave error, staggered in x direction"
+
+CCTK_REAL fyerror TYPE=gf CENTERING={vcv} TAGS='parities={+1 -1 +1} checkpoint="no"'
+{
+  fy_err
+} "Scalar wave error, staggered in y direction"
+
+CCTK_REAL fzerror TYPE=gf CENTERING={vvc} TAGS='parities={+1 +1 -1} checkpoint="no"'
+{
+  fz_err
+} "Scalar wave error, staggered in z direction"

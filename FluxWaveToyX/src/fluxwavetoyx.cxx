@@ -299,11 +299,11 @@ extern "C" void FluxWaveToyX_Error(CCTK_ARGUMENTS) {
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, p.x, p.y, p.z, u0, ft0,
                         fx0, fy0, fz0);
-          u_error(p.I) = u(p.I) - u0;
-          ft_error(p.I) = ft(p.I) - ft0;
-          fx_error(p.I) = fx(p.I) - fx0;
-          fy_error(p.I) = fy(p.I) - fy0;
-          fz_error(p.I) = fz(p.I) - fz0;
+          u_err(p.I) = u(p.I) - u0;
+          ft_err(p.I) = ft(p.I) - ft0;
+          fx_err(p.I) = fx(p.I) - fx0;
+          fy_err(p.I) = fy(p.I) - fy0;
+          fz_err(p.I) = fz(p.I) - fz0;
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -314,11 +314,11 @@ extern "C" void FluxWaveToyX_Error(CCTK_ARGUMENTS) {
           CCTK_REAL u0, ft0, fx0, fy0, fz0;
           gaussian(amplitude, gaussian_width, cctk_time, p.x, p.y, p.z, u0, ft0,
                    fx0, fy0, fz0);
-          u_error(p.I) = u(p.I) - u0;
-          ft_error(p.I) = ft(p.I) - ft0;
-          fx_error(p.I) = fx(p.I) - fx0;
-          fy_error(p.I) = fy(p.I) - fy0;
-          fz_error(p.I) = fz(p.I) - fz0;
+          u_err(p.I) = u(p.I) - u0;
+          ft_err(p.I) = ft(p.I) - ft0;
+          fx_err(p.I) = fx(p.I) - fx0;
+          fy_err(p.I) = fy(p.I) - fy0;
+          fz_err(p.I) = fz(p.I) - fz0;
         });
 
   } else {

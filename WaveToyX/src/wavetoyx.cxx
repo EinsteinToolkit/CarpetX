@@ -81,6 +81,34 @@ extern "C" void WaveToyX_Initial(CCTK_ARGUMENTS) {
   }
 }
 
+#if 0
+extern "C" void WaveToyX_EstimateError(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_WaveToyX_EstimateError;
+  DECLARE_CCTK_PARAMETERS;
+
+  grid.loop_int_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        using std::abs, std::max;
+        CCTK_REAL maxabs_du = 0;
+        for (int d = 0; d < dim; ++d) {
+          const int ni = d == 0 ? 1 : 2;
+          const int nj = d == 1 ? 1 : 2;
+          const int nk = d == 2 ? 1 : 2;
+          for (int dk = 0; dk < nk; ++dk) {
+            for (int dj = 0; dj < nj; ++dj) {
+              for (int di = 0; di < ni; ++di) {
+                const auto I = p.I + di * p.DI[0] + dj * p.DI[1] + dk * p.DI[2];
+                maxabs_du = max(maxabs_du, abs(u(I + p.DI[d]) - u(I)));
+              }
+            }
+          }
+        }
+        regrid_error(p.I) = maxabs_du;
+      });
+}
+#endif
+
 extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_WaveToyX_RHS;
   DECLARE_CCTK_PARAMETERS;
@@ -96,8 +124,8 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
             ddu += (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
                    pow(p.DX[d], 2);
 
-          udot(p.I) = rho(p.I);
-          rhodot(p.I) = ddu;
+          u_rhs(p.I) = rho(p.I);
+          rho_rhs(p.I) = ddu;
         });
 
   } else if (CCTK_EQUALS(boundary_condition, "reflecting")) {
@@ -119,8 +147,8 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
               ddu[d] = (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
                        pow(p.DX[d], 2);
 
-          udot(p.I) = rho(p.I);
-          rhodot(p.I) = ddu[0] + ddu[1] + ddu[2];
+          u_rhs(p.I) = rho(p.I);
+          rho_rhs(p.I) = ddu[0] + ddu[1] + ddu[2];
         });
 
   } else if (CCTK_EQUALS(boundary_condition, "radiative")) {
@@ -208,13 +236,13 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
               drho[d] =
                   (rho(p.I + p.DI[d]) - rho(p.I - p.DI[d])) / (2 * p.DX[d]);
 
-          udot(p.I) = rho(p.I);
-          rhodot(p.I) = ddu[0] + ddu[1] + ddu[2];
+          u_rhs(p.I) = rho(p.I);
+          rho_rhs(p.I) = ddu[0] + ddu[1] + ddu[2];
 
           if (any(p.BI != 0)) {
             // We are on the boundary
-            udot(p.I) = (udot(p.I) - dot(p.BI, du)) / 2;
-            rhodot(p.I) = (rhodot(p.I) - dot(p.BI, drho)) / 2;
+            u_rhs(p.I) = (u_rhs(p.I) - dot(p.BI, du)) / 2;
+            rho_rhs(p.I) = (rho_rhs(p.I) - dot(p.BI, drho)) / 2;
           }
         });
 
@@ -249,8 +277,8 @@ extern "C" void WaveToyX_Error(CCTK_ARGUMENTS) {
           CCTK_REAL u0, rho0;
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, p.x, p.y, p.z, u0, rho0);
-          uerr(p.I) = u(p.I) - u0;
-          rhoerr(p.I) = rho(p.I) - rho0;
+          u_err(p.I) = u(p.I) - u0;
+          rho_err(p.I) = rho(p.I) - rho0;
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -261,8 +289,8 @@ extern "C" void WaveToyX_Error(CCTK_ARGUMENTS) {
           CCTK_REAL u0, rho0;
           gaussian(amplitude, gaussian_width, cctk_time, p.x, p.y, p.z, u0,
                    rho0);
-          uerr(p.I) = u(p.I) - u0;
-          rhoerr(p.I) = rho(p.I) - rho0;
+          u_err(p.I) = u(p.I) - u0;
+          rho_err(p.I) = rho(p.I) - rho0;
         });
 
   } else {

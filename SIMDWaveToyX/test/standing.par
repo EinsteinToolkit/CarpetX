@@ -33,6 +33,8 @@ CarpetX::out_norm_vars = "all"
 CarpetX::out_norm_omit_unstable = yes
 
 CarpetX::out_tsv_vars = "
-    SIMDWaveToyX::ustate
-    SIMDWaveToyX::uerror
+    SIMDWaveToyX::state
+    SIMDWaveToyX::rhs
+    SIMDWaveToyX::energy
+    SIMDWaveToyX::error
 "

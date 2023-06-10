@@ -1,0 +1,2 @@
+# 1:iteration	2:time	3:spacetimewavetoyx::eps.min	4:spacetimewavetoyx::eps.max	5:spacetimewavetoyx::eps.sum	6:spacetimewavetoyx::eps.avg	7:spacetimewavetoyx::eps.stddev	8:spacetimewavetoyx::eps.volume	9:spacetimewavetoyx::eps.L1norm	10:spacetimewavetoyx::eps.L2norm	11:spacetimewavetoyx::eps.maxabs
+0	0.0000000000000000e+00	0.0000000000000000e+00	6.0000000000000000e+00	1.2000000000000000e+01	1.5000000000000000e+00	1.5909902576697319e+00	8.0000000000000000e+00	1.5000000000000000e+00	2.1866069605669876e+00	6.0000000000000000e+00

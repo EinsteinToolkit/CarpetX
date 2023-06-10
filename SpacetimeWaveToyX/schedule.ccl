@@ -1,0 +1,96 @@
+# Schedule definitions for thorn SpacetimeWaveToyX
+
+STORAGE: ustate ftstate fxstate fystate fzstate
+
+SCHEDULE SpacetimeWaveToyX_Initial AT initial
+{
+  LANG: C
+  WRITES: ustate(interior)
+  WRITES: ftstate(interior)
+  WRITES: fxstate(interior)
+  WRITES: fystate(interior)
+  WRITES: fzstate(interior)
+  SYNC: ustate
+  SYNC: ftstate
+  SYNC: fxstate
+  SYNC: fystate
+  SYNC: fzstate
+} "Initialize scalar wave state"
+
+SCHEDULE SpacetimeWaveToyX_Evol1 AT evol
+{
+  LANG: C
+  # inputs
+  READS: ftstate(interior)
+  # modified
+  READS: ustate(interior)
+  READS: fxstate(interior)
+  READS: fystate(interior)
+  READS: fzstate(interior)
+  WRITES: ustate(interior)
+  WRITES: fxstate(interior)
+  WRITES: fystate(interior)
+  WRITES: fzstate(interior)
+  SYNC: ustate
+  SYNC: fxstate
+  SYNC: fystate
+  SYNC: fzstate
+} "Evolve scalar wave, part 1"
+
+SCHEDULE SpacetimeWaveToyX_Evol2 AT evol AFTER SpacetimeWaveToyX_Evol1
+{
+  LANG: C
+  # inputs
+  READS: fxstate(everywhere)
+  READS: fystate(everywhere)
+  READS: fzstate(everywhere)
+  # modified
+  READS: ftstate(interior)
+  WRITES: ftstate(interior)
+  SYNC: ftstate
+} "Evolve scalar wave, part 2"
+
+SCHEDULE SpacetimeWaveToyX_Constraints AT analysis
+{
+  LANG: C
+  READS: fxstate(interior)
+  READS: fystate(interior)
+  READS: fzstate(interior)
+  WRITES: curlfx(interior)
+  WRITES: curlfy(interior)
+  WRITES: curlfz(interior)
+  SYNC: curlfx
+  SYNC: curlfy
+  SYNC: curlfz
+} "Calculate scalar wave constraints"
+ 
+SCHEDULE SpacetimeWaveToyX_Energy AT analysis
+{
+  LANG: C
+  READS: ftstate(everywhere)
+  READS: fxstate(everywhere)
+  READS: fystate(everywhere)
+  READS: fzstate(everywhere)
+  WRITES: energy(interior)
+  SYNC: energy
+} "Calculate scalar wave energy density"
+
+SCHEDULE SpacetimeWaveToyX_Error AT analysis
+{
+  LANG: C
+  READS: ustate(interior)
+  READS: ftstate(interior)
+  READS: fxstate(interior)
+  READS: fystate(interior)
+  READS: fzstate(interior)
+  WRITES: uerror(interior)
+  WRITES: fterror(interior)
+  WRITES: fxerror(interior)
+  WRITES: fyerror(interior)
+  WRITES: fzerror(interior)
+  SYNC: uerror
+  SYNC: fterror
+  SYNC: fxerror
+  SYNC: fyerror
+  SYNC: fzerror
+} "Calculate error in scalar wave state"

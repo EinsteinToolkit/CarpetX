@@ -1,0 +1,75 @@
+# Schedule definitions for thorn StaggeredWaveToyX
+
+STORAGE: ustate fxstate fystate fzstate
+
+SCHEDULE StaggeredWaveToyX_Initial AT initial
+{
+  LANG: C
+  WRITES: ustate(interior)
+  WRITES: fxstate(interior)
+  WRITES: fystate(interior)
+  WRITES: fzstate(interior)
+  SYNC: ustate
+  SYNC: fxstate
+  SYNC: fystate
+  SYNC: fzstate
+} "Initialize scalar wave state"
+
+SCHEDULE StaggeredWaveToyX_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: ustate(everywhere)
+  READS: fxstate(everywhere)
+  READS: fystate(everywhere)
+  READS: fzstate(everywhere)
+  WRITES: urhs(interior)
+  WRITES: fxrhs(interior)
+  WRITES: fyrhs(interior)
+  WRITES: fzrhs(interior)
+  SYNC: urhs
+  SYNC: fxrhs
+  SYNC: fyrhs
+  SYNC: fzrhs
+} "Calculate scalar wave RHS"
+
+SCHEDULE StaggeredWaveToyX_Constraints IN ODESolvers_PostStep
+{
+  LANG: C
+  READS: fxstate(interior)
+  READS: fystate(interior)
+  READS: fzstate(interior)
+  WRITES: curlfx(interior)
+  WRITES: curlfy(interior)
+  WRITES: curlfz(interior)
+  SYNC: curlfx
+  SYNC: curlfy
+  SYNC: curlfz
+} "Calculate scalar wave constraints"
+
+SCHEDULE StaggeredWaveToyX_Energy IN ODESolvers_PostStep
+{
+  LANG: C
+  READS: ustate(interior)
+  READS: fxstate(interior)
+  READS: fystate(interior)
+  READS: fzstate(interior)
+  WRITES: energy(interior)
+  SYNC: energy
+} "Calculate scalar wave energy density"
+
+SCHEDULE StaggeredWaveToyX_Error IN ODESolvers_PostStep
+{
+  LANG: C
+  READS: ustate(interior)
+  READS: fxstate(interior)
+  READS: fystate(interior)
+  READS: fzstate(interior)
+  WRITES: uerror(interior)
+  WRITES: fxerror(interior)
+  WRITES: fyerror(interior)
+  WRITES: fzerror(interior)
+  SYNC: uerror
+  SYNC: fxerror
+  SYNC: fyerror
+  SYNC: fzerror
+} "Calculate error in scalar wave state"

@@ -1,0 +1,2 @@
+# 1:iteration	2:time	3:staggeredwavetoyx::fx_err.min	4:staggeredwavetoyx::fx_err.max	5:staggeredwavetoyx::fx_err.sum	6:staggeredwavetoyx::fx_err.avg	7:staggeredwavetoyx::fx_err.stddev	8:staggeredwavetoyx::fx_err.volume	9:staggeredwavetoyx::fx_err.L1norm	10:staggeredwavetoyx::fx_err.L2norm	11:staggeredwavetoyx::fx_err.maxabs
+0	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	8.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00

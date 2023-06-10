@@ -34,5 +34,7 @@ CarpetX::out_norm_omit_unstable = yes
 
 CarpetX::out_tsv_vars = "
     FluxWaveToyX::state
+    FluxWaveToyX::rhs
+    FluxWaveToyX::energy
     FluxWaveToyX::error
 "
