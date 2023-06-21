@@ -12,31 +12,35 @@ SCHEDULE GROUP ADMBaseX_PostInitial AT initial AFTER (ADMBaseX_InitialData ADMBa
 {
 } "Schedule group for modifying the ADM initial data, such as e.g. adding noise"
 
-SCHEDULE GROUP ADMBaseX_SetADMVars AT postregrid
+if( CCTK_IsThornActive("ODESolvers") )
 {
-} "Set ADM variables in this group"
+  SCHEDULE GROUP ADMBaseX_SetADMVars IN ODESolvers_PostStep
+  {
+  } "Set ADM variables in this group"
 
-SCHEDULE GROUP ADMBaseX_SetADMVars AT poststep
+  SCHEDULE GROUP ADMBaseX_SetADMRHS IN ODESolvers_PostStep
+  {
+  } "Set ADM RHS variables in this group"  
+}
+else
 {
-} "Set ADM variables in this group"
+  # ODESolvers_PostStep is also scheduled AT postinitial and postrestrict
+  SCHEDULE GROUP ADMBaseX_SetADMVars AT postregrid
+  {
+  } "Set ADM variables in this group"
 
-SCHEDULE GROUP ADMBaseX_SetADMVars IN ODESolvers_PostStep
-{
-} "Set ADM variables in this group"
-
-SCHEDULE GROUP ADMBaseX_SetADMRHS AT postregrid
-{
-} "Set ADM RHS variables in this group"  
-
-SCHEDULE GROUP ADMBaseX_SetADMRHS AT poststep
-{
-} "Set ADM RHS variables in this group"  
-
-SCHEDULE GROUP ADMBaseX_SetADMRHS IN ODESolvers_PostStep
-{
-} "Set ADM RHS variables in this group"  
-
-
+  SCHEDULE GROUP ADMBaseX_SetADMVars AT poststep
+  {
+  } "Set ADM variables in this group"
+  
+  SCHEDULE GROUP ADMBaseX_SetADMRHS AT postregrid
+  {
+  } "Set ADM RHS variables in this group"  
+  
+  SCHEDULE GROUP ADMBaseX_SetADMRHS AT poststep
+  {
+  } "Set ADM RHS variables in this group"  
+}
 
 if (CCTK_EQUALS(initial_data, "Cartesian Minkowski")) {
   SCHEDULE ADMBaseX_initial_data IN ADMBaseX_InitialData
