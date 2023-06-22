@@ -1,6 +1,6 @@
 # Configuration definitions for thorn CarpetX
 
-REQUIRES AMReX MPI yaml_cpp zlib
+REQUIRES AMReX IOUtil MPI yaml_cpp zlib
 
 REQUIRES Arith Loop
 
