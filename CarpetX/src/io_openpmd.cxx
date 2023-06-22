@@ -67,19 +67,27 @@ openPMD::Format get_format() {
     return openPMD::Format::HDF5;
   if (CCTK_EQUALS(openpmd_format, "ADIOS1"))
     return openPMD::Format::ADIOS1;
+#if OPENPMDAPI_VERSION_GE(0, 15, 0)
   if (CCTK_EQUALS(openpmd_format, "ADIOS2_BP"))
     return openPMD::Format::ADIOS2_BP;
   if (CCTK_EQUALS(openpmd_format, "ADIOS2_BP4"))
     return openPMD::Format::ADIOS2_BP4;
   if (CCTK_EQUALS(openpmd_format, "ADIOS2_BP5"))
     return openPMD::Format::ADIOS2_BP5;
+#else
+  if (CCTK_EQUALS(openpmd_format, "ADIOS2"))
+    return openPMD::Format::ADIOS2;
+#endif
   if (CCTK_EQUALS(openpmd_format, "ADIOS2_SST"))
     return openPMD::Format::ADIOS2_SST;
   if (CCTK_EQUALS(openpmd_format, "ADIOS2_SSC"))
     return openPMD::Format::ADIOS2_SSC;
   if (CCTK_EQUALS(openpmd_format, "JSON"))
     return openPMD::Format::JSON;
-  CCTK_ERROR("Internal error");
+  CCTK_VERROR("The openPMD format \"%s\" is not supported in version %d.%d.%d "
+              "of the openPMD_api library",
+              openpmd_format, OPENPMDAPI_VERSION_MAJOR,
+              OPENPMDAPI_VERSION_MINOR, OPENPMDAPI_VERSION_PATCH);
 }
 
 // - fileBased: One file per iteration. Needs templated file name to encode
@@ -888,9 +896,12 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
               if (output_ghosts || intbox == extbox) {
                 CCTK_REAL *const ptr = fab.dataPtr() + vi * np;
-                // record_components.at(vi).loadChunk(openPMD::shareRaw(ptr),
-                //                                    start, count);
+#if OPENPMDAPI_VERSION_GE(0, 15, 0)
                 record_components.at(vi).loadChunkRaw(ptr, start, count);
+#else
+                record_components.at(vi).loadChunk(openPMD::shareRaw(ptr),
+                                                   start, count);
+#endif
 
               } else {
                 const int amrex_size = extbox.size();
@@ -1323,9 +1334,12 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             for (int vi = 0; vi < numvars; ++vi) {
               if (output_ghosts || intbox == extbox) {
                 const CCTK_REAL *const ptr = fab.dataPtr() + vi * np;
-                // record_components.at(vi).storeChunk(openPMD::shareRaw(ptr),
-                //                                     start, count);
+#if OPENPMDAPI_VERSION_GE(0, 15, 0)
                 record_components.at(vi).storeChunkRaw(ptr, start, count);
+#else
+                record_components.at(vi).storeChunk(openPMD::shareRaw(ptr),
+                                                    start, count);
+#endif
               } else {
                 std::shared_ptr<CCTK_REAL> ptr(
                     new CCTK_REAL[np], std::default_delete<CCTK_REAL[]>());
