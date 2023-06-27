@@ -1227,7 +1227,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
           mesh.setAxisLabels(reversed(std::vector<std::string>{"x", "y", "z"}));
           mesh.setGridSpacing(to_vector<CCTK_REAL>(
               reversed(fmap([](auto x, auto y) { return x / CCTK_REAL(y); },
-                            rdomain.hi - rdomain.lo, idomain.shape()))));
+                            rdomain.hi - rdomain.lo, idomain.shape() - 1))));
           mesh.setGridGlobalOffset(to_vector<double>(reversed(rdomain.lo)));
           mesh.setGridUnitSI(Unit::length);
           // const std::map<openPMD::UnitDimension, double> unitDimension{
