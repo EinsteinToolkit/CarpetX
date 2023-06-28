@@ -1511,7 +1511,7 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     if (!gdomain.contains(box))
       BoundaryCondition(*this, box, dest).apply();
   });
-  synchronize();
+  // synchronize();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
