@@ -7,11 +7,13 @@ SRCS =							\
 	boundaries_impl_int_neg.cxx			\
 	boundaries_impl_int_pos.cxx			\
 	boundaries_impl_neg_int.cxx			\
-	boundaries_impl_neg_neg.cxx			\
 	boundaries_impl_neg_pos.cxx			\
 	boundaries_impl_pos_int.cxx			\
 	boundaries_impl_pos_neg.cxx			\
 	boundaries_impl_pos_pos.cxx			\
+	boundaries_impl_int_neg_neg.cxx			\
+	boundaries_impl_net_neg_neg.cxx			\
+	boundaries_impl_pos_neg_neg.cxx			\
 	driver.cxx					\
 	fillpatch.cxx					\
 	interpolate.cxx					\
