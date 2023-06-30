@@ -75,6 +75,16 @@ task_t<K> make_task(F &&kernel, const Arith::vect<int, dim> &imin,
   return {std::forward<F>(kernel), imin, imax, cmin, cmax};
 }
 
+template <typename F> void loop_task(const task_t<F> &task) {
+  amrex::ParallelFor(
+      task.box(),
+      [kernel = task.kernel, cmin = task.cmin, cmax = task.cmax] CCTK_DEVICE(
+          const int i, const int j, const int k) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        const Arith::vect<int, dim> p{i, j, k};
+        kernel(p, cmin, cmax);
+      });
+}
+
 template <typename F> void loop_tasks(const amrex::Vector<task_t<F> > &tasks) {
 #ifdef AMREX_USE_GPU
   amrex::ParallelFor(tasks, [=] CCTK_DEVICE(const int i, const int j,
@@ -561,8 +571,11 @@ void BoundaryCondition::apply_on_face_symbcxyz(
               }
             };
     const auto task = make_task(std::move(kernel), bmin, bmax, cmin, cmax);
-    const amrex::Vector<typename decltype(task)::type> tasks{task};
-    loop_tasks(tasks);
+    // Note: collecting single kernels slows things down. We probably
+    // need to collect all kernels together.
+    loop_task(task);
+    // const amrex::Vector<typename decltype(task)::type> tasks{task};
+    // loop_tasks(tasks);
   }
 }
 
