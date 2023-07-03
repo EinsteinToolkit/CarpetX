@@ -1,4 +1,4 @@
-#include <loop.hxx>
+#include <loop_device.hxx>
 
 #include <cctk.h>
 #include <cctk_Arguments.h>
@@ -7,36 +7,39 @@
 namespace Coordinates {
 
 extern "C" void Coordinates_Setup(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Coordinates_Setup;
+  DECLARE_CCTK_ARGUMENTSX_Coordinates_Setup;
   DECLARE_CCTK_PARAMETERS;
 
-  const Loop::GF3D<CCTK_REAL, 0, 0, 0> vcoordx_(cctkGH, vcoordx);
-  const Loop::GF3D<CCTK_REAL, 0, 0, 0> vcoordy_(cctkGH, vcoordy);
-  const Loop::GF3D<CCTK_REAL, 0, 0, 0> vcoordz_(cctkGH, vcoordz);
+  grid.loop_all_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { vcoordx(p.I) = p.x; });
+  grid.loop_all_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { vcoordy(p.I) = p.y; });
+  grid.loop_all_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { vcoordz(p.I) = p.z; });
 
-  const Loop::GF3D<CCTK_REAL, 1, 1, 1> ccoordx_(cctkGH, ccoordx);
-  const Loop::GF3D<CCTK_REAL, 1, 1, 1> ccoordy_(cctkGH, ccoordy);
-  const Loop::GF3D<CCTK_REAL, 1, 1, 1> ccoordz_(cctkGH, ccoordz);
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { ccoordx(p.I) = p.x; });
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { ccoordy(p.I) = p.y; });
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { ccoordz(p.I) = p.z; });
 
-  const Loop::GF3D<CCTK_REAL, 1, 1, 1> cvol_(cctkGH, cvol);
-
-  Loop::loop_all<0, 0, 0>(
-      cctkGH, [&](const Loop::PointDesc &p) { vcoordx_(p.I) = p.x; });
-  Loop::loop_all<0, 0, 0>(
-      cctkGH, [&](const Loop::PointDesc &p) { vcoordy_(p.I) = p.y; });
-  Loop::loop_all<0, 0, 0>(
-      cctkGH, [&](const Loop::PointDesc &p) { vcoordz_(p.I) = p.z; });
-
-  Loop::loop_all<1, 1, 1>(
-      cctkGH, [&](const Loop::PointDesc &p) { ccoordx_(p.I) = p.x; });
-  Loop::loop_all<1, 1, 1>(
-      cctkGH, [&](const Loop::PointDesc &p) { ccoordy_(p.I) = p.y; });
-  Loop::loop_all<1, 1, 1>(
-      cctkGH, [&](const Loop::PointDesc &p) { ccoordz_(p.I) = p.z; });
-
-  Loop::loop_all<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
-    cvol_(p.I) = p.dx * p.dy * p.dz;
-  });
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { cvol(p.I) = p.dx * p.dy * p.dz; });
 }
 
 } // namespace Coordinates
