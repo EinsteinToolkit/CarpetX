@@ -141,9 +141,9 @@ RUN mkdir src && \
 # ssht provides spin-weighted spherical harmonics
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/astro-informatics/ssht/archive/v1.5.1.tar.gz && \
-    tar xzf v1.5.1.tar.gz && \
-    cd ssht-1.5.1 && \
+    wget https://github.com/astro-informatics/ssht/archive/v1.5.2.tar.gz && \
+    tar xzf v1.5.2.tar.gz && \
+    cd ssht-1.5.2 && \
     mkdir build && \
     cd build && \
     cmake .. && \
@@ -176,9 +176,9 @@ ARG real_precision=real64
 # Should we  keep AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/23.06.tar.gz && \
-    tar xzf 23.06.tar.gz && \
-    cd amrex-23.06 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/23.07.tar.gz && \
+    tar xzf 23.07.tar.gz && \
+    cd amrex-23.07 && \
     mkdir build && \
     cd build && \
     case $real_precision in \
