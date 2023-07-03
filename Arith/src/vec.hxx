@@ -39,12 +39,14 @@ constexpr auto if_symm(const T1 &if_full, const T2 &if_symm,
 template <typename T1, typename T2, typename T3>
 constexpr auto if_symm(symm_t symm, const T1 &if_full, const T2 &if_symm,
                        const T3 &if_anti) {
-  if (symm == FULL)
+  switch (symm) {
+  case FULL:
     return if_full;
-  if (symm == SYMM)
+  case SYMM:
     return if_symm;
-  if (symm == ANTI)
+  case ANTI:
     return if_anti;
+  }
   abort();
 }
 inline ostream &operator<<(ostream &os, const symm_t symm) {
