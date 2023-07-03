@@ -763,19 +763,24 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
       const amrex::Real *const xhi = geom.ProbHi();
       const amrex::Real *const dx = geom.CellSize();
       const box_t<CCTK_REAL, 3> rdomain{
-          .lo = {xlo[0] - nghosts[0] * dx[0], xlo[1] - nghosts[1] * dx[1],
-                 xlo[2] - nghosts[2] * dx[2]},
-          .hi = {xhi[0] + nghosts[0] * dx[0], xhi[1] + nghosts[1] * dx[1],
-                 xhi[2] + nghosts[2] * dx[2]}};
+          .lo = {xlo[0] - output_ghosts * nghosts[0] * dx[0],
+                 xlo[1] - output_ghosts * nghosts[1] * dx[1],
+                 xlo[2] - output_ghosts * nghosts[2] * dx[2]},
+          .hi = {xhi[0] + output_ghosts * nghosts[0] * dx[0],
+                 xhi[1] + output_ghosts * nghosts[1] * dx[1],
+                 xhi[2] + output_ghosts * nghosts[2] * dx[2]}};
       const amrex::Box &dom = geom.Domain();
       const amrex::IntVect &ilo = dom.smallEnd();
       const amrex::IntVect &ihi = dom.bigEnd();
       // The domain is always vertex centred. The tensor components are
       // then staggered if necessary.
       const box_t<int, 3> idomain{
-          .lo = {ilo[0] - nghosts[0], ilo[1] - nghosts[1], ilo[2] - nghosts[2]},
-          .hi = {ihi[0] + nghosts[0] + 1 + 1, ihi[1] + nghosts[1] + 1 + 1,
-                 ihi[2] + nghosts[2] + 1 + 1}};
+          .lo = {ilo[0] - output_ghosts * nghosts[0],
+                 ilo[1] - output_ghosts * nghosts[1],
+                 ilo[2] - output_ghosts * nghosts[2]},
+          .hi = {ihi[0] + output_ghosts * nghosts[0] + 1 + 1,
+                 ihi[1] + output_ghosts * nghosts[1] + 1 + 1,
+                 ihi[2] + output_ghosts * nghosts[2] + 1 + 1}};
       if (io_verbose) {
         CCTK_VINFO("Level: %d", leveldata.level);
         CCTK_VINFO("  xmin: [%f,%f,%f]", double(rdomain.lo[0]),
@@ -938,6 +943,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                 const auto expand_box = [=](CCTK_REAL *const contig_ptr) {
                   for (int k = 0; k < contig_shape[2]; ++k)
                     for (int j = 0; j < contig_shape[1]; ++j)
+#pragma omp simd
                       for (int i = 0; i < contig_shape[0]; ++i)
                         amrex_ptr[amrex_di * i + amrex_dj * j + amrex_dk * k] =
                             contig_ptr[contig_di * i + contig_dj * j +
@@ -1150,19 +1156,24 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
       const amrex::Real *const xhi = geom.ProbHi();
       const amrex::Real *const dx = geom.CellSize();
       const box_t<CCTK_REAL, 3> rdomain{
-          .lo = {xlo[0] - nghosts[0] * dx[0], xlo[1] - nghosts[1] * dx[1],
-                 xlo[2] - nghosts[2] * dx[2]},
-          .hi = {xhi[0] + nghosts[0] * dx[0], xhi[1] + nghosts[1] * dx[1],
-                 xhi[2] + nghosts[2] * dx[2]}};
+          .lo = {xlo[0] - output_ghosts * nghosts[0] * dx[0],
+                 xlo[1] - output_ghosts * nghosts[1] * dx[1],
+                 xlo[2] - output_ghosts * nghosts[2] * dx[2]},
+          .hi = {xhi[0] + output_ghosts * nghosts[0] * dx[0],
+                 xhi[1] + output_ghosts * nghosts[1] * dx[1],
+                 xhi[2] + output_ghosts * nghosts[2] * dx[2]}};
       const amrex::Box &dom = geom.Domain();
       const amrex::IntVect &ilo = dom.smallEnd();
       const amrex::IntVect &ihi = dom.bigEnd();
       // The domain is always vertex centred. The tensor components are
       // then staggered if necessary.
       const box_t<int, 3> idomain{
-          .lo = {ilo[0] - nghosts[0], ilo[1] - nghosts[1], ilo[2] - nghosts[2]},
-          .hi = {ihi[0] + nghosts[0] + 1 + 1, ihi[1] + nghosts[1] + 1 + 1,
-                 ihi[2] + nghosts[2] + 1 + 1}};
+          .lo = {ilo[0] - output_ghosts * nghosts[0],
+                 ilo[1] - output_ghosts * nghosts[1],
+                 ilo[2] - output_ghosts * nghosts[2]},
+          .hi = {ihi[0] + output_ghosts * nghosts[0] + 1 + 1,
+                 ihi[1] + output_ghosts * nghosts[1] + 1 + 1,
+                 ihi[2] + output_ghosts * nghosts[2] + 1 + 1}};
       if (io_verbose) {
         CCTK_VINFO("Patch: %d, Level: %d", patchdata.patch, leveldata.level);
         CCTK_VINFO("  xmin: [%f,%f,%f]", double(rdomain.lo[0]),
@@ -1361,6 +1372,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                 CCTK_REAL *restrict const contig_ptr = ptr.get();
                 for (int k = 0; k < contig_shape[2]; ++k)
                   for (int j = 0; j < contig_shape[1]; ++j)
+#pragma omp simd
                     for (int i = 0; i < contig_shape[0]; ++i)
                       contig_ptr[contig_di * i + contig_dj * j +
                                  contig_dk * k] =
