@@ -1,6 +1,12 @@
 #include "boundaries.hxx"
 #include "boundaries_impl.hxx"
 
+#include <vect.hxx>
+
+#include <AMReX.H>
+
+#include <algorithm>
+#include <cmath>
 #include <type_traits>
 
 namespace CarpetX {
@@ -62,8 +68,9 @@ BoundaryCondition::BoundaryCondition(
   }
 }
 
-void BoundaryCondition::apply() const {
+#if 1
 
+void BoundaryCondition::apply() const {
   apply_on_face<NEG, NEG, NEG>();
   apply_on_face<INT, NEG, NEG>();
   apply_on_face<POS, NEG, NEG>();
@@ -94,5 +101,291 @@ void BoundaryCondition::apply() const {
   apply_on_face<INT, POS, POS>();
   apply_on_face<POS, POS, POS>();
 }
+
+#else
+
+CCTK_DEVICE void BoundaryKernel::operator()(const Arith::vect<int, dim> &dst,
+                                            const int cmin,
+                                            const int cmax) const {
+  // `src` is the point at which we are looking to determine the boundary value
+  Arith::vect<int, dim> src = dst;
+  // `delta` (if nonzero) describes a second point at which we are looking, so
+  // that we can calculate a gradient for the boundary value
+  Arith::vect<int, dim> delta{0, 0, 0};
+  for (int d = 0; d < dim; ++d) {
+    if (boundaries[d] == boundary_t::dirichlet) {
+      // do nothing
+    } else if (boundaries[d] == boundary_t::linear_extrapolation) {
+      // Same slope:
+      //   f'(0)       = f'(h)
+      //   f(h) - f(0) = f(2h) - f(h)
+      //          f(0) = 2 f(h) - f(2h)
+      // f(0) is the boundary point
+      src[d] = linear_extrapolation_source[d];
+      delta[d] = -inormal[d];
+    } else if (boundaries[d] == boundary_t::neumann) {
+      // Same value:
+      //   f(0) = f(h)
+      // f(0) is the boundary point
+      src[d] = neumann_source[d];
+    } else if (boundaries[d] == boundary_t::robin) {
+      // Robin condition, specialized to 1/r fall-off:
+      //   f(r) = finf + C/r
+      // Determine fall-off constant `C`:
+      //   C = r * (f(r) - finf)
+      // Solve for value at boundary:
+      //   f(r+h) = finf + C / (r + h)
+      //          = finf + r / (r + h) * (f(r) - finf)
+      // Rewrite using Cartesian coordinates:
+      //   C = |x| * (f(x) - finf)
+      //   f(x') = finf + C / |x'|
+      //         = finf + |x| / |x'| * (f(x) - finf)
+      // f(x') is the boundary point
+      src[d] = robin_source[d];
+    } else if (symmetries[d] == symmetry_t::reflection) {
+      src[d] = reflection_offset[d] - dst[d];
+    } else if (symmetries[d] == symmetry_t::none &&
+               boundaries[d] == boundary_t::none) {
+      // this direction is not a boundary; do nothing
+    } else {
+      // std::cerr << " dst=" << dst << " d=" << d
+      //           << " boundaries=" << boundaries
+      //           << " symmetries=" << symmetries <<
+      //           "\n";
+      assert(0);
+    }
+  }
+#ifdef CCTK_DEBUG
+  for (int d = 0; d < dim; ++d)
+    assert(src[d] >= dmin[d] && src[d] < dmax[d]);
+  assert(!all(src == dst));
+#endif
+
+  for (int comp = cmin; comp < cmax; ++comp) {
+    const CCTK_REAL dirichlet_value = dirichlet_values[comp];
+    const CCTK_REAL robin_value = robin_values[comp];
+    const CCTK_REAL reflection_parity = reflection_parities[comp];
+    const Loop::GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
+
+    CCTK_REAL val;
+    if (any(boundaries == boundary_t::dirichlet)) {
+      val = dirichlet_value;
+    } else {
+      val = var(src);
+      if (any(boundaries == boundary_t::robin)) {
+        for (int d = 0; d < dim; ++d) {
+          if (boundaries[d] == boundary_t::robin) {
+            using std::sqrt;
+            // boundary point
+            const auto xb = xmin + dst * dx;
+            const auto rb = sqrt(sum(pow2(xb)));
+            // interior point
+            const auto xi = xmin + src * dx;
+            const auto ri = sqrt(sum(pow2(xi)));
+            const auto q = ri / rb;
+            val = robin_value + q * (val - robin_value);
+          }
+        }
+      }
+      if (any(boundaries == boundary_t::linear_extrapolation)) {
+        // Calculate gradient
+        const CCTK_REAL grad = val - var(src + delta);
+        using std::sqrt;
+        val += sqrt(sum(pow2(dst - src)) / sum(pow2(delta))) * grad;
+      }
+#ifdef CCTK_DEBUG
+      for (int d = 0; d < dim; ++d)
+        assert(dst[d] >= amin[d] && dst[d] < amax[d]);
+#endif
+      if (any(symmetries == symmetry_t::reflection))
+        val *= reflection_parity;
+    }
+    var.store(dst, val);
+  }
+}
+
+void BoundaryCondition::apply() const {
+  assert(tasks.empty());
+
+  for (int nk = -1; nk <= +1; ++nk) {
+    for (int nj = -1; nj <= +1; ++nj) {
+      for (int ni = -1; ni <= +1; ++ni) {
+        const Arith::vect<int, dim> inormal{ni, nj, nk};
+        if (all(inormal == 0))
+          continue;
+
+        using std::max, std::min;
+        Arith::vect<int, dim> bmin, bmax;
+        for (int d = 0; d < dim; ++d) {
+          if (inormal[d] < 0) {
+            // We have to fill the lower boundary
+            bmin[d] = amin[d];
+            bmax[d] = min(amax[d], imin[d]);
+          } else if (inormal[d] > 0) {
+            // We have to fill the upper boundary
+            bmin[d] = max(amin[d], imax[d]);
+            bmax[d] = amax[d];
+          } else {
+            // This direction is not a boundary
+            bmin[d] = max(amin[d], imin[d]);
+            bmax[d] = min(amax[d], imax[d]);
+          }
+        }
+
+        // Do we actually own part of this boundary?
+        if (any(bmax <= bmin))
+          continue;
+
+        // Find which symmetry or boundary conditions apply to us. On edges
+        // or in corners, multiple conditions will apply.
+        Arith::vect<symmetry_t, dim> symmetries;
+        Arith::vect<boundary_t, dim> boundaries;
+        for (int dir = 0; dir < dim; ++dir) {
+          if (inormal[dir] == 0) {
+            // interior
+            symmetries[dir] = symmetry_t::none;
+            boundaries[dir] = boundary_t::none;
+          } else {
+            // face
+            const int face = inormal[dir] > 0;
+            const symmetry_t symmetry = patchdata.symmetries[face][dir];
+            const boundary_t boundary = groupdata.boundaries[face][dir];
+            if ((symmetry == symmetry_t::none &&
+                 boundary == boundary_t::none) ||
+                (symmetry == symmetry_t::outer_boundary &&
+                 boundary == boundary_t::none) ||
+                symmetry == symmetry_t::interpatch ||
+                symmetry == symmetry_t::periodic) {
+              symmetries[dir] = symmetry_t::none;
+              boundaries[dir] = boundary_t::none;
+            } else if (symmetry == symmetry_t::reflection) {
+              symmetries[dir] = symmetry;
+              boundaries[dir] = boundary_t::none;
+            } else if (boundary == boundary_t::dirichlet ||
+                       boundary == boundary_t::linear_extrapolation ||
+                       boundary == boundary_t::neumann ||
+                       boundary == boundary_t::robin) {
+              symmetries[dir] = symmetry_t::none;
+              boundaries[dir] = boundary;
+            } else {
+#pragma omp critical
+              CCTK_ERROR("internal error");
+            }
+          }
+        }
+
+        if (!all(symmetries == symmetry_t::none &&
+                 boundaries == boundary_t::none)) {
+
+          const int ncomps = dest.nComp();
+          assert(ncomps <= BoundaryKernel::maxncomps);
+          const int cmin = 0;
+          const int cmax = ncomps;
+
+          std::array<CCTK_REAL, BoundaryKernel::maxncomps> dirichlet_values;
+          for (int comp = 0; comp < ncomps; ++comp)
+            dirichlet_values[comp] = groupdata.dirichlet_values.at(comp);
+
+          Arith::vect<int, dim> neumann_source;
+          for (int d = 0; d < dim; ++d) {
+            if (boundaries[d] == boundary_t::neumann) {
+              if (inormal[d] != 0) {
+                neumann_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
+                if (inormal[d] < 0)
+                  assert(neumann_source[d] < amax[d]);
+                else
+                  assert(neumann_source[d] >= amin[d]);
+              }
+            } else {
+              neumann_source[d] = 666666666; // go for a segfault
+            }
+          }
+
+          Arith::vect<int, dim> linear_extrapolation_source;
+          for (int d = 0; d < dim; ++d) {
+            if (boundaries[d] == boundary_t::linear_extrapolation) {
+              assert(inormal[d] != 0);
+              linear_extrapolation_source[d] =
+                  inormal[d] < 0 ? imin[d] : imax[d] - 1;
+              if (inormal[d] < 0) {
+                assert(linear_extrapolation_source[d] < amax[d]);
+                assert(linear_extrapolation_source[d] - inormal[d] < amax[d]);
+              } else {
+                assert(linear_extrapolation_source[d] >= amin[d]);
+                assert(linear_extrapolation_source[d] - inormal[d] >= amin[d]);
+              }
+            } else {
+              linear_extrapolation_source[d] = 666666666; // go for a segfault
+            }
+          }
+
+          Arith::vect<int, dim> robin_source;
+          for (int d = 0; d < dim; ++d) {
+            if (boundaries[d] == boundary_t::robin) {
+              assert(inormal[d] != 0);
+              robin_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
+              if (inormal[d] < 0)
+                assert(robin_source[d] < amax[d]);
+              else
+                assert(robin_source[d] >= amin[d]);
+            } else {
+              robin_source[d] = 666666666; // go for a segfault
+            }
+          }
+
+          std::array<CCTK_REAL, BoundaryKernel::maxncomps> robin_values;
+          for (int comp = 0; comp < ncomps; ++comp)
+            robin_values[comp] = groupdata.robin_values.at(comp);
+
+          Arith::vect<int, dim> reflection_offset;
+          for (int d = 0; d < dim; ++d) {
+            if (symmetries[d] == symmetry_t::reflection) {
+              assert(inormal[d] != 0);
+              reflection_offset[d] =
+                  inormal[d] < 0
+                      ? 2 * imin[d] - groupdata.indextype.at(d)
+                      : 2 * (imax[d] - 1) + groupdata.indextype.at(d);
+              if (inormal[d] < 0)
+                assert(reflection_offset[d] - bmin[d] < amax[d]);
+              else
+                assert(reflection_offset[d] - (bmax[d] - 1) >= amin[d]);
+            } else {
+              reflection_offset[d] = 666666666; // go for a segfault
+            }
+          }
+
+          std::array<CCTK_REAL, BoundaryKernel::maxncomps> reflection_parities;
+          for (int comp = 0; comp < ncomps; ++comp) {
+            CCTK_REAL reflection_parity = +1;
+            for (int d = 0; d < dim; ++d)
+              if (symmetries[d] == symmetry_t::reflection)
+                reflection_parity *= groupdata.parities.at(comp).at(d);
+            using std::fabs;
+            assert(fabs(reflection_parity) == 1);
+            reflection_parities[comp] = reflection_parity;
+          }
+
+          const BoundaryKernel kernel = boundary_kernel(
+              inormal, symmetries, boundaries,
+              //
+              dirichlet_values, neumann_source, linear_extrapolation_source,
+              robin_source, robin_values, reflection_offset,
+              reflection_parities);
+
+          const task_t<BoundaryKernel> task =
+              make_task(std::move(kernel), bmin, bmax, cmin, cmax);
+          // run_task(task);
+          tasks.push_back(std::move(task));
+
+        } // if !all(symmetries == none && boundaries == none)
+      }   // for ni, nj, nk
+    }
+  }
+
+  run_tasks(tasks);
+  tasks.clear();
+}
+
+#endif
 
 } // namespace CarpetX
