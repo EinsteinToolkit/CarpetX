@@ -511,6 +511,19 @@ INT out_metadata_every "Output metadata every that many iterations" STEERABLE=al
 
 
 
+BOOLEAN out_performance "Output performance data in YAML format?" STEERABLE=always
+{
+} yes
+
+INT out_performance_every "Output performance data every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output performance data"
+  1:* :: "every that many iterations"
+} -1
+
+
+
 STRING out_norm_vars "Variables to output as norms" STEERABLE=always
 {
   ".*" :: ""
@@ -533,9 +546,10 @@ KEYWORD openpmd_format "openPMD file format" STEERABLE=always
 {
   "HDF5" :: ""
   "ADIOS1" :: ""
-  "ADIOS2_BP" :: ""
-  "ADIOS2_BP4" :: ""
-  "ADIOS2_BP5" :: ""
+  "ADIOS2" :: "requires openPMD_api <0.15"
+  "ADIOS2_BP" :: "requires openPMD_api >=0.15"
+  "ADIOS2_BP4" :: "requires openPMD_api >=0.15"
+  "ADIOS2_BP5" :: "requires openPMD_api >=0.15"
   "ADIOS2_SST" :: ""
   "ADIOS2_SSC" :: ""
   "JSON" :: ""
