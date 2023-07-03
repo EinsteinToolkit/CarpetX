@@ -14,7 +14,8 @@ BOOLEAN poison_undefined_values "Set undefined grid point values to nan" STEERAB
 
 STRING amrex_parameters[100] "Additional AMReX parameters"
 {
-  "|[^=]+=.*" :: ""
+  "" :: "do nothing"
+  "[^=]+=.*" :: "keyword=value"
 } ""
 
 
