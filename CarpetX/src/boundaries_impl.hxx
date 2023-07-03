@@ -3,8 +3,6 @@
 
 #include "boundaries.hxx"
 
-#include <AMReX_TagParallelFor.H>
-
 #include <array>
 #include <functional>
 #include <type_traits>
@@ -25,90 +23,6 @@ namespace CarpetX {
 // of the faces to cover edges and corners.
 
 ////////////////////////////////////////////////////////////////////////////////
-
-namespace {
-
-// TODO: Move these functions to loop.hxx
-
-template <typename F>
-CCTK_ATTRIBUTE_NOINLINE __attribute__((__flatten__, __hot__)) void
-loop_region(const F &f, const Arith::vect<int, dim> &imin,
-            const Arith::vect<int, dim> &imax) {
-  assert(all(imin < imax));
-
-  const amrex::Box box(amrex::IntVect(imin[0], imin[1], imin[2]),
-                       amrex::IntVect(imax[0] - 1, imax[1] - 1, imax[2] - 1));
-  amrex::ParallelFor(box, [=] CCTK_DEVICE(const int i, const int j, const int k)
-                              CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                const Arith::vect<int, dim> p{i, j, k};
-                                f(p);
-                              });
-}
-
-template <typename F> struct task_t {
-  using type = task_t<F>;
-
-  // This probably needs to be a closure that runs on the device. It
-  // must be possible to copy it to device memory, and to call it on
-  // the device.
-  const F kernel;
-
-  // Region for this task
-  Arith::vect<int, dim> imin, imax;
-  int cmin, cmax;
-
-  // Convert the region to an AMReX box
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE amrex::Box
-  box() const noexcept {
-    assert(all(imin < imax));
-    assert(cmin < cmax);
-    return amrex::Box(amrex::IntVect(imin[0], imin[1], imin[2]),
-                      amrex::IntVect(imax[0] - 1, imax[1] - 1, imax[2] - 1));
-  }
-};
-
-template <typename F,
-          typename K = std::remove_reference_t<std::remove_cv_t<F> > >
-task_t<K> make_task(F &&kernel, const Arith::vect<int, dim> &imin,
-                    const Arith::vect<int, dim> &imax, const int cmin,
-                    const int cmax) {
-  return {std::forward<F>(kernel), imin, imax, cmin, cmax};
-}
-
-template <typename F> void loop_task(const task_t<F> &task) {
-  amrex::ParallelFor(
-      task.box(),
-      [kernel = task.kernel, cmin = task.cmin, cmax = task.cmax] CCTK_DEVICE(
-          const int i, const int j, const int k) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        const Arith::vect<int, dim> p{i, j, k};
-        kernel(p, cmin, cmax);
-      });
-}
-
-template <typename F> void loop_tasks(const amrex::Vector<task_t<F> > &tasks) {
-#ifdef AMREX_USE_GPU
-  amrex::ParallelFor(tasks, [=] CCTK_DEVICE(const int i, const int j,
-                                            const int k, const task_t<F> &task)
-                                CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                  const Arith::vect<int, dim> p{i, j, k};
-                                  task.kernel(p, task.cmin, task.cmax);
-                                });
-#else
-  for (const auto &task : tasks) {
-    for (int comp = task.cmin; comp < task.cmax; ++comp) {
-      amrex::ParallelFor(task.box(),
-                         [kernel = task.kernel, comp] CCTK_DEVICE(
-                             const int i, const int j, const int k)
-                             CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                               const Arith::vect<int, dim> p{i, j, k};
-                               kernel(p, comp, comp + 1);
-                             });
-    }
-  }
-#endif
-}
-
-} // namespace
 
 constexpr int NEG = -1, INT = 0, POS = +1;
 
@@ -275,37 +189,6 @@ void BoundaryCondition::apply_on_face_symbcxy(
   }
 }
 
-#if 0
-struct kernel_t {
-#ifdef CCTK_DEBUG
-  // Region to fill
-  Arith::vect<int, dim> amin, amax;
-  // Destination region
-  Arith::vect<int, dim> dmin, dmax;
-#endif
-
-  constexpr int maxncomps = 10;
-
-  std::array<CCTK_REAL, maxncomps> dirichlet_values;
-
-  Arith::vect<int, dim> neumann_source;
-
-  Arith::vect<int, dim> linear_extrapolation_source;
-
-  Arith::vect<int, dim> robin_source;
-  std::array<CCTK_REAL, maxncomps> robin_values;
-
-  Arith::vect<int, dim> reflection_offset;
-  std::array<CCTK_REAL, maxncomps> reflection_parities;
-
-  // Interior of the domain
-  Arith::vect<CCTK_REAL, dim> xmin, dx;
-
-  Loop::GF3D2layout layout;
-  CCTK_REAL *restrict destptr;
-};
-#endif
-
 template <int NI, int NJ, int NK, symmetry_t SCI, boundary_t BCI,
           symmetry_t SCJ, boundary_t BCJ, symmetry_t SCK, boundary_t BCK>
 void BoundaryCondition::apply_on_face_symbcxyz(
@@ -318,9 +201,8 @@ void BoundaryCondition::apply_on_face_symbcxyz(
 
   // TODO: Move loop over components to the far outside
 
-  constexpr int maxncomps = 10;
   const int ncomps = dest.nComp();
-  assert(ncomps <= maxncomps);
+  assert(ncomps <= BoundaryKernel::maxncomps);
   const int cmin = 0;
   const int cmax = ncomps;
 
@@ -334,47 +216,10 @@ void BoundaryCondition::apply_on_face_symbcxyz(
 
     // do nothing
 
-#if 0
-  } else if constexpr (any(boundaries == boundary_t::dirichlet)) {
-    // If we can apply Dirichlet boundary conditions, do so.
-    // They are the easiest and cheapest.
-
-    std::array<CCTK_REAL, maxncomps> dirichlet_values;
-    for (int comp = 0; comp < ncomps; ++comp)
-      dirichlet_values[comp] = groupdata.dirichlet_values.at(comp);
-
-    const int cmin = 0;
-    const int cmax = ncomps;
-
-    const auto kernel =
-        [
-#ifdef CCTK_DEBUG
-            amin = amin, amax = amax,
-#endif
-            dirichlet_values, destptr = destptr,
-            layout = layout] CCTK_DEVICE(const Arith::vect<int, dim> &dst,
-                                         const int cmin, const int cmax)
-            CCTK_ATTRIBUTE_ALWAYS_INLINE {
-#ifdef CCTK_DEBUG
-              for (int d = 0; d < dim; ++d)
-                assert(dst[d] >= amin[d] && dst[d] < amax[d]);
-#endif
-              for (int comp = cmin; comp < cmax; ++comp) {
-                const CCTK_REAL dirichlet_value = dirichlet_values[comp];
-                const Loop::GF3D2<CCTK_REAL> var(layout,
-                                                 destptr + comp * layout.np);
-                var.store(dst, dirichlet_value);
-              }
-            };
-    const auto task = make_task(std::move(kernel), bmin, bmax, cmin, cmax);
-    const amrex::Vector<typename decltype(task)::type> tasks{task};
-    loop_tasks(tasks);
-#endif
-
   } else {
     // This is the generic case for applying boundary conditions.
 
-    std::array<CCTK_REAL, maxncomps> dirichlet_values;
+    std::array<CCTK_REAL, BoundaryKernel::maxncomps> dirichlet_values;
     for (int comp = 0; comp < ncomps; ++comp)
       dirichlet_values[comp] = groupdata.dirichlet_values.at(comp);
 
@@ -424,7 +269,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       }
     }
 
-    std::array<CCTK_REAL, maxncomps> robin_values;
+    std::array<CCTK_REAL, BoundaryKernel::maxncomps> robin_values;
     for (int comp = 0; comp < ncomps; ++comp)
       robin_values[comp] = groupdata.robin_values.at(comp);
 
@@ -444,7 +289,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       }
     }
 
-    std::array<CCTK_REAL, maxncomps> reflection_parities;
+    std::array<CCTK_REAL, BoundaryKernel::maxncomps> reflection_parities;
     for (int comp = 0; comp < ncomps; ++comp) {
       CCTK_REAL reflection_parity = +1;
       for (int d = 0; d < dim; ++d)
@@ -460,11 +305,12 @@ void BoundaryCondition::apply_on_face_symbcxyz(
 #ifdef CCTK_DEBUG
             amin = amin, amax = amax, dmin = dmin, dmax = dmax,
 #endif
-            dirichlet_values, neumann_source, linear_extrapolation_source,
-            robin_source, robin_values, reflection_offset, reflection_parities,
-            xmin = xmin, dx = dx, destptr = destptr,
-            layout = layout] CCTK_DEVICE(const Arith::vect<int, dim> &dst,
-                                         const int cmin, const int cmax)
+            xmin = xmin, dx = dx, layout = layout, destptr = destptr,
+            //
+            cmin, cmax, dirichlet_values, neumann_source,
+            linear_extrapolation_source, robin_source, robin_values,
+            reflection_offset,
+            reflection_parities] CCTK_DEVICE(const Arith::vect<int, dim> &dst)
             CCTK_ATTRIBUTE_ALWAYS_INLINE {
               constexpr Arith::vect<int, dim> inormal{NI, NJ, NK};
               constexpr Arith::vect<boundary_t, dim> boundaries{BCI, BCJ, BCK};
@@ -570,12 +416,8 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                 var.store(dst, val);
               }
             };
-    const auto task = make_task(std::move(kernel), bmin, bmax, cmin, cmax);
-    // Note: collecting single kernels slows things down. We probably
-    // need to collect all kernels together.
-    loop_task(task);
-    // const amrex::Vector<typename decltype(task)::type> tasks{task};
-    // loop_tasks(tasks);
+
+    loop_region(kernel, bmin, bmax);
   }
 }
 
