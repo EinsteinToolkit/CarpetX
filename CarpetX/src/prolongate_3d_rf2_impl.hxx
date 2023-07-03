@@ -1468,10 +1468,10 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 
   } // for comp
 
-#ifdef __CUDACC__
-  amrex::Gpu::synchronize();
-  AMREX_GPU_ERROR_CHECK();
-#endif
+  // #ifdef __CUDACC__
+  //   amrex::Gpu::synchronize();
+  //   AMREX_GPU_ERROR_CHECK();
+  // #endif
 }
 
 template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,

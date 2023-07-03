@@ -3,6 +3,7 @@
 
 #include "boundaries.hxx"
 
+#include <array>
 #include <type_traits>
 
 namespace CarpetX {
@@ -219,7 +220,9 @@ void BoundaryCondition::apply_on_face_symbcxyz(
 
   // TODO: Move loop over components to the far outside
 
+  constexpr int maxncomps = 10;
   const int ncomps = dest.nComp();
+  assert(ncomps <= maxncomps);
 
   // Periodic symmetries should have been translated to `none`
   static_assert(!any(symmetries == symmetry_t::periodic), "");
@@ -235,25 +238,30 @@ void BoundaryCondition::apply_on_face_symbcxyz(
     // If we can apply Dirichlet boundary conditions, do so.
     // They are the easiest and cheapest.
 
-    for (int comp = 0; comp < ncomps; ++comp) {
-      const CCTK_REAL dirichlet_value = groupdata.dirichlet_values.at(comp);
-      Loop::GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
-      loop_region(
-          [
+    std::array<CCTK_REAL, maxncomps> dirichlet_values;
+    for (int comp = 0; comp < ncomps; ++comp)
+      dirichlet_values[comp] = groupdata.dirichlet_values.at(comp);
+
+    loop_region(
+        [
 #ifdef CCTK_DEBUG
-              amin = amin, amax = amax,
+            amin = amin, amax = amax,
 #endif
-              dirichlet_value,
-              var] CCTK_DEVICE(const Arith::vect<int, dim> &dst)
-              CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            dirichlet_values, ncomps, destptr = destptr,
+            layout = layout] CCTK_DEVICE(const Arith::vect<int, dim> &dst)
+            CCTK_ATTRIBUTE_ALWAYS_INLINE {
 #ifdef CCTK_DEBUG
-                for (int d = 0; d < dim; ++d)
-                  assert(dst[d] >= amin[d] && dst[d] < amax[d]);
+              for (int d = 0; d < dim; ++d)
+                assert(dst[d] >= amin[d] && dst[d] < amax[d]);
 #endif
+              for (int comp = 0; comp < ncomps; ++comp) {
+                const CCTK_REAL dirichlet_value = dirichlet_values[comp];
+                const Loop::GF3D2<CCTK_REAL> var(layout,
+                                                 destptr + comp * layout.np);
                 var.store(dst, dirichlet_value);
-              },
-          bmin, bmax);
-    }
+              }
+            },
+        bmin, bmax);
 
   } else {
     // This is the generic case for applying boundary conditions.
@@ -320,115 +328,128 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       }
     }
 
-    for (int comp = 0; comp < ncomps; ++comp) {
-      const CCTK_REAL robin_value = groupdata.robin_values.at(comp);
+    std::array<CCTK_REAL, maxncomps> robin_values;
+    for (int comp = 0; comp < ncomps; ++comp)
+      robin_values[comp] = groupdata.robin_values.at(comp);
 
+    std::array<CCTK_REAL, maxncomps> reflection_parities;
+    for (int comp = 0; comp < ncomps; ++comp) {
       CCTK_REAL reflection_parity = +1;
       for (int d = 0; d < dim; ++d)
         if (symmetries[d] == symmetry_t::reflection)
           reflection_parity *= groupdata.parities.at(comp).at(d);
       using std::fabs;
       assert(fabs(reflection_parity) == 1);
+      reflection_parities[comp] = reflection_parity;
+    }
 
-      Loop::GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
-      loop_region(
-          [
+    loop_region(
+        [
 #ifdef CCTK_DEBUG
-              amin = amin, amax = amax, dmin = dmin, dmax = dmax,
+            amin = amin, amax = amax, dmin = dmin, dmax = dmax,
 #endif
-              neumann_source, linear_extrapolation_source, robin_source,
-              robin_value, reflection_offset, reflection_parity, xmin = xmin,
-              dx = dx, var] CCTK_DEVICE(const Arith::vect<int, dim>
-                                            &dst) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            constexpr Arith::vect<int, dim> inormal{NI, NJ, NK};
-            constexpr Arith::vect<boundary_t, dim> boundaries{BCI, BCJ, BCK};
-            constexpr Arith::vect<symmetry_t, dim> symmetries{SCI, SCJ, SCK};
+            neumann_source, linear_extrapolation_source, robin_source,
+            robin_values, reflection_offset, reflection_parities, xmin = xmin,
+            dx = dx, ncomps, destptr = destptr,
+            layout = layout] CCTK_DEVICE(const Arith::vect<int, dim> &dst)
+            CCTK_ATTRIBUTE_ALWAYS_INLINE {
+              constexpr Arith::vect<int, dim> inormal{NI, NJ, NK};
+              constexpr Arith::vect<boundary_t, dim> boundaries{BCI, BCJ, BCK};
+              constexpr Arith::vect<symmetry_t, dim> symmetries{SCI, SCJ, SCK};
 
-            // `src` is the point at which we are looking to determine
-            // the boundary value
-            Arith::vect<int, dim> src = dst;
-            // `delta` (if nonzero) describes a second point at which
-            // we are looking, so that we can calculate a gradient for
-            // the boundary value
-            Arith::vect<int, dim> delta{0, 0, 0};
-            for (int d = 0; d < dim; ++d) {
-              if (boundaries[d] == boundary_t::linear_extrapolation) {
-                // Same slope:
-                //   f'(0)       = f'(h)
-                //   f(h) - f(0) = f(2h) - f(h)
-                //          f(0) = 2 f(h) - f(2h)
-                // f(0) is the boundary point
-                src[d] = linear_extrapolation_source[d];
-                delta[d] = -inormal[d];
-              } else if (boundaries[d] == boundary_t::neumann) {
-                // Same value:
-                //   f(0) = f(h)
-                // f(0) is the boundary point
-                src[d] = neumann_source[d];
-              } else if (boundaries[d] == boundary_t::robin) {
-                // Robin condition, specialized to 1/r fall-off:
-                //   f(r) = finf + C/r
-                // Determine fall-off constant `C`:
-                //   C = r * (f(r) - finf)
-                // Solve for value at boundary:
-                //   f(r+h) = finf + C / (r + h)
-                //          = finf + r / (r + h) * (f(r) - finf)
-                // Rewrite using Cartesian coordinates:
-                //   C = |x| * (f(x) - finf)
-                //   f(x') = finf + C / |x'|
-                //         = finf + |x| / |x'| * (f(x) - finf)
-                // f(x') is the boundary point
-                src[d] = robin_source[d];
-              } else if (symmetries[d] == symmetry_t::reflection) {
-                src[d] = reflection_offset[d] - dst[d];
-              } else if (symmetries[d] == symmetry_t::none &&
-                         boundaries[d] == boundary_t::none) {
-                // this direction is not a boundary; do nothing
-              } else {
-                // std::cerr << " dst=" << dst << " d=" << d
-                //           << " boundaries=" << boundaries
-                //           << " symmetries=" << symmetries <<
-                //           "\n";
-                assert(0);
-              }
-            }
-#ifdef CCTK_DEBUG
-            for (int d = 0; d < dim; ++d)
-              assert(src[d] >= dmin[d] && src[d] < dmax[d]);
-            assert(!all(src == dst));
-#endif
-            CCTK_REAL val = var(src);
-            if constexpr (any(boundaries == boundary_t::robin)) {
+              // `src` is the point at which we are looking to determine
+              // the boundary value
+              Arith::vect<int, dim> src = dst;
+              // `delta` (if nonzero) describes a second point at which
+              // we are looking, so that we can calculate a gradient for
+              // the boundary value
+              Arith::vect<int, dim> delta{0, 0, 0};
               for (int d = 0; d < dim; ++d) {
-                if (boundaries[d] == boundary_t::robin) {
-                  using std::sqrt;
-                  // boundary point
-                  const auto xb = xmin + dst * dx;
-                  const auto rb = sqrt(sum(pow2(xb)));
-                  // interior point
-                  const auto xi = xmin + src * dx;
-                  const auto ri = sqrt(sum(pow2(xi)));
-                  const auto q = ri / rb;
-                  val = robin_value + q * (val - robin_value);
+                if (boundaries[d] == boundary_t::linear_extrapolation) {
+                  // Same slope:
+                  //   f'(0)       = f'(h)
+                  //   f(h) - f(0) = f(2h) - f(h)
+                  //          f(0) = 2 f(h) - f(2h)
+                  // f(0) is the boundary point
+                  src[d] = linear_extrapolation_source[d];
+                  delta[d] = -inormal[d];
+                } else if (boundaries[d] == boundary_t::neumann) {
+                  // Same value:
+                  //   f(0) = f(h)
+                  // f(0) is the boundary point
+                  src[d] = neumann_source[d];
+                } else if (boundaries[d] == boundary_t::robin) {
+                  // Robin condition, specialized to 1/r fall-off:
+                  //   f(r) = finf + C/r
+                  // Determine fall-off constant `C`:
+                  //   C = r * (f(r) - finf)
+                  // Solve for value at boundary:
+                  //   f(r+h) = finf + C / (r + h)
+                  //          = finf + r / (r + h) * (f(r) - finf)
+                  // Rewrite using Cartesian coordinates:
+                  //   C = |x| * (f(x) - finf)
+                  //   f(x') = finf + C / |x'|
+                  //         = finf + |x| / |x'| * (f(x) - finf)
+                  // f(x') is the boundary point
+                  src[d] = robin_source[d];
+                } else if (symmetries[d] == symmetry_t::reflection) {
+                  src[d] = reflection_offset[d] - dst[d];
+                } else if (symmetries[d] == symmetry_t::none &&
+                           boundaries[d] == boundary_t::none) {
+                  // this direction is not a boundary; do nothing
+                } else {
+                  // std::cerr << " dst=" << dst << " d=" << d
+                  //           << " boundaries=" << boundaries
+                  //           << " symmetries=" << symmetries <<
+                  //           "\n";
+                  assert(0);
                 }
               }
-            }
-            if constexpr (any(boundaries == boundary_t::linear_extrapolation)) {
-              // Calculate gradient
-              const CCTK_REAL grad = val - var(src + delta);
-              using std::sqrt;
-              val += sqrt(sum(pow2(dst - src)) / sum(pow2(delta))) * grad;
-            }
 #ifdef CCTK_DEBUG
-            for (int d = 0; d < dim; ++d)
-              assert(dst[d] >= amin[d] && dst[d] < amax[d]);
+              for (int d = 0; d < dim; ++d)
+                assert(src[d] >= dmin[d] && src[d] < dmax[d]);
+              assert(!all(src == dst));
 #endif
-            if constexpr (any(symmetries == symmetry_t::reflection))
-              val *= reflection_parity;
-            var.store(dst, val);
-          },
-          bmin, bmax);
-    }
+
+              for (int comp = 0; comp < ncomps; ++comp) {
+                const CCTK_REAL robin_value = robin_values[comp];
+                const CCTK_REAL reflection_parity = reflection_parities[comp];
+                const Loop::GF3D2<CCTK_REAL> var(layout,
+                                                 destptr + comp * layout.np);
+
+                CCTK_REAL val = var(src);
+                if constexpr (any(boundaries == boundary_t::robin)) {
+                  for (int d = 0; d < dim; ++d) {
+                    if (boundaries[d] == boundary_t::robin) {
+                      using std::sqrt;
+                      // boundary point
+                      const auto xb = xmin + dst * dx;
+                      const auto rb = sqrt(sum(pow2(xb)));
+                      // interior point
+                      const auto xi = xmin + src * dx;
+                      const auto ri = sqrt(sum(pow2(xi)));
+                      const auto q = ri / rb;
+                      val = robin_value + q * (val - robin_value);
+                    }
+                  }
+                }
+                if constexpr (any(boundaries ==
+                                  boundary_t::linear_extrapolation)) {
+                  // Calculate gradient
+                  const CCTK_REAL grad = val - var(src + delta);
+                  using std::sqrt;
+                  val += sqrt(sum(pow2(dst - src)) / sum(pow2(delta))) * grad;
+                }
+#ifdef CCTK_DEBUG
+                for (int d = 0; d < dim; ++d)
+                  assert(dst[d] >= amin[d] && dst[d] < amax[d]);
+#endif
+                if constexpr (any(symmetries == symmetry_t::reflection))
+                  val *= reflection_parity;
+                var.store(dst, val);
+              }
+            },
+        bmin, bmax);
   }
 }
 

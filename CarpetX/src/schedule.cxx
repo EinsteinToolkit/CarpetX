@@ -2359,14 +2359,17 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 
     } // for gi
   });
+  synchronize();
 
   for (auto task1 : tasks1)
     task1();
   tasks1.clear();
+  synchronize();
 
   for (auto task2 : tasks2)
     task2();
   tasks2.clear();
+  synchronize();
 
   if (CCTK_IsFunctionAliased("MultiPatch_Interpolate")) {
     std::vector<CCTK_INT> cactusvarinds;
