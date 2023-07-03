@@ -26,6 +26,8 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <ostream>
 #include <sstream>
@@ -1242,6 +1244,10 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
     amrex::FArrayBox::set_initval(
         std::numeric_limits<amrex::Real>::signaling_NaN());
   }
+  // Set tile size
+  pp.addarr(
+      "fabarray.mfiter_tile_size",
+      std::vector<int>{max_tile_size_x, max_tile_size_y, max_tile_size_z});
 
   amrcore = make_unique<CactusAmrCore>(patch, domain, max_num_levels - 1,
                                        ncells, coord, reffacts, is_periodic);
@@ -1670,6 +1676,7 @@ void SetupGlobals() {
     arraygroupdata.data.resize(group.numtimelevels);
     arraygroupdata.valid.resize(group.numtimelevels);
     for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
+      // TODO: Allocate in managed memory
       arraygroupdata.data.at(tl).resize(arraygroupdata.numvars *
                                         arraygroupdata.array_size);
       why_valid_t why([]() { return "SetupGlobals"; });
@@ -2335,10 +2342,26 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   // Throw exceptions for failing AMReX assertions. With exceptions,
   // we get core files.
   pp.add("amrex.throw_exception", 1);
-  // Set tile size
-  pp.addarr("fabarray.mfiter_tile_size",
-            vector<int>{max_tile_size_x, max_tile_size_y, max_tile_size_z});
-  pamrex = amrex::Initialize(MPI_COMM_WORLD);
+
+  std::vector<char *> args;
+  for (std::size_t n = 0; n < 100; ++n)
+    if (amrex_parameters[n][0])
+      args.push_back(strdup(amrex_parameters[n]));
+  int argc = args.size();
+  args.push_back(nullptr);
+  char **argv = args.data();
+  if (verbose) {
+#pragma omp critical
+    {
+      CCTK_VINFO("  Run-time AMReX parameters:");
+      for (int n = 0; n < argc; ++n)
+        CCTK_VINFO("    [%d]: %s", n, argv[n]);
+    }
+  }
+  pamrex = amrex::Initialize(argc, argv, true, MPI_COMM_WORLD);
+  for (auto arg : args)
+    free(arg);
+  args.clear();
 
   // Create grid structure
   ghext = make_unique<GHExt>();
