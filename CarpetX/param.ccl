@@ -12,6 +12,13 @@ BOOLEAN poison_undefined_values "Set undefined grid point values to nan" STEERAB
 
 
 
+STRING amrex_parameters[100] "Additional AMReX parameters"
+{
+  "|[^=]+=.*" :: ""
+} ""
+
+
+
 CCTK_REAL xmin "Domain size (location of vertices)"
 {
   *:* :: ""
