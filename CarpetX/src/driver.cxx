@@ -1638,6 +1638,7 @@ void SetupGlobals() {
     assert(group.vartype == CCTK_VARIABLE_REAL);
     assert(group.disttype == CCTK_DISTRIB_CONSTANT);
     assert(group.dim >= 0);
+    assert(group.dim <= dim);
 
     globaldata.arraygroupdata.at(gi) =
         make_unique<GHExt::GlobalData::ArrayGroupData>();
@@ -1652,9 +1653,8 @@ void SetupGlobals() {
 
     CCTK_INT const *const *const sz = CCTK_GroupSizesI(gi);
     arraygroupdata.array_size = 1;
-    for (int d = 0; d < group.dim; ++d) {
+    for (int d = 0; d < group.dim; ++d)
       arraygroupdata.array_size = arraygroupdata.array_size * *sz[d];
-    }
 
     // Set up dynamic data
     arraygroupdata.dimension = group.dim;
@@ -1666,6 +1666,16 @@ void SetupGlobals() {
       arraygroupdata.nghostzones[d] = 0;
       arraygroupdata.lbnd[d] = 0;
       arraygroupdata.ubnd[d] = *sz[d] - 1;
+      arraygroupdata.bbox[2 * d] = arraygroupdata.bbox[2 * d + 1] = 1;
+    }
+    // Extend the grid scalars and arrays to 3d
+    for (int d = group.dim; d < dim; ++d) {
+      arraygroupdata.lsh[d] = 1;
+      arraygroupdata.ash[d] = 1;
+      arraygroupdata.gsh[d] = 1;
+      arraygroupdata.nghostzones[d] = 0;
+      arraygroupdata.lbnd[d] = 0;
+      arraygroupdata.ubnd[d] = 0;
       arraygroupdata.bbox[2 * d] = arraygroupdata.bbox[2 * d + 1] = 1;
     }
 
