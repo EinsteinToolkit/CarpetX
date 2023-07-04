@@ -3,8 +3,16 @@
 SCHEDULE TestOutput_SetVarsLocal AT initial
 {
   LANG: C
-  WRITES: gf(everywhere)
+  WRITES: gf(interior)
+  SYNC: gf
 } "Set up local test variables"
+
+SCHEDULE TestOutput_Sync AT post_recover_variables
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: gf
+} "Synchronize local test variables"
 
 SCHEDULE TestOutput_SetVarsGlobal AT initial
 {

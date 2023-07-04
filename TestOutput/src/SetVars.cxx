@@ -5,9 +5,13 @@ namespace TestOutput {
 extern "C" void TestOutput_SetVarsLocal(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestOutput_SetVarsLocal;
 
-  grid.loop_all<0, 0, 0>(grid.nghostzones, [=](const Loop::PointDesc &p) {
+  grid.loop_int<0, 0, 0>(grid.nghostzones, [=](const Loop::PointDesc &p) {
     gf(p.I) = p.z * 10000 + p.y * 100 + p.x;
   });
+}
+
+extern "C" void TestOutput_Sync(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestOutput_Sync;
 }
 
 extern "C" void TestOutput_SetVarsGlobal(CCTK_ARGUMENTS) {
