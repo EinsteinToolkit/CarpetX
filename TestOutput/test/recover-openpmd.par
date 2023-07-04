@@ -7,6 +7,8 @@ ActiveThorns = "
 Cactus::cctk_itlast = 0
 Cactus::presync_mode = "mixed-error"
 
+CarpetX::verbose = yes
+
 CarpetX::ncells_x = 32
 CarpetX::ncells_y = 32
 CarpetX::ncells_z = 32
@@ -38,3 +40,20 @@ CarpetX::out_tsv_vars = "
     TestOutput::a2
     TestOutput::a3
 "
+
+CarpetX::out_openpmd_vars = "
+    TestOutput::gf
+    TestOutput::sc
+    TestOutput::a1
+    TestOutput::a2
+    TestOutput::a3
+"
+
+IO::checkpoint_dir = $parfile
+IO::checkpoint_ID = no
+IO::checkpoint_every = 0
+IO::checkpoint_on_terminate = no
+
+CarpetX::recover_method = "openpmd"
+IO::recover_dir = "../../../arrangements/CarpetX/TestOutput/test/checkpoints-openpmd"
+IO::recover = "autoprobe"
