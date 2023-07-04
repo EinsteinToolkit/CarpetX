@@ -38,3 +38,11 @@ CarpetX::out_tsv_vars = "
     TestOutput::a2
     TestOutput::a3
 "
+
+CarpetX::out_openpmd_vars = "
+    TestOutput::gf
+    TestOutput::sc
+    TestOutput::a1
+    TestOutput::a2
+    TestOutput::a3
+"
