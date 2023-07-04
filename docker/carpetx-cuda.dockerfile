@@ -188,7 +188,7 @@ RUN mkdir src && \
     esac && \
     cmake \
         -DAMReX_GPU_BACKEND=CUDA \
-        -DAMReX_CUDA_ARCH=7.5 \
+        -DAMReX_CUDA_ARCH=7.0 \
         -DAMReX_OMP=ON \
         -DAMReX_PARTICLES=ON \
         -DAMReX_PRECISION="$precision" \
