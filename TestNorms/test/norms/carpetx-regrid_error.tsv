@@ -1,0 +1,2 @@
+# 1:iteration	2:time	3:carpetx::regrid_error.min	4:carpetx::regrid_error.max	5:carpetx::regrid_error.sum	6:carpetx::regrid_error.avg	7:carpetx::regrid_error.stddev	8:carpetx::regrid_error.volume	9:carpetx::regrid_error.L1norm	10:carpetx::regrid_error.L2norm	11:carpetx::regrid_error.maxabs
+0	0.0000000000000000e+00	0.0000000000000000e+00	1.0000000000000000e+00	1.2500000000000008e-01	1.5625000000000000e-02	1.2401959270615269e-01	8.0000000000000053e+00	1.5625000000000000e-02	1.2500000000000000e-01	1.0000000000000000e+00
