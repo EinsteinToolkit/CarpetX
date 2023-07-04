@@ -6,7 +6,7 @@ extern "C" void TestOutput_SetVarsLocal(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestOutput_SetVarsLocal;
 
   grid.loop_all<0, 0, 0>(grid.nghostzones, [=](const Loop::PointDesc &p) {
-    gf(p.I) = p.k * 10000 + p.j * 100 + p.i;
+    gf(p.I) = p.z * 10000 + p.y * 100 + p.x;
   });
 }
 

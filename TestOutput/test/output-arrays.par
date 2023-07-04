@@ -11,6 +11,13 @@ CarpetX::ncells_x = 32
 CarpetX::ncells_y = 32
 CarpetX::ncells_z = 32
 
+CarpetX::xmin = 0.0
+CarpetX::ymin = 0.0
+CarpetX::zmin = 0.0
+CarpetX::xmax = 32.0
+CarpetX::ymax = 32.0
+CarpetX::zmax = 32.0
+
 IO::out_dir = $parfile
 IO::parfile_write = "no"
 IO::out_every = 1
