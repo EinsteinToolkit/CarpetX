@@ -159,7 +159,8 @@ struct GHExt {
     // we assume that grid scalars only hold "analysis" data.
 
     struct ArrayGroupData : public CommonGroupData {
-      vector<vector<CCTK_REAL> > data; // [time level][var index]
+      vector<vector<CCTK_REAL> >
+          data; // [time level][var index + grid point index]
       int array_size;
       int dimension;
       int activetimelevels;
