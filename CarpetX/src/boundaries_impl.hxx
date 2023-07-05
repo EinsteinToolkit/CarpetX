@@ -301,7 +301,8 @@ void BoundaryCondition::apply_on_face_symbcxyz(
     }
 
     // We cannot capture `destptr` directly (on Summit, with CUDA 11.5.2)
-    CCTK_REAL *restrict const destptr1 = destptr;
+    // We cannot use a `restrict` declaration either.
+    CCTK_REAL *const destptr1 = destptr;
 
     const auto kernel =
         [
