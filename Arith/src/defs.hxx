@@ -191,71 +191,74 @@ constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto if_else(bool c, const T &x,
 ////////////////////////////////////////////////////////////////////////////////
 
 // bitsign(i) = (-1)^i, the converse to signbit
-constexpr ARITH_DEVICE ARITH_HOST int bitsign(bool c) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST int bitsign(bool c) {
   return if_else(c, -1, 1);
 }
-constexpr ARITH_DEVICE ARITH_HOST int bitsign(int i) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST int bitsign(int i) {
   return bitsign(i % 2 != 0);
 }
 
 // Return x if y>0, -x if y<0
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T flipsign(const T &x, const T &y) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T flipsign(const T &x,
+                                                          const T &y) {
   using std::copysign;
   return copysign(T(1), y) * x;
 }
 
 // A max function that returns nan when any argument is nan
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T max1(const T &x, const T &y) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T max1(const T &x, const T &y) {
   using std::max;
   return if_else(x != x, x, if_else(y != y, y, max(x, y)));
 }
 
 // The maximum of the absolute values. This is reduces over containers.
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T maxabs(const T &x) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T maxabs(const T &x) {
   using std::abs;
   return abs(x);
 }
 
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T sumabs(const T &x) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T sumabs(const T &x) {
   using std::abs;
   return abs(x);
 }
 
 // A min function that returns nan when any argument is nan
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T min1(const T &x, const T &y) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T min1(const T &x, const T &y) {
   using std::min;
   return if_else(x != x, x, if_else(y != y, y, min(x, y)));
 }
 
 // Multiply-add
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T muladd(const T &x, const T &y,
-                                                     const T &z) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T muladd(const T &x, const T &y,
+                                                        const T &z) {
   return x * y + z;
 }
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T mulsub(const T &x, const T &y,
-                                                     const T &z) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T mulsub(const T &x, const T &y,
+                                                        const T &z) {
   return x * y - z;
 }
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T negmuladd(const T &x, const T &y,
-                                                        const T &z) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T negmuladd(const T &x,
+                                                           const T &y,
+                                                           const T &z) {
   return -(x * y) + z;
 }
 template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T negmulsub(const T &x, const T &y,
-                                                        const T &z) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T negmulsub(const T &x,
+                                                           const T &y,
+                                                           const T &z) {
   return -(x * y) - z;
 }
 
 // Factorial
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST int factorial(int n) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST int factorial(int n) {
   int r = 1;
   while (n > 0)
     r *= n--;
@@ -263,7 +266,8 @@ inline ARITH_INLINE ARITH_DEVICE ARITH_HOST int factorial(int n) {
 }
 
 namespace detail {
-template <typename T> constexpr T pown(const T &x, int n) {
+template <typename T>
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T pown(const T &x, int n) {
   T r{1};
   T y{x};
   // invariant: initial(x^n) == r * y^n
@@ -278,18 +282,22 @@ template <typename T> constexpr T pown(const T &x, int n) {
 } // namespace detail
 
 // Raise a value to an integer power, calculated efficiently
-template <typename T> constexpr T pown(const T &x, const int n) {
+template <typename T>
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T pown(const T &x, const int n) {
   return n >= 0 ? detail::pown(x, n) : 1 / detail::pown(x, -n);
 }
 
-template <typename T> constexpr T pow2(const T &x) { return x * x; }
+template <typename T>
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T pow2(const T &x) {
+  return x * x;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // Linear combination
 template <typename T, typename I>
-constexpr T lincom(const I &i0, const T &x0, const I &i1, const T &x1,
-                   const I &i) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T
+lincom(const I &i0, const T &x0, const I &i1, const T &x1, const I &i) {
   return T(i - i1) / T(i0 - i1) * x0 + T(i - i0) / T(i1 - i0) * x1;
 }
 

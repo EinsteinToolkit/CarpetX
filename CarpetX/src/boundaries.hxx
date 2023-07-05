@@ -108,17 +108,17 @@ struct BoundaryKernel {
 
   static constexpr int maxncomps = 10;
 
-  std::array<CCTK_REAL, maxncomps> dirichlet_values;
+  Arith::vect<CCTK_REAL, maxncomps> dirichlet_values;
 
   Arith::vect<int, dim> neumann_source;
 
   Arith::vect<int, dim> linear_extrapolation_source;
 
   Arith::vect<int, dim> robin_source;
-  std::array<CCTK_REAL, maxncomps> robin_values;
+  Arith::vect<CCTK_REAL, maxncomps> robin_values;
 
   Arith::vect<int, dim> reflection_offset;
-  std::array<CCTK_REAL, maxncomps> reflection_parities;
+  Arith::vect<CCTK_REAL, maxncomps> reflection_parities;
 
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE void
   operator()(const Arith::vect<int, dim> &dst, int cmin, int cmax) const;
@@ -158,13 +158,13 @@ struct BoundaryCondition {
       const Arith::vect<symmetry_t, dim> symmetries,
       const Arith::vect<boundary_t, dim> boundaries,
       //
-      const std::array<CCTK_REAL, BoundaryKernel::maxncomps> &dirichlet_values,
+      const Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps> &dirichlet_values,
       const Arith::vect<int, dim> &neumann_source,
       const Arith::vect<int, dim> &linear_extrapolation_source,
       const Arith::vect<int, dim> &robin_source,
-      const std::array<CCTK_REAL, BoundaryKernel::maxncomps> &robin_values,
+      const Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps> &robin_values,
       const Arith::vect<int, dim> &reflection_offset,
-      const std::array<CCTK_REAL, BoundaryKernel::maxncomps>
+      const Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps>
           &reflection_parities) const {
     return BoundaryKernel{
 #ifdef CCTK_DEBUG
