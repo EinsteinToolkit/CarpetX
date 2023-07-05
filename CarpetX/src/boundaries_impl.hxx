@@ -219,7 +219,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
   } else {
     // This is the generic case for applying boundary conditions.
 
-    std::array<CCTK_REAL, BoundaryKernel::maxncomps> dirichlet_values;
+    Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps> dirichlet_values;
     for (int comp = 0; comp < ncomps; ++comp)
       dirichlet_values[comp] = groupdata.dirichlet_values.at(comp);
 
@@ -269,7 +269,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       }
     }
 
-    std::array<CCTK_REAL, BoundaryKernel::maxncomps> robin_values;
+    Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps> robin_values;
     for (int comp = 0; comp < ncomps; ++comp)
       robin_values[comp] = groupdata.robin_values.at(comp);
 
@@ -289,7 +289,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       }
     }
 
-    std::array<CCTK_REAL, BoundaryKernel::maxncomps> reflection_parities;
+    Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps> reflection_parities;
     for (int comp = 0; comp < ncomps; ++comp) {
       CCTK_REAL reflection_parity = +1;
       for (int d = 0; d < dim; ++d)
@@ -300,12 +300,15 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       reflection_parities[comp] = reflection_parity;
     }
 
+    // We cannot capture `destptr` directly (on Summit, with CUDA 11.5.2)
+    CCTK_REAL *restrict const destptr1 = destptr;
+
     const auto kernel =
         [
 #ifdef CCTK_DEBUG
             amin = amin, amax = amax, dmin = dmin, dmax = dmax,
 #endif
-            xmin = xmin, dx = dx, layout = layout, destptr = destptr,
+            xmin = xmin, dx = dx, layout = layout, destptr = destptr1,
             //
             cmin, cmax, dirichlet_values, neumann_source,
             linear_extrapolation_source, robin_source, robin_values,
@@ -367,8 +370,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                 }
               }
 #ifdef CCTK_DEBUG
-              for (int d = 0; d < dim; ++d)
-                assert(src[d] >= dmin[d] && src[d] < dmax[d]);
+              assert(all(src >= dmin && src < dmax));
               assert(!all(src == dst));
 #endif
 
