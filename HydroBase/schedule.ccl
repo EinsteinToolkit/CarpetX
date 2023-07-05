@@ -32,7 +32,11 @@ if (CCTK_EQUALS(initial_hydro, "vacuum")) {
     WRITES: eps(everywhere)
     WRITES: press(everywhere)
     WRITES: temperature(everywhere)
+    WRITES: entropy(everywhere)
     WRITES: Ye(everywhere)
     WRITES: Bvec(everywhere)
+    WRITES: Avecx(everywhere)
+    WRITES: Avecy(everywhere)
+    WRITES: Avecz(everywhere)
   } "Set up vacuum initial data"
 }
