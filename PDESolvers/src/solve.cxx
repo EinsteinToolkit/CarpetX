@@ -1131,8 +1131,8 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
                    block_prolongated_offsets, block_prolongated_sizes, Jp);
 
   // TODO: fix this
-  const std::vector<int> solinds{CCTK_VarIndex("Poisson2::sol")};
-  const std::vector<int> resinds{CCTK_VarIndex("Poisson2::res")};
+  const std::vector<int> solinds{CCTK_VarIndex("Poisson::sol")};
+  const std::vector<int> resinds{CCTK_VarIndex("Poisson::res")};
   const int nvars = solinds.size();
   assert(int(resinds.size()) == nvars);
 
