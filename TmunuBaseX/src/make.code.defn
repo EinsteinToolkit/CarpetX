@@ -1,4 +1,4 @@
-# Main make.code.defn file for thorn TmunuBase
+# Main make.code.defn file for thorn TmunuBaseX
 
 # Source files in this directory
 SRCS = tmunubase.cxx

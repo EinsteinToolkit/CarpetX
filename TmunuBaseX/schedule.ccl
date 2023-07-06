@@ -1,0 +1,29 @@
+# Schedule definitions for thorn TmunuBaseX
+
+SCHEDULE GROUP TmunuBaseX_SetTmunuVars AT initial AFTER ADMBaseX_SetADMVars
+{
+} "Schedule group for setting T_munu"
+
+SCHEDULE GROUP TmunuBaseX_SetTmunuVars AT postregrid AFTER ADMBaseX_SetADMVars
+{
+} "Schedule group for setting T_munu"
+
+SCHEDULE GROUP TmunuBaseX_SetTmunuVars AT poststep AFTER ADMBaseX_SetADMVars
+{
+} "Schedule group for setting T_munu"
+
+SCHEDULE GROUP TmunuBaseX_SetTmunuVars IN ODESolvers_PostStep AFTER ADMBaseX_SetADMVars
+{
+} "Schedule group for setting T_munu"
+
+
+
+SCHEDULE TmunuBaseX_ZeroTmunu IN TmunuBaseX_SetTmunuVars
+{
+  LANG: C
+  WRITES: eTtt(everywhere) eTti(everywhere) eTij(everywhere)
+} "Set T_munu to zero"
+
+SCHEDULE GROUP TmunuBaseX_AddToTmunu IN TmunuBaseX_SetTmunuVars AFTER TmunuBaseX_ZeroTmunu
+{
+} "Add to T_munu here"

@@ -6,12 +6,12 @@
 
 #include <array>
 
-namespace TmunuBase {
+namespace TmunuBaseX {
 using namespace std;
 using namespace Loop;
 
-extern "C" void TmunuBase_ZeroTmunu(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_TmunuBase_ZeroTmunu;
+extern "C" void TmunuBaseX_ZeroTmunu(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_TmunuBaseX_ZeroTmunu;
   DECLARE_CCTK_PARAMETERS;
 
   const array<int, dim> indextype = {0, 0, 0};
@@ -78,4 +78,4 @@ extern "C" void TmunuBase_ZeroTmunu(CCTK_ARGUMENTS) {
                                     });
 }
 
-} // namespace TmunuBase
+} // namespace TmunuBaseX

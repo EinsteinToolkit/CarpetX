@@ -1,6 +1,6 @@
-# Interface definition for thorn TmunuBase
+# Interface definition for thorn TmunuBaseX
 
-IMPLEMENTS: TmunuBase
+IMPLEMENTS: TmunuBaseX
 
 USES INCLUDE HEADER: loop_device.hxx
 
