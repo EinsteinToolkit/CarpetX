@@ -1,9 +1,9 @@
 ActiveThorns = "
-    ADMBase
+    ADMBaseX
     CarpetX
     IOUtil
     ODESolvers
-    TmunuBase
+    TmunuBaseX
     Z4c
 "
 
@@ -48,9 +48,9 @@ CarpetX::prolongation_order = 5
 CarpetX::interpolation_order = 3
 
 # Initial data are set up by the file reader
-ADMBase::initial_data = "none"
-ADMBase::initial_lapse = "none"
-ADMBase::initial_shift = "none"
+ADMBaseX::initial_data = "none"
+ADMBaseX::initial_lapse = "none"
+ADMBaseX::initial_shift = "none"
 
 IO::out_dir = $parfile
 IO::out_every = 1
@@ -61,12 +61,12 @@ CarpetX::filereader_method = "openpmd"
 IO::filereader_ID_dir = "../../brill-lindquist-write/output-0000/brill-lindquist-write"
 IO::filereader_ID_files = "brill-lindquist-write"
 IO::filereader_ID_vars = "
-    ADMBase::metric
-    ADMBase::curv
-    ADMBase::lapse
-    ADMBase::dtlapse
-    ADMBase::shift
-    ADMBase::dtshift
+    ADMBaseX::metric
+    ADMBaseX::curv
+    ADMBaseX::lapse
+    ADMBaseX::dtlapse
+    ADMBaseX::shift
+    ADMBaseX::dtshift
 "
 
 CarpetX::out_metadata = yes
