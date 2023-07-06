@@ -1,4 +1,4 @@
-Cactus Code Thorn HydroBase
+Cactus Code Thorn HydroBaseX
 Author(s)    : Erik Schnetter <schnetter@gmail.com>
 Maintainer(s): Erik Schnetter <schnetter@gmail.com>
 Licence      : LGPL
@@ -12,9 +12,9 @@ Provide storage for the hydro variables
 
 2. Definitions
 
-The HydroBase variables correspond to the Valencia formulation.
+The HydroBaseX variables correspond to the Valencia formulation.
 
-HydroBase uses the following conventions:
+HydroBaseX uses the following conventions:
   M = M_sun
   c = G = 1
 

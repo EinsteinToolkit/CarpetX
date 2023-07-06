@@ -4,11 +4,11 @@
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
-namespace HydroBase {
+namespace HydroBaseX {
 using namespace Loop;
 
-extern "C" void HydroBase_initial_data(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_HydroBase_initial_data;
+extern "C" void HydroBaseX_initial_data(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_HydroBaseX_initial_data;
   DECLARE_CCTK_PARAMETERS;
 
   grid.loop_all_device<1, 1, 1>(grid.nghostzones,
@@ -39,4 +39,4 @@ extern "C" void HydroBase_initial_data(CCTK_ARGUMENTS) {
                             CCTK_ATTRIBUTE_ALWAYS_INLINE { Avecz(p.I) = 0; });
 }
 
-} // namespace HydroBase
+} // namespace HydroBaseX

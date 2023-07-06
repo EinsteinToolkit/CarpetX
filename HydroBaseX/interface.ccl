@@ -1,6 +1,6 @@
-# Interface definition for thorn HydroBase
+# Interface definition for thorn HydroBaseX
 
-IMPLEMENTS: HydroBase
+IMPLEMENTS: HydroBaseX
 
 USES INCLUDE HEADER: loop_device.hxx
 

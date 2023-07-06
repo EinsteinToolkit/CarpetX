@@ -1,30 +1,30 @@
-# Schedule definitions for thorn HydroBase
+# Schedule definitions for thorn HydroBaseX
 
-SCHEDULE GROUP HydroBase_InitialData AT initial
+SCHEDULE GROUP HydroBaseX_InitialData AT initial
 {
 } "Schedule group for calculating hydro initial data"
 
-SCHEDULE GROUP HydroBase_PostInitial AT initial AFTER HydroBase_InitialData
+SCHEDULE GROUP HydroBaseX_PostInitial AT initial AFTER HydroBaseX_InitialData
 {
 } "Schedule group for modifying the hydro initial data, such as e.g. adding noise"
 
 
-SCHEDULE GROUP HydroBase_SetHydroVars AT postregrid
+SCHEDULE GROUP HydroBaseX_SetHydroVars AT postregrid
 {
 } "Set hydro variables in this group, or before this group"
 
-SCHEDULE GROUP HydroBase_SetHydroVars AT poststep
+SCHEDULE GROUP HydroBaseX_SetHydroVars AT poststep
 {
 } "Set hydro variables in this group, or before this group"
 
-SCHEDULE GROUP HydroBase_SetHydroVars IN ODESolvers_PostStep
+SCHEDULE GROUP HydroBaseX_SetHydroVars IN ODESolvers_PostStep
 {
 } "Set hydro variables in this group, or before this group"
 
 
 
 if (CCTK_EQUALS(initial_hydro, "vacuum")) {
-  SCHEDULE HydroBase_initial_data IN HydroBase_InitialData
+  SCHEDULE HydroBaseX_initial_data IN HydroBaseX_InitialData
   {
     LANG: C
     WRITES: rho(everywhere)
