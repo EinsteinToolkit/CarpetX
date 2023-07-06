@@ -696,7 +696,7 @@ Numerical/AEILocalInterp
 !TARGET   = $ARR
 !TYPE     = ignore
 !CHECKOUT =
-CarpetX/ADMBase
+CarpetX/ADMBaseX
 CarpetX/Algo
 CarpetX/Arith
 CarpetX/CarpetX
@@ -704,11 +704,11 @@ CarpetX/Coordinates
 CarpetX/Derivs
 CarpetX/ErrorEstimator
 CarpetX/FluxWaveToyX
-CarpetX/HydroBase
+CarpetX/HydroBaseX
 CarpetX/Loop
 CarpetX/ODESolvers
 CarpetX/PDESolvers
-CarpetX/Poisson2
+CarpetX/Poisson
 CarpetX/SIMDWaveToyX
 CarpetX/SpacetimeWaveToyX
 CarpetX/StaggeredWaveToyX
@@ -721,5 +721,5 @@ CarpetX/TestODESolvers2
 CarpetX/TestOutput
 CarpetX/TestProlongate
 CarpetX/TestSymmetries
-CarpetX/TmunuBase
+CarpetX/TmunuBaseX
 CarpetX/WaveToyX
