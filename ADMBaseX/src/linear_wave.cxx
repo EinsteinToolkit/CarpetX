@@ -6,12 +6,12 @@
 
 #include <cmath>
 
-namespace ADMBase {
+namespace ADMBaseX {
 using namespace Loop;
 using namespace std;
 
-extern "C" void ADMBase_linear_wave(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ADMBase_linear_wave;
+extern "C" void ADMBaseX_linear_wave(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ADMBaseX_linear_wave;
   DECLARE_CCTK_PARAMETERS;
 
   const CCTK_REAL t = cctk_time;
@@ -58,4 +58,4 @@ extern "C" void ADMBase_linear_wave(CCTK_ARGUMENTS) {
                     [&](const PointDesc &p) { kzz_(p.I) = -bt(p) / 2; });
 }
 
-} // namespace ADMBase
+} // namespace ADMBaseX

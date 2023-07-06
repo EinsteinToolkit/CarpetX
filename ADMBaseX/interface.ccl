@@ -1,6 +1,6 @@
-# Interface definition for thorn ADMBase
+# Interface definition for thorn ADMBaseX
 
-IMPLEMENTS: ADMBase
+IMPLEMENTS: ADMBaseX
 
 USES INCLUDE HEADER: loop_device.hxx
 

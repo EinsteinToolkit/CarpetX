@@ -1,51 +1,51 @@
-# Schedule definitions for thorn ADMBase
+# Schedule definitions for thorn ADMBaseX
 
-SCHEDULE GROUP ADMBase_InitialData AT initial
+SCHEDULE GROUP ADMBaseX_InitialData AT initial
 {
 } "Schedule group for calculating ADM initial data"
 
-SCHEDULE GROUP ADMBase_InitialGauge AT initial AFTER ADMBase_InitialData
+SCHEDULE GROUP ADMBaseX_InitialGauge AT initial AFTER ADMBaseX_InitialData
 {
 } "Schedule group for the ADM initial gauge condition"
 
-SCHEDULE GROUP ADMBase_PostInitial AT initial AFTER (ADMBase_InitialData ADMBase_InitialGauge)
+SCHEDULE GROUP ADMBaseX_PostInitial AT initial AFTER (ADMBaseX_InitialData ADMBaseX_InitialGauge)
 {
 } "Schedule group for modifying the ADM initial data, such as e.g. adding noise"
 
-SCHEDULE GROUP ADMBase_SetADMVars AT postregrid
+SCHEDULE GROUP ADMBaseX_SetADMVars AT postregrid
 {
 } "Set ADM variables in this group"
 
-SCHEDULE GROUP ADMBase_SetADMVars AT poststep
+SCHEDULE GROUP ADMBaseX_SetADMVars AT poststep
 {
 } "Set ADM variables in this group"
 
-SCHEDULE GROUP ADMBase_SetADMVars IN ODESolvers_PostStep
+SCHEDULE GROUP ADMBaseX_SetADMVars IN ODESolvers_PostStep
 {
 } "Set ADM variables in this group"
 
-SCHEDULE GROUP ADMBase_SetADMRHS AT postregrid
+SCHEDULE GROUP ADMBaseX_SetADMRHS AT postregrid
 {
 } "Set ADM RHS variables in this group"  
 
-SCHEDULE GROUP ADMBase_SetADMRHS AT poststep
+SCHEDULE GROUP ADMBaseX_SetADMRHS AT poststep
 {
 } "Set ADM RHS variables in this group"  
 
-SCHEDULE GROUP ADMBase_SetADMRHS IN ODESolvers_PostStep
+SCHEDULE GROUP ADMBaseX_SetADMRHS IN ODESolvers_PostStep
 {
 } "Set ADM RHS variables in this group"  
 
 
 
 if (CCTK_EQUALS(initial_data, "Cartesian Minkowski")) {
-  SCHEDULE ADMBase_initial_data IN ADMBase_InitialData
+  SCHEDULE ADMBaseX_initial_data IN ADMBaseX_InitialData
   {
     LANG: C
     WRITES: metric(everywhere) curv(everywhere)
   } "Set up Cartesian Minkowski initial data"
 } else if (CCTK_EQUALS(initial_data, "linear wave")) {
-  SCHEDULE ADMBase_linear_wave IN ADMBase_InitialData
+  SCHEDULE ADMBaseX_linear_wave IN ADMBaseX_InitialData
   {
     LANG: C
     WRITES: metric(everywhere) curv(everywhere)
@@ -53,7 +53,7 @@ if (CCTK_EQUALS(initial_data, "Cartesian Minkowski")) {
 }
 
 if (CCTK_EQUALS(initial_lapse, "one")) {
-  SCHEDULE ADMBase_initial_lapse IN ADMBase_InitialGauge
+  SCHEDULE ADMBaseX_initial_lapse IN ADMBaseX_InitialGauge
   {
     LANG: C
     WRITES: lapse(everywhere)
@@ -61,7 +61,7 @@ if (CCTK_EQUALS(initial_lapse, "one")) {
 }
 
 if (CCTK_EQUALS(initial_dtlapse, "zero")) {
-  SCHEDULE ADMBase_initial_dtlapse IN ADMBase_InitialGauge
+  SCHEDULE ADMBaseX_initial_dtlapse IN ADMBaseX_InitialGauge
   {
     LANG: C
     WRITES: dtlapse(everywhere)
@@ -69,7 +69,7 @@ if (CCTK_EQUALS(initial_dtlapse, "zero")) {
 }
 
 if (CCTK_EQUALS(initial_shift, "zero")) {
-  SCHEDULE ADMBase_initial_shift IN ADMBase_InitialGauge
+  SCHEDULE ADMBaseX_initial_shift IN ADMBaseX_InitialGauge
   {
     LANG: C
     WRITES: shift(everywhere)
@@ -77,7 +77,7 @@ if (CCTK_EQUALS(initial_shift, "zero")) {
 }
 
 if (CCTK_EQUALS(initial_dtshift, "zero")) {
-  SCHEDULE ADMBase_initial_dtshift IN ADMBase_InitialGauge
+  SCHEDULE ADMBaseX_initial_dtshift IN ADMBaseX_InitialGauge
   {
     LANG: C
     WRITES: dtshift(everywhere)
@@ -90,7 +90,7 @@ if (noise_amplitude != 0) {
   # TODO: Also add noise during evolution?
   # TODO: Noise should be added by a separate thorn.
 
-  SCHEDULE ADMBase_add_noise IN ADMBase_PostInitial
+  SCHEDULE ADMBaseX_add_noise IN ADMBaseX_PostInitial
   {
     LANG: C
     READS: metric(interior)
@@ -111,5 +111,5 @@ if (noise_amplitude != 0) {
     SYNC: dtlapse
     SYNC: shift
     SYNC: dtshift
-  } "Add noise to ADMBase variables"
+  } "Add noise to ADMBaseX variables"
 }

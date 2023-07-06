@@ -6,12 +6,12 @@
 
 #include <array>
 
-namespace ADMBase {
+namespace ADMBaseX {
 using namespace std;
 using namespace Loop;
 
-extern "C" void ADMBase_initial_data(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ADMBase_initial_data;
+extern "C" void ADMBaseX_initial_data(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ADMBaseX_initial_data;
   DECLARE_CCTK_PARAMETERS;
 
   const array<int, dim> indextype = {0, 0, 0};
@@ -52,8 +52,8 @@ extern "C" void ADMBase_initial_data(CCTK_ARGUMENTS) {
                                     });
 }
 
-extern "C" void ADMBase_initial_lapse(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ADMBase_initial_lapse;
+extern "C" void ADMBaseX_initial_lapse(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ADMBaseX_initial_lapse;
   DECLARE_CCTK_PARAMETERS;
 
   const array<int, dim> indextype = {0, 0, 0};
@@ -67,8 +67,8 @@ extern "C" void ADMBase_initial_lapse(CCTK_ARGUMENTS) {
                             CCTK_ATTRIBUTE_ALWAYS_INLINE { alp_(p.I) = 1; });
 }
 
-extern "C" void ADMBase_initial_dtlapse(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ADMBase_initial_dtlapse;
+extern "C" void ADMBaseX_initial_dtlapse(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ADMBaseX_initial_dtlapse;
   DECLARE_CCTK_PARAMETERS;
 
   const array<int, dim> indextype = {0, 0, 0};
@@ -82,8 +82,8 @@ extern "C" void ADMBase_initial_dtlapse(CCTK_ARGUMENTS) {
                             CCTK_ATTRIBUTE_ALWAYS_INLINE { dtalp_(p.I) = 0; });
 }
 
-extern "C" void ADMBase_initial_shift(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ADMBase_initial_shift;
+extern "C" void ADMBaseX_initial_shift(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ADMBaseX_initial_shift;
   DECLARE_CCTK_PARAMETERS;
 
   const array<int, dim> indextype = {0, 0, 0};
@@ -103,8 +103,8 @@ extern "C" void ADMBase_initial_shift(CCTK_ARGUMENTS) {
                                     });
 }
 
-extern "C" void ADMBase_initial_dtshift(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ADMBase_initial_dtshift;
+extern "C" void ADMBaseX_initial_dtshift(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ADMBaseX_initial_dtshift;
   DECLARE_CCTK_PARAMETERS;
 
   const array<int, dim> indextype = {0, 0, 0};
@@ -124,4 +124,4 @@ extern "C" void ADMBase_initial_dtshift(CCTK_ARGUMENTS) {
                                     });
 }
 
-} // namespace ADMBase
+} // namespace ADMBaseX

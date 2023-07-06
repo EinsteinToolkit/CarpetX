@@ -6,12 +6,12 @@
 
 #include <random>
 
-namespace ADMBase {
+namespace ADMBaseX {
 using namespace Loop;
 using namespace std;
 
-extern "C" void ADMBase_add_noise(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ADMBase_add_noise;
+extern "C" void ADMBaseX_add_noise(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ADMBaseX_add_noise;
   DECLARE_CCTK_PARAMETERS;
 
   // Hardware random device
@@ -85,4 +85,4 @@ extern "C" void ADMBase_add_noise(CCTK_ARGUMENTS) {
                     [&](const PointDesc &p) { add_noise(dtbetaz_(p.I)); });
 }
 
-} // namespace ADMBase
+} // namespace ADMBaseX
