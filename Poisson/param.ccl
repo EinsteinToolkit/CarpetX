@@ -1,4 +1,4 @@
-# Parameter definitions for thorn Poisson2
+# Parameter definitions for thorn Poisson
 
 INT fdorder "Finite differenc order"
 {

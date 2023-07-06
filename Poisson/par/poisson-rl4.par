@@ -3,7 +3,7 @@ ActiveThorns = "
     ErrorEstimator
     IOUtil
     PDESolvers
-    Poisson2
+    Poisson
     SystemTopology
 "
 
@@ -34,7 +34,7 @@ CarpetX::periodic_z = no
 
 CarpetX::ghost_size = 1
 
-CarpetX::max_num_levels = 2
+CarpetX::max_num_levels = 4
 CarpetX::regrid_every = 0
 CarpetX::regrid_error_threshold = 2.5 / 2.0
 
@@ -45,8 +45,8 @@ CarpetX::interpolation_order = 1
 ErrorEstimator::scale_by_resolution = yes
 
 PDESolvers::petsc_options = "-snes_linesearch_type basic -ksp_type bcgs -snes_monitor ascii -snes_converged_reason -ksp_monitor -ksp_converged_reason -ksp_view_eigenvalues -ksp_view_singularvalues -ksp_monitor_singular_value"
-PDESolvers::dnz = 7 + 8
-PDESolvers::onz = 4 + 8
+PDESolvers::dnz = 7 + 3*8
+PDESolvers::onz = 4 + 3*8
 
 IO::out_dir = $parfile
 IO::out_every = 1

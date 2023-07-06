@@ -2,7 +2,8 @@ ActiveThorns = "
     CarpetX
     IOUtil
     PDESolvers
-    Poisson2
+    Poisson
+    SystemTopology
 "
 
 CarpetX::verbose = no
@@ -22,9 +23,9 @@ CarpetX::xmax = +1.0
 CarpetX::ymax = +1.0
 CarpetX::zmax = +1.0
 
-CarpetX::ncells_x = 64
-CarpetX::ncells_y = 64
-CarpetX::ncells_z = 64
+CarpetX::ncells_x = 16
+CarpetX::ncells_y = 16
+CarpetX::ncells_z = 16
 
 CarpetX::periodic_x = no
 CarpetX::periodic_y = no
@@ -39,9 +40,7 @@ CarpetX::prolongation_type = "ddf"
 CarpetX::prolongation_order = 1
 CarpetX::interpolation_order = 1
 
-PDESolvers::petsc_options = "-snes_linesearch_type basic -ksp_type bcgs -snes_monitor ascii -snes_converged_reason -ksp_monitor -ksp_converged_reason"
-
-Poisson2::source = "logo"
+PDESolvers::petsc_options = "-snes_linesearch_type basic -ksp_type bcgs -snes_monitor ascii -snes_converged_reason -ksp_monitor -ksp_converged_reason -ksp_view_eigenvalues -ksp_view_singularvalues -ksp_monitor_singular_value"
 
 IO::out_dir = $parfile
 IO::out_every = 1
@@ -53,4 +52,4 @@ CarpetX::out_openpmd_vars = "all"
 CarpetX::out_plotfile_groups = ""
 CarpetX::out_silo_vars = "all"
 CarpetX::out_tsv = no
-CarpetX::out_tsv_vars = "all"
+CarpetX::out_tsv_vars = ""

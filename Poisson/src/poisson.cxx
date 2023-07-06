@@ -19,12 +19,12 @@
 #include <cstdlib>
 #include <utility>
 
-namespace Poisson2 {
+namespace Poisson {
 
 constexpr int dim = Loop::dim;
 
-extern "C" void Poisson2_Source(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_Source;
+extern "C" void Poisson_Source(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_Source;
   DECLARE_CCTK_PARAMETERS;
 
   const int npoints = 27; // 3 levels
@@ -66,16 +66,16 @@ extern "C" void Poisson2_Source(CCTK_ARGUMENTS) {
   }
 }
 
-extern "C" void Poisson2_ChooseInitialGuess(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_ChooseInitialGuess;
+extern "C" void Poisson_ChooseInitialGuess(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_ChooseInitialGuess;
 
   // Set up an initial guess only when initializing the coarsest
   // level. Otherwise, keep the data from the previous solve.
   *need_initial_guess = CarpetX::ghext->num_levels() == 1;
 }
 
-extern "C" void Poisson2_Init(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_Init;
+extern "C" void Poisson_Init(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_Init;
 
   const std::array<int, dim> indextype = {0, 0, 0};
   const Loop::GF3D2layout layout1(cctkGH, indextype);
@@ -88,13 +88,13 @@ extern "C" void Poisson2_Init(CCTK_ARGUMENTS) {
                              ARITH_INLINE { gf_sol(p.I) = 0; });
 }
 
-extern "C" void Poisson2_Sync(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_Sync;
+extern "C" void Poisson_Sync(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_Sync;
   // do nothing
 }
 
-extern "C" void Poisson2_Boundaries(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_Boundaries;
+extern "C" void Poisson_Boundaries(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_Boundaries;
 
   const std::array<int, dim> indextype = {0, 0, 0};
   const Loop::GF3D2layout layout1(cctkGH, indextype);
@@ -152,8 +152,8 @@ dual1<T> residual(const int fdorder, const Loop::GF3D2<const T> &point_type,
   return ddsol - src(p.I);
 }
 
-extern "C" void Poisson2_Residual(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_Residual;
+extern "C" void Poisson_Residual(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_Residual;
   DECLARE_CCTK_PARAMETERS;
 
   const std::array<int, dim> indextype = {0, 0, 0};
@@ -204,13 +204,13 @@ extern "C" void Poisson2_Residual(CCTK_ARGUMENTS) {
                          });
 }
 
-extern "C" void Poisson2_ResidualSync(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_ResidualSync;
+extern "C" void Poisson_ResidualSync(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_ResidualSync;
   // do nothing
 }
 
-extern "C" void Poisson2_ResidualBoundaries(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_ResidualBoundaries;
+extern "C" void Poisson_ResidualBoundaries(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_ResidualBoundaries;
   DECLARE_CCTK_PARAMETERS;
 
   const std::array<int, dim> indextype = {0, 0, 0};
@@ -227,8 +227,8 @@ extern "C" void Poisson2_ResidualBoundaries(CCTK_ARGUMENTS) {
                          });
 }
 
-extern "C" void Poisson2_Jacobian(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_Poisson2_Jacobian;
+extern "C" void Poisson_Jacobian(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_Poisson_Jacobian;
   DECLARE_CCTK_PARAMETERS;
 
   const std::array<int, dim> indextype = {0, 0, 0};
@@ -288,4 +288,4 @@ extern "C" void Poisson2_Jacobian(CCTK_ARGUMENTS) {
       });
 }
 
-} // namespace Poisson2
+} // namespace Poisson

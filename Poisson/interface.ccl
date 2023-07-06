@@ -1,6 +1,6 @@
-# Interface definition for thorn Poisson2
+# Interface definition for thorn Poisson
 
-IMPLEMENTS: Poisson2
+IMPLEMENTS: Poisson
 
 INHERITS: PDESolvers
 
