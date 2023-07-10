@@ -1,0 +1,26 @@
+# Schedule definitions for thorn RegCheck
+
+schedule RegCheck_Init  at INITIAL
+{
+  WRITES: vars(everywhere) var(everywhere)
+
+  LANG: C
+} "set up dummy data"
+
+schedule RegCheck_DummyCalc at EVOL
+{
+  READS: vars
+  WRITES: rhsvars
+  WRITES: vars
+
+  LANG: C
+} "do some calculation"
+
+schedule RegCheck_DummyCalcVect at EVOL
+{
+  READS: var
+  WRITES: rhsvar
+  WRITES: var
+
+  LANG: C
+} "do some calculation"
