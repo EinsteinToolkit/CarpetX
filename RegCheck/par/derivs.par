@@ -1,0 +1,34 @@
+###############################
+# Simple test of TOV neutron star
+# Same neutron star as the gallery example
+# K=100, rho_c = 1.28e-3 => M = 1.4, M_b = 1.506
+# evolve for t = 48.82 M
+##############################
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    RegCheck
+    TimerReport
+"
+
+$ncells 	=  32
+
+CarpetX::verbose = no
+Cactus::presync_mode = "mixed-error"
+CarpetX::poison_undefined_values = no
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::prolongation_type = "ddf"
+CarpetX::ghost_size = 1
+
+Cactus::terminate = "iteration"
+Cactus::cctk_itlast = 0
+
+TimerReport::out_every = 10
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_all_timers_together = yes
+TimerReport::output_all_timers_readable = yes
+TimerReport::n_top_timers = 50

@@ -1,0 +1,32 @@
+# Interface definition for thorn RegCheck
+implements: RegCheck
+
+INHERITS: CarpetX
+
+USES INCLUDE HEADER: fixmath.hxx
+USES INCLUDE HEADER: loop_device.hxx
+
+CCTK_REAL vars TYPE=gf CENTERING={ccc}
+{
+  var1, var2, var3, var4, var5, var6, var7, var8, var9, var10, var11, var12,
+  var13, var14, var15, var16, var17, var18, var19, var20, var21, var22,
+  var23, var24, var25, var26, var27, var28,
+} "some dummy individual vars"
+
+CCTK_REAL rhsvars TYPE=gf CENTERING={ccc}
+{
+  rhsvar1, rhsvar2, rhsvar3, rhsvar4, rhsvar5, rhsvar6, rhsvar7, rhsvar8,
+  rhsvar9, rhsvar10, rhsvar11, rhsvar12, rhsvar13, rhsvar14, rhsvar15, rhsvar16,
+  rhsvar17, rhsvar18, rhsvar19, rhsvar20, rhsvar21, rhsvar22, rhsvar23, rhsvar24,
+  rhsvar25, rhsvar26, rhsvar27, rhsvar28,
+} "some dummy individual vars rhs"
+
+CCTK_REAL vectvar[28] TYPE=gf CENTERING={ccc}
+{
+  var
+} "some dummy vector var"
+
+CCTK_REAL rhsvectvar[28] TYPE=gf CENTERING={ccc}
+{
+  rhsvar
+} "some dummy vector varrhs"
