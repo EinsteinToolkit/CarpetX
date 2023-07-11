@@ -1,16 +1,13 @@
 ActiveThorns = "
-    ADMBaseX
-    BrillLindquist
     CarpetX
     IOUtil
-    ODESolvers
-    TmunuBaseX
-    Z4c
+    PDESolvers
+    Poisson
 "
 
-CarpetX::verbose = yes
+CarpetX::verbose = no
 
-Cactus::cctk_show_schedule = yes
+Cactus::cctk_show_schedule = no
 
 Cactus::presync_mode = "mixed-error"
 
@@ -32,33 +29,28 @@ CarpetX::ncells_z = 64
 CarpetX::periodic_x = no
 CarpetX::periodic_y = no
 CarpetX::periodic_z = no
-# CarpetX::reflection_x = yes
-# CarpetX::reflection_y = yes
-# CarpetX::reflection_z = yes
-# CarpetX::reflection_upper_x = yes
-# CarpetX::reflection_upper_y = yes
-# CarpetX::reflection_upper_z = yes
 
-CarpetX::ghost_size = 3
+CarpetX::ghost_size = 1
 
 CarpetX::max_num_levels = 1
 CarpetX::regrid_every = 0
 
 CarpetX::prolongation_type = "ddf"
-CarpetX::prolongation_order = 5
-CarpetX::interpolation_order = 3
+CarpetX::prolongation_order = 1
+CarpetX::interpolation_order = 1
+
+PDESolvers::petsc_options = "-snes_linesearch_type basic -ksp_type bcgs -snes_monitor ascii -snes_converged_reason -ksp_monitor -ksp_converged_reason"
+
+Poisson::source = "logo"
 
 IO::out_dir = $parfile
 IO::out_every = 1
 IO::out_mode = "np"
 IO::out_proc_every = 1
 
-CarpetX::recover_method = "openpmd"
-IO::recover = "autoprobe"
-IO::recover_dir = "../../brill-lindquist-checkpoint/output-0000/brill-lindquist-checkpoint"
-
 CarpetX::out_metadata = yes
 CarpetX::out_openpmd_vars = "all"
 CarpetX::out_plotfile_groups = ""
 CarpetX::out_silo_vars = "all"
 CarpetX::out_tsv = no
+CarpetX::out_tsv_vars = "all"

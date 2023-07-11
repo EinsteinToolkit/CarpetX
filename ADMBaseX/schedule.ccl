@@ -1,0 +1,115 @@
+# Schedule definitions for thorn ADMBaseX
+
+SCHEDULE GROUP ADMBaseX_InitialData AT initial
+{
+} "Schedule group for calculating ADM initial data"
+
+SCHEDULE GROUP ADMBaseX_InitialGauge AT initial AFTER ADMBaseX_InitialData
+{
+} "Schedule group for the ADM initial gauge condition"
+
+SCHEDULE GROUP ADMBaseX_PostInitial AT initial AFTER (ADMBaseX_InitialData ADMBaseX_InitialGauge)
+{
+} "Schedule group for modifying the ADM initial data, such as e.g. adding noise"
+
+SCHEDULE GROUP ADMBaseX_SetADMVars AT postregrid
+{
+} "Set ADM variables in this group"
+
+SCHEDULE GROUP ADMBaseX_SetADMVars AT poststep
+{
+} "Set ADM variables in this group"
+
+SCHEDULE GROUP ADMBaseX_SetADMVars IN ODESolvers_PostStep
+{
+} "Set ADM variables in this group"
+
+SCHEDULE GROUP ADMBaseX_SetADMRHS AT postregrid
+{
+} "Set ADM RHS variables in this group"  
+
+SCHEDULE GROUP ADMBaseX_SetADMRHS AT poststep
+{
+} "Set ADM RHS variables in this group"  
+
+SCHEDULE GROUP ADMBaseX_SetADMRHS IN ODESolvers_PostStep
+{
+} "Set ADM RHS variables in this group"  
+
+
+
+if (CCTK_EQUALS(initial_data, "Cartesian Minkowski")) {
+  SCHEDULE ADMBaseX_initial_data IN ADMBaseX_InitialData
+  {
+    LANG: C
+    WRITES: metric(everywhere) curv(everywhere)
+  } "Set up Cartesian Minkowski initial data"
+} else if (CCTK_EQUALS(initial_data, "linear wave")) {
+  SCHEDULE ADMBaseX_linear_wave IN ADMBaseX_InitialData
+  {
+    LANG: C
+    WRITES: metric(everywhere) curv(everywhere)
+  } "Set up linear wave initial data"
+}
+
+if (CCTK_EQUALS(initial_lapse, "one")) {
+  SCHEDULE ADMBaseX_initial_lapse IN ADMBaseX_InitialGauge
+  {
+    LANG: C
+    WRITES: lapse(everywhere)
+  } "Set lapse to one"
+}
+
+if (CCTK_EQUALS(initial_dtlapse, "zero")) {
+  SCHEDULE ADMBaseX_initial_dtlapse IN ADMBaseX_InitialGauge
+  {
+    LANG: C
+    WRITES: dtlapse(everywhere)
+  } "Set dtlapse to zero"
+}
+
+if (CCTK_EQUALS(initial_shift, "zero")) {
+  SCHEDULE ADMBaseX_initial_shift IN ADMBaseX_InitialGauge
+  {
+    LANG: C
+    WRITES: shift(everywhere)
+  } "Set shift to zero"
+}
+
+if (CCTK_EQUALS(initial_dtshift, "zero")) {
+  SCHEDULE ADMBaseX_initial_dtshift IN ADMBaseX_InitialGauge
+  {
+    LANG: C
+    WRITES: dtshift(everywhere)
+  } "Set dtshift to zero"
+}
+
+
+
+if (noise_amplitude != 0) {
+  # TODO: Also add noise during evolution?
+  # TODO: Noise should be added by a separate thorn.
+
+  SCHEDULE ADMBaseX_add_noise IN ADMBaseX_PostInitial
+  {
+    LANG: C
+    READS: metric(interior)
+    READS: curv(interior)
+    READS: lapse(interior)
+    READS: dtlapse(interior)
+    READS: shift(interior)
+    READS: dtshift(interior)
+    WRITES: metric(interior)
+    WRITES: curv(interior)
+    WRITES: lapse(interior)
+    WRITES: dtlapse(interior)
+    WRITES: shift(interior)
+    WRITES: dtshift(interior)
+    SYNC: metric
+    SYNC: curv
+    SYNC: lapse
+    SYNC: dtlapse
+    SYNC: shift
+    SYNC: dtshift
+  } "Add noise to ADMBaseX variables"
+}

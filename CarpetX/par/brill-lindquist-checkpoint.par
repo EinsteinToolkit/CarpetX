@@ -1,10 +1,10 @@
 ActiveThorns = "
-    ADMBase
+    ADMBaseX
     BrillLindquist
     CarpetX
     IOUtil
     ODESolvers
-    TmunuBase
+    TmunuBaseX
     Z4c
 "
 
@@ -48,8 +48,8 @@ CarpetX::prolongation_type = "ddf"
 CarpetX::prolongation_order = 5
 CarpetX::interpolation_order = 3
 
-ADMBase::initial_data = "Brill-Lindquist"
-ADMBase::initial_lapse = "Brill-Lindquist"
+ADMBaseX::initial_data = "Brill-Lindquist"
+ADMBaseX::initial_lapse = "Brill-Lindquist"
 
 BrillLindquist::x0 = 0.0
 BrillLindquist::mass = 1.0
