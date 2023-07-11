@@ -1505,8 +1505,21 @@ int Evolve(tFleshConfig *config) {
 
   double total_evolution_time = 0;
   double total_evolution_output_time = 0;
-  double total_cell_updates = 0;
   int total_iterations = 0;
+  double total_cell_updates = 0;
+
+  std::ofstream performance_file;
+  if (out_performance && CCTK_MyProc(NULL) == 0) {
+    const int every =
+        out_performance_every == -1 ? out_every : out_performance_every;
+    if (every > 0) {
+      std::ostringstream buf;
+      buf << out_dir << "/performance.yaml";
+      const std::string filename = buf.str();
+      performance_file.open(filename);
+      performance_file << "performance:\n" << flush;
+    }
+  }
 
   while (!EvolutionIsDone(cctkGH)) {
 
@@ -1705,35 +1718,46 @@ int Evolve(tFleshConfig *config) {
     CCTK_VINFO("Grid cells: %g   "
                "Grid cell updates per second: %g",
                num_cells, cell_updates_per_second);
+
+    const double total_evolution_compute_time =
+        total_evolution_time - total_evolution_output_time;
+    CCTK_VINFO("Performance:");
+    CCTK_VINFO("  total evolution time:            %g sec",
+               total_evolution_time);
+    CCTK_VINFO("  total evolution compute time:    %g sec",
+               total_evolution_compute_time);
+    CCTK_VINFO("  total evolution output time:     %g sec",
+               total_evolution_output_time);
+    CCTK_VINFO("  total iterations:                %d", total_iterations);
+    CCTK_VINFO("  total cells updated:             %g", total_cell_updates);
+    CCTK_VINFO("  average interations per second: %g",
+               total_iterations / total_evolution_time);
+    CCTK_VINFO("  average cell updates per second: %g",
+               total_cell_updates / total_evolution_time);
+    // TODO: Output this in a proper I/O method
+    if (out_performance && CCTK_MyProc(NULL) == 0) {
+      const int every =
+          out_performance_every == -1 ? out_every : out_performance_every;
+      if (every > 0 && cctkGH->cctk_iteration % every == 0) {
+        performance_file << "  " << total_iterations << ":\n"
+                         << "    evolution-seconds: " << total_evolution_time
+                         << "\n"
+                         << "    evolution-compute-seconds: "
+                         << total_evolution_compute_time << "\n"
+                         << "    evolution-output-seconds: "
+                         << total_evolution_output_time << "\n"
+                         << "    evolution-cell-updates: " << total_cell_updates
+                         << "\n"
+                         << "    evolution-iterations: " << total_iterations
+                         << "\n"
+                         << flush;
+      }
+    }
+
   } // main loop
 
-  const double total_evolution_compute_time =
-      total_evolution_time - total_evolution_output_time;
-  CCTK_VINFO("Performance:");
-  CCTK_VINFO("  total evolution time:            %g sec", total_evolution_time);
-  CCTK_VINFO("  total evolution compute time:    %g sec",
-             total_evolution_compute_time);
-  CCTK_VINFO("  total evolution output time:     %g sec",
-             total_evolution_output_time);
-  CCTK_VINFO("  total cells updated:             %g", total_cell_updates);
-  CCTK_VINFO("  total iterations:                %d", total_iterations);
-  CCTK_VINFO("  average cell updates per second: %g",
-             total_cell_updates / total_evolution_time);
-  if (out_metadata && CCTK_MyProc(NULL) == 0) {
-    std::ostringstream buf;
-    buf << out_dir << "/performance.yaml";
-    const std::string filename = buf.str();
-    std::ofstream file(filename);
-    file << "performance:\n"
-         << "  evolution-seconds: " << total_evolution_time << "\n"
-         << "  evolution-compute-seconds: " << total_evolution_compute_time
-         << "\n"
-         << "  evolution-output-seconds: " << total_evolution_output_time
-         << "\n"
-         << "  evolution-cell-updates: " << total_cell_updates << "\n"
-         << "  evolution-iterations: " << total_iterations << "\n";
-    file.close();
-  }
+  if (out_performance && CCTK_MyProc(NULL) == 0)
+    performance_file.close();
 
   return 0;
 } // namespace CarpetX
