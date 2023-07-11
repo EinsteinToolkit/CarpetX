@@ -4,15 +4,11 @@ SCHEDULE GROUP TmunuBaseX_SetTmunuVars AT initial AFTER ADMBaseX_SetADMVars
 {
 } "Schedule group for setting T_munu"
 
-if( CCTK_IsThornActive("ODESolvers") )
-{
+if (CCTK_IsThornActive("ODESolvers")) {
   SCHEDULE GROUP TmunuBaseX_SetTmunuVars IN ODESolvers_PostStep AFTER ADMBaseX_SetADMVars
   {
   } "Schedule group for setting T_munu"
-}
-else
-{
-  # ODESolvers_PostStep is also scheduled AT postinitial and postrestrict
+} else {
   SCHEDULE GROUP TmunuBaseX_SetTmunuVars AT postregrid AFTER ADMBaseX_SetADMVars
   {
   } "Schedule group for setting T_munu"
@@ -21,7 +17,6 @@ else
   {
   } "Schedule group for setting T_munu"
 }
-
 
 
 
