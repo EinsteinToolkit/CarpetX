@@ -12,8 +12,7 @@ SCHEDULE GROUP ADMBaseX_PostInitial AT initial AFTER (ADMBaseX_InitialData ADMBa
 {
 } "Schedule group for modifying the ADM initial data, such as e.g. adding noise"
 
-if( CCTK_IsThornActive("ODESolvers") )
-{
+if (CCTK_IsThornActive("ODESolvers")) {
   SCHEDULE GROUP ADMBaseX_SetADMVars IN ODESolvers_PostStep
   {
   } "Set ADM variables in this group"
@@ -21,10 +20,7 @@ if( CCTK_IsThornActive("ODESolvers") )
   SCHEDULE GROUP ADMBaseX_SetADMRHS IN ODESolvers_PostStep
   {
   } "Set ADM RHS variables in this group"  
-}
-else
-{
-  # ODESolvers_PostStep is also scheduled AT postinitial and postrestrict
+} else {
   SCHEDULE GROUP ADMBaseX_SetADMVars AT postregrid
   {
   } "Set ADM variables in this group"
