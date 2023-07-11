@@ -841,9 +841,7 @@ void loop_over_blocks(
 void synchronize() {
 #ifdef AMREX_USE_GPU
   // TODO: Synchronize only if GPU kernels were actually launched
-  // TODO: Switch to streamSynchronizeAll if AMReX is new enough
-  amrex::Gpu::synchronize();
-  // amrex::Gpu::streamSynchronizeAll();
+  amrex::Gpu::streamSynchronizeAll();
   AMREX_GPU_ERROR_CHECK();
 #endif
 }
