@@ -8,15 +8,11 @@ SCHEDULE GROUP HydroBaseX_PostInitial AT initial AFTER HydroBaseX_InitialData
 {
 } "Schedule group for modifying the hydro initial data, such as e.g. adding noise"
 
-if( CCTK_IsThornActive("ODESolvers") )
-{
+if (CCTK_IsThornActive("ODESolvers")) {
   SCHEDULE GROUP HydroBaseX_SetHydroVars IN ODESolvers_PostStep
   {
   } "Set hydro variables in this group, or before this group"
-}
-else
-{
-  # ODESolvers_PostStep is also scheduled AT postinitial and postrestrict
+} else {
   SCHEDULE GROUP HydroBaseX_SetHydroVars AT postregrid
   {
   } "Set hydro variables in this group, or before this group"
@@ -25,6 +21,7 @@ else
   {
   } "Set hydro variables in this group, or before this group"
 }
+
 
 
 if (CCTK_EQUALS(initial_hydro, "vacuum")) {
