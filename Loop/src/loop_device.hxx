@@ -40,14 +40,14 @@ public:
 
   // Loop over a given box
   template <int CI, int CJ, int CK, int VS = 1, typename F>
-  void loop_box_device(const F &f, const vect<int, dim> &restrict bnd_min,
+  void loop_box_device(const vect<int, dim> &restrict bnd_min,
                        const vect<int, dim> &restrict bnd_max,
                        const vect<int, dim> &restrict loop_min,
-                       const vect<int, dim> &restrict loop_max) const {
+                       const vect<int, dim> &restrict loop_max, const F &f) const {
 #ifndef AMREX_USE_GPU
 
-    return this->template loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max,
-                                                   loop_min, loop_max);
+    return this->template loop_box<CI, CJ, CK, VS>(bnd_min, bnd_max,
+                                                   loop_min, loop_max, f);
 
 #else
 
@@ -121,7 +121,7 @@ public:
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
     box_all<CI, CJ, CK>(group_nghostzones, imin, imax);
-    loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+    loop_box_device<CI, CJ, CK, VS>(bnd_min, bnd_max, imin, imax, f);
   }
 
   // Loop over all interior points
@@ -132,7 +132,7 @@ public:
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
     box_int<CI, CJ, CK>(group_nghostzones, imin, imax);
-    loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+    loop_box_device<CI, CJ, CK, VS>(bnd_min, bnd_max, imin, imax, f);
   }
 
   // Loop over a part of the domain. Loop over the interior first,
@@ -185,8 +185,8 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin,
-                                                imax);
+                loop_box_device<CI, CJ, CK, VS>(bnd_min, bnd_max, imin,
+                                                imax, f);
               }
             } // if rank
           }
@@ -245,8 +245,8 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin,
-                                                imax);
+                loop_box_device<CI, CJ, CK, VS>(bnd_min, bnd_max, imin,
+                                                imax, f);
               }
             } // if rank
           }
@@ -307,8 +307,8 @@ public:
                   imax[d] = std::min(tmax[d], imax[d]);
                 }
 
-                loop_box_boundary_device<CI, CJ, CK, VS>(f, imin, imax,
-                                                         inormal);
+                loop_box_boundary_device<CI, CJ, CK, VS>(imin, imax,
+                                                         inormal, f);
               }
             } // if rank
           }
@@ -367,8 +367,8 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin,
-                                                imax);
+                loop_box_device<CI, CJ, CK, VS>( bnd_min, bnd_max, imin,
+                                                imax, f);
               }
             } // if rank
           }
