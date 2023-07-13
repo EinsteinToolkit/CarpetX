@@ -145,21 +145,21 @@ public:
   }
 
   // Loop over a given box
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
-  void loop_box(const F &f, const vect<int, dim> &restrict bnd_min,
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
+  void loop_box(const vect<int, dim> &restrict bnd_min,
                 const vect<int, dim> &restrict bnd_max,
                 const vect<int, dim> &restrict loop_min,
-                const vect<int, dim> &restrict loop_max,
-                const int niters = 1) const {
+                const vect<int, dim> &restrict loop_max, const F &f) const {
     static_assert(CI == 0 || CI == 1);
     static_assert(CJ == 0 || CJ == 1);
     static_assert(CK == 0 || CK == 1);
+    static_assert(N >= 0);
     static_assert(VS > 0);
 
-    if (niters <= 0 || any(loop_max <= loop_min))
+    if (N == 0 || any(loop_max <= loop_min))
       return;
 
-    for (int iter = 0; iter < niters; ++iter) {
+    for (int iter = 0; iter < N; ++iter) {
       for (int k = loop_min[2]; k < loop_max[2]; ++k) {
         for (int j = loop_min[1]; j < loop_max[1]; ++j) {
 #pragma omp simd
@@ -238,30 +238,30 @@ public:
   }
 
   // Loop over all points
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_all(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
     box_all<CI, CJ, CK>(group_nghostzones, imin, imax);
-    loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+    loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
   }
 
   // Loop over all interior points
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_int(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
     box_int<CI, CJ, CK>(group_nghostzones, imin, imax);
-    loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+    loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
   }
 
   // Loop over a part of the domain. Loop over the interior first,
   // then faces, then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_there(const vect<int, dim> &group_nghostzones,
              const vect<vect<vect<bool, dim>, dim>, dim> &there,
@@ -309,7 +309,7 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+                loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
               }
             } // if rank
           }
@@ -322,7 +322,7 @@ public:
   // Loop over all outer boundary points. This excludes ghost faces, but
   // includes ghost edges/corners on non-ghost faces. Loop over faces first,
   // then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_bnd(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
@@ -368,7 +368,7 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+                loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
               }
             } // if rank
           }
@@ -462,7 +462,7 @@ public:
 
   // Loop over all outer ghost points. This excludes ghost edges/corners on
   // non-ghost faces. Loop over faces first, then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_ghosts(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
@@ -508,7 +508,7 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+                loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
               }
             } // if rank
           }
