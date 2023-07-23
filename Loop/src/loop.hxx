@@ -64,6 +64,7 @@ struct PointDesc {
   units_t<int, dim> DI; // direction unit vectors
 
   vect<int, dim> I; // grid point
+  int iter;         // iteration
   // outward boundary normal (if in outer boundary), else zero
   vect<int, dim> NI;
   vect<int, dim> I0; // nearest interior point
@@ -91,15 +92,15 @@ struct PointDesc {
   PointDesc &operator=(PointDesc &&) = default;
 
   constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
-  PointDesc(const vect<int, dim> &I, const vect<int, dim> &NI,
+  PointDesc(const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
             const vect<int, dim> &I0, const vect<int, dim> &BI,
             const vect<int, dim> &bnd_min, const vect<int, dim> &bnd_max,
             const vect<int, dim> &loop_min, const vect<int, dim> &loop_max,
             const vect<CCTK_REAL, dim> &X, const vect<CCTK_REAL, dim> &DX)
-      : I(I), NI(NI), I0(I0), BI(BI), bnd_min(bnd_min), bnd_max(bnd_max),
-        loop_min(loop_min), loop_max(loop_max), X(X), DX(DX), imin(loop_min[0]),
-        imax(loop_max[0]), i(I[0]), j(I[1]), k(I[2]), x(X[0]), y(X[1]), z(X[2]),
-        dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
+      : I(I), iter(iter), NI(NI), I0(I0), BI(BI), bnd_min(bnd_min),
+        bnd_max(bnd_max), loop_min(loop_min), loop_max(loop_max), X(X), DX(DX),
+        imin(loop_min[0]), imax(loop_max[0]), i(I[0]), j(I[1]), k(I[2]),
+        x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
 
   friend std::ostream &operator<<(std::ostream &os, const PointDesc &p);
 };
@@ -131,7 +132,7 @@ public:
   GridDescBase(const cGH *cctkGH);
 
   constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
-  point_desc(const vect<bool, dim> &CI, const vect<int, dim> &I,
+  point_desc(const vect<bool, dim> &CI, const vect<int, dim> &I, const int iter,
              const vect<int, dim> &NI, const vect<int, dim> &I0,
              const vect<int, dim> &BI, const vect<int, dim> &bnd_min,
              const vect<int, dim> &bnd_max, const vect<int, dim> &loop_min,
@@ -139,38 +140,42 @@ public:
     const vect<CCTK_REAL, dim> X =
         x0 + (lbnd + I - vect<CCTK_REAL, dim>(!CI) / 2) * dx;
     const vect<CCTK_REAL, dim> DX = dx;
-    return PointDesc(I, NI, I0, BI, bnd_min, bnd_max, loop_min, loop_max, X,
-                     DX);
+    return PointDesc(I, iter, NI, I0, BI, bnd_min, bnd_max, loop_min, loop_max,
+                     X, DX);
   }
 
   // Loop over a given box
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
-  void loop_box(const F &f, const vect<int, dim> &restrict bnd_min,
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
+  void loop_box(const vect<int, dim> &restrict bnd_min,
                 const vect<int, dim> &restrict bnd_max,
                 const vect<int, dim> &restrict loop_min,
-                const vect<int, dim> &restrict loop_max) const {
+                const vect<int, dim> &restrict loop_max, const F &f) const {
     static_assert(CI == 0 || CI == 1);
     static_assert(CJ == 0 || CJ == 1);
     static_assert(CK == 0 || CK == 1);
+    static_assert(N >= 0);
     static_assert(VS > 0);
 
-    if (any(loop_min >= loop_max))
+    if (N == 0 || any(loop_max <= loop_min))
       return;
 
-    for (int k = loop_min[2]; k < loop_max[2]; ++k) {
-      for (int j = loop_min[1]; j < loop_max[1]; ++j) {
+    for (int iter = 0; iter < N; ++iter) {
+      for (int k = loop_min[2]; k < loop_max[2]; ++k) {
+        for (int j = loop_min[1]; j < loop_max[1]; ++j) {
 #pragma omp simd
-        for (int i = loop_min[0]; i < loop_max[0]; i += VS) {
-          const vect<int, dim> I = {i, j, k};
-          const vect<int, dim> NI =
-              vect<int, dim>(I > bnd_max - 1) - vect<int, dim>(I < bnd_min);
-          const vect<int, dim> I0 =
-              if_else(NI == 0, 0, if_else(NI < 0, bnd_min, bnd_max - 1));
-          const vect<int, dim> BI =
-              vect<int, dim>(I == bnd_max - 1) - vect<int, dim>(I == bnd_min);
-          const PointDesc p = point_desc({CI, CJ, CK}, I, NI, I0, BI, bnd_min,
-                                         bnd_max, loop_min, loop_max);
-          f(p);
+          for (int i = loop_min[0]; i < loop_max[0]; i += VS) {
+            const vect<int, dim> I = {i, j, k};
+            const vect<int, dim> NI =
+                vect<int, dim>(I > bnd_max - 1) - vect<int, dim>(I < bnd_min);
+            const vect<int, dim> I0 =
+                if_else(NI == 0, 0, if_else(NI < 0, bnd_min, bnd_max - 1));
+            const vect<int, dim> BI =
+                vect<int, dim>(I == bnd_max - 1) - vect<int, dim>(I == bnd_min);
+            const PointDesc p =
+                point_desc({CI, CJ, CK}, I, iter, NI, I0, BI, bnd_min, bnd_max,
+                           loop_min, loop_max);
+            f(p);
+          }
         }
       }
     }
@@ -233,30 +238,30 @@ public:
   }
 
   // Loop over all points
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_all(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
     box_all<CI, CJ, CK>(group_nghostzones, imin, imax);
-    loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+    loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
   }
 
   // Loop over all interior points
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_int(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
     box_int<CI, CJ, CK>(group_nghostzones, imin, imax);
-    loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+    loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
   }
 
   // Loop over a part of the domain. Loop over the interior first,
   // then faces, then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_there(const vect<int, dim> &group_nghostzones,
              const vect<vect<vect<bool, dim>, dim>, dim> &there,
@@ -304,7 +309,7 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+                loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
               }
             } // if rank
           }
@@ -317,7 +322,7 @@ public:
   // Loop over all outer boundary points. This excludes ghost faces, but
   // includes ghost edges/corners on non-ghost faces. Loop over faces first,
   // then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_bnd(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
@@ -363,7 +368,7 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+                loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
               }
             } // if rank
           }
@@ -457,7 +462,7 @@ public:
 
   // Loop over all outer ghost points. This excludes ghost edges/corners on
   // non-ghost faces. Loop over faces first, then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_ghosts(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
@@ -503,7 +508,7 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+                loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
               }
             } // if rank
           }

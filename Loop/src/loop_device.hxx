@@ -39,28 +39,32 @@ public:
   GridDescBaseDevice(const cGH *cctkGH) : GridDescBase(cctkGH) {}
 
   // Loop over a given box
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
-  void loop_box_device(const F &f, const vect<int, dim> &restrict bnd_min,
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1,
+            int NT = AMREX_GPU_MAX_THREADS, typename F>
+  void loop_box_device(const vect<int, dim> &restrict bnd_min,
                        const vect<int, dim> &restrict bnd_max,
                        const vect<int, dim> &restrict loop_min,
-                       const vect<int, dim> &restrict loop_max) const {
+                       const vect<int, dim> &restrict loop_max,
+                       const F &f) const {
 #ifndef AMREX_USE_GPU
 
-    return this->template loop_box<CI, CJ, CK, VS>(f, bnd_min, bnd_max,
-                                                   loop_min, loop_max);
+    return this->template loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max,
+                                                      loop_min, loop_max, f);
 
 #else
+    // Run on GPU
 
     static_assert(CI == 0 || CI == 1);
     static_assert(CJ == 0 || CJ == 1);
     static_assert(CK == 0 || CK == 1);
+    static_assert(N >= 0);
     static_assert(VS > 0);
+    static_assert(NT > 0);
 
-    if (any(loop_min >= loop_max))
-      return;
-
-    // Run on GPU
     static_assert(VS == 1, "Only vector size 1 is supported on GPUs");
+
+    if (N == 0 || any(loop_max <= loop_min))
+      return;
 
     // For some reason, the arguments loop_min and loop_max cannot be captured
     // correctly in CUDA, but copies of them can
@@ -77,7 +81,7 @@ public:
                        CJ ? amrex::IndexType::CELL : amrex::IndexType::NODE,
                        CK ? amrex::IndexType::CELL : amrex::IndexType::NODE));
 
-    amrex::ParallelFor(
+    amrex::ParallelFor<NT>(
         box, [=, *this] CCTK_DEVICE(const int i, const int j,
                                     const int k) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vect<int, dim> I = {i, j, k};
@@ -87,25 +91,22 @@ public:
               if_else(NI == 0, 0, if_else(NI < 0, bnd_min1, bnd_max1 - 1));
           const vect<int, dim> BI =
               vect<int, dim>(I == bnd_max1 - 1) - vect<int, dim>(I == bnd_min1);
-          const PointDesc p = point_desc({CI, CJ, CK}, I, NI, I0, BI, bnd_min1,
-                                         bnd_max1, loop_min1, loop_max1);
-          f(p);
+          for (int iter = 0; iter < N; ++iter) {
+            const PointDesc p =
+                point_desc({CI, CJ, CK}, I, iter, NI, I0, BI, bnd_min1,
+                           bnd_max1, loop_min1, loop_max1);
+            f(p);
+          }
         });
 
-#endif
-
-#ifdef AMREX_USE_GPU
-    static bool have_gpu_sync_after_every_kernel = false;
-    static bool gpu_sync_after_every_kernel;
-    if (!have_gpu_sync_after_every_kernel) {
+    static const bool gpu_sync_after_every_kernel = []() {
       int type;
-      const void *const gpu_sync_after_every_kernel_ptr =
+      const void *const ptr =
           CCTK_ParameterGet("gpu_sync_after_every_kernel", "CarpetX", &type);
-      assert(gpu_sync_after_every_kernel_ptr);
+      assert(ptr);
       assert(type == PARAMETER_BOOLEAN);
-      gpu_sync_after_every_kernel =
-          *static_cast<const CCTK_INT *>(gpu_sync_after_every_kernel_ptr);
-    }
+      return *static_cast<const CCTK_INT *>(ptr);
+    }();
     if (gpu_sync_after_every_kernel) {
       amrex::Gpu::synchronize();
       AMREX_GPU_ERROR_CHECK();
@@ -114,30 +115,33 @@ public:
   }
 
   // Loop over all points
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1,
+            int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_all_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
     box_all<CI, CJ, CK>(group_nghostzones, imin, imax);
-    loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+    loop_box_device<CI, CJ, CK, VS, N, NT>(bnd_min, bnd_max, imin, imax, f);
   }
 
   // Loop over all interior points
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1,
+            int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_int_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
     box_int<CI, CJ, CK>(group_nghostzones, imin, imax);
-    loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin, imax);
+    loop_box_device<CI, CJ, CK, VS, N, NT>(bnd_min, bnd_max, imin, imax, f);
   }
 
   // Loop over a part of the domain. Loop over the interior first,
   // then faces, then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1,
+            int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_there_device(const vect<int, dim> &group_nghostzones,
                     const vect<vect<vect<bool, dim>, dim>, dim> &there,
@@ -185,8 +189,8 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin,
-                                                imax);
+                loop_box_device<CI, CJ, CK, VS, N, NT>(bnd_min, bnd_max, imin,
+                                                       imax, f);
               }
             } // if rank
           }
@@ -199,7 +203,8 @@ public:
   // Loop over all outer boundary points. This excludes ghost faces, but
   // includes ghost edges/corners on non-ghost faces. Loop over faces first,
   // then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1,
+            int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_bnd_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
@@ -245,8 +250,8 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin,
-                                                imax);
+                loop_box_device<CI, CJ, CK, VS, N, NT>(bnd_min, bnd_max, imin,
+                                                       imax, f);
               }
             } // if rank
           }
@@ -259,7 +264,8 @@ public:
 #if 0
   // Loop over all outer ghost points. This includes ghost edges/corners on
   // non-ghost faces. Loop over faces first, then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int N=1,int VS = 1, int NT = AMREX_GPU_MAX_THREADS,
+            typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_ghosts_inclusive_device(const vect<int, dim> &group_nghostzones,
                                const F &f) const {
@@ -307,8 +313,8 @@ public:
                   imax[d] = std::min(tmax[d], imax[d]);
                 }
 
-                loop_box_boundary_device<CI, CJ, CK, VS>(f, imin, imax,
-                                                         inormal);
+                loop_box_boundary_device<CI, CJ, CK,VS, N, NT>( imin, imax,
+                                                             inormal);
               }
             } // if rank
           }
@@ -320,7 +326,8 @@ public:
 
   // Loop over all outer ghost points. This excludes ghost edges/corners on
   // non-ghost faces. Loop over faces first, then edges, then corners.
-  template <int CI, int CJ, int CK, int VS = 1, typename F>
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1,
+            int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_ghosts_device(const vect<int, dim> &group_nghostzones,
                      const F &f) const {
@@ -367,8 +374,8 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box_device<CI, CJ, CK, VS>(f, bnd_min, bnd_max, imin,
-                                                imax);
+                loop_box_device<CI, CJ, CK, VS, N, NT>(bnd_min, bnd_max, imin,
+                                                       imax, f);
               }
             } // if rank
           }
