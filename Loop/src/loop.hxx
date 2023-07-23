@@ -819,8 +819,9 @@ struct GF3D2layout {
   GF3D2layout(GF3D2layout &&) = default;
   GF3D2layout &operator=(const GF3D2layout &) = default;
   GF3D2layout &operator=(GF3D2layout &&) = default;
-  GF3D2layout(const vect<int, dim> &imin, const vect<int, dim> &imax,
-              const vect<int, dim> &ash)
+  CCTK_DEVICE CCTK_HOST GF3D2layout(const vect<int, dim> &imin,
+                                    const vect<int, dim> &imax,
+                                    const vect<int, dim> &ash)
       :
 #ifdef CCTK_DEBUG
         imin(imin), imax(imax), ash(ash),
@@ -828,7 +829,8 @@ struct GF3D2layout {
         dj(di * ash[0]), dk(dj * ash[1]), np(dk * ash[2]),
         off(imin[0] * di + imin[1] * dj + imin[2] * dk) {
   }
-  GF3D2layout(const vect<int, dim> &imin, const vect<int, dim> &imax)
+  CCTK_DEVICE CCTK_HOST GF3D2layout(const vect<int, dim> &imin,
+                                    const vect<int, dim> &imax)
       : GF3D2layout(imin, imax, imax - imin) {
 #ifdef CCTK_DEBUG
     if (np > 0) {
@@ -837,8 +839,9 @@ struct GF3D2layout {
     }
 #endif
   }
-  GF3D2layout(const cGH *restrict cctkGH, const vect<int, dim> &indextype,
-              const vect<int, dim> &nghostzones) {
+  CCTK_DEVICE CCTK_HOST GF3D2layout(const cGH *restrict cctkGH,
+                                    const vect<int, dim> &indextype,
+                                    const vect<int, dim> &nghostzones) {
     for (int d = 0; d < dim; ++d)
       assert(indextype[d] == 0 || indextype[d] == 1);
     for (int d = 0; d < dim; ++d) {
@@ -857,11 +860,12 @@ struct GF3D2layout {
                2 * (cctkGH->cctk_nghostzones[d] - nghostzones[d]);
     *this = GF3D2layout(imin, imax, ash);
   }
-  GF3D2layout(const cGH *restrict cctkGH, const vect<int, dim> &indextype)
+  CCTK_DEVICE CCTK_HOST GF3D2layout(const cGH *restrict cctkGH,
+                                    const vect<int, dim> &indextype)
       : GF3D2layout(cctkGH, indextype,
                     {cctkGH->cctk_nghostzones[0], cctkGH->cctk_nghostzones[1],
                      cctkGH->cctk_nghostzones[2]}) {}
-  bool operator==(const GF3D2layout &other) const {
+  CCTK_DEVICE CCTK_HOST bool operator==(const GF3D2layout &other) const {
     bool iseq = true;
 #ifdef CCTK_DEBUG
     iseq &= std::equal_to<vect<int, dim> >()(imin, other.imin) &&
@@ -871,6 +875,9 @@ struct GF3D2layout {
     iseq &= dj == other.dj && dk == other.dk && np == other.np;
     iseq &= off == other.off;
     return iseq;
+  }
+  CCTK_DEVICE CCTK_HOST bool operator!=(const GF3D2layout &other) const {
+    return !(*this == other);
   }
   CCTK_DEVICE CCTK_HOST int linear(int i, int j, int k) const {
     // These index checks prevent vectorization. We thus only enable
