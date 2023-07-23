@@ -450,7 +450,7 @@ public:
                 }
 #endif
 
-                loop_box_boundary<CI, CJ, CK>(f, imin, imax, inormal);
+                loop_box_boundary<CI, CJ, CK>(imin, imax, inormal, f);
               }
             } // if rank
           }
