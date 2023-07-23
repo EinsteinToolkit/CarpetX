@@ -264,8 +264,8 @@ public:
 #if 0
   // Loop over all outer ghost points. This includes ghost edges/corners on
   // non-ghost faces. Loop over faces first, then edges, then corners.
-  template <int CI, int CJ, int CK, int N=1,int VS = 1, int NT = AMREX_GPU_MAX_THREADS,
-            typename F>
+  template <int CI, int CJ, int CK, int N = 1, int VS = 1,
+            int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_ghosts_inclusive_device(const vect<int, dim> &group_nghostzones,
                                const F &f) const {
@@ -313,8 +313,8 @@ public:
                   imax[d] = std::min(tmax[d], imax[d]);
                 }
 
-                loop_box_boundary_device<CI, CJ, CK,VS, N, NT>( imin, imax,
-                                                             inormal);
+                loop_box_boundary_device<CI, CJ, CK, VS, N, NT>(imin, imax,
+                                                                inormal, f);
               }
             } // if rank
           }
