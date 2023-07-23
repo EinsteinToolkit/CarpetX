@@ -485,7 +485,9 @@ calculate_checksums(const vector<vector<vector<valid_t> > > &will_write) {
   assert(active_levels);
   active_levels->loop([&](auto &restrict leveldata) {
     auto mfitinfo = amrex::MFItInfo().SetDynamic(true).EnableTiling();
+#ifdef AMREX_USE_OMP
 #pragma omp parallel
+#endif
     for (amrex::MFIter mfi(*leveldata.fab, mfitinfo); mfi.isValid(); ++mfi) {
 
       for (const auto &groupdataptr : leveldata.groupdata) {
@@ -563,7 +565,9 @@ void check_checksums(const checksums_t &checksums,
   assert(active_levels);
   active_levels->loop([&](auto &restrict leveldata) {
     auto mfitinfo = amrex::MFItInfo().SetDynamic(true).EnableTiling();
+#ifdef AMREX_USE_OMP
 #pragma omp parallel
+#endif
     for (amrex::MFIter mfi(*leveldata.fab, mfitinfo); mfi.isValid(); ++mfi) {
 
       for (const auto &groupdataptr : leveldata.groupdata) {

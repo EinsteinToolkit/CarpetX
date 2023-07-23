@@ -1573,7 +1573,9 @@ void CactusAmrCore::ErrorEst(const int level, amrex::TagBoxArray &tags,
                    []() { return "ErrorEst"; });
   std::size_t npoints_set = 0, npoints_clear = 0, npoints_total = 0;
   auto mfitinfo = amrex::MFItInfo().SetDynamic(true).EnableTiling();
+#ifdef AMREX_USE_OMP
 #pragma omp parallel
+#endif
   for (amrex::MFIter mfi(*leveldata.fab, mfitinfo); mfi.isValid(); ++mfi) {
     GridPtrDesc1 grid(leveldata, groupdata, mfi);
 
