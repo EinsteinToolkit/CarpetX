@@ -1,512 +1,519 @@
 #ifndef CARPETX_DERIVS_DERIVS_HXX
 #define CARPETX_DERIVS_DERIVS_HXX
 
+#include <defs.hxx>
+#include <div.hxx>
 #include <loop_device.hxx>
 #include <mat.hxx>
 #include <simd.hxx>
 #include <vec.hxx>
+#include <vect.hxx>
 
-#include <cctk.h>
-#include <cctk_Arguments.h>
-#include <cctk_Parameters.h>
-
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <tuple>
 #include <type_traits>
-// Unified derivative header
 
-// TODO: Make this a runtime parameter
-constexpr int deriv_order = 4;
+namespace Derivs {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-using Arith::pow2;
+namespace stencils {
+using namespace Arith;
+using namespace Loop;
 
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST T pow3(const T &x) {
-  return pow2(x) * x;
-}
+// Stencil coefficients
 
-////////////////////////////////////////////////////////////////////////////////
+enum symmetry { none, symmetric, antisymmetric };
 
-using Arith::simd;
-using Arith::simdl;
+template <std::ptrdiff_t I0, std::ptrdiff_t I1, symmetry S> struct stencil {
+  static constexpr std::ptrdiff_t N = I1 - I0 + 1;
+  static_assert(N >= 0, "");
+  static_assert(S == none || S == symmetric || S == antisymmetric, "");
 
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv1d(const simdl<T> &mask, const T *restrict const var, const ptrdiff_t di,
-        const T dx) {
-  const auto load = [&](const int n) {
-    return maskz_loadu(mask, &var[n * di]) - maskz_loadu(mask, &var[-n * di]);
-  };
-  if constexpr (deriv_order == 2)
-    return 1 / T(2) * load(1) / dx;
-  if constexpr (deriv_order == 4)
-    return (-1 / T(12) * load(2) + 2 / T(3) * load(1)) / dx;
-  if constexpr (deriv_order == 6)
-    return (1 / T(60) * load(3) - 3 / T(20) * load(2) + 3 / T(4) * load(1)) /
-           dx;
-}
+  int divisor;
+  std::array<int, N> coeffs;
 
-using Loop::GF3D2;
-using Arith::vect;
-using Loop::dim;
-using Arith::vec;
-
-template <int dir, typename T, int D>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv(const simdl<T> &mask, const GF3D2<const T> &gf_, const vect<int, dim> &I,
-      const vec<T, D> &dx) {
-  static_assert(dir >= 0 && dir < D, "");
-  const auto &DI = vect<int, dim>::unit;
-  const ptrdiff_t di = gf_.delta(DI(dir));
-  return deriv1d(mask, &gf_(I), di, dx(dir));
-}
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<simd<T>, dim>
-deriv(const simdl<T> &mask, const GF3D2<const T> &gf_, const vect<int, dim> &I,
-      const vec<T, dim> &dx) {
-  return {deriv<0>(mask, gf_, I, dx), deriv<1>(mask, gf_, I, dx),
-          deriv<2>(mask, gf_, I, dx)};
-}
-
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv2_1d(const simdl<T> &mask, const T *restrict const var, const ptrdiff_t di,
-          const T dx) {
-  const auto load = [&](const int n) {
-    return maskz_loadu(mask, &var[n * di]) + maskz_loadu(mask, &var[-n * di]);
-  };
-  const auto load0 = [&]() { return maskz_loadu(mask, &var[0]); };
-  if constexpr (deriv_order == 2)
-    return (load(1) - 2 * load0()) / pow2(dx);
-  if constexpr (deriv_order == 4)
-    return (1 / T(12) * load(2) - 4 / T(3) * load(1) + 5 / T(2) * load0()) /
-           pow2(dx);
-  if constexpr (deriv_order == 6)
-    return (1 / T(90) * load(3) - 3 / T(20) * load(2) + 3 / T(2) * load(1) -
-            49 / T(18) * load0()) /
-           pow2(dx);
-}
-
-using std::tuple_size_v;
-using Arith::min;
-using std::array;
-using Arith::div_floor;
-using Arith::div_ceil;
-using Arith::align_ceil;
-using Arith::mask_for_loop_tail;
-
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv2_2d(const int vavail, const simdl<T> &mask, const T *restrict const var,
-          const ptrdiff_t di, const ptrdiff_t dj, const T dx, const T dy) {
-  constexpr size_t vsize = tuple_size_v<simd<T> >;
-  if (di == 1) {
-    assert(vavail > 0);
-    constexpr int maxnpoints = deriv_order + 1 + vsize - 1;
-    const int npoints = deriv_order + 1 + min(int(vsize), vavail) - 1;
-    array<simd<T>, div_ceil(maxnpoints, int(vsize))> arrx;
-    for (int i = 0; i < maxnpoints; i += vsize) {
-      if (i < npoints) {
-        const simdl<T> mask1 = Arith::mask_for_loop_tail<simdl<T> >(i, npoints);
-        arrx[div_floor(i, int(vsize))] =
-            deriv1d(mask1, &var[i - deriv_order / 2], dj, dy);
+  template <typename Array>
+  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+      CCTK_DEVICE CCTK_HOST std::result_of_t<Array(std::ptrdiff_t)>
+      apply(const Array &arr) const {
+    using R = std::result_of_t<Array(std::ptrdiff_t)>;
+    if constexpr (S == symmetric) {
+      R r{0};
+      for (std::ptrdiff_t n = 0; n < N / 2; ++n) {
+        const std::ptrdiff_t n1 = N - 1 - n;
+        r += coeffs[n] * (arr(n + I0) + arr(n1 + I0));
       }
+      if (N % 2 != 0) {
+        const std::ptrdiff_t n = N / 2 + 1;
+        r += coeffs[n] * arr(n + I0);
+      }
+      r /= divisor;
+      return std::move(r);
     }
-#ifdef CCTK_DEBUG
-    for (int i = npoints; i < align_ceil(maxnpoints, int(vsize)); ++i)
-      ((T *)&arrx[0])[i] = Arith::nan<T>()(); // unused
-#endif
-    const T *const varx = (T *)&arrx[0] + deriv_order / 2;
-    return deriv1d(mask, varx, 1, dx);
-  } else {
-    assert(dj != 1);
-    array<simd<T>, deriv_order + 1> arrx;
-    for (int j = -deriv_order / 2; j <= deriv_order / 2; ++j)
-      if (j == 0) {
-#ifdef CCTK_DEBUG
-        arrx[deriv_order / 2 + j] = Arith::nan<simd<T> >()(); // unused
-#endif
-      } else {
-        arrx[deriv_order / 2 + j] = deriv1d(mask, &var[j * dj], di, dx);
+    if constexpr (antisymmetric) {
+      R r{0};
+      for (std::ptrdiff_t n = 0; n < N / 2; ++n) {
+        const std::ptrdiff_t n1 = N - 1 - n;
+        r += coeffs[n] * (arr(n + I0) - arr(n1 + I0));
       }
-    const T *const varx = (T *)(&arrx[deriv_order / 2]);
-    return deriv1d(mask, varx, vsize, dy);
+      r /= divisor;
+      return std::move(r);
+    }
+    R r{0};
+    for (std::ptrdiff_t n = 0; n < N; ++n)
+      r += coeffs[n] * arr(n + I0);
+    return std::move(r);
   }
+};
+
+// Interpolate at i = 0
+constexpr stencil<0, 0, symmetric> interp{1, {1}};
+
+// Derivative at i = 0
+constexpr stencil<-1, +1, antisymmetric> deriv1_o2{2, {-1, 0, +1}};
+
+constexpr stencil<-2, +2, antisymmetric> deriv1_o4{12, {-1, +8, 0, -8, +1}};
+
+constexpr stencil<-1, +1, symmetric> deriv2_o2{1, {-2, +1, -2}};
+
+constexpr stencil<-2, +2, symmetric> deriv2_o4{12, {-1, +16, -30, +16, -1}};
+
+// Interpolate at i = 1/2
+constexpr stencil<-0, +1, symmetric> interp_c_o1{2, {1, 1}};
+
+constexpr stencil<-1, +2, symmetric> interp_c_o3{16, {-1, +9, +9, -1}};
+
+constexpr stencil<-2, +3, symmetric> interp_c_o5{
+    256, {+3, -25, +150, +150, -25, +3}};
+
+constexpr stencil<-3, +4, symmetric> interp_c_o7{
+    2048, {-5, +49, -245, +1225, +1225, -245, +49, -5}};
+
+// Derivative at i = 1/2
+constexpr stencil<-0, +1, antisymmetric> deriv1_c_o2{1, {-1, +1}};
+
+constexpr stencil<-1, +2, antisymmetric> deriv1_c_o4{12, {-1, +15, -15, +1}};
+
+} // namespace stencils
+
+namespace detail {
+using namespace Arith;
+using namespace Loop;
+
+// Pointwise one-dimensional operators
+
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST simd<T>
+interp1d(const simdl<T> &mask, const T *restrict const var) {
+  return maskz_loadu(mask, var);
 }
 
-using Loop::GF3D5;
-using Loop::GF3D5layout;
-using Loop::GF3D5index;
-using Arith::smat;
-using Loop::PointDesc;
-
-
-template <typename T>
-CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs(const cGH *restrict const cctkGH, const GF3D2<const T> &gf1,
-            const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
-            const GF3D5layout &layout0) {
-  DECLARE_CCTK_ARGUMENTS;
-
-  typedef simd<CCTK_REAL> vreal;
-  typedef simdl<CCTK_REAL> vbool;
-  constexpr size_t vsize = tuple_size_v<vreal>;
-
-  const vec<CCTK_REAL, dim> dx([&](int a) { return CCTK_DELTA_SPACE(a); });
-
-  const Loop::GridDescBaseDevice grid(cctkGH);
-  grid.loop_int_device<0, 0, 0, vsize>(
-      grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
-        const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
-        const GF3D5index index0(layout0, p.I);
-        const auto val = gf1(mask, p.I);
-        gf0.store(mask, index0, val);
-        const auto dval = deriv(mask, gf1, p.I, dx);
-        dgf0.store(mask, index0, dval);
-      });
+template <int deriv_order, typename T, typename TS,
+          typename R = std::result_of_t<TS(int)> >
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 2, R>
+    deriv1d(const TS var, const T dx) {
+  const T c1 = 1 / (2 * dx);
+  return c1 * (var(1) - var(-1));
 }
 
-using std::enable_if_t;
-
-template <int dir1, int dir2, typename T, int D>
-inline ARITH_INLINE
-    ARITH_DEVICE ARITH_HOST enable_if_t<(dir1 == dir2), simd<T> >
-    deriv2(const int vavail, const simdl<T> &mask, const GF3D2<const T> &gf_,
-           const vect<int, dim> &I, const vec<T, D> &dx) {
-  static_assert(dir1 >= 0 && dir1 < D, "");
-  static_assert(dir2 >= 0 && dir2 < D, "");
-  const auto &DI = vect<int, dim>::unit;
-  const ptrdiff_t di = gf_.delta(DI(dir1));
-  return deriv2_1d(mask, &gf_(I), di, dx(dir1));
+template <int deriv_order, typename T, typename TS,
+          typename R = std::result_of_t<TS(int)> >
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 4, R>
+    deriv1d(const TS var, const T dx) {
+  const T c1 = 2 / (3 * dx);
+  const T c2 = -1 / (12 * dx);
+  return c2 * (var(2) - var(-2)) + c1 * (var(1) - var(-1));
 }
 
-template <int dir1, int dir2, typename T, int D>
-inline ARITH_INLINE
-    ARITH_DEVICE ARITH_HOST enable_if_t<(dir1 != dir2), simd<T> >
-    deriv2(const int vavail, const simdl<T> &mask, const GF3D2<const T> &gf_,
-           const vect<int, dim> &I, const vec<T, D> &dx) {
-  static_assert(dir1 >= 0 && dir1 < D, "");
-  static_assert(dir2 >= 0 && dir2 < D, "");
-  const auto &DI = vect<int, dim>::unit;
-  const ptrdiff_t di = gf_.delta(DI(dir1));
-  const ptrdiff_t dj = gf_.delta(DI(dir2));
-  return deriv2_2d(vavail, mask, &gf_(I), di, dj, dx(dir1), dx(dir2));
-}
-
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST smat<simd<T>, dim>
-deriv2(const int vavail, const simdl<T> &mask, const GF3D2<const T> &gf_,
-       const vect<int, dim> &I, const vec<T, dim> &dx) {
-  return {deriv2<0, 0>(vavail, mask, gf_, I, dx),
-          deriv2<0, 1>(vavail, mask, gf_, I, dx),
-          deriv2<0, 2>(vavail, mask, gf_, I, dx),
-          deriv2<1, 1>(vavail, mask, gf_, I, dx),
-          deriv2<1, 2>(vavail, mask, gf_, I, dx),
-          deriv2<2, 2>(vavail, mask, gf_, I, dx)};
-}
-
-template <typename T>
-CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs2(const cGH *restrict const cctkGH, const GF3D2<const T> &gf1,
-             const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
-             const smat<GF3D5<T>, dim> &ddgf0, const GF3D5layout &layout0) {
-  DECLARE_CCTK_ARGUMENTS;
-
-  typedef simd<CCTK_REAL> vreal;
-  typedef simdl<CCTK_REAL> vbool;
-  constexpr size_t vsize = tuple_size_v<vreal>;
-
-  const vec<CCTK_REAL, dim> dx([&](int a) { return CCTK_DELTA_SPACE(a); });
-
-  const Loop::GridDescBaseDevice grid(cctkGH);
-  grid.loop_int_device<0, 0, 0, vsize>(
-      grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
-        const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
-        const int vavail = p.imax - p.i;
-        const GF3D5index index0(layout0, p.I);
-        const auto val = gf1(mask, p.I);
-        gf0.store(mask, index0, val);
-        const auto dval = deriv(mask, gf1, p.I, dx);
-        dgf0.store(mask, index0, dval);
-        const auto ddval = deriv2(vavail, mask, gf1, p.I, dx);
-        ddgf0.store(mask, index0, ddval);
-      });
-}
-
-template <typename T>
-void CCTK_ATTRIBUTE_NOINLINE calc_derivs(
-    const cGH *restrict const cctkGH, const vec<GF3D2<const T>, dim> &gf0_,
-    const vec<GF3D5<T>, dim> &gf_, const vec<vec<GF3D5<T>, dim>, dim> &dgf_,
-    const GF3D5layout &layout) {
-  for (int a = 0; a < 3; ++a)
-    calc_derivs(cctkGH, gf0_(a), gf_(a), dgf_(a), layout);
-}
-
-template <typename T>
-void CCTK_ATTRIBUTE_NOINLINE calc_derivs2(
-    const cGH *restrict const cctkGH, const vec<GF3D2<const T>, dim> &gf0_,
-    const vec<GF3D5<T>, dim> &gf_, const vec<vec<GF3D5<T>, dim>, dim> &dgf_,
-    const vec<smat<GF3D5<T>, dim>, dim> &ddgf_, const GF3D5layout &layout) {
-  for (int a = 0; a < 3; ++a)
-    calc_derivs2(cctkGH, gf0_(a), gf_(a), dgf_(a), ddgf_(a), layout);
-}
-
-template <typename T>
-CCTK_ATTRIBUTE_NOINLINE void
-calc_copy(const cGH *restrict const cctkGH, const GF3D2<const T> &gf1,
-          const GF3D5<T> &gf0, const GF3D5layout &layout0) {
-  DECLARE_CCTK_ARGUMENTS;
-
-  typedef simd<CCTK_REAL> vreal;
-  typedef simdl<CCTK_REAL> vbool;
-  constexpr size_t vsize = tuple_size_v<vreal>;
-
-  const vec<CCTK_REAL, dim> dx([&](int a) { return CCTK_DELTA_SPACE(a); });
-
-  const Loop::GridDescBaseDevice grid(cctkGH);
-  grid.loop_int_device<0, 0, 0, vsize>(
-      grid.nghostzones,
-      [=] ARITH_DEVICE ARITH_HOST(const PointDesc &p) ARITH_INLINE {
-        const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
-        const GF3D5index index0(layout0, p.I);
-        const auto val = gf1(mask, p.I);
-        gf0.store(mask, index0, val);
-      });
-}
-
-template <typename T>
-void CCTK_ATTRIBUTE_NOINLINE calc_copy(const cGH *restrict const cctkGH,
-                                       const vec<GF3D2<const T>, dim> &gf0_,
-                                       const vec<GF3D5<T>, dim> &gf_,
-                                       const GF3D5layout &layout) {
-  for (int a = 0; a < 3; ++a)
-    calc_copy(cctkGH, gf0_(a), gf_(a), layout);
-}
-
-template <typename T>
-CCTK_ATTRIBUTE_NOINLINE void calc_derivs(
-    const cGH *restrict const cctkGH, const smat<GF3D2<const T>, dim> &gf0_,
-    const smat<GF3D5<T>, dim> &gf_, const smat<vec<GF3D5<T>, dim>, dim> &dgf_,
-    const GF3D5layout &layout) {
-  for (int a = 0; a < 3; ++a)
-    for (int b = a; b < 3; ++b)
-      calc_derivs(cctkGH, gf0_(a, b), gf_(a, b), dgf_(a, b), layout);
-}
-
-template <typename T>
-CCTK_ATTRIBUTE_NOINLINE void calc_derivs2(
-    const cGH *restrict const cctkGH, const smat<GF3D2<const T>, dim> &gf0_,
-    const smat<GF3D5<T>, dim> &gf_, const smat<vec<GF3D5<T>, dim>, dim> &dgf_,
-    const smat<smat<GF3D5<T>, dim>, dim> &ddgf_, const GF3D5layout &layout) {
-  for (int a = 0; a < 3; ++a)
-    for (int b = a; b < 3; ++b)
-      calc_derivs2(cctkGH, gf0_(a, b), gf_(a, b), dgf_(a, b), ddgf_(a, b),
-                   layout);
-}
-
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv1d_upwind(const simdl<T> &mask, const T *restrict const var,
-               const ptrdiff_t di, const simd<T> &vel, const T dx) {
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 2, simd<T> >
+    deriv1d_upwind(const simdl<T> &mask, const T *restrict const var,
+                   const std::ptrdiff_t di, const simd<T> &vel, const T dx) {
   // arXiv:1111.2177 [gr-qc], (71)
-  if constexpr (deriv_order == 2) {
-    // if (sign)
-    //   // +     [ 0   -1   +1    0    0]
-    //   // + 1/2 [+1   -2   +1    0    0]
-    //   //       [+1/2 -2   +3/2  0    0]
-    //   return (1 / T(2) * var[-2 * di] //
-    //           - 2 * var[-di]          //
-    //           + 3 / T(2) * var[0]) /
-    //          dx;
-    // else
-    //   // +     [ 0    0   -1   +1    0  ]
-    //   // - 1/2 [ 0    0   +1   -2   +1  ]
-    //   //       [ 0    0   -3/2 +2   -1/2]
-    //   return (-3 / T(2) * var[0] //
-    //           + 2 * var[+di]     //
-    //           - 1 / T(2) * var[+2 * di]) /
-    //          dx;
 
-    // + 1/2 [+1/2 -2   +3/2  0    0  ]
-    // + 1/2 [ 0    0   -3/2 +2   -1/2]
-    //       [+1/4 -1    0   +1   -1/4]
-    const simd<T> symm =
-        1 / T(4) *
-            (maskz_loadu(mask, &var[-2 * di]) -
-             maskz_loadu(mask, &var[2 * di])) //
-        - (maskz_loadu(mask, &var[-di]) - maskz_loadu(mask, &var[di]));
-    // + 1/2 [+1/2 -2   +3/2  0    0  ]
-    // - 1/2 [ 0    0   -3/2 +2   -1/2]
-    //       [+1/4 -1   +3/2 -1   +1/4]
-    const simd<T> anti =
-        1 / T(4) *
-            (maskz_loadu(mask, &var[-2 * di]) +
-             maskz_loadu(mask, &var[2 * di]))                          //
-        - (maskz_loadu(mask, &var[-di]) + maskz_loadu(mask, &var[di])) //
-        + 3 / T(2) * maskz_loadu(mask, &var[0]);
-    return (vel * symm - fabs(vel) * anti) / dx;
+  // if (sign)
+  //   // +     [ 0   -1   +1    0    0]
+  //   // + 1/2 [+1   -2   +1    0    0]
+  //   //       [+1/2 -2   +3/2  0    0]
+  //   return (1 / T(2) * var[-2 * di] //
+  //           - 2 * var[-di]          //
+  //           + 3 / T(2) * var[0]) /
+  //          dx;
+  // else
+  //   // +     [ 0    0   -1   +1    0  ]
+  //   // - 1/2 [ 0    0   +1   -2   +1  ]
+  //   //       [ 0    0   -3/2 +2   -1/2]
+  //   return (-3 / T(2) * var[0] //
+  //           + 2 * var[+di]     //
+  //           - 1 / T(2) * var[+2 * di]) /
+  //          dx;
+
+  // + 1/2 [+1/2 -2   +3/2  0    0  ]
+  // + 1/2 [ 0    0   -3/2 +2   -1/2]
+  //       [+1/4 -1    0   +1   -1/4]
+  constexpr T c1s = 1;
+  constexpr T c2s = -1 / T(4);
+  const simd<T> symm =
+      c2s * (maskz_loadu(mask, &var[2 * di]) -
+             maskz_loadu(mask, &var[-2 * di])) //
+      + c1s(maskz_loadu(mask, &var[di]) - maskz_loadu(mask, &var[-di]));
+  // + 1/2 [+1/2 -2   +3/2  0    0  ]
+  // - 1/2 [ 0    0   -3/2 +2   -1/2]
+  //       [+1/4 -1   +3/2 -1   +1/4]
+  constexpr T c0a = 3 / T(2);
+  constexpr T c1a = -1;
+  constexpr T c2a = 1 / T(4);
+  const simd<T> anti =
+      c2a * (maskz_loadu(mask, &var[2 * di]) +
+             maskz_loadu(mask, &var[-2 * di]))                          //
+      + c1a(maskz_loadu(mask, &var[di]) + maskz_loadu(mask, &var[-di])) //
+      + c0a * maskz_loadu(mask, &var[0]);
+  using std::fabs;
+  return (vel * symm - fabs(vel) * anti) / dx;
+}
+
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 4, simd<T> >
+    deriv1d_upwind(const simdl<T> &mask, const T *restrict const var,
+                   const std::ptrdiff_t di, const simd<T> &vel, const T dx) {
+  // arXiv:1111.2177 [gr-qc], (71)
+
+  // A fourth order stencil for a first derivative, shifted by one grid point
+
+  // if (sign)
+  //   return (-1 / T(12) * var[-3 * di] //
+  //           + 1 / T(2) * var[-2 * di] //
+  //           - 3 / T(2) * var[-di]     //
+  //           + 5 / T(6) * var[0]       //
+  //           + 1 / T(4) * var[+di]) /
+  //          dx;
+  // else
+  //   return (-1 / T(4) * var[-di]      //
+  //           - 5 / T(6) * var[0]       //
+  //           + 3 / T(2) * var[+di]     //
+  //           - 1 / T(2) * var[+2 * di] //
+  //           + 1 / T(12) * var[+3 * di]) /
+  //          dx;
+
+  constexpr T c1s = 7 / T(8);
+  constexpr T c2s = -1 / T(4);
+  constexpr T c3s = 1 / T(24);
+  const simd<T> symm =
+      c3s * (maskz_loadu(mask, &var[3 * di]) -
+             maskz_loadu(mask, &var[-3 * di])) //
+      + c2s * (maskz_loadu(mask, &var[2 * di]) -
+               maskz_loadu(mask, &var[-2 * di])) //
+      + c1s * (maskz_loadu(mask, &var[di]) - maskz_loadu(mask, &var[-di]));
+  constexpr T c0a = 5 / T(6);
+  constexpr T c1a = -5 / T(8);
+  constexpr T c2a = 1 / T(4);
+  constexpr T c3a = -1 / T(24);
+  const simd<T> anti =
+      c3a * (maskz_loadu(mask, &var[3 * di]) +
+             maskz_loadu(mask, &var[-3 * di])) //
+      + c2a * (maskz_loadu(mask, &var[2 * di]) +
+               maskz_loadu(mask, &var[-2 * di]))                           //
+      + c1a * (maskz_loadu(mask, &var[di]) + maskz_loadu(mask, &var[-di])) //
+      + c0a * maskz_loadu(mask, &var[0]);
+  using std::fabs;
+  return (vel * symm - fabs(vel) * anti) / dx;
+}
+
+template <int deriv_order, typename T, typename TS,
+          typename R = std::result_of_t<TS(int)> >
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 2, R>
+    deriv2_1d(const TS var, const T dx) {
+  // constexpr T c0 = -2 / pow2(dx);
+  // constexpr T c1 = 1 / pow2(dx);
+  // return c1 * (var(-1) + var(1)) + c0 * var(0);
+  const T c0 = 1 / pow2(dx);
+  return c0 * ((var(1) - var(0)) - (var(0) - var(-1)));
+}
+
+template <int deriv_order, typename T, typename TS,
+          typename R = std::result_of_t<TS(int)> >
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 4, R>
+    deriv2_1d(const TS var, const T dx) {
+  // constexpr T c0 = -5 / T(2);
+  // constexpr T c1 = 4 / T(3);
+  // constexpr T c2 = -1 / T(12);
+  // return (c2 * (var(-2) + var(2)) + c1 * (var(-1) + var(1)) + c0 * var(0)) /
+  //        pow2(dx);
+  const T c0 = 15 / (12 * pow2(dx));
+  const T c1 = -1 / (12 * pow2(dx));
+  return c1 * ((var(4) - var(1)) - (var(3) - var(0))) +
+         c0 * ((var(3) - var(2)) - (var(2) - var(1)));
+}
+
+template <int deriv_order, typename T, typename TS,
+          typename R = std::result_of_t<TS(int, int)> >
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST R
+deriv2_2d(const TS var, const T dx, const T dy) {
+  // We assume that the x-direction might be special since it might
+  // be SIMD-vectorized. We assume that the y-direction is not
+  // SIMD-vectorized.
+
+  // Calculate y-derivative first.
+  // (If we wanted to calculate the x-derivative first, then we would
+  // be difficult to determine the extent of the `n`-loop, since it
+  // needs to include enough room for the SIMD y-derivative later.)
+  static_assert(sizeof(R) % sizeof(T) == 0, "");
+  constexpr std::ptrdiff_t vsize = sizeof(R) / sizeof(T);
+  constexpr std::ptrdiff_t ndyvars =
+      align_ceil(std::ptrdiff_t(2 * deriv_order + 1), vsize);
+  std::array<R, ndyvars> dyvar;
+#ifdef CCTK_DEBUG
+  for (std::ptrdiff_t n = 0; n < ndyvars; ++n)
+    dyvar[n] = Arith::nan<T>()();
+#endif
+  for (std::ptrdiff_t n = 0; n < ndyvars; ++n) {
+    std::ptrdiff_t di = vsize * n - deriv_order;
+    if (vsize == 1 && di == 0)
+      continue;
+    dyvar[n] = deriv1d<deriv_order>(
+        [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE { return var(di, dj); }, dy);
   }
-  if constexpr (deriv_order == 4) {
-    // A fourth order stencil for a first derivative, shifted by one grid point
 
-    // if (sign)
-    //   return (-1 / T(12) * var[-3 * di] //
-    //           + 1 / T(2) * var[-2 * di] //
-    //           - 3 / T(2) * var[-di]     //
-    //           + 5 / T(6) * var[0]       //
-    //           + 1 / T(4) * var[+di]) /
-    //          dx;
-    // else
-    //   return (-1 / T(4) * var[-di]      //
-    //           - 5 / T(6) * var[0]       //
-    //           + 3 / T(2) * var[+di]     //
-    //           - 1 / T(2) * var[+2 * di] //
-    //           + 1 / T(12) * var[+3 * di]) /
-    //          dx;
-
-    const simd<T> symm =
-        -1 / T(24) *
-            (maskz_loadu(mask, &var[-3 * di]) -
-             maskz_loadu(mask, &var[3 * di])) //
-        + 1 / T(4) *
-              (maskz_loadu(mask, &var[-2 * di]) -
-               maskz_loadu(mask, &var[2 * di])) //
-        -
-        7 / T(8) * (maskz_loadu(mask, &var[-di]) - maskz_loadu(mask, &var[di]));
-    const simd<T> anti =
-        -1 / T(24) *
-            (maskz_loadu(mask, &var[-3 * di]) +
-             maskz_loadu(mask, &var[3 * di])) //
-        + 1 / T(4) *
-              (maskz_loadu(mask, &var[-2 * di]) +
-               maskz_loadu(mask, &var[2 * di])) //
-        - 5 / T(8) *
-              (maskz_loadu(mask, &var[-di]) + maskz_loadu(mask, &var[di])) //
-        + 5 / T(6) * maskz_loadu(mask, &var[0]);
-    return (vel * symm - fabs(vel) * anti) / dx;
-  }
+  // Calculate x-derivative next
+  return deriv1d<deriv_order>(
+      [&](int di)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { return dyvar[di + deriv_order]; },
+      dx);
 }
 
-template <int dir, typename T, int D>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv_upwind(const simdl<T> &mask, const GF3D2<const T> &gf_,
-             const vect<int, dim> &I, const vec<simd<T>, D> &vel,
-             const vec<T, D> &dx) {
-  static_assert(dir >= 0 && dir < D, "");
-  const auto &DI = vect<int, dim>::unit;
-  const ptrdiff_t di = gf_.delta(DI(dir));
-  return deriv1d_upwind(mask, &gf_(I), di, vel(dir), dx(dir));
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 2, simd<T> >
+    diss1d(const simdl<T> &mask, const T *restrict const var,
+           const std::ptrdiff_t di, const T dx) {
+  constexpr T c0 = 6;
+  constexpr T c1 = -4;
+  constexpr T c2 = 1;
+  return (c2 * (maskz_loadu(mask, &var[2 * di]) +
+                maskz_loadu(mask, &var[-2 * di]))                             //
+          + c1 * (maskz_loadu(mask, &var[di]) + maskz_loadu(mask, &var[-di])) //
+          + c0 * maskz_loadu(mask, &var[0])) /
+         dx;
 }
 
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv_upwind(const simdl<T> &mask, const GF3D2<const T> &gf_,
-             const vect<int, dim> &I, const vec<simd<T>, dim> &vel,
-             const vec<T, dim> &dx) {
-  return deriv_upwind<0>(mask, gf_, I, vel, dx) +
-         deriv_upwind<1>(mask, gf_, I, vel, dx) +
-         deriv_upwind<2>(mask, gf_, I, vel, dx);
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 4, simd<T> >
+    diss1d(const simdl<T> &mask, const T *restrict const var,
+           const std::ptrdiff_t di, const T dx) {
+  constexpr T c0 = -20;
+  constexpr T c1 = 15;
+  constexpr T c2 = -6;
+  constexpr T c3 = 1;
+  return (c3 * (maskz_loadu(mask, &var[3 * di]) +
+                maskz_loadu(mask, &var[-3 * di])) //
+          + c2 * *(maskz_loadu(mask, &var[2 * di]) +
+                   maskz_loadu(mask, &var[-2 * di]))                          //
+          + c1 * (maskz_loadu(mask, &var[di]) + maskz_loadu(mask, &var[-di])) //
+          + c0 * maskz_loadu(mask, &var[0])) /
+         dx;
 }
 
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv1d_diss(const simdl<T> &mask, const T *restrict const var,
-             const ptrdiff_t di, const T dx) {
-  if constexpr (deriv_order == 2)
-    return ((maskz_loadu(mask, &var[-2 * di]) +
-             maskz_loadu(mask, &var[+2 * di])) //
-            -
-            4 * (maskz_loadu(mask, &var[-di]) + maskz_loadu(mask, &var[+di])) //
-            + 6 * maskz_loadu(mask, &var[0])) /
-           dx;
-  if constexpr (deriv_order == 4)
-    return ((maskz_loadu(mask, &var[-3 * di]) +
-             maskz_loadu(mask, &var[+3 * di])) //
-            - 6 * (maskz_loadu(mask, &var[-2 * di]) +
-                   maskz_loadu(mask, &var[+2 * di])) //
-            + 15 * (maskz_loadu(mask, &var[-di]) +
-                    maskz_loadu(mask, &var[+di])) //
-            - 20 * maskz_loadu(mask, &var[0])) /
-           dx;
+} // namespace detail
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Pointwise multi-dimensional derivative operators
+
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST Arith::vec<Arith::simd<T>, Loop::dim>
+    calc_deriv(const Loop::GF3D5<const T> &gf, const Arith::simdl<T> &mask,
+               const Loop::GF3D5layout &layout,
+               const Arith::vect<int, Loop::dim> &I,
+               const Arith::vect<T, Loop::dim> &dx) {
+  using namespace Arith;
+  using namespace Loop;
+  // We use explicit index calculations to avoid unnecessary integer
+  // multiplications
+  const T *restrict const ptr = &gf(layout, I);
+  const std::array<std::ptrdiff_t, Loop::dim> offsets{
+      layout.delta(1, 0, 0),
+      layout.delta(0, 1, 0),
+      layout.delta(0, 0, 1),
+  };
+  return {
+      detail::deriv1d<deriv_order>(
+          [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[0]]);
+          },
+          dx[0]),
+      detail::deriv1d<deriv_order>(
+          [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[1]]);
+          },
+          dx[1]),
+      detail::deriv1d<deriv_order>(
+          [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[2]]);
+          },
+          dx[2]),
+  };
 }
 
-using Arith::pown;
-
-template <int dir, typename T, int D>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-deriv_diss(const simdl<T> &mask, const GF3D2<const T> &gf_,
-           const vect<int, dim> &I, const vec<T, D> &dx) {
-  static_assert(dir >= 0 && dir < D, "");
-  const auto &DI = vect<int, dim>::unit;
-  const ptrdiff_t di = gf_.delta(DI(dir));
-  return deriv1d_diss(mask, &gf_(I), di, dx(dir));
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST Arith::vec<T, Loop::dim>
+    calc_deriv(const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout &layout,
+               const Arith::vect<int, Loop::dim> &I,
+               const Arith::vect<T, Loop::dim> &dx) {
+  using namespace Arith;
+  using namespace Loop;
+  // We use explicit index calculations to avoid unnecessary integer
+  // multiplications
+  const T *restrict const ptr = &gf(layout, I);
+  const std::array<std::ptrdiff_t, Loop::dim> offsets{
+      layout.delta(1, 0, 0),
+      layout.delta(0, 1, 0),
+      layout.delta(0, 0, 1),
+  };
+  return {
+      detail::deriv1d<deriv_order>(
+          [&](int di)
+              CCTK_ATTRIBUTE_ALWAYS_INLINE { return ptr[di * offsets[0]]; },
+          dx[0]),
+      detail::deriv1d<deriv_order>(
+          [&](int di)
+              CCTK_ATTRIBUTE_ALWAYS_INLINE { return ptr[di * offsets[1]]; },
+          dx[1]),
+      detail::deriv1d<deriv_order>(
+          [&](int di)
+              CCTK_ATTRIBUTE_ALWAYS_INLINE { return ptr[di * offsets[2]]; },
+          dx[2]),
+  };
 }
 
-template <typename T>
-inline ARITH_INLINE ARITH_DEVICE ARITH_HOST simd<T>
-diss(const simdl<T> &mask, const GF3D2<const T> &gf_, const vect<int, dim> &I,
-     const vec<T, dim> &dx) {
-  // arXiv:gr-qc/0610128, (63), with r=2
-  constexpr int diss_order = deriv_order + 2;
-  constexpr int sign = diss_order % 4 == 0 ? -1 : +1;
-  return sign / T(pown(2, deriv_order + 2)) *
-         (deriv_diss<0>(mask, gf_, I, dx)   //
-          + deriv_diss<1>(mask, gf_, I, dx) //
-          + deriv_diss<2>(mask, gf_, I, dx));
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST Arith::smat<Arith::simd<T>, Loop::dim>
+    calc_deriv2(const Loop::GF3D5<const T> &gf, const Arith::simdl<T> &mask,
+                const Loop::GF3D5layout &layout,
+                const Arith::vect<int, Loop::dim> &I,
+                const Arith::vect<T, Loop::dim> &dx) {
+  using namespace Arith;
+  using namespace Loop;
+  // We use explicit index calculations to avoid unnecessary integer
+  // multiplications
+  const T *restrict const ptr = &gf(layout, I);
+  const std::array<std::ptrdiff_t, Loop::dim> offsets{
+      layout.delta(1, 0, 0),
+      layout.delta(0, 1, 0),
+      layout.delta(0, 0, 1),
+  };
+  return {
+      detail::deriv2_1d<deriv_order>(
+          [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[0]]);
+          },
+          dx[0]),
+      detail::deriv2_2d<deriv_order>(
+          [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[0] + dj * offsets[1]]);
+          },
+          dx[0], dx[1]),
+      detail::deriv2_2d<deriv_order>(
+          [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[0] + dj * offsets[2]]);
+          },
+          dx[0], dx[2]),
+      detail::deriv2_1d<deriv_order>(
+          [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[1]]);
+          },
+          dx[1]),
+      detail::deriv2_2d<deriv_order>(
+          [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[1] + dj * offsets[2]]);
+          },
+          dx[1], dx[2]),
+      detail::deriv2_1d<deriv_order>(
+          [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return maskz_loadu(mask, &ptr[di * offsets[2]]);
+          },
+          dx[2]),
+  };
 }
 
-template <typename T>
+template <int deriv_order, typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST Arith::smat<T, Loop::dim>
+    calc_deriv2(const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout &layout,
+                const Arith::vect<int, Loop::dim> &I,
+                const Arith::vect<T, Loop::dim> &dx) {
+  using namespace Arith;
+  using namespace Loop;
+  // We use explicit index calculations to avoid unnecessary integer
+  // multiplications
+  const T *restrict const ptr = &gf(layout, I);
+  const std::array<std::ptrdiff_t, Loop::dim> offsets{
+      layout.delta(1, 0, 0),
+      layout.delta(0, 1, 0),
+      layout.delta(0, 0, 1),
+  };
+  return {
+      detail::deriv2_1d<deriv_order>(
+          [&](int di)
+              CCTK_ATTRIBUTE_ALWAYS_INLINE { return ptr[di * offsets[0]]; },
+          dx[0]),
+      detail::deriv2_2d<deriv_order>(
+          [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return ptr[di * offsets[0] + dj * offsets[1]];
+          },
+          dx[0], dx[1]),
+      detail::deriv2_2d<deriv_order>(
+          [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return ptr[di * offsets[0] + dj * offsets[2]];
+          },
+          dx[0], dx[2]),
+      detail::deriv2_1d<deriv_order>(
+          [&](int di)
+              CCTK_ATTRIBUTE_ALWAYS_INLINE { return ptr[di * offsets[1]]; },
+          dx[1]),
+      detail::deriv2_2d<deriv_order>(
+          [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            return ptr[di * offsets[1] + dj * offsets[2]];
+          },
+          dx[1], dx[2]),
+      detail::deriv2_1d<deriv_order>(
+          [&](int di)
+              CCTK_ATTRIBUTE_ALWAYS_INLINE { return ptr[di * offsets[2]]; },
+          dx[2]),
+  };
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Tile-based multi-dimensional operators
+
+template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
-apply_upwind_diss(const cGH *restrict const cctkGH, const GF3D2<const T> &gf_,
-                  const vec<GF3D2<const T>, dim> &gf_betaG_,
-                  const GF3D2<T> &gf_rhs_) {
-  DECLARE_CCTK_ARGUMENTS;
-  //DECLARE_CCTK_PARAMETERS;
-  const CCTK_REAL& epsdiss = *(CCTK_REAL*)CCTK_ParameterGet("epsdiss", "Derivs", nullptr);
+calc_derivs(const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
+            const Loop::GridDescBaseDevice &grid,
+            const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout layout,
+            const Arith::vect<T, Loop::dim> dx, const int deriv_order);
 
-  const vec<CCTK_REAL, dim> dx([&](int a) { return CCTK_DELTA_SPACE(a); });
+template <int CI, int CJ, int CK, typename T>
+CCTK_ATTRIBUTE_NOINLINE void
+calc_derivs2(const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
+             const Arith::smat<Loop::GF3D5<T>, Loop::dim> &ddgf,
+             const Loop::GridDescBaseDevice &grid,
+             const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout layout,
+             const Arith::vect<T, Loop::dim> dx, const int deriv_order);
 
-  typedef simd<CCTK_REAL> vreal;
-  typedef simdl<CCTK_REAL> vbool;
-  constexpr size_t vsize = tuple_size_v<vreal>;
-
-  if (epsdiss == 0) {
-
-    const Loop::GridDescBaseDevice grid(cctkGH);
-    grid.loop_int_device<0, 0, 0, vsize>(
-        grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
-          const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          const vec<vreal, dim> betaG = gf_betaG_(mask, p.I);
-          const vreal rhs_old = gf_rhs_(mask, p.I);
-          const vreal rhs_new =
-              rhs_old + deriv_upwind(mask, gf_, p.I, betaG, dx);
-          gf_rhs_.store(mask, p.I, rhs_new);
-        });
-
-  } else {
-
-    const Loop::GridDescBaseDevice grid(cctkGH);
-    grid.loop_int_device<0, 0, 0, vsize>(
-        grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
-          const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          const vec<vreal, dim> betaG = gf_betaG_(mask, p.I);
-          const vreal rhs_old = gf_rhs_(mask, p.I);
-          const vreal rhs_new = rhs_old +
-                                deriv_upwind(mask, gf_, p.I, betaG, dx) +
-                                epsdiss * diss(mask, gf_, p.I, dx);
-          gf_rhs_.store(mask, p.I, rhs_new);
-        });
-  }
-}
-
-template <typename T>
-void CCTK_ATTRIBUTE_NOINLINE calc_copy(const cGH *restrict const cctkGH,
-                                       const smat<GF3D2<const T>, dim> &gf0_,
-                                       const smat<GF3D5<T>, dim> &gf_,
-                                       const GF3D5layout &layout) {
-  for (int a = 0; a < 3; ++a)
-    for (int b = a; b < 3; ++b)
-      calc_copy(cctkGH, gf0_(a, b), gf_(a, b), layout);
-}
+} // namespace Derivs
 
 #endif // #ifndef CARPETX_DERIVS_DERIVS_HXX
