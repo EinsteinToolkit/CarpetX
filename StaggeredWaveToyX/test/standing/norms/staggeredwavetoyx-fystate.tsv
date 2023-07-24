@@ -1,0 +1,2 @@
+# 1:iteration	2:time	3:staggeredwavetoyx::fy.min	4:staggeredwavetoyx::fy.max	5:staggeredwavetoyx::fy.sum	6:staggeredwavetoyx::fy.avg	7:staggeredwavetoyx::fy.stddev	8:staggeredwavetoyx::fy.volume	9:staggeredwavetoyx::fy.L1norm	10:staggeredwavetoyx::fy.L2norm	11:staggeredwavetoyx::fy.maxabs
+0	0.0000000000000000e+00	-2.8284271247461903e+00	2.8284271247461903e+00	0.0000000000000000e+00	0.0000000000000000e+00	1.0823922002923940e+00	8.0000000000000000e+00	7.2855339059327384e-01	1.0823922002923940e+00	2.8284271247461903e+00

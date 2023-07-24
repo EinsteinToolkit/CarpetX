@@ -1,0 +1,15 @@
+# Interface definition for thorn TmunuBaseX
+
+IMPLEMENTS: TmunuBaseX
+
+USES INCLUDE HEADER: loop_device.hxx
+
+
+
+PUBLIC:
+
+CCTK_REAL eTtt TAGS='checkpoint="no"' TYPE=gf "T_00"
+
+CCTK_REAL eTti TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"' TYPE=gf { eTtx eTty eTtz } "T_0i"
+
+CCTK_REAL eTij TAGS='parities={+1 +1 +1   -1 -1 +1   -1 +1 -1   +1 +1 +1   +1 -1 -1   +1 +1 +1} checkpoint="no"' TYPE=gf { eTxx eTxy eTxz eTyy eTyz eTzz } "T_ij"

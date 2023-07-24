@@ -1,0 +1,25 @@
+# Parameter definitions for thorn Poisson
+
+INT fdorder "Finite differenc order"
+{
+  2 :: ""
+  4 :: ""
+} 2
+
+INT fdorder_jac "Finite differenc order for Jacobian"
+{
+  -1 :: "same as fdorder"
+  2 :: ""
+  4 :: ""
+} -1
+
+KEYWORD source "Source function"
+{
+  "constant" :: ""
+  "logo" :: ""
+} "constant"
+
+REAL logo_width "Width of logo"
+{
+  (0:* :: ""
+} 1.6875   # 27/16

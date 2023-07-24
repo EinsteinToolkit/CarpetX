@@ -54,7 +54,7 @@ CCTK_REAL energy TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"'
 
 CCTK_REAL error TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"'
 {
-  u_error
-  ft_error
-  fx_error fy_error fz_error
+  u_err
+  ft_err
+  fx_err fy_err fz_err
 } "Error"

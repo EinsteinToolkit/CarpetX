@@ -1,0 +1,2 @@
+# 1:iteration	2:time	3:spacetimewavetoyx::ft_err.min	4:spacetimewavetoyx::ft_err.max	5:spacetimewavetoyx::ft_err.sum	6:spacetimewavetoyx::ft_err.avg	7:spacetimewavetoyx::ft_err.stddev	8:spacetimewavetoyx::ft_err.volume	9:spacetimewavetoyx::ft_err.L1norm	10:spacetimewavetoyx::ft_err.L2norm	11:spacetimewavetoyx::ft_err.maxabs
+0	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	8.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00	0.0000000000000000e+00

@@ -1,2 +1,8 @@
-ActiveThorns = "Algo"
+ActiveThorns = "
+    Algo
+    CarpetX
+    IOUtil
+"
+
+Cactus::presync_mode = "mixed-error"
 Cactus::cctk_itlast = 0

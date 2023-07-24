@@ -2,7 +2,7 @@
 
 IMPLEMENTS: Coordinates
 
-USES INCLUDE HEADER: loop.hxx
+USES INCLUDE HEADER: loop_device.hxx
 
 PUBLIC:
 

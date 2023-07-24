@@ -18,8 +18,9 @@ using namespace std;
 // summand.
 
 template <int D, typename F>
-constexpr ARITH_INLINE remove_cv_t<remove_reference_t<result_of_t<F(int)> > >
-sum(F f) {
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+    remove_cv_t<remove_reference_t<result_of_t<F(int)> > >
+    sum(F f) {
   typedef remove_cv_t<remove_reference_t<result_of_t<F(int)> > > R;
   R s = zero<R>();
   for (int x = 0; x < D; ++x)
@@ -28,8 +29,8 @@ sum(F f) {
 }
 
 template <int D, typename F>
-constexpr
-    ARITH_INLINE remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > >
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+    remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > >
     sum(F f) {
   typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > > R;
   R s = zero<R>();
@@ -40,7 +41,7 @@ constexpr
 }
 
 template <int D, typename F>
-constexpr ARITH_INLINE
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
     remove_cv_t<remove_reference_t<result_of_t<F(int, int, int)> > >
     sum(F f) {
   typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int, int)> > > R;
@@ -53,7 +54,7 @@ constexpr ARITH_INLINE
 }
 
 template <int D, typename F>
-constexpr ARITH_INLINE
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
     remove_cv_t<remove_reference_t<result_of_t<F(int, int, int, int)> > >
     sum(F f) {
   typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int, int, int)> > >
@@ -68,8 +69,8 @@ constexpr ARITH_INLINE
 }
 
 template <int D, typename F>
-constexpr
-    ARITH_INLINE remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > >
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+    remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > >
     sum_symm(F f) {
   typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > > R;
   R s = zero<R>();
@@ -80,7 +81,7 @@ constexpr
 }
 
 template <int D, typename F>
-constexpr ARITH_INLINE
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
     remove_cv_t<remove_reference_t<result_of_t<F(int, int, int)> > >
     sum_symm(F f) {
   typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int, int)> > > R;

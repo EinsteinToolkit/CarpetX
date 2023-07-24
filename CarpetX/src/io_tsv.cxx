@@ -8,6 +8,7 @@
 #include <cctk_Parameters.h>
 
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -159,6 +160,56 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const string &filename,
   for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
     file << sep << arraygroupdata.data.at(tl).at(vi);
   file << "\n";
+}
+
+void WriteTSVArrays(const cGH *restrict cctkGH, const string &filename,
+                    const int gi, const int out_dir) {
+  // Output only on root process
+  if (CCTK_MyProc(nullptr) > 0)
+    return;
+
+  const auto &arraygroupdata = *ghext->globaldata.arraygroupdata.at(gi);
+
+  if (out_dir >= arraygroupdata.dimension)
+    return;
+
+  vector<string> varnames;
+  for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
+    varnames.push_back(CCTK_VarName(arraygroupdata.firstvarindex + vi));
+
+  const string sep = "\t";
+  ofstream file(filename);
+  // get more precision for floats, could also use
+  // https://stackoverflow.com/a/30968371
+  file << setprecision(numeric_limits<CCTK_REAL>::digits10 + 1) << scientific;
+
+  // Output header
+  int col = 1;
+  file << "# " << col++ << ":iteration";
+  file << sep << col++ << ":time";
+  for (int dir = 0; dir < arraygroupdata.dimension; ++dir)
+    file << sep << col++ << ":"
+         << "ijk"[dir];
+  for (const auto &varname : varnames)
+    file << sep << col++ << ":" << varname;
+  file << "\n";
+
+  constexpr int di = 1;
+  const int dj = di * arraygroupdata.lsh[0];
+  const int dk = dj * arraygroupdata.lsh[1];
+  const int np = dk * arraygroupdata.lsh[2];
+  const std::array<int, dim> DI{di, dj, dk};
+
+  // Output data
+  for (int i = 0; i < arraygroupdata.lsh[out_dir]; ++i) {
+    file << cctkGH->cctk_iteration << sep << cctkGH->cctk_time;
+    for (int dir = 0; dir < arraygroupdata.dimension; ++dir)
+      file << sep << (dir == out_dir ? i : 0);
+    const int tl = 0;
+    for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
+      file << sep << arraygroupdata.data.at(tl).at(np * vi + DI[out_dir] * i);
+    file << "\n";
+  }
 }
 
 void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
@@ -427,7 +478,9 @@ void OutputTSV(const cGH *restrict cctkGH) {
         WriteTSVScalars(cctkGH, basename + ".tsv", gi);
         break;
       case CCTK_ARRAY:
-        assert(0); // Grid arrays are not yet supported
+        WriteTSVArrays(cctkGH, basename + ".x.tsv", gi, 0);
+        WriteTSVArrays(cctkGH, basename + ".y.tsv", gi, 1);
+        WriteTSVArrays(cctkGH, basename + ".z.tsv", gi, 2);
         break;
       case CCTK_GF:
         WriteTSVGFs(cctkGH, basename + ".x.tsv", gi, {true, false, false},

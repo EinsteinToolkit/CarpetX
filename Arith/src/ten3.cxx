@@ -8,8 +8,7 @@ namespace Arith {
 using namespace std;
 
 template <typename T, typename U> constexpr bool eq(const T &x, const U &y) {
-  using std::isnan;
-  return x == y || (isnan(x) && isnan(y));
+  return x == y || (x != x && y != y);
 }
 
 template <typename T, int D, symm_t symm>

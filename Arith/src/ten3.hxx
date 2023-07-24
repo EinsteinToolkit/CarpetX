@@ -27,7 +27,7 @@ template <typename T, int D, symm_t symm> struct gten3 {
   constexpr static int Nfull = D * D * D;
   constexpr static int Nsymm = D * (D + 1) * (D + 2) / 6;
   constexpr static int Nanti = D * (D - 1) * (D - 2) / 6;
-  constexpr static int N = if_symm(symm, Nfull, Nsymm, Nanti);
+  constexpr static int N = if_symm<symm>(Nfull, Nsymm, Nanti);
   vect<T, N> elts;
 
 public:

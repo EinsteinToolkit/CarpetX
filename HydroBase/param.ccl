@@ -1,8 +1,0 @@
-# Parameter definitions for thorn HydroBase
-
-RESTRICTED:
-
-KEYWORD initial_hydro "Initial conditions for hydro"
-{
-  "vacuum" :: "vacuum (without atmosphere)"
-} "vacuum"
