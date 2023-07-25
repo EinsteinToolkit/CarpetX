@@ -499,28 +499,24 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 
 template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
-calc_copy(const Loop::GF3D5<T> &gf0, const Loop::GF3D5layout layout,
-          const Loop::GridDescBaseDevice &grid, const Loop::GF3D2<const T> &gf1,
+calc_copy(const Loop::GF3D5<T> &gf, const Loop::GF3D5layout layout,
+          const Loop::GridDescBaseDevice &grid, const Loop::GF3D2<const T> &gf0,
           const Arith::vect<T, Loop::dim> dx);
 
 template <int CI, int CJ, int CK, typename T>
-CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs(const Loop::GF3D5<T> &gf0,
-            const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf0,
-            const Loop::GF3D5layout layout,
-            const Loop::GridDescBaseDevice &grid,
-            const Loop::GF3D2<const T> &gf1, const Arith::vect<T, Loop::dim> dx,
-            const int deriv_order);
+CCTK_ATTRIBUTE_NOINLINE void calc_derivs(
+    const Loop::GF3D5<T> &gf, const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
+    const Loop::GF3D5layout layout, const Loop::GridDescBaseDevice &grid,
+    const Loop::GF3D2<const T> &gf0, const Arith::vect<T, Loop::dim> dx,
+    const int deriv_order);
 
 template <int CI, int CJ, int CK, typename T>
-CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs2(const Loop::GF3D5<T> &gf0,
-             const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf0,
-             const Arith::smat<Loop::GF3D5<T>, Loop::dim> &ddgf0,
-             const Loop::GF3D5layout layout,
-             const Loop::GridDescBaseDevice &grid,
-             const Loop::GF3D2<const T> &gf1,
-             const Arith::vect<T, Loop::dim> dx, const int deriv_order);
+CCTK_ATTRIBUTE_NOINLINE void calc_derivs2(
+    const Loop::GF3D5<T> &gf, const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
+    const Arith::smat<Loop::GF3D5<T>, Loop::dim> &ddgf,
+    const Loop::GF3D5layout layout, const Loop::GridDescBaseDevice &grid,
+    const Loop::GF3D2<const T> &gf0, const Arith::vect<T, Loop::dim> dx,
+    const int deriv_order);
 
 } // namespace Derivs
 

@@ -10,8 +10,8 @@ using namespace Loop;
 
 template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
-calc_copy(const GF3D5<T> &gf0, const GF3D5layout layout,
-          const GridDescBaseDevice &grid, const GF3D2<const T> &gf1,
+calc_copy(const GF3D5<T> &gf, const GF3D5layout layout,
+          const GridDescBaseDevice &grid, const GF3D2<const T> &gf0,
           const vect<T, dim> dx) {
   using vreal = simd<T>;
   using vbool = simdl<T>;
@@ -22,16 +22,16 @@ calc_copy(const GF3D5<T> &gf0, const GF3D5layout layout,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
         const GF3D5index index(layout, p.I);
-        const auto val = gf1(mask, p.I);
-        gf0.store(mask, index, val);
+        const auto val = gf0(mask, p.I);
+        gf.store(mask, index, val);
       });
 }
 
 template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
+calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
             const GF3D5layout layout, const GridDescBaseDevice &grid,
-            const GF3D2<const T> &gf1, const vect<T, dim> dx,
+            const GF3D2<const T> &gf0, const vect<T, dim> dx,
             const int deriv_order) {
   using vreal = simd<T>;
   using vbool = simdl<T>;
@@ -45,10 +45,10 @@ calc_derivs(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
-          const auto val = gf1(mask, p.I);
-          const auto dval = calc_deriv<2>(gf1, mask, p.I, dx);
-          gf0.store(mask, index, val);
-          dgf0.store(mask, index, dval);
+          const auto val = gf0(mask, p.I);
+          const auto dval = calc_deriv<2>(gf0, mask, p.I, dx);
+          gf.store(mask, index, val);
+          dgf.store(mask, index, dval);
         });
     break;
 
@@ -58,10 +58,10 @@ calc_derivs(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
-          const auto val = gf1(mask, p.I);
-          const auto dval = calc_deriv<4>(gf1, mask, p.I, dx);
-          gf0.store(mask, index, val);
-          dgf0.store(mask, index, dval);
+          const auto val = gf0(mask, p.I);
+          const auto dval = calc_deriv<4>(gf0, mask, p.I, dx);
+          gf.store(mask, index, val);
+          dgf.store(mask, index, dval);
         });
     break;
 
@@ -72,9 +72,9 @@ calc_derivs(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
 
 template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs2(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
-             const smat<GF3D5<T>, dim> &ddgf0, const GF3D5layout layout,
-             const GridDescBaseDevice &grid, const GF3D2<const T> &gf1,
+calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
+             const smat<GF3D5<T>, dim> &ddgf, const GF3D5layout layout,
+             const GridDescBaseDevice &grid, const GF3D2<const T> &gf0,
              const vect<T, dim> dx, const int deriv_order) {
   using vreal = simd<T>;
   using vbool = simdl<T>;
@@ -88,12 +88,12 @@ calc_derivs2(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
-          const auto val = gf1(mask, p.I);
-          const auto dval = calc_deriv<2>(gf1, mask, p.I, dx);
-          const auto ddval = calc_deriv2<2>(gf1, mask, p.I, dx);
-          gf0.store(mask, index, val);
-          dgf0.store(mask, index, dval);
-          ddgf0.store(mask, index, ddval);
+          const auto val = gf0(mask, p.I);
+          const auto dval = calc_deriv<2>(gf0, mask, p.I, dx);
+          const auto ddval = calc_deriv2<2>(gf0, mask, p.I, dx);
+          gf.store(mask, index, val);
+          dgf.store(mask, index, dval);
+          ddgf.store(mask, index, ddval);
         });
     break;
 
@@ -103,12 +103,12 @@ calc_derivs2(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
-          const auto val = gf1(mask, p.I);
-          const auto dval = calc_deriv<4>(gf1, mask, p.I, dx);
-          const auto ddval = calc_deriv2<4>(gf1, mask, p.I, dx);
-          gf0.store(mask, index, val);
-          dgf0.store(mask, index, dval);
-          ddgf0.store(mask, index, ddval);
+          const auto val = gf0(mask, p.I);
+          const auto dval = calc_deriv<4>(gf0, mask, p.I, dx);
+          const auto ddval = calc_deriv2<4>(gf0, mask, p.I, dx);
+          gf.store(mask, index, val);
+          dgf.store(mask, index, dval);
+          ddgf.store(mask, index, ddval);
         });
     break;
 
@@ -159,23 +159,21 @@ calc_deriv2<4>(const Loop::GF3D2<const T> &gf,
                const Arith::vect<int, Loop::dim> &I,
                const Arith::vect<T, Loop::dim> &dx);
 
-template void calc_copy<0, 0, 0>(const GF3D5<T> &gf0,
-                                 const GF3D5layout layout,
+template void calc_copy<0, 0, 0>(const GF3D5<T> &gf, const GF3D5layout layout,
                                  const GridDescBaseDevice &grid,
-                                 const GF3D2<const T> &gf1,
+                                 const GF3D2<const T> &gf0,
                                  const vect<T, dim> dx);
 
 template void
-calc_derivs<0, 0, 0>(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
+calc_derivs<0, 0, 0>(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
                      const GF3D5layout layout, const GridDescBaseDevice &grid,
-                     const GF3D2<const T> &gf1, const vect<T, dim> dx,
+                     const GF3D2<const T> &gf0, const vect<T, dim> dx,
                      const int deriv_order);
 
 template void
-calc_derivs2<0, 0, 0>(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
-                      const smat<GF3D5<T>, dim> &ddgf0,
-                      const GF3D5layout layout, const GridDescBaseDevice &grid,
-                      const GF3D2<const T> &gf1, const vect<T, dim> dx,
-                      const int deriv_order);
+calc_derivs2<0, 0, 0>(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
+                      const smat<GF3D5<T>, dim> &ddgf, const GF3D5layout layout,
+                      const GridDescBaseDevice &grid, const GF3D2<const T> &gf0,
+                      const vect<T, dim> dx, const int deriv_order);
 
 } // namespace Derivs
