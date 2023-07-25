@@ -499,6 +499,12 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 
 template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
+calc_copy(const Loop::GF3D5<T> &gf0, const Loop::GF3D5layout layout,
+          const Loop::GridDescBaseDevice &grid, const Loop::GF3D2<const T> &gf1,
+          const Arith::vect<T, Loop::dim> dx);
+
+template <int CI, int CJ, int CK, typename T>
+CCTK_ATTRIBUTE_NOINLINE void
 calc_derivs(const Loop::GF3D5<T> &gf0,
             const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf0,
             const Loop::GF3D5layout layout,

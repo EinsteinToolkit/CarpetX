@@ -10,6 +10,25 @@ using namespace Loop;
 
 template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
+calc_copy(const GF3D5<T> &gf0, const GF3D5layout layout,
+          const GridDescBaseDevice &grid, const GF3D2<const T> &gf1,
+          const vect<T, dim> dx) {
+  using vreal = simd<T>;
+  using vbool = simdl<T>;
+  constexpr std::size_t vsize = std::tuple_size_v<vreal>;
+
+  grid.loop_int_device<CI, CJ, CK, vsize>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
+        const GF3D5index index(layout, p.I);
+        const auto val = gf1(mask, p.I);
+        gf0.store(mask, index, val);
+      });
+}
+
+template <int CI, int CJ, int CK, typename T>
+CCTK_ATTRIBUTE_NOINLINE void
 calc_derivs(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
             const GF3D5layout layout, const GridDescBaseDevice &grid,
             const GF3D2<const T> &gf1, const vect<T, dim> dx,
@@ -139,6 +158,12 @@ template CCTK_DEVICE CCTK_HOST Arith::smat<T, Loop::dim>
 calc_deriv2<4>(const Loop::GF3D2<const T> &gf,
                const Arith::vect<int, Loop::dim> &I,
                const Arith::vect<T, Loop::dim> &dx);
+
+template void calc_copy<0, 0, 0>(const GF3D5<T> &gf0,
+                                 const GF3D5layout layout,
+                                 const GridDescBaseDevice &grid,
+                                 const GF3D2<const T> &gf1,
+                                 const vect<T, dim> dx);
 
 template void
 calc_derivs<0, 0, 0>(const GF3D5<T> &gf0, const vec<GF3D5<T>, dim> &dgf0,
