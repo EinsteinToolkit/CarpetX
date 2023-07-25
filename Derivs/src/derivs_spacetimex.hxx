@@ -1,5 +1,5 @@
-#ifndef CARPETX_DERIVS_DERIVS_HXX
-#define CARPETX_DERIVS_DERIVS_HXX
+#ifndef CARPETX_DERIVS_SPACETIMEX_DERIVS_HXX
+#define CARPETX_DERIVS_SPACETIMEX_DERIVS_HXX
 
 #include <loop_device.hxx>
 #include <mat.hxx>
@@ -12,6 +12,8 @@
 
 #include <type_traits>
 // Unified derivative header
+
+namespace derivs_spacetimex {
 
 // TODO: Make this a runtime parameter
 constexpr int deriv_order = 4;
@@ -507,6 +509,8 @@ void CCTK_ATTRIBUTE_NOINLINE calc_copy(const cGH *restrict const cctkGH,
   for (int a = 0; a < 3; ++a)
     for (int b = a; b < 3; ++b)
       calc_copy(cctkGH, gf0_(a, b), gf_(a, b), layout);
+}
+ 
 }
 
 #endif // #ifndef CARPETX_DERIVS_DERIVS_HXX
