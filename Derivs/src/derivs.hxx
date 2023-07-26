@@ -276,7 +276,7 @@ deriv2_2d(const TS var, const T dx, const T dy) {
     std::array<R, ndyvars> dyvar;
 
     for (std::ptrdiff_t n = 0; n < ndyvars; ++n) {
-      std::ptrdiff_t di = n - deriv_order;
+      const std::ptrdiff_t di = n - deriv_order;
       // Skip the unused central point, but only if there is no vectorization
       if (vsize == 1 && di == 0)
         continue;
@@ -305,7 +305,7 @@ deriv2_2d(const TS var, const T dx, const T dy) {
 #endif
 
     for (std::ptrdiff_t n = 0; n < ndyvars; ++n) {
-      std::ptrdiff_t di = n - deriv_order;
+      const std::ptrdiff_t di = n - deriv_order;
       // Skip the unused central point
       if (di == 0)
         continue;
