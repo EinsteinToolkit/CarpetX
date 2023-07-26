@@ -82,8 +82,6 @@ std::ostream &operator<<(std::ostream &os, const symmetry_t symmetry) {
   switch (symmetry) {
   case symmetry_t::none:
     return os << "none";
-  case symmetry_t::outer_boundary:
-    return os << "outer_boundary";
   case symmetry_t::interpatch:
     return os << "interpatch";
   case symmetry_t::periodic:
@@ -149,10 +147,10 @@ array<array<symmetry_t, dim>, 2> get_symmetries() {
   array<array<symmetry_t, dim>, 2> symmetries;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      symmetries[f][d] = is_outer_boundary[f][d] ? symmetry_t::outer_boundary
+      symmetries[f][d] = is_outer_boundary[f][d] ? symmetry_t::none
                          : is_periodic[f][d]     ? symmetry_t::periodic
                          : is_reflection[f][d]   ? symmetry_t::reflection
-                                                 : symmetry_t::outer_boundary;
+                                                 : symmetry_t::none;
 
   return symmetries;
 }
@@ -164,8 +162,9 @@ array<array<boundary_t, dim>, 2> get_default_boundaries() {
   array<array<bool, 3>, 2> is_symmetry;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none &&
-                          symmetries[f][d] != symmetry_t::outer_boundary;
+      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none
+          // && symmetries[f][d] != symmetry_t::outer_boundary
+          ;
 
   const array<array<bool, 3>, 2> is_dirichlet{{
       {{
@@ -243,8 +242,7 @@ array<array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
   array<array<bool, 3>, 2> is_symmetry;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none &&
-                          symmetries[f][d] != symmetry_t::outer_boundary;
+      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none;
 
   array<array<boundary_t, dim>, 2> boundaries = get_default_boundaries();
 

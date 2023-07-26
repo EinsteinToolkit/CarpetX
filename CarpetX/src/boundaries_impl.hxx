@@ -69,8 +69,7 @@ void BoundaryCondition::apply_on_face() const {
     const boundary_t boundary_x = groupdata.boundaries[f][0];
 
     if ((symmetry_x == symmetry_t::none && boundary_x == boundary_t::none) ||
-        (symmetry_x == symmetry_t::outer_boundary &&
-         boundary_x == boundary_t::none) ||
+        (boundary_x == boundary_t::none) ||
         (symmetry_x == symmetry_t::interpatch &&
          boundary_x == boundary_t::none) ||
         symmetry_x == symmetry_t::periodic)
@@ -114,8 +113,7 @@ void BoundaryCondition::apply_on_face_symbcx(
     const boundary_t boundary_y = groupdata.boundaries[f][1];
 
     if ((symmetry_y == symmetry_t::none && boundary_y == boundary_t::none) ||
-        (symmetry_y == symmetry_t::outer_boundary &&
-         boundary_y == boundary_t::none) ||
+        (boundary_y == boundary_t::none) ||
         (symmetry_y == symmetry_t::interpatch &&
          boundary_y == boundary_t::none) ||
         symmetry_y == symmetry_t::periodic)
@@ -160,8 +158,7 @@ void BoundaryCondition::apply_on_face_symbcxy(
     const boundary_t boundary_z = groupdata.boundaries[f][2];
 
     if ((symmetry_z == symmetry_t::none && boundary_z == boundary_t::none) ||
-        (symmetry_z == symmetry_t::outer_boundary &&
-         boundary_z == boundary_t::none) ||
+        (boundary_z == boundary_t::none) ||
         (symmetry_z == symmetry_t::interpatch &&
          boundary_z == boundary_t::none) ||
         symmetry_z == symmetry_t::periodic)
