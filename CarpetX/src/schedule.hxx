@@ -108,10 +108,8 @@ extern optional<active_levels_t> active_levels;
 // Like an MFIter, but does not support iteration, instead it can be copied
 struct MFPointer {
   int m_index;
-  amrex::Box m_fabbox;
-  amrex::Box m_growntilebox;
-  amrex::Box m_validbox;
-  amrex::IntVect m_nGrowVect;
+  amrex::Box m_validbox; // interior of block
+  amrex::Box m_tilebox;  // interior of tile
 
   MFPointer() = delete;
   MFPointer(const MFPointer &) = default;
@@ -119,15 +117,31 @@ struct MFPointer {
   MFPointer &operator=(const MFPointer &) = default;
   MFPointer &operator=(MFPointer &&) = default;
   MFPointer(const amrex::MFIter &mfi)
-      : m_index((assert(mfi.isValid()), mfi.index())), m_fabbox(mfi.fabbox()),
-        m_growntilebox(mfi.growntilebox()), m_validbox(mfi.validbox()),
-        m_nGrowVect(mfi.theFabArrayBase().nGrowVect()) {}
+      : m_index((assert(mfi.isValid()), mfi.index())),
+        m_validbox(mfi.validbox()), m_tilebox(mfi.tilebox()) {}
 
   constexpr int index() const noexcept { return m_index; }
-  constexpr amrex::Box fabbox() const noexcept { return m_fabbox; }
-  constexpr amrex::Box growntilebox() const noexcept { return m_growntilebox; }
+
   constexpr amrex::Box validbox() const noexcept { return m_validbox; }
-  constexpr amrex::IntVect nGrowVect() const noexcept { return m_nGrowVect; }
+
+  constexpr amrex::Box tilebox() const noexcept { return m_tilebox; }
+
+  const amrex::Box fabbox(const amrex::IntVect &ng) const noexcept {
+    return amrex::grow(validbox(), ng);
+  }
+
+  const amrex::Box growntilebox(const amrex::IntVect &ng) const noexcept {
+    // return m_growntilebox;
+    amrex::Box bx = tilebox();
+    const amrex::Box &vbx = validbox();
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+      if (bx.smallEnd(d) == vbx.smallEnd(d))
+        bx.growLo(d, ng[d]);
+      if (bx.bigEnd(d) == vbx.bigEnd(d))
+        bx.growHi(d, ng[d]);
+    }
+    return bx;
+  }
 };
 
 struct GridDesc : GridDescBase {
