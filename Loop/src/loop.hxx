@@ -63,6 +63,7 @@ template <typename T, int D> struct units_t {
 struct PointDesc {
   units_t<int, dim> DI; // direction unit vectors
 
+  int level, patch, block;
   vect<int, dim> I; // grid point
   int iter;         // iteration
   // outward boundary normal (if in outer boundary), else zero
@@ -92,20 +93,23 @@ struct PointDesc {
   PointDesc &operator=(PointDesc &&) = default;
 
   constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
-  PointDesc(const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
+  PointDesc(const int level, const int patch, const int block,
+            const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
             const vect<int, dim> &I0, const vect<int, dim> &BI,
             const vect<int, dim> &bnd_min, const vect<int, dim> &bnd_max,
             const vect<int, dim> &loop_min, const vect<int, dim> &loop_max,
             const vect<CCTK_REAL, dim> &X, const vect<CCTK_REAL, dim> &DX)
-      : I(I), iter(iter), NI(NI), I0(I0), BI(BI), bnd_min(bnd_min),
-        bnd_max(bnd_max), loop_min(loop_min), loop_max(loop_max), X(X), DX(DX),
-        imin(loop_min[0]), imax(loop_max[0]), i(I[0]), j(I[1]), k(I[2]),
-        x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
+      : level(level), patch(patch), block(block), I(I), iter(iter), NI(NI),
+        I0(I0), BI(BI), bnd_min(bnd_min), bnd_max(bnd_max), loop_min(loop_min),
+        loop_max(loop_max), X(X), DX(DX), imin(loop_min[0]), imax(loop_max[0]),
+        i(I[0]), j(I[1]), k(I[2]), x(X[0]), y(X[1]), z(X[2]), dx(DX[0]),
+        dy(DX[1]), dz(DX[2]) {}
 
   friend std::ostream &operator<<(std::ostream &os, const PointDesc &p);
 };
 
 struct GridDescBase {
+  int level, patch, block;
   vect<int, dim> gsh;
   vect<int, dim> lbnd, ubnd;
   vect<int, dim> lsh;
@@ -115,8 +119,10 @@ struct GridDescBase {
   vect<int, dim> tmin, tmax;
 
   // for current level
-  vect<CCTK_REAL, dim> x0;
-  vect<CCTK_REAL, dim> dx;
+  // TODO: these are still cell centred, and so are cctk_origin_space and
+  // cctk_delta_space; fix this!
+  vect<CCTK_REAL, dim> x0; // origin_space
+  vect<CCTK_REAL, dim> dx; // delta_space
 
   friend std::ostream &operator<<(std::ostream &os, const GridDescBase &grid);
 
@@ -140,8 +146,8 @@ public:
     const vect<CCTK_REAL, dim> X =
         x0 + (lbnd + I - vect<CCTK_REAL, dim>(!CI) / 2) * dx;
     const vect<CCTK_REAL, dim> DX = dx;
-    return PointDesc(I, iter, NI, I0, BI, bnd_min, bnd_max, loop_min, loop_max,
-                     X, DX);
+    return PointDesc(level, patch, block, I, iter, NI, I0, BI, bnd_min, bnd_max,
+                     loop_min, loop_max, X, DX);
   }
 
   // Loop over a given box

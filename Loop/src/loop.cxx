@@ -23,7 +23,11 @@ std::ostream &operator<<(std::ostream &os, const where_t where) {
 
 std::ostream &operator<<(std::ostream &os, const PointDesc &p) {
   return os << "PointDesc{"
+            << "level:" << p.level << ", "
+            << "patch:" << p.patch << ", "
+            << "block:" << p.block << ", "
             << "I:" << p.I << ", "
+            << "iter:" << p.iter << ", "
             << "NI:" << p.NI << ", "
             << "I0:" << p.I0 << ", "
             << "BI:" << p.BI << ", "
@@ -35,6 +39,10 @@ std::ostream &operator<<(std::ostream &os, const PointDesc &p) {
 GridDescBase::GridDescBase() {}
 
 GridDescBase::GridDescBase(const cGH *restrict cctkGH) {
+  level = cctkGH->cctk_level;
+  patch = cctkGH->cctk_patch;
+  block = cctkGH->cctk_block;
+
   for (int d = 0; d < dim; ++d) {
     assert(cctkGH->cctk_gsh[d] != undefined);
     gsh[d] = cctkGH->cctk_gsh[d];
@@ -81,11 +89,17 @@ GridDescBase::GridDescBase(const cGH *restrict cctkGH) {
 }
 
 std::ostream &operator<<(std::ostream &os, const GridDescBase &grid) {
+  // Convert to vertex-centred boundaries
+  const auto x0 = grid.x0 - grid.dx / 2;
+  const auto x1 = x0 + (grid.gsh - 1) * grid.dx;
   return os << "GridDescBase{"
-            << "gsh" << grid.gsh << ",lbnd" << grid.lbnd << ",ubnd" << grid.ubnd
-            << ",lsh" << grid.lsh << ",bbox" << grid.bbox << ",nghostzones"
-            << grid.nghostzones << ",tmin" << grid.tmin << ",tmax" << grid.tmax
-            << "}";
+            << "level=" << grid.level << ",patch=" << grid.patch
+            << ",block=" << grid.block << ",gsh=" << grid.gsh
+            << ",lbnd=" << grid.lbnd << ",ubnd=" << grid.ubnd
+            << ",lsh=" << grid.lsh << ",ash=" << grid.ash
+            << ",bbox=" << grid.bbox << ",nghostzones=" << grid.nghostzones
+            << ",tmin=" << grid.tmin << ",tmax=" << grid.tmax
+            << ",x0[vc]=" << x0 << ",x1[vc]=" << x1 << ",dx=" << grid.dx << "}";
 }
 
 } // namespace Loop
