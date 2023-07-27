@@ -724,3 +724,12 @@ CarpetX/TestProlongate
 CarpetX/TestSymmetries
 CarpetX/TmunuBaseX
 CarpetX/WaveToyX
+
+
+# CapyrX thorns
+!TARGET   = $ARR
+!TYPE     = ignore
+!REPO_BRANCH = eschnett/interpolate
+!CHECKOUT =
+CapyrX/MultiPatch
+CapyrX/TestMultiPatch
