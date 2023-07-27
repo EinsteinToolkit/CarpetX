@@ -88,6 +88,9 @@ public:
           const vect<int, dim> NI =
               vect<int, dim>(I > bnd_max1 - 1) - vect<int, dim>(I < bnd_min1);
           const vect<int, dim> I0 =
+          // If NI<0,   retrun bnd_min1
+          // If NI>0,   retrun bnd_max1-1
+          // If NI==0,  retrun 0
               if_else(NI == 0, 0, if_else(NI < 0, bnd_min1, bnd_max1 - 1));
           const vect<int, dim> BI =
               vect<int, dim>(I == bnd_max1 - 1) - vect<int, dim>(I == bnd_min1);
@@ -252,6 +255,76 @@ public:
 
                 loop_box_device<CI, CJ, CK, VS, N, NT>(bnd_min, bnd_max, imin,
                                                        imax, f);
+              }
+            } // if rank
+          }
+        }
+      }
+
+    } // for rank
+  }
+
+  // Loop over all outer boundary points, but shifted inwards by nghostzones.
+  // Modified from loop_bnd_device.
+  // Loop over faces first, then edges, then corners.
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1,
+            int NT = AMREX_GPU_MAX_THREADS, typename F>
+  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  loop_radbnd_device(const vect<int, dim> &group_nghostzones, const F &f) const {
+    vect<int, dim> bnd_min, bnd_max;
+    boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
+    vect<int, dim> all_min, all_max, int_min, int_max;
+    domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
+                             int_max);
+
+    for (int rank = dim - 1; rank >= 0; --rank) {
+    // loop over faces, edges, then corner
+    // rank(interior) = 3
+    // rank(face) = 2
+    // rank(edge) = 1
+    // rank(corner) = 0
+
+      for (int nk = -1; nk <= +1; ++nk) {
+        for (int nj = -1; nj <= +1; ++nj) {
+          for (int ni = -1; ni <= +1; ++ni) {
+            // Loop over lower bnd, interior, upper bnd
+            if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
+
+              // check if on a face and that (this face of the patch is on the outer boundary)
+              if ((ni != 0 && bbox[ni == -1 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj == -1 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk == -1 ? 0 : 1][2])) {
+
+                const vect<int, dim> inormal{ni, nj, nk};
+
+                vect<int, dim> imin, imax;
+                for (int d = 0; d < dim; ++d) {  // Set imin, imax in each direction
+                  switch (inormal[d]) {
+
+                  case -1: // lower boundary                // xxx|              |
+                    imin[d] = all_min[d] + nghostzones[d];  // ~~~ ^~~~~~~~~~~~~~ ~~~
+                    imax[d] = int_min[d] + nghostzones[d];  // ~~~ ~~~^~~~~~~~~~~ ~~~
+                    break;
+                  case 0: // interior                       //    |xxxxxxxxxxxxxx|
+                    imin[d] = int_min[d] + nghostzones[d];  // ~~~ ~~~^~~~~~~~~~~ ~~~
+                    imax[d] = int_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~^~~~ ~~~
+                    break;
+                  case +1: // upper boundary                //    |              |xxx
+                    imin[d] = int_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~^~~~ ~~~
+                    imax[d] = all_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~~~~^ ~~~
+                    break;
+                  default:
+                    assert(0);
+                  }
+
+                  using std::min, std::max;
+                  imin[d] = max(tmin[d], imin[d]);
+                  imax[d] = min(tmax[d], imax[d]);
+                }
+
+                loop_box_device<CI, CJ, CK, VS, N, NT>(
+                    bnd_min+nghostzones,
+                    bnd_max-nghostzones, imin, imax, f);
               }
             } // if rank
           }

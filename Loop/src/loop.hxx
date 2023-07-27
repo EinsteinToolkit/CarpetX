@@ -164,11 +164,15 @@ public:
         for (int j = loop_min[1]; j < loop_max[1]; ++j) {
 #pragma omp simd
           for (int i = loop_min[0]; i < loop_max[0]; i += VS) {
+            //grid point
             const vect<int, dim> I = {i, j, k};
-            const vect<int, dim> NI =
+            // outward boundary normal (if in outer boundary), else zero
+            const vect<int, dim> NI = 
                 vect<int, dim>(I > bnd_max - 1) - vect<int, dim>(I < bnd_min);
+	    //Nearest interior point
             const vect<int, dim> I0 =
                 if_else(NI == 0, 0, if_else(NI < 0, bnd_min, bnd_max - 1));
+            // outward boundary normal (if on outermost interior point), else zero
             const vect<int, dim> BI =
                 vect<int, dim>(I == bnd_max - 1) - vect<int, dim>(I == bnd_min);
             const PointDesc p =
@@ -517,6 +521,134 @@ public:
     } // for rank
   }
 
+  //// Loop over all radiative boundary points. 
+  //// This includes amrex boundary points. 
+  //// Loop over faces first, then edges, then corners.
+  //template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
+  //inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  //loop_radbnd(const vect<int, dim> &group_nghostzones, const F &f) const {
+  //  vect<int, dim> bnd_min, bnd_max;
+  //  boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
+  //  vect<int, dim> all_min, all_max, int_min, int_max;
+  //  domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
+  //                           int_max);
+
+  //  for (int rank = dim - 1; rank >= 0; --rank) {
+
+  //    for (int nk = -1; nk <= +1; ++nk) {
+  //      for (int nj = -1; nj <= +1; ++nj) {
+  //        for (int ni = -1; ni <= +1; ++ni) {
+  //          if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
+
+  //            if ((ni == 0 || !bbox[ni == -1 ? 0 : 1][0]) &&
+  //                (nj == 0 || !bbox[nj == -1 ? 0 : 1][1]) &&
+  //                (nk == 0 || !bbox[nk == -1 ? 0 : 1][2])) {
+
+  //              const vect<int, dim> inormal{ni, nj, nk};
+
+  //              vect<int, dim> imin, imax;
+  //              for (int d = 0; d < dim; ++d) {
+  //                switch (inormal[d]) {
+  //                //case -1: // lower boundary
+  //                //  imin[d] = all_min[d] + nghostzones[d];
+  //                //  imax[d] = int_min[d] + nghostzones[d];
+  //                //  break;
+  //                //case 0: // interior
+  //                //  imin[d] = int_min[d] + nghostzones[d];
+  //                //  imax[d] = int_max[d] - nghostzones[d];
+  //                //  break;
+  //                //case +1: // upper boundary
+  //                //  imin[d] = int_max[d] - nghostzones[d];
+  //                //  imax[d] = all_max[d] - nghostzones[d];
+  //                //  break;
+  //                case -1: // lower boundary
+  //                  imin[d] = all_min[d] + 5;
+  //                  imax[d] = int_min[d] + 5;
+  //                  break;
+  //                case 0: // interior
+  //                  imin[d] = int_min[d] ;
+  //                  imax[d] = int_max[d] ;
+  //                  break;
+  //                case +1: // upper boundary
+  //                  imin[d] = int_max[d] - 5;
+  //                  imax[d] = all_max[d] - 5;
+  //                  break;
+  //                default:
+  //                  assert(0);
+  //                }
+
+  //                using std::min, std::max;
+  //                imin[d] = max(tmin[d], imin[d]);
+  //                imax[d] = min(tmax[d], imax[d]);
+  //              }
+
+  //              loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
+  //            }
+  //          } // if rank
+  //        }
+  //      }
+  //    }
+  //  } // for rank
+  //}
+  // Loop over all outer boundary points. This excludes ghost faces, but
+  // includes ghost edges/corners on non-ghost faces. Loop over faces first,
+  // then edges, then corners.
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
+  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  loop_radbnd(const vect<int, dim> &group_nghostzones, const F &f) const {
+    vect<int, dim> bnd_min, bnd_max;
+    boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
+    vect<int, dim> all_min, all_max, int_min, int_max;
+    domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
+                             int_max);
+
+    for (int rank = dim - 1; rank >= 0; --rank) {
+
+      for (int nk = -1; nk <= +1; ++nk) {
+        for (int nj = -1; nj <= +1; ++nj) {
+          for (int ni = -1; ni <= +1; ++ni) {
+            if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
+
+              if ((ni != 0 && bbox[ni == -1 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj == -1 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk == -1 ? 0 : 1][2])) {
+
+                const vect<int, dim> inormal{ni, nj, nk};
+
+                vect<int, dim> imin, imax;
+                for (int d = 0; d < dim; ++d) {
+                  switch (inormal[d]) {
+                  case -1: // lower boundary
+                    imin[d] = all_min[d] + nghostzones[d];
+                    imax[d] = int_min[d] + nghostzones[d];
+                    break;
+                  case 0: // interior
+                    imin[d] = int_min[d] + nghostzones[d];
+                    imax[d] = int_max[d] - nghostzones[d];
+                    break;
+                  case +1: // upper boundary
+                    imin[d] = int_max[d] - nghostzones[d];
+                    imax[d] = all_max[d] - nghostzones[d];
+                    break;
+                  default:
+                    assert(0);
+                  }
+
+                  using std::min, std::max;
+                  imin[d] = max(tmin[d], imin[d]);
+                  imax[d] = min(tmax[d], imax[d]);
+                }
+
+                loop_box<CI, CJ, CK, VS, N>(bnd_min+nghostzones, bnd_max-nghostzones, imin, imax, f);
+              }
+            } // if rank
+          }
+        }
+      }
+
+    } // for rank
+  }
+
   template <int CI, int CJ, int CK, where_t where, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE
       std::enable_if_t<(where == where_t::everywhere), void>
@@ -549,6 +681,12 @@ public:
       loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_ghosts<CI, CJ, CK>(group_nghostzones, f);
   }
+  //template <int CI, int CJ, int CK, where_t where, typename F>
+  //inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+  //    std::enable_if_t<(where == where_t::ghosts), void>
+  //    loop(const vect<int, dim> &group_nghostzones, const F &f) const {
+  //  loop_radbnd<CI, CJ, CK>(group_nghostzones, f);
+  //}
 
   template <int CI, int CJ, int CK, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
@@ -1399,4 +1537,4 @@ public:
 
 #endif
 
-#endif // #ifndef CARPETX_LOOP_LOOP_HXX
+#endif // #ifndef LOOP_NEWRADX_HXX
