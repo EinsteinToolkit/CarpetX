@@ -220,9 +220,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni != 0 && bbox[ni == -1 ? 0 : 1][0]) ||
-                  (nj != 0 && bbox[nj == -1 ? 0 : 1][1]) ||
-                  (nk != 0 && bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -278,9 +278,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni != 0 && !bbox[ni == -1 ? 0 : 1][0]) ||
-                  (nj != 0 && !bbox[nj == -1 ? 0 : 1][1]) ||
-                  (nk != 0 && !bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni != 0 && !bbox[ni<0 ? 0 : 1][0]) ||
+                  (nj != 0 && !bbox[nj<0 ? 0 : 1][1]) ||
+                  (nk != 0 && !bbox[nk<0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -344,9 +344,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni == 0 || !bbox[ni == -1 ? 0 : 1][0]) &&
-                  (nj == 0 || !bbox[nj == -1 ? 0 : 1][1]) &&
-                  (nk == 0 || !bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni == 0 || !bbox[ni < 0 ? 0 : 1][0]) &&
+                  (nj == 0 || !bbox[nj < 0 ? 0 : 1][1]) &&
+                  (nk == 0 || !bbox[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
