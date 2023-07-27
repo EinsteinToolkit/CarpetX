@@ -30,9 +30,9 @@ BoundaryCondition::BoundaryCondition(
     const GHExt::PatchData::LevelData::GroupData &groupdata,
     const amrex::Box &box, amrex::FArrayBox &dest)
     : groupdata(groupdata), patchdata(ghext->patchdata.at(groupdata.patch)),
-      geom(patchdata.amrcore->Geom(groupdata.level)),
-      dest(dest), imin{geom.Domain().smallEnd(0), geom.Domain().smallEnd(1),
-                       geom.Domain().smallEnd(2)},
+      geom(patchdata.amrcore->Geom(groupdata.level)), dest(dest),
+      imin{geom.Domain().smallEnd(0), geom.Domain().smallEnd(1),
+           geom.Domain().smallEnd(2)},
       imax{geom.Domain().bigEnd(0) + 1 + !groupdata.indextype[0],
            geom.Domain().bigEnd(1) + 1 + !groupdata.indextype[1],
            geom.Domain().bigEnd(2) + 1 + !groupdata.indextype[2]},
@@ -251,8 +251,6 @@ void BoundaryCondition::apply() const {
             const symmetry_t symmetry = patchdata.symmetries[face][dir];
             const boundary_t boundary = groupdata.boundaries[face][dir];
             if ((symmetry == symmetry_t::none &&
-                 boundary == boundary_t::none) ||
-                (symmetry == symmetry_t::outer_boundary &&
                  boundary == boundary_t::none) ||
                 symmetry == symmetry_t::interpatch ||
                 symmetry == symmetry_t::periodic) {
