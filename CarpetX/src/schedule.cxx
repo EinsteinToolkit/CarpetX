@@ -2227,7 +2227,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   std::vector<std::function<void()> > tasks1;
   std::vector<std::function<void()> > tasks2;
 
-  const bool have_multipatch_boundaries =
+  static const bool have_multipatch_boundaries =
       CCTK_IsFunctionAliased("MultiPatch_Interpolate");
 
   active_levels->loop([&](auto &restrict leveldata) {
@@ -2285,8 +2285,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                   return "SyncGroupsByDirI after syncing: "
                          "Mark ghost zones as valid";
                 });
-                if (ghext->patchdata.at(leveldata.patch)
-                        .all_faces_have_symmetries())
+                if (groupdata.all_faces_have_symmetries_or_boundaries())
                   groupdata.valid.at(tl).at(vi).set_outer(true, []() {
                     return "SyncGroupsByDirI after syncing: "
                            "Mark outer boundaries as valid";
@@ -2359,8 +2358,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                       return "SyncGroupsByDirI after prolongation: "
                              "Mark ghost zones as valid";
                     });
-                    if (ghext->patchdata.at(leveldata.patch)
-                            .all_faces_have_symmetries())
+                    if (groupdata.all_faces_have_symmetries_or_boundaries())
                       groupdata.valid.at(tl).at(vi).set_outer(true, []() {
                         return "SyncGroupsByDirI after prolongation: "
                                "Mark outer boundaries as valid";
@@ -2391,7 +2389,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   tasks2.clear();
   synchronize();
 
-  if (CCTK_IsFunctionAliased("MultiPatch_Interpolate")) {
+  if (have_multipatch_boundaries) {
     std::vector<CCTK_INT> cactusvarinds;
     for (int group : groups) {
       const auto &groupdata =
