@@ -248,10 +248,11 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   // constexpr T c2 = -1 / T(12);
   // return (c2 * (var(-2) + var(2)) + c1 * (var(-1) + var(1)) + c0 * var(0)) /
   //        pow2(dx);
-  const T c0 = 15 / (12 * pow2(dx));
-  const T c1 = -1 / (12 * pow2(dx));
-  return c1 * ((var(4) - var(1)) - (var(3) - var(0))) +
-         c0 * ((var(3) - var(2)) - (var(2) - var(1)));
+  constexpr T c0 = 4 / T(3);
+  constexpr T c1 = -1 / T(12);
+  return (c1 * ((var(+2) - var(+0)) - (var(-0) - var(-2))) +
+          c0 * ((var(+1) - var(+0)) - (var(-0) - var(-1)))) /
+         pow2(dx);
 }
 
 template <int deriv_order, bool vectorize_di, typename T, typename TS,
