@@ -1829,12 +1829,13 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
             groupdata.all_faces_have_symmetries_or_boundaries()
                 ? make_valid_outer()
                 : valid_t();
-        assert(outer_valid == make_valid_outer());
         for (int vi = 0; vi < groupdata.numvars; ++vi) {
           groupdata.valid.at(tl).at(vi).set_all(
               make_valid_int() | make_valid_ghosts() | outer_valid,
               []() { return "MakeNewLevelFromCoarse after prolongation"; });
-          // check_valid(groupdata, vi, tl, nan_handling, []() {
+          // This cannot be called because it would access the data
+          // with old metadata
+          // check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
           //   return "MakeNewLevelFromCoarse after prolongation";
           // });
         }
