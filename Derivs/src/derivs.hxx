@@ -281,13 +281,26 @@ deriv2_2d(const TS var, const T dx, const T dy) {
       if (vsize == 1 && di == 0)
         continue;
       dyvar[n] = deriv1d<deriv_order>(
-          [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE { return var(di, dj); }, dy);
+          [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+            assert(di >= -deriv_order / 2);
+            assert(di <= +deriv_order / 2);
+            assert(di >= -deriv_order / 2);
+            assert(dj <= +deriv_order / 2);
+#endif
+            return var(di, dj);
+          },
+          dy);
     }
 
     // Calculate x-derivative next
     const T *const scalar_dyvar = (const T *)dyvar.data();
     return deriv1d<deriv_order>(
         [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+          assert(di >= -deriv_order / 2);
+          assert(di <= +deriv_order / 2);
+#endif
           if constexpr (vsize == 1)
             return scalar_dyvar[deriv_order + di];
           else
@@ -310,13 +323,27 @@ deriv2_2d(const TS var, const T dx, const T dy) {
       if (di == 0)
         continue;
       dyvar[n] = deriv1d<deriv_order>(
-          [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE { return var(di, dj); }, dy);
+          [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+            assert(di >= -deriv_order / 2);
+            assert(di <= +deriv_order / 2);
+            assert(di >= -deriv_order / 2);
+            assert(dj <= +deriv_order / 2);
+#endif
+            return var(di, dj);
+          },
+          dy);
     }
 
     // Calculate x-derivative next
     return deriv1d<deriv_order>(
-        [&](int di)
-            CCTK_ATTRIBUTE_ALWAYS_INLINE { return dyvar[deriv_order + di]; },
+        [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+          assert(di >= -deriv_order / 2);
+          assert(di <= +deriv_order / 2);
+#endif
+          return dyvar[deriv_order + di];
+        },
         dx);
   }
 }
