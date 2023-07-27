@@ -2268,36 +2268,35 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                              ghext->patchdata.at(leveldata.patch)
                                  .amrcore->Geom(leveldata.level));
 
-          tasks1.emplace_back([&tasks2, &leveldata, &groupdata,
-                               have_multipatch_boundaries, nan_handling, tl,
-                               fillpatch_continue =
-                                   std::move(fillpatch_continue)]() {
-            auto fillpatch_finish = fillpatch_continue();
+          tasks1.emplace_back(
+              [&tasks2, &leveldata, &groupdata, nan_handling, tl,
+               fillpatch_continue = std::move(fillpatch_continue)]() {
+                auto fillpatch_finish = fillpatch_continue();
 
-            tasks2.emplace_back([&leveldata, &groupdata,
-                                 have_multipatch_boundaries, nan_handling, tl,
-                                 fillpatch_finish =
-                                     std::move(fillpatch_finish)]() {
-              fillpatch_finish();
+                tasks2.emplace_back(
+                    [&leveldata, &groupdata, nan_handling, tl,
+                     fillpatch_finish = std::move(fillpatch_finish)]() {
+                      fillpatch_finish();
 
-              for (int vi = 0; vi < groupdata.numvars; ++vi) {
-                groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
-                  return "SyncGroupsByDirI after syncing: "
-                         "Mark ghost zones as valid";
-                });
-                if (groupdata.all_faces_have_symmetries_or_boundaries())
-                  groupdata.valid.at(tl).at(vi).set_outer(true, []() {
-                    return "SyncGroupsByDirI after syncing: "
-                           "Mark outer boundaries as valid";
-                  });
-                poison_invalid(leveldata, groupdata, vi, tl);
-                if (!have_multipatch_boundaries)
-                  check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
-                    return "SyncGroupsByDirI after syncing";
-                  });
-              }
-            });
-          });
+                      for (int vi = 0; vi < groupdata.numvars; ++vi) {
+                        groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
+                          return "SyncGroupsByDirI after syncing: "
+                                 "Mark ghost zones as valid";
+                        });
+                        if (groupdata.all_faces_have_symmetries_or_boundaries())
+                          groupdata.valid.at(tl).at(vi).set_outer(true, []() {
+                            return "SyncGroupsByDirI after syncing: "
+                                   "Mark outer boundaries as valid";
+                          });
+                        poison_invalid(leveldata, groupdata, vi, tl);
+                        if (!have_multipatch_boundaries)
+                          check_valid(leveldata, groupdata, vi, tl,
+                                      nan_handling, []() {
+                                        return "SyncGroupsByDirI after syncing";
+                                      });
+                      }
+                    });
+              });
         } // for tl
 
       } else { // if leveldata.level > 0
