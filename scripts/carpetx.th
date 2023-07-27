@@ -728,8 +728,10 @@ CarpetX/WaveToyX
 
 # CapyrX thorns
 !TARGET   = $ARR
-!TYPE     = ignore
+!TYPE     = git
+!URL      = https://github.com/lucass-carneiro/CapyrX
 !REPO_BRANCH = eschnett/interpolate
+!REPO_PATH = $2
 !CHECKOUT =
 CapyrX/MultiPatch
 CapyrX/TestMultiPatch
