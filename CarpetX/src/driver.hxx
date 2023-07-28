@@ -40,7 +40,6 @@ using rat64 = rational<int64_t>;
 // Symmetries are domain properties
 enum class symmetry_t {
   none,
-  outer_boundary,
   interpatch,
   periodic,
   reflection,
@@ -48,7 +47,7 @@ enum class symmetry_t {
 std::ostream &operator<<(std::ostream &os, const symmetry_t symmetry);
 
 // Boundary conditions are group properties. They are valid only for faces where
-// the domain symmetry is `outer_boundary`.
+// the domain symmetry is `none`.
 enum class boundary_t {
   none,
   symmetry_boundary,
@@ -209,7 +208,6 @@ struct GHExt {
     int patch;
 
     array<array<symmetry_t, dim>, 2> symmetries;
-    bool all_faces_have_symmetries() const;
 
     // AMReX grid structure
     // TODO: convert this from unique_ptr to optional
@@ -265,6 +263,7 @@ struct GHExt {
         array<int, dim> nghostzones;
 
         array<array<boundary_t, dim>, 2> boundaries;
+        bool all_faces_have_symmetries_or_boundaries() const;
         vector<array<int, dim> > parities;
         vector<CCTK_REAL> dirichlet_values;
         vector<CCTK_REAL> robin_values;
