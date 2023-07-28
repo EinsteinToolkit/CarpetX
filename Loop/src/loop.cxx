@@ -25,7 +25,7 @@ std::ostream &operator<<(std::ostream &os, const PointDesc &p) {
   return os << "PointDesc{"
             << "level:" << p.level << ", "
             << "patch:" << p.patch << ", "
-            << "block:" << p.block << ", "
+            << "component:" << p.component << ", "
             << "I:" << p.I << ", "
             << "iter:" << p.iter << ", "
             << "NI:" << p.NI << ", "
@@ -41,7 +41,7 @@ GridDescBase::GridDescBase() {}
 GridDescBase::GridDescBase(const cGH *restrict cctkGH) {
   level = cctkGH->cctk_level;
   patch = cctkGH->cctk_patch;
-  block = cctkGH->cctk_block;
+  component = cctkGH->cctk_component;
 
   for (int d = 0; d < dim; ++d) {
     assert(cctkGH->cctk_gsh[d] != undefined);
@@ -94,7 +94,7 @@ std::ostream &operator<<(std::ostream &os, const GridDescBase &grid) {
   const auto x1 = x0 + (grid.gsh - 1) * grid.dx;
   return os << "GridDescBase{"
             << "level=" << grid.level << ",patch=" << grid.patch
-            << ",block=" << grid.block << ",gsh=" << grid.gsh
+            << ",component=" << grid.component << ",gsh=" << grid.gsh
             << ",lbnd=" << grid.lbnd << ",ubnd=" << grid.ubnd
             << ",lsh=" << grid.lsh << ",ash=" << grid.ash
             << ",bbox=" << grid.bbox << ",nghostzones=" << grid.nghostzones
