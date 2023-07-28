@@ -326,15 +326,13 @@ template <typename T, int order, int centering> struct interpolator {
       // Avoid points on boundaries
       const bool is_allowed = all(j >= i0_allowed && j < i1_allowed);
       const bool is_inside = all(j >= i0_interior && j < i1_interior);
-      assert(is_inside <= is_allowed); // `<=` is `implies`
+      assert(is_inside <= is_allowed); // `P <= Q` is `P implies Q`
 
       const T res = !is_allowed  ? -2
                     : !is_inside ? -1
                                  : interpolate<dim - 1>(j, dj);
 
-#warning "TODO"
-      // varresult[n] = res;
-      varresult[n] = -3;
+      varresult[n] = res;
     }
   }
 };
@@ -397,8 +395,7 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
       varinds.at(i) = input_array_variable_indices[varinds.at(i)];
     }
   } else {
-    // TODO: actually output the error code
-    CCTK_ERROR("TableGetIntArray failed.");
+    CCTK_VERROR("TableGetIntArray failed with error code %d", n_elems);
   }
 
   std::vector<CCTK_INT> operations;
@@ -495,7 +492,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     const CCTK_REAL *restrict const dx = geom.CellSize();
     using std::clamp;
     // Push the particle at least 1/2 grid spacing into the domain
-    // TODO: push less because 1/2 is too much if there are many AMR levels
+    // TODO: push by less because 1/2 is too much if there are many AMR levels
     posx[n] = clamp(localsx[n], xmin[0] + dx[0] / 2, xmax[0] - dx[0] / 2);
     posy[n] = clamp(localsy[n], xmin[1] + dx[1] / 2, xmax[1] - dx[1] / 2);
     posz[n] = clamp(localsz[n], xmin[2] + dx[2] / 2, xmax[2] - dx[2] / 2);
