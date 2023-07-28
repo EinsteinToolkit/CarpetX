@@ -223,9 +223,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0]) ||
-                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1]) ||
-                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2])) {
+              if ((ni != 0 && bbox[ni == -1 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj == -1 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk == -1 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -264,52 +264,84 @@ public:
     } // for rank
   }
 
-  // Loop over all outer boundary points, but shifted inwards by nghostzones.
-  // Modified from loop_bnd_device.
+  // Alex Dima:
+  // Modified from loop_bnd
+  // Loop over all "radiative" boundary points.
+  // These are interior points from the perspective of CarpetX (or AMReX)
+  // They correspond to points that are shifted inwards by = cctk_nghostzones[3]
+  // from those that CarpetX identifies as boundary points.
+  // This excludes ghost faces, but includes ghost edges/corners on non-ghost faces.
   // Loop over faces first, then edges, then corners.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_radbnd_device(const vect<int, dim> &group_nghostzones, const F &f) const {
+    // boundary_box sets bnd_min and bnd_max
     vect<int, dim> bnd_min, bnd_max;
+    // if on (Carpetx) boundary points, then
+    //   bnd_min = nghostzones - lbnd
+    //   bnd_max = gsh - offset - nghostzones - lbnd
+    //   where lbnd : an array of cctk dim integers containing the lowest index
+    //   (in each direction) of the local grid, as seen on the global grid
+    // else,
+    //   bnd_min = -100000000
+    //   bnd_max = gsh + 1000000
+    //   where cctk_gsh : an array of cctk dim integers with the global grid size
+    // see line 190 of loop.hxx
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
+
+    // domain_boxes sets all_min, all_max, int_min and int_max
     vect<int, dim> all_min, all_max, int_min, int_max;
+    // Indices for the entire grid
+    //   all_min = ghost_offset;
+    //   all_max = lsh - offset - ghost_offset;
+    // Indices for the interior
+    //   int_min = nghostzones;
+    //   int_max = lsh - offset - nghostzones;
+    // see line 203 of loop.hxx
     domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
                              int_max);
 
-    for (int rank = dim - 1; rank >= 0; --rank) {
-    // loop over faces, edges, then corner
+    // rank selects: faces, edges, corners
     // rank(interior) = 3
-    // rank(face) = 2
-    // rank(edge) = 1
-    // rank(corner) = 0
+    // rank(face)     = 2
+    // rank(edge)     = 1
+    // rank(corner)   = 0
+    for (int rank = dim - 1; rank >= 0; --rank) {
 
+      // Nested loops that determine {ni,nj,nk} components of the normal vector
       for (int nk = -1; nk <= +1; ++nk) {
         for (int nj = -1; nj <= +1; ++nj) {
           for (int ni = -1; ni <= +1; ++ni) {
-            // Loop over lower bnd, interior, upper bnd
+            // True when the normal vector is normal to a {face, edge, corner}
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
-
-              // check if on a face and that (this face of the patch is on the outer boundary)
+              // True when point is on left/right boundary,
+              // and vector is not parallel to a {face,corner,edge}
+              // In either of the 3 directions
               if ((ni != 0 && bbox[ni == -1 ? 0 : 1][0]) ||
                   (nj != 0 && bbox[nj == -1 ? 0 : 1][1]) ||
                   (nk != 0 && bbox[nk == -1 ? 0 : 1][2])) {
 
-                const vect<int, dim> inormal{ni, nj, nk};
+                const vect<int, dim> inormal{ni, nj, nk};  //define normal vector
 
                 vect<int, dim> imin, imax;
-                for (int d = 0; d < dim; ++d) {  // Set imin, imax in each direction
+                for (int d = 0; d < dim; ++d) { // Set imin, imax in each direction
                   switch (inormal[d]) {
-
-                  case -1: // lower boundary                // xxx|              |
+                  case -1: // lower boundary
+                    // shift "upwards" from physical boundary by # of ghostpoints
+                    //                                      // xxx|~~~~~~~~~~~~~~|~~~
                     imin[d] = all_min[d] + nghostzones[d];  // ~~~ ^~~~~~~~~~~~~~ ~~~
                     imax[d] = int_min[d] + nghostzones[d];  // ~~~ ~~~^~~~~~~~~~~ ~~~
                     break;
-                  case 0: // interior                       //    |xxxxxxxxxxxxxx|
+                  case 0: // interior
+                    // shrink the interior by the # of ghostpoints on each side
+                    //                                      // ~~~|xxxxxxxxxxxxxx|~~~
                     imin[d] = int_min[d] + nghostzones[d];  // ~~~ ~~~^~~~~~~~~~~ ~~~
                     imax[d] = int_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~^~~~ ~~~
                     break;
-                  case +1: // upper boundary                //    |              |xxx
+                  case +1: // upper boundary
+                    // shift "downwards" from physical boundary by # of ghostpoints
+                    //                                      // ~~~|~~~~~~~~~~~~~~|xxx
                     imin[d] = int_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~^~~~ ~~~
                     imax[d] = all_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~~~~^ ~~~
                     break;
@@ -318,13 +350,16 @@ public:
                   }
 
                   using std::min, std::max;
+                  // Adjust loop_box index range according to tile min, max
                   imin[d] = max(tmin[d], imin[d]);
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                loop_box_device<CI, CJ, CK, VS, N, NT>(
-                    bnd_min+nghostzones,
-                    bnd_max-nghostzones, imin, imax, f);
+                // Provide loop_box with bnd_min and bnd_max shifted my # of ghostpoints
+                // so that p.NI can be assigned correct values on the "radiative" boundary.
+                // (NewRad requires knowledge of the normal vectors to its boundary points)
+                loop_box_device<CI, CJ, CK, VS, N, NT>
+                  (bnd_min+nghostzones, bnd_max-nghostzones, imin, imax, f);
               }
             } // if rank
           }
@@ -351,9 +386,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni != 0 && !bbox[ni<0 ? 0 : 1][0]) ||
-                  (nj != 0 && !bbox[nj<0 ? 0 : 1][1]) ||
-                  (nk != 0 && !bbox[nk<0 ? 0 : 1][2])) {
+              if ((ni != 0 && !bbox[ni == -1 ? 0 : 1][0]) ||
+                  (nj != 0 && !bbox[nj == -1 ? 0 : 1][1]) ||
+                  (nk != 0 && !bbox[nk == -1 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -417,9 +452,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni == 0 || !bbox[ni < 0 ? 0 : 1][0]) &&
-                  (nj == 0 || !bbox[nj < 0 ? 0 : 1][1]) &&
-                  (nk == 0 || !bbox[nk < 0 ? 0 : 1][2])) {
+              if ((ni == 0 || !bbox[ni == -1 ? 0 : 1][0]) &&
+                  (nj == 0 || !bbox[nj == -1 ? 0 : 1][1]) &&
+                  (nk == 0 || !bbox[nk == -1 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
