@@ -53,9 +53,9 @@ using namespace std;
 #error                                                                         \
     "The Cactus flesh does not support cctk_patch in the cGH structure. Update the flesh."
 #endif
-#ifndef CCTK_HAVE_CGH_BLOCK
+#ifndef CCTK_HAVE_CGH_COMPONENT
 #error                                                                         \
-    "The Cactus flesh does not support cctk_block in the cGH structure. Update the flesh."
+    "The Cactus flesh does not support cctk_component in the cGH structure. Update the flesh."
 #endif
 #ifndef CCTK_HAVE_CGH_TILE
 #error                                                                         \
@@ -116,10 +116,10 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
   for (int d = 0; d < dim; ++d)
     assert(domain.type(d) == amrex::IndexType::CELL);
 
-  // Level, patch, and block
+  // Level, patch, and component
   level = leveldata.level;
   patch = leveldata.patch;
-  block = mfp.index();
+  component = mfp.index();
 
   // Global shape
   for (int d = 0; d < dim; ++d)
@@ -201,26 +201,27 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
 }
 
 GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
-                   const int block) {
-  // `global_block` is the global block index.
+                   const int component) {
+  // `global_component` is the global component index.
   // There is no tiling.
 
   const auto &patchdata = ghext->patchdata.at(leveldata.patch);
 
   const amrex::FabArrayBase &fab = *leveldata.fab;
 
-  const amrex::Box &fbx = fab.fabbox(block); // allocated array
-  const amrex::Box &vbx = fab.box(block);    // interior region (without ghosts)
-  const amrex::Box &gbx = fbx;               // current region (with ghosts)
+  const amrex::Box &fbx = fab.fabbox(component); // allocated array
+  const amrex::Box &vbx =
+      fab.box(component);      // interior region (without ghosts)
+  const amrex::Box &gbx = fbx; // current region (with ghosts)
   const amrex::Box &domain = patchdata.amrcore->Geom(leveldata.level).Domain();
 
   for (int d = 0; d < dim; ++d)
     assert(domain.type(d) == amrex::IndexType::CELL);
 
-  // Level, patch, and block
+  // Level, patch, and component
   level = leveldata.level;
   patch = leveldata.patch;
-  this->block = block;
+  this->component = component;
 
   // The number of ghostzones in each direction
   for (int d = 0; d < dim; ++d)
@@ -409,7 +410,7 @@ void delete_cctkGH(cGH *cctkGH) {
 enum class mode_t { unknown, local, patch, level, global, meta };
 
 mode_t current_mode(const cGH *restrict cctkGH) {
-  const bool have_local = cctkGH->cctk_block != undefined;
+  const bool have_local = cctkGH->cctk_component != undefined;
   const bool have_patch = cctkGH->cctk_patch != undefined;
   const bool have_level = cctkGH->cctk_level != undefined;
   const bool have_global = cctkGH->cctk_nghostzones[0] != undefined;
@@ -479,7 +480,7 @@ void setup_cctkGH(cGH *restrict cctkGH) {
   cctkGH->cctk_delta_time = NAN;
 
   // init into meta mode
-  cctkGH->cctk_block = undefined;
+  cctkGH->cctk_component = undefined;
   cctkGH->cctk_level = undefined;
   cctkGH->cctk_patch = undefined;
   cctkGH->cctk_nghostzones[0] = undefined;
@@ -651,7 +652,7 @@ void enter_local_mode(cGH *restrict cctkGH,
   assert(in_patch_mode(cctkGH));
   const GridPtrDesc grid(leveldata, mfp);
 
-  cctkGH->cctk_block = mfp.index();
+  cctkGH->cctk_component = mfp.index();
   for (int d = 0; d < dim; ++d)
     cctkGH->cctk_lsh[d] = grid.lsh[d];
   for (int d = 0; d < dim; ++d)
@@ -720,7 +721,7 @@ void leave_local_mode(cGH *restrict cctkGH,
                       const GHExt::PatchData::LevelData &restrict leveldata,
                       const MFPointer &mfp) {
   assert(in_local_mode(cctkGH));
-  cctkGH->cctk_block = undefined;
+  cctkGH->cctk_component = undefined;
   for (int d = 0; d < dim; ++d)
     cctkGH->cctk_lsh[d] = undefined;
   for (int d = 0; d < dim; ++d)
@@ -767,9 +768,9 @@ extern "C" CCTK_INT CarpetX_GetCallFunctionCount() {
 #endif
 }
 
-void loop_over_blocks(
+void loop_over_components(
     amrex::FabArrayBase &fab,
-    const std::function<void(int index, int block)> &block_kernel) {
+    const std::function<void(int index, int component)> &component_kernel) {
   DECLARE_CCTK_PARAMETERS;
 
   // Choose kernel launch method
@@ -797,11 +798,11 @@ void loop_over_blocks(
     // No parallelism
 
     // Note: The amrex::MFIter uses global variables and OpenMP barriers
-    int block = 0;
+    int component = 0;
     const auto mfitinfo = amrex::MFItInfo().EnableTiling();
-    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++block) {
+    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++component) {
       const MFPointer mfp(mfi);
-      block_kernel(mfp.index(), block);
+      component_kernel(mfp.index(), component);
     }
     break;
   }
@@ -812,12 +813,12 @@ void loop_over_blocks(
     std::vector<std::function<void()> > tasks;
 
     // Note: The amrex::MFIter uses global variables and OpenMP barriers
-    int block = 0;
+    int component = 0;
     const auto mfitinfo = amrex::MFItInfo().EnableTiling();
-    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++block) {
+    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++component) {
       const MFPointer mfp(mfi);
-      auto task = [&block_kernel, mfp, block]() {
-        block_kernel(mfp.index(), block);
+      auto task = [&component_kernel, mfp, component]() {
+        component_kernel(mfp.index(), component);
       };
       tasks.push_back(std::move(task));
     }
@@ -836,11 +837,11 @@ void loop_over_blocks(
     // CUDA
 
     // No OpenMP parallelization when using GPUs
-    int block = 0;
+    int component = 0;
     const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync().EnableTiling();
-    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++block) {
+    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++component) {
       const MFPointer mfp(mfi);
-      block_kernel(mfp.index(), block);
+      component_kernel(mfp.index(), component);
 #ifdef AMREX_USE_GPU
       if (gpu_sync_after_every_kernel) {
         amrex::Gpu::streamSynchronize();
@@ -857,18 +858,20 @@ void loop_over_blocks(
   }
 }
 
-void loop_over_blocks(
+void loop_over_components(
     const active_levels_t &active_levels,
-    const std::function<void(int patch, int level, int index, int block,
-                             const cGH *cctkGH)> &block_kernel) {
+    const std::function<void(int patch, int level, int index, int component,
+                             const cGH *cctkGH)> &component_kernel) {
   DECLARE_CCTK_PARAMETERS;
 
   active_levels.loop([&](const auto &restrict leveldata) {
-    loop_over_blocks(*leveldata.fab, [&leveldata, &block_kernel](
-                                         const int index, const int block) {
-      cGH *restrict const localGH = leveldata.get_local_cctkGH(block);
-      block_kernel(leveldata.patch, leveldata.level, index, block, localGH);
-    });
+    loop_over_components(
+        *leveldata.fab,
+        [&leveldata, &component_kernel](const int index, const int component) {
+          cGH *restrict const localGH = leveldata.get_local_cctkGH(component);
+          component_kernel(leveldata.patch, leveldata.level, index, component,
+                           localGH);
+        });
   });
 }
 
@@ -2011,8 +2014,9 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
   switch (mode) {
   case mode_t::local:
     // Call function once per tile
-    loop_over_blocks(*active_levels, [&](int patch, int level, int index,
-                                         int block, const cGH *local_cctkGH) {
+    loop_over_components(*active_levels, [&](int patch, int level, int index,
+                                             int component,
+                                             const cGH *local_cctkGH) {
       update_cctkGH(const_cast<cGH *>(local_cctkGH), cctkGH);
       CCTK_CallFunction(function, attribute, const_cast<cGH *>(local_cctkGH));
     });

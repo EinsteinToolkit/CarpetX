@@ -108,7 +108,7 @@ extern optional<active_levels_t> active_levels;
 // Like an MFIter, but does not support iteration, instead it can be copied
 struct MFPointer {
   int m_index;
-  amrex::Box m_validbox; // interior of block
+  amrex::Box m_validbox; // interior of component
   amrex::Box m_tilebox;  // interior of tile
 
   MFPointer() = delete;
@@ -149,7 +149,7 @@ struct GridDesc : GridDescBase {
   GridDesc() = delete;
   GridDesc(const GHExt::PatchData::LevelData &leveldata, const MFPointer &mfp);
   GridDesc(const GHExt::PatchData::LevelData &leveldata,
-           const int global_block);
+           const int global_component);
   GridDesc(const cGH *cctkGH) : GridDescBase(cctkGH) {}
 };
 
@@ -241,15 +241,15 @@ void leave_local_mode(cGH *restrict cctkGH,
                       const GHExt::PatchData::LevelData &restrict leveldata,
                       const MFPointer &mfp);
 
-// Loop over all blocks of a single patch and level
-void loop_over_blocks(
+// Loop over all components of a single patch and level
+void loop_over_components(
     amrex::FabArrayBase &fab,
-    const std::function<void(int index, int block)> &block_kernel);
-// Loop over all blocks of several patches and levels
-void loop_over_blocks(
+    const std::function<void(int index, int component)> &component_kernel);
+// Loop over all components of several patches and levels
+void loop_over_components(
     const active_levels_t &active_levels,
-    const std::function<void(int patch, int level, int index, int block,
-                             const cGH *cctkGH)> &block_kernel);
+    const std::function<void(int patch, int level, int index, int component,
+                             const cGH *cctkGH)> &component_kernel);
 void synchronize();
 
 // These functions are defined in valid.cxx. These prototypes should

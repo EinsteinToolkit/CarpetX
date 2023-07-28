@@ -549,9 +549,9 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
              ++pti) {
           const auto &particles = pti.GetArrayOfStructs();
-          const int block = MFPointer(pti).index();
-          CCTK_VINFO("patch %d level %d block %d old_nparticles: %zu", patch,
-                     lev, block, particles.size());
+          const int component = MFPointer(pti).index();
+          CCTK_VINFO("patch %d level %d component %d old_nparticles: %zu",
+                     patch, lev, component, particles.size());
           for (const auto &particle : particles) {
             oldids.insert(particle.id());
             // CCTK_VINFO("    id=%d proc=%d pos=[%g,%g,%g]  locals=[%g,%g,%g] "
@@ -582,10 +582,10 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         const int lev = int(&level - levels.data());
         for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
              ++pti) {
-          const int block = MFPointer(pti).index();
+          const int component = MFPointer(pti).index();
           const auto &particles = pti.GetArrayOfStructs();
-          CCTK_VINFO("patch %d level %d block %d new_nparticles: %zu", patch,
-                     lev, block, particles.size());
+          CCTK_VINFO("patch %d level %d component %d new_nparticles: %zu",
+                     patch, lev, component, particles.size());
           for (const auto &particle : particles) {
             newids.insert(particle.id());
             // CCTK_VINFO("    id=%d proc=%d pos=[%g,%g,%g]  locals=[%g,%g,%g] "
@@ -648,12 +648,12 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
            ++pti) {
         const MFPointer mfp(pti);
         const GridDesc grid(leveldata, mfp);
-        const int block = mfp.index();
+        const int component = mfp.index();
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
         std::cerr << "patch=" << patch << " level=" << level
-                  << " block=" << block << " npoints=" << np << "\n";
+                  << " component=" << component << " npoints=" << np << "\n";
 
         std::vector<std::vector<CCTK_REAL> > varresults(nvars);
 
