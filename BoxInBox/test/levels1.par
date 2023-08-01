@@ -1,8 +1,8 @@
 ActiveThorns = "
-    CarpetX
-    IOUtil
     BoxInBox
+    CarpetX
     Coordinates
+    IOUtil
 "
 
 Cactus::cctk_show_schedule = no
