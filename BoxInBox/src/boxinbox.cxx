@@ -1,3 +1,4 @@
+#include <defs.hxx>
 #include <loop_device.hxx>
 #include <sum.hxx>
 #include <vect.hxx>
@@ -12,7 +13,7 @@
 namespace BoxInBox {
 using namespace Loop;
 
-constexpr int max_num_regions = 2;
+constexpr int max_num_regions = 3;
 constexpr int max_num_levels = 30;
 
 enum class shape_t { sphere, cube };
@@ -74,6 +75,21 @@ extern "C" void BoxInBox_Init(CCTK_ARGUMENTS) {
       radius_z[level + max_num_levels * region] = radius_z_2[level];
     }
   }
+
+  {
+    const int region = 2;
+    active[region] = active_3;
+    num_levels[region] = num_levels_3;
+    position_x[region] = position_x_3;
+    position_y[region] = position_y_3;
+    position_z[region] = position_z_3;
+    for (int level = 0; level < max_num_levels; ++level) {
+      radius[level + max_num_levels * region] = radius_3[level];
+      radius_x[level + max_num_levels * region] = radius_x_3[level];
+      radius_y[level + max_num_levels * region] = radius_y_3[level];
+      radius_z[level + max_num_levels * region] = radius_z_3[level];
+    }
+  }
 }
 
 extern "C" void BoxInBox_Setup(CCTK_ARGUMENTS) {
@@ -87,8 +103,8 @@ extern "C" void BoxInBox_Setup(CCTK_ARGUMENTS) {
       return shape_t::cube;
     CCTK_ERROR("internal error");
   };
-  const vect<shape_t, max_num_regions> shapes = {get_shape(shape_1),
-                                                 get_shape(shape_2)};
+  const vect<shape_t, max_num_regions> shapes = {
+      get_shape(shape_1), get_shape(shape_2), get_shape(shape_3)};
 
   // The level about which we're deciding on, i.e. the current level + 1
   using std::ilogb;
@@ -125,8 +141,10 @@ extern "C" void BoxInBox_Setup(CCTK_ARGUMENTS) {
             if (level < num_levels1[region]) {
               const auto position = positions1[region];
               const auto radii = radii1[region];
-              const auto radius =
-                  calc_radius(shapes[region], (p.X - position) / radii);
+              // Decrease the box radius by one grid spacing since AMReX seems
+              // to expand the refined region by one cell
+              const auto radius = calc_radius(
+                  shapes[region], (p.X - position) / (radii - p.DX));
               do_refine |= radius <= 1;
             }
           }
