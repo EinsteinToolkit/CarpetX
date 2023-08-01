@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn ADMBase
-
-# Source files in this directory
-SRCS = admbase.cxx linear_wave.cxx noise.cxx
-
-# Subdirectories containing source files
-SUBDIRS =

@@ -11,7 +11,7 @@ $out_every = 16
 Cactus::cctk_show_schedule = no
 Cactus::presync_mode = "mixed-error"
 
-CarpetX::poison_undefined_values = yes   #TODO no
+CarpetX::poison_undefined_values = no
 
 CarpetX::periodic_x = yes
 CarpetX::periodic_y = yes
@@ -30,17 +30,17 @@ IO::out_every = $out_every
 CarpetX::out_norm_vars = "all"
 
 CarpetX::out_tsv_vars = "
-    SIMDWaveToyX::ustate
-    SIMDWaveToyX::urhs
-    SIMDWaveToyX::eps
-    SIMDWaveToyX::uerror
+    SIMDWaveToyX::state
+    SIMDWaveToyX::rhs
+    SIMDWaveToyX::energy
+    SIMDWaveToyX::error
 "
 
 CarpetX::out_silo_vars = "
-    SIMDWaveToyX::ustate
-    SIMDWaveToyX::urhs
-    SIMDWaveToyX::eps
-    SIMDWaveToyX::uerror
+    SIMDWaveToyX::state
+    SIMDWaveToyX::rhs
+    SIMDWaveToyX::energy
+    SIMDWaveToyX::error
 "
 
 TimerReport::out_every = $out_every

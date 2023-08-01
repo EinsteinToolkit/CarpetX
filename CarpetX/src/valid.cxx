@@ -158,7 +158,7 @@ constexpr std::uint32_t ipoison = 0xffc00000UL + 0xdead;
 #elif defined CCTK_REAL_PRECISION_8
 constexpr std::uint64_t ipoison = 0xfff8000000000000ULL + 0xdeadbeef;
 #endif
-static_assert(sizeof ipoison == sizeof(CCTK_REAL), "");
+static_assert(sizeof ipoison == sizeof(CCTK_REAL));
 
 // Poison grid functions
 void poison_invalid(const GHExt::PatchData::LevelData &leveldata,

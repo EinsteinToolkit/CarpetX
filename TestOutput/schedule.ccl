@@ -1,1 +1,25 @@
 # Schedule definitions for thorn TestOutput
+
+SCHEDULE TestOutput_SetVarsLocal AT initial
+{
+  LANG: C
+  WRITES: gf(interior)
+  SYNC: gf
+} "Set up local test variables"
+
+SCHEDULE TestOutput_Sync AT post_recover_variables
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: gf
+} "Synchronize local test variables"
+
+SCHEDULE TestOutput_SetVarsGlobal AT initial
+{
+  LANG: C
+  OPTIONS: global
+  WRITES: sc(everywhere)
+  WRITES: a1(everywhere)
+  WRITES: a2(everywhere)
+  WRITES: a3(everywhere)
+} "Set up global test variables"

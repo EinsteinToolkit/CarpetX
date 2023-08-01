@@ -117,11 +117,9 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
   }
 
   // Boundaries
-  const auto &symmetries = ghext->patchdata.at(leveldata.patch).symmetries;
   for (int d = 0; d < dim; ++d)
     for (int f = 0; f < 2; ++f)
-      bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)] &&
-                   symmetries[f][d] != symmetry_t::none;
+      bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)];
 
   // Thread tile box
   for (int d = 0; d < dim; ++d) {
@@ -841,9 +839,7 @@ void loop_over_blocks(
 void synchronize() {
 #ifdef AMREX_USE_GPU
   // TODO: Synchronize only if GPU kernels were actually launched
-  // TODO: Switch to streamSynchronizeAll if AMReX is new enough
-  amrex::Gpu::synchronize();
-  // amrex::Gpu::streamSynchronizeAll();
+  amrex::Gpu::streamSynchronizeAll();
   AMREX_GPU_ERROR_CHECK();
 #endif
 }
@@ -1505,8 +1501,21 @@ int Evolve(tFleshConfig *config) {
 
   double total_evolution_time = 0;
   double total_evolution_output_time = 0;
-  double total_cell_updates = 0;
   int total_iterations = 0;
+  double total_cell_updates = 0;
+
+  std::ofstream performance_file;
+  if (out_performance && CCTK_MyProc(NULL) == 0) {
+    const int every =
+        out_performance_every == -1 ? out_every : out_performance_every;
+    if (every > 0) {
+      std::ostringstream buf;
+      buf << out_dir << "/performance.yaml";
+      const std::string filename = buf.str();
+      performance_file.open(filename);
+      performance_file << "performance:\n" << flush;
+    }
+  }
 
   while (!EvolutionIsDone(cctkGH)) {
 
@@ -1705,35 +1714,46 @@ int Evolve(tFleshConfig *config) {
     CCTK_VINFO("Grid cells: %g   "
                "Grid cell updates per second: %g",
                num_cells, cell_updates_per_second);
+
+    const double total_evolution_compute_time =
+        total_evolution_time - total_evolution_output_time;
+    CCTK_VINFO("Performance:");
+    CCTK_VINFO("  total evolution time:            %g sec",
+               total_evolution_time);
+    CCTK_VINFO("  total evolution compute time:    %g sec",
+               total_evolution_compute_time);
+    CCTK_VINFO("  total evolution output time:     %g sec",
+               total_evolution_output_time);
+    CCTK_VINFO("  total iterations:                %d", total_iterations);
+    CCTK_VINFO("  total cells updated:             %g", total_cell_updates);
+    CCTK_VINFO("  average interations per second: %g",
+               total_iterations / total_evolution_time);
+    CCTK_VINFO("  average cell updates per second: %g",
+               total_cell_updates / total_evolution_time);
+    // TODO: Output this in a proper I/O method
+    if (out_performance && CCTK_MyProc(NULL) == 0) {
+      const int every =
+          out_performance_every == -1 ? out_every : out_performance_every;
+      if (every > 0 && cctkGH->cctk_iteration % every == 0) {
+        performance_file << "  " << total_iterations << ":\n"
+                         << "    evolution-seconds: " << total_evolution_time
+                         << "\n"
+                         << "    evolution-compute-seconds: "
+                         << total_evolution_compute_time << "\n"
+                         << "    evolution-output-seconds: "
+                         << total_evolution_output_time << "\n"
+                         << "    evolution-cell-updates: " << total_cell_updates
+                         << "\n"
+                         << "    evolution-iterations: " << total_iterations
+                         << "\n"
+                         << flush;
+      }
+    }
+
   } // main loop
 
-  const double total_evolution_compute_time =
-      total_evolution_time - total_evolution_output_time;
-  CCTK_VINFO("Performance:");
-  CCTK_VINFO("  total evolution time:            %g sec", total_evolution_time);
-  CCTK_VINFO("  total evolution compute time:    %g sec",
-             total_evolution_compute_time);
-  CCTK_VINFO("  total evolution output time:     %g sec",
-             total_evolution_output_time);
-  CCTK_VINFO("  total cells updated:             %g", total_cell_updates);
-  CCTK_VINFO("  total iterations:                %d", total_iterations);
-  CCTK_VINFO("  average cell updates per second: %g",
-             total_cell_updates / total_evolution_time);
-  if (out_metadata && CCTK_MyProc(NULL) == 0) {
-    std::ostringstream buf;
-    buf << out_dir << "/performance.yaml";
-    const std::string filename = buf.str();
-    std::ofstream file(filename);
-    file << "performance:\n"
-         << "  evolution-seconds: " << total_evolution_time << "\n"
-         << "  evolution-compute-seconds: " << total_evolution_compute_time
-         << "\n"
-         << "  evolution-output-seconds: " << total_evolution_output_time
-         << "\n"
-         << "  evolution-cell-updates: " << total_cell_updates << "\n"
-         << "  evolution-iterations: " << total_iterations << "\n";
-    file.close();
-  }
+  if (out_performance && CCTK_MyProc(NULL) == 0)
+    performance_file.close();
 
   return 0;
 } // namespace CarpetX
@@ -2207,7 +2227,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   std::vector<std::function<void()> > tasks1;
   std::vector<std::function<void()> > tasks2;
 
-  const bool have_multipatch_boundaries =
+  static const bool have_multipatch_boundaries =
       CCTK_IsFunctionAliased("MultiPatch_Interpolate");
 
   active_levels->loop([&](auto &restrict leveldata) {
@@ -2248,37 +2268,35 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                              ghext->patchdata.at(leveldata.patch)
                                  .amrcore->Geom(leveldata.level));
 
-          tasks1.emplace_back([&tasks2, &leveldata, &groupdata,
-                               have_multipatch_boundaries, nan_handling, tl,
-                               fillpatch_continue =
-                                   std::move(fillpatch_continue)]() {
-            auto fillpatch_finish = fillpatch_continue();
+          tasks1.emplace_back(
+              [&tasks2, &leveldata, &groupdata, nan_handling, tl,
+               fillpatch_continue = std::move(fillpatch_continue)]() {
+                auto fillpatch_finish = fillpatch_continue();
 
-            tasks2.emplace_back([&leveldata, &groupdata,
-                                 have_multipatch_boundaries, nan_handling, tl,
-                                 fillpatch_finish =
-                                     std::move(fillpatch_finish)]() {
-              fillpatch_finish();
+                tasks2.emplace_back(
+                    [&leveldata, &groupdata, nan_handling, tl,
+                     fillpatch_finish = std::move(fillpatch_finish)]() {
+                      fillpatch_finish();
 
-              for (int vi = 0; vi < groupdata.numvars; ++vi) {
-                groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
-                  return "SyncGroupsByDirI after syncing: "
-                         "Mark ghost zones as valid";
-                });
-                if (ghext->patchdata.at(leveldata.patch)
-                        .all_faces_have_symmetries())
-                  groupdata.valid.at(tl).at(vi).set_outer(true, []() {
-                    return "SyncGroupsByDirI after syncing: "
-                           "Mark outer boundaries as valid";
-                  });
-                poison_invalid(leveldata, groupdata, vi, tl);
-                if (!have_multipatch_boundaries)
-                  check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
-                    return "SyncGroupsByDirI after syncing";
-                  });
-              }
-            });
-          });
+                      for (int vi = 0; vi < groupdata.numvars; ++vi) {
+                        groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
+                          return "SyncGroupsByDirI after syncing: "
+                                 "Mark ghost zones as valid";
+                        });
+                        if (groupdata.all_faces_have_symmetries_or_boundaries())
+                          groupdata.valid.at(tl).at(vi).set_outer(true, []() {
+                            return "SyncGroupsByDirI after syncing: "
+                                   "Mark outer boundaries as valid";
+                          });
+                        poison_invalid(leveldata, groupdata, vi, tl);
+                        if (!have_multipatch_boundaries)
+                          check_valid(leveldata, groupdata, vi, tl,
+                                      nan_handling, []() {
+                                        return "SyncGroupsByDirI after syncing";
+                                      });
+                      }
+                    });
+              });
         } // for tl
 
       } else { // if leveldata.level > 0
@@ -2339,8 +2357,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                       return "SyncGroupsByDirI after prolongation: "
                              "Mark ghost zones as valid";
                     });
-                    if (ghext->patchdata.at(leveldata.patch)
-                            .all_faces_have_symmetries())
+                    if (groupdata.all_faces_have_symmetries_or_boundaries())
                       groupdata.valid.at(tl).at(vi).set_outer(true, []() {
                         return "SyncGroupsByDirI after prolongation: "
                                "Mark outer boundaries as valid";
@@ -2359,16 +2376,19 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 
     } // for gi
   });
+  synchronize();
 
   for (auto task1 : tasks1)
     task1();
   tasks1.clear();
+  synchronize();
 
   for (auto task2 : tasks2)
     task2();
   tasks2.clear();
+  synchronize();
 
-  if (CCTK_IsFunctionAliased("MultiPatch_Interpolate")) {
+  if (have_multipatch_boundaries) {
     std::vector<CCTK_INT> cactusvarinds;
     for (int group : groups) {
       const auto &groupdata =

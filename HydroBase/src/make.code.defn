@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn HydroBase
-
-# Source files in this directory
-SRCS = hydrobase.cxx
-
-# Subdirectories containing source files
-SUBDIRS =

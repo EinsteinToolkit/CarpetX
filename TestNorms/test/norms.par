@@ -49,3 +49,4 @@ IO::out_every = 1
 
 CarpetX::out_metadata = no
 CarpetX::out_norm_vars = "all"
+CarpetX::out_norm_omit_unstable = yes

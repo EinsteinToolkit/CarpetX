@@ -120,11 +120,11 @@ extern "C" void SIMDWaveToyX_RHS(CCTK_ARGUMENTS) {
                   u(mask, p.I + p.DI[d])) /
                  pow2(p.DX[d]);
 
-        const vreal udot0 = rho(mask, p.I);
-        const vreal rhodot0 = ddu;
+        const vreal udot = rho(mask, p.I);
+        const vreal rhodot = ddu;
 
-        udot.store(mask, p.I, udot0);
-        rhodot.store(mask, p.I, rhodot0);
+        u_rhs.store(mask, p.I, udot);
+        rho_rhs.store(mask, p.I, rhodot);
       });
 }
 
@@ -174,8 +174,8 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
           vreal u0, rho0;
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, x0, y0, z0, u0, rho0);
-          uerr.store(mask, p.I, u(mask, p.I) - u0);
-          rhoerr.store(mask, p.I, rho(mask, p.I) - rho0);
+          u_err.store(mask, p.I, u(mask, p.I) - u0);
+          rho_err.store(mask, p.I, rho(mask, p.I) - rho0);
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -189,8 +189,8 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
           const real z0 = p.z;
           vreal u0, rho0;
           gaussian(amplitude, gaussian_width, cctk_time, x0, y0, z0, u0, rho0);
-          uerr.store(mask, p.I, u(mask, p.I) - u0);
-          rhoerr.store(mask, p.I, rho(mask, p.I) - rho0);
+          u_err.store(mask, p.I, u(mask, p.I) - u0);
+          rho_err.store(mask, p.I, rho(mask, p.I) - rho0);
         });
 
   } else {

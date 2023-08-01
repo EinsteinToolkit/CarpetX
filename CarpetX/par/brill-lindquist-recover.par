@@ -1,10 +1,10 @@
 ActiveThorns = "
-    ADMBase
+    ADMBaseX
     BrillLindquist
     CarpetX
     IOUtil
     ODESolvers
-    TmunuBase
+    TmunuBaseX
     Z4c
 "
 

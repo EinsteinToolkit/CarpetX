@@ -29,8 +29,8 @@ enum symmetry { none, symmetric, antisymmetric };
 
 template <std::ptrdiff_t I0, std::ptrdiff_t I1, symmetry S> struct stencil {
   static constexpr std::ptrdiff_t N = I1 - I0 + 1;
-  static_assert(N >= 0, "");
-  static_assert(S == none || S == symmetric || S == antisymmetric, "");
+  static_assert(N >= 0);
+  static_assert(S == none || S == symmetric || S == antisymmetric);
 
   int divisor;
   std::array<int, N> coeffs;
@@ -248,13 +248,14 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   // constexpr T c2 = -1 / T(12);
   // return (c2 * (var(-2) + var(2)) + c1 * (var(-1) + var(1)) + c0 * var(0)) /
   //        pow2(dx);
-  const T c0 = 15 / (12 * pow2(dx));
-  const T c1 = -1 / (12 * pow2(dx));
-  return c1 * ((var(4) - var(1)) - (var(3) - var(0))) +
-         c0 * ((var(3) - var(2)) - (var(2) - var(1)));
+  constexpr T c0 = 4 / T(3);
+  constexpr T c1 = -1 / T(12);
+  return (c1 * ((var(+2) - var(+0)) - (var(-0) - var(-2))) +
+          c0 * ((var(+1) - var(+0)) - (var(-0) - var(-1)))) /
+         pow2(dx);
 }
 
-template <int deriv_order, typename T, typename TS,
+template <int deriv_order, bool vectorize_di, typename T, typename TS,
           typename R = std::result_of_t<TS(int, int)> >
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST R
 deriv2_2d(const TS var, const T dx, const T dy) {
@@ -262,32 +263,90 @@ deriv2_2d(const TS var, const T dx, const T dy) {
   // be SIMD-vectorized. We assume that the y-direction is not
   // SIMD-vectorized.
 
-  // Calculate y-derivative first.
-  // (If we wanted to calculate the x-derivative first, then we would
-  // be difficult to determine the extent of the `n`-loop, since it
-  // needs to include enough room for the SIMD y-derivative later.)
-  static_assert(sizeof(R) % sizeof(T) == 0, "");
-  constexpr std::ptrdiff_t vsize = sizeof(R) / sizeof(T);
-  constexpr std::ptrdiff_t ndyvars =
-      align_ceil(std::ptrdiff_t(2 * deriv_order + 1), vsize);
-  std::array<R, ndyvars> dyvar;
-#ifdef CCTK_DEBUG
-  for (std::ptrdiff_t n = 0; n < ndyvars; ++n)
-    dyvar[n] = Arith::nan<T>()();
-#endif
-  for (std::ptrdiff_t n = 0; n < ndyvars; ++n) {
-    std::ptrdiff_t di = vsize * n - deriv_order;
-    if (vsize == 1 && di == 0)
-      continue;
-    dyvar[n] = deriv1d<deriv_order>(
-        [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE { return var(di, dj); }, dy);
-  }
+  if constexpr (vectorize_di) {
+    // Calculate y-derivative first
+    static_assert(sizeof(R) % sizeof(T) == 0);
+    static_assert(sizeof(R) / sizeof(T) > 0);
+    constexpr std::ptrdiff_t vsize = sizeof(R) / sizeof(T);
 
-  // Calculate x-derivative next
-  return deriv1d<deriv_order>(
-      [&](int di)
-          CCTK_ATTRIBUTE_ALWAYS_INLINE { return dyvar[di + deriv_order]; },
-      dx);
+    // We need fewer ndyvars than without vectorizon: Instead of `(2 *
+    // deriv_order + 1) * vsize` scalars, we only need to calculate
+    // `(2 * deriv_order + 1) + (vsize - 1)` scalars
+    constexpr std::ptrdiff_t ndyvars =
+        div_ceil(2 * deriv_order + 1 + vsize - 1, vsize);
+    std::array<R, ndyvars> dyvar;
+
+    for (std::ptrdiff_t n = 0; n < ndyvars; ++n) {
+      const std::ptrdiff_t di = n - deriv_order;
+      // Skip the unused central point, but only if there is no vectorization
+      if (vsize == 1 && di == 0)
+        continue;
+      dyvar[n] = deriv1d<deriv_order>(
+          [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+            assert(di >= -deriv_order / 2);
+            assert(di <= +deriv_order / 2);
+            assert(di >= -deriv_order / 2);
+            assert(dj <= +deriv_order / 2);
+#endif
+            return var(di, dj);
+          },
+          dy);
+    }
+
+    // Calculate x-derivative next
+    const T *const scalar_dyvar = (const T *)dyvar.data();
+    return deriv1d<deriv_order>(
+        [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+          assert(di >= -deriv_order / 2);
+          assert(di <= +deriv_order / 2);
+#endif
+          if constexpr (vsize == 1)
+            return scalar_dyvar[deriv_order + di];
+          else
+            return loadu<R>(&scalar_dyvar[deriv_order + di]);
+        },
+        dx);
+
+  } else {
+    // Calculate y-derivative first
+    constexpr std::ptrdiff_t ndyvars = 2 * deriv_order + 1;
+    std::array<R, ndyvars> dyvar;
+#ifdef CCTK_DEBUG
+    for (std::ptrdiff_t n = 0; n < ndyvars; ++n)
+      dyvar[n] = Arith::nan<T>()();
+#endif
+
+    for (std::ptrdiff_t n = 0; n < ndyvars; ++n) {
+      const std::ptrdiff_t di = n - deriv_order;
+      // Skip the unused central point
+      if (di == 0)
+        continue;
+      dyvar[n] = deriv1d<deriv_order>(
+          [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+            assert(di >= -deriv_order / 2);
+            assert(di <= +deriv_order / 2);
+            assert(di >= -deriv_order / 2);
+            assert(dj <= +deriv_order / 2);
+#endif
+            return var(di, dj);
+          },
+          dy);
+    }
+
+    // Calculate x-derivative next
+    return deriv1d<deriv_order>(
+        [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+          assert(di >= -deriv_order / 2);
+          assert(di <= +deriv_order / 2);
+#endif
+          return dyvar[deriv_order + di];
+        },
+        dx);
+  }
 }
 
 template <int deriv_order, typename T>
@@ -332,19 +391,18 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE
     CCTK_DEVICE CCTK_HOST Arith::vec<Arith::simd<T>, Loop::dim>
-    calc_deriv(const Loop::GF3D5<const T> &gf, const Arith::simdl<T> &mask,
-               const Loop::GF3D5layout &layout,
+    calc_deriv(const Loop::GF3D2<const T> &gf, const Arith::simdl<T> &mask,
                const Arith::vect<int, Loop::dim> &I,
                const Arith::vect<T, Loop::dim> &dx) {
   using namespace Arith;
   using namespace Loop;
   // We use explicit index calculations to avoid unnecessary integer
   // multiplications
-  const T *restrict const ptr = &gf(layout, I);
+  const T *restrict const ptr = &gf(I);
   const std::array<std::ptrdiff_t, Loop::dim> offsets{
-      layout.delta(1, 0, 0),
-      layout.delta(0, 1, 0),
-      layout.delta(0, 0, 1),
+      gf.delta(1, 0, 0),
+      gf.delta(0, 1, 0),
+      gf.delta(0, 0, 1),
   };
   return {
       detail::deriv1d<deriv_order>(
@@ -368,18 +426,18 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE
     CCTK_DEVICE CCTK_HOST Arith::vec<T, Loop::dim>
-    calc_deriv(const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout &layout,
+    calc_deriv(const Loop::GF3D2<const T> &gf,
                const Arith::vect<int, Loop::dim> &I,
                const Arith::vect<T, Loop::dim> &dx) {
   using namespace Arith;
   using namespace Loop;
   // We use explicit index calculations to avoid unnecessary integer
   // multiplications
-  const T *restrict const ptr = &gf(layout, I);
+  const T *restrict const ptr = &gf(I);
   const std::array<std::ptrdiff_t, Loop::dim> offsets{
-      layout.delta(1, 0, 0),
-      layout.delta(0, 1, 0),
-      layout.delta(0, 0, 1),
+      gf.delta(1, 0, 0),
+      gf.delta(0, 1, 0),
+      gf.delta(0, 0, 1),
   };
   return {
       detail::deriv1d<deriv_order>(
@@ -400,19 +458,18 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE
     CCTK_DEVICE CCTK_HOST Arith::smat<Arith::simd<T>, Loop::dim>
-    calc_deriv2(const Loop::GF3D5<const T> &gf, const Arith::simdl<T> &mask,
-                const Loop::GF3D5layout &layout,
+    calc_deriv2(const Loop::GF3D2<const T> &gf, const Arith::simdl<T> &mask,
                 const Arith::vect<int, Loop::dim> &I,
                 const Arith::vect<T, Loop::dim> &dx) {
   using namespace Arith;
   using namespace Loop;
   // We use explicit index calculations to avoid unnecessary integer
   // multiplications
-  const T *restrict const ptr = &gf(layout, I);
+  const T *restrict const ptr = &gf(I);
   const std::array<std::ptrdiff_t, Loop::dim> offsets{
-      layout.delta(1, 0, 0),
-      layout.delta(0, 1, 0),
-      layout.delta(0, 0, 1),
+      gf.delta(1, 0, 0),
+      gf.delta(0, 1, 0),
+      gf.delta(0, 0, 1),
   };
   return {
       detail::deriv2_1d<deriv_order>(
@@ -420,12 +477,12 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
             return maskz_loadu(mask, &ptr[di * offsets[0]]);
           },
           dx[0]),
-      detail::deriv2_2d<deriv_order>(
+      detail::deriv2_2d<deriv_order, true>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
             return maskz_loadu(mask, &ptr[di * offsets[0] + dj * offsets[1]]);
           },
           dx[0], dx[1]),
-      detail::deriv2_2d<deriv_order>(
+      detail::deriv2_2d<deriv_order, true>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
             return maskz_loadu(mask, &ptr[di * offsets[0] + dj * offsets[2]]);
           },
@@ -435,7 +492,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
             return maskz_loadu(mask, &ptr[di * offsets[1]]);
           },
           dx[1]),
-      detail::deriv2_2d<deriv_order>(
+      detail::deriv2_2d<deriv_order, false>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
             return maskz_loadu(mask, &ptr[di * offsets[1] + dj * offsets[2]]);
           },
@@ -451,30 +508,30 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE
     CCTK_DEVICE CCTK_HOST Arith::smat<T, Loop::dim>
-    calc_deriv2(const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout &layout,
+    calc_deriv2(const Loop::GF3D2<const T> &gf,
                 const Arith::vect<int, Loop::dim> &I,
                 const Arith::vect<T, Loop::dim> &dx) {
   using namespace Arith;
   using namespace Loop;
   // We use explicit index calculations to avoid unnecessary integer
   // multiplications
-  const T *restrict const ptr = &gf(layout, I);
+  const T *restrict const ptr = &gf(I);
   const std::array<std::ptrdiff_t, Loop::dim> offsets{
-      layout.delta(1, 0, 0),
-      layout.delta(0, 1, 0),
-      layout.delta(0, 0, 1),
+      gf.delta(1, 0, 0),
+      gf.delta(0, 1, 0),
+      gf.delta(0, 0, 1),
   };
   return {
       detail::deriv2_1d<deriv_order>(
           [&](int di)
               CCTK_ATTRIBUTE_ALWAYS_INLINE { return ptr[di * offsets[0]]; },
           dx[0]),
-      detail::deriv2_2d<deriv_order>(
+      detail::deriv2_2d<deriv_order, true>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
             return ptr[di * offsets[0] + dj * offsets[1]];
           },
           dx[0], dx[1]),
-      detail::deriv2_2d<deriv_order>(
+      detail::deriv2_2d<deriv_order, true>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
             return ptr[di * offsets[0] + dj * offsets[2]];
           },
@@ -483,7 +540,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
           [&](int di)
               CCTK_ATTRIBUTE_ALWAYS_INLINE { return ptr[di * offsets[1]]; },
           dx[1]),
-      detail::deriv2_2d<deriv_order>(
+      detail::deriv2_2d<deriv_order, false>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
             return ptr[di * offsets[1] + dj * offsets[2]];
           },
@@ -501,18 +558,24 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 
 template <int CI, int CJ, int CK, typename T>
 CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs(const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
-            const Loop::GridDescBaseDevice &grid,
-            const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout layout,
-            const Arith::vect<T, Loop::dim> dx, const int deriv_order);
+calc_copy(const Loop::GF3D5<T> &gf, const Loop::GF3D5layout layout,
+          const Loop::GridDescBaseDevice &grid, const Loop::GF3D2<const T> &gf0,
+          const Arith::vect<T, Loop::dim> dx);
 
 template <int CI, int CJ, int CK, typename T>
-CCTK_ATTRIBUTE_NOINLINE void
-calc_derivs2(const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
-             const Arith::smat<Loop::GF3D5<T>, Loop::dim> &ddgf,
-             const Loop::GridDescBaseDevice &grid,
-             const Loop::GF3D5<const T> &gf, const Loop::GF3D5layout layout,
-             const Arith::vect<T, Loop::dim> dx, const int deriv_order);
+CCTK_ATTRIBUTE_NOINLINE void calc_derivs(
+    const Loop::GF3D5<T> &gf, const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
+    const Loop::GF3D5layout layout, const Loop::GridDescBaseDevice &grid,
+    const Loop::GF3D2<const T> &gf0, const Arith::vect<T, Loop::dim> dx,
+    const int deriv_order);
+
+template <int CI, int CJ, int CK, typename T>
+CCTK_ATTRIBUTE_NOINLINE void calc_derivs2(
+    const Loop::GF3D5<T> &gf, const Arith::vec<Loop::GF3D5<T>, Loop::dim> &dgf,
+    const Arith::smat<Loop::GF3D5<T>, Loop::dim> &ddgf,
+    const Loop::GF3D5layout layout, const Loop::GridDescBaseDevice &grid,
+    const Loop::GF3D2<const T> &gf0, const Arith::vect<T, Loop::dim> dx,
+    const int deriv_order);
 
 } // namespace Derivs
 

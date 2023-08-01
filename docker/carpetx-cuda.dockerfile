@@ -6,7 +6,7 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-cuda.dockerfile --tag einsteintoolkit/carpetx:cuda-real32 .
 #     docker push einsteintoolkit/carpetx:cuda-real32
 
-FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -141,9 +141,9 @@ RUN mkdir src && \
 # ssht provides spin-weighted spherical harmonics
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/astro-informatics/ssht/archive/v1.5.1.tar.gz && \
-    tar xzf v1.5.1.tar.gz && \
-    cd ssht-1.5.1 && \
+    wget https://github.com/astro-informatics/ssht/archive/v1.5.2.tar.gz && \
+    tar xzf v1.5.2.tar.gz && \
+    cd ssht-1.5.2 && \
     mkdir build && \
     cd build && \
     cmake .. && \
@@ -176,9 +176,9 @@ ARG real_precision=real64
 # Should we  keep AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/23.06.tar.gz && \
-    tar xzf 23.06.tar.gz && \
-    cd amrex-23.06 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/23.07.tar.gz && \
+    tar xzf 23.07.tar.gz && \
+    cd amrex-23.07 && \
     mkdir build && \
     cd build && \
     case $real_precision in \
@@ -188,7 +188,7 @@ RUN mkdir src && \
     esac && \
     cmake \
         -DAMReX_GPU_BACKEND=CUDA \
-        -DAMReX_CUDA_ARCH=7.5 \
+        -DAMReX_CUDA_ARCH=7.0 \
         -DAMReX_OMP=ON \
         -DAMReX_PARTICLES=ON \
         -DAMReX_PRECISION="$precision" \

@@ -1,0 +1,2 @@
+# 1:iteration	2:time	3:spacetimewavetoyx::fy.min	4:spacetimewavetoyx::fy.max	5:spacetimewavetoyx::fy.sum	6:spacetimewavetoyx::fy.avg	7:spacetimewavetoyx::fy.stddev	8:spacetimewavetoyx::fy.volume	9:spacetimewavetoyx::fy.L1norm	10:spacetimewavetoyx::fy.L2norm	11:spacetimewavetoyx::fy.maxabs
+0	0.0000000000000000e+00	-2.8284271247461903e+00	2.8284271247461903e+00	0.0000000000000000e+00	0.0000000000000000e+00	1.0823922002923940e+00	8.0000000000000000e+00	7.2855339059327384e-01	1.0823922002923940e+00	2.8284271247461903e+00

@@ -38,6 +38,8 @@ CarpetX::out_norm_vars = "all"
 CarpetX::out_norm_omit_unstable = yes
 
 CarpetX::out_tsv_vars = "
-    WaveToyX::ustate
-    WaveToyX::uerror
+    WaveToyX::state
+    WaveToyX::rhs
+    WaveToyX::energy
+    WaveToyX::error
 "

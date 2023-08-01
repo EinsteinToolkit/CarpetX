@@ -1,0 +1,31 @@
+# Interface definition for thorn ADMBaseX
+
+IMPLEMENTS: ADMBaseX
+
+USES INCLUDE HEADER: loop_device.hxx
+
+
+
+PUBLIC:
+
+CCTK_REAL metric TYPE=gf TAGS='dirichlet_values={1.0 0.0 0.0   1.0 0.0   1.0} robin_values={1.0 0.0 0.0   1.0 0.0   1.0} parities={+1 +1 +1   -1 -1 +1   -1 +1 -1   +1 +1 +1   +1 -1 -1   +1 +1 +1} checkpoint="no"' { gxx gxy gxz gyy gyz gzz } "ADM 3-metric g_ij"
+
+CCTK_REAL curv TYPE=gf TAGS='parities={+1 +1 +1   -1 -1 +1   -1 +1 -1   +1 +1 +1   +1 -1 -1   +1 +1 +1} checkpoint="no"' { kxx kxy kxz kyy kyz kzz } "ADM extrinsic curvature K_ij"
+
+CCTK_REAL lapse TYPE=gf TAGS='dirichlet_values={1.0} robin_values={1.0} checkpoint="no"' { alp } "ADM lapse function alpha"
+
+CCTK_REAL dtlapse TYPE=gf TAGS='checkpoint="no"' { dtalp } "Time derivative of ADM lapse function"
+
+CCTK_REAL shift TYPE=gf TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"' { betax betay betaz } "ADM shift vector beta^i"
+
+CCTK_REAL dtshift TYPE=gf TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"' { dtbetax dtbetay dtbetaz } "Time derivative of ADM shift vector"
+
+
+
+# Variables necessary to calculate second time derivatives of the four-metric
+
+CCTK_REAL dtcurv TYPE=gf TAGS='parities={+1 +1 +1   -1 -1 +1   -1 +1 -1   +1 +1 +1   +1 -1 -1   +1 +1 +1} checkpoint="no"' { dtkxx dtkxy dtkxz dtkyy dtkyz dtkzz } "Time derivative of ADM extrinsic curvature K_ij"
+
+CCTK_REAL dt2lapse TYPE=gf TAGS='checkpoint="no"' { dt2alp } "Second time derivative of ADM lapse function"
+
+CCTK_REAL dt2shift TYPE=gf TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"' { dt2betax dt2betay dt2betaz } "Second time derivative of ADM shift vector"

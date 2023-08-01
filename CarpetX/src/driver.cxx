@@ -26,6 +26,8 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <ostream>
 #include <sstream>
@@ -80,8 +82,6 @@ std::ostream &operator<<(std::ostream &os, const symmetry_t symmetry) {
   switch (symmetry) {
   case symmetry_t::none:
     return os << "none";
-  case symmetry_t::outer_boundary:
-    return os << "outer_boundary";
   case symmetry_t::interpatch:
     return os << "interpatch";
   case symmetry_t::periodic:
@@ -114,21 +114,23 @@ std::ostream &operator<<(std::ostream &os, const boundary_t boundary) {
   return os;
 }
 
-array<array<symmetry_t, dim>, 2> get_symmetries() {
+array<array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
+  // patch < 0 return symmetries without taking interpatch boundaries into
+  // account
   DECLARE_CCTK_PARAMETERS;
 
-  const array<array<bool, 3>, 2> is_outer_boundary{{
-      {{
-          bool(!CCTK_EQUALS(boundary_x, "none")),
-          bool(!CCTK_EQUALS(boundary_y, "none")),
-          bool(!CCTK_EQUALS(boundary_z, "none")),
-      }},
-      {{
-          bool(!CCTK_EQUALS(boundary_upper_x, "none")),
-          bool(!CCTK_EQUALS(boundary_upper_y, "none")),
-          bool(!CCTK_EQUALS(boundary_upper_z, "none")),
-      }},
-  }};
+  array<array<bool, 3>, 2> is_interpatch{
+      {{{false, false, false}}, {{false, false, false}}}};
+  if (patch >= 0 &&
+      CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2")) {
+    CCTK_INT is_interpatch_boundary[2 * dim];
+    const int ierr = MultiPatch_GetBoundarySpecification2(
+        patch, 2 * dim, is_interpatch_boundary);
+    assert(!ierr);
+    for (int f = 0; f < 2; ++f)
+      for (int d = 0; d < dim; ++d)
+        is_interpatch[f][d] = is_interpatch_boundary[2 * d + f];
+  }
   const array<array<bool, 3>, 2> is_periodic{{
       {{bool(periodic_x), bool(periodic_y), bool(periodic_z)}},
       {{bool(periodic_x), bool(periodic_y), bool(periodic_z)}},
@@ -138,19 +140,19 @@ array<array<symmetry_t, dim>, 2> get_symmetries() {
       {{bool(reflection_upper_x), bool(reflection_upper_y),
         bool(reflection_upper_z)}},
   }};
+
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      assert(is_outer_boundary[f][d] + is_periodic[f][d] +
-                 is_reflection[f][d] <=
+      assert(is_interpatch[f][d] + is_periodic[f][d] + is_reflection[f][d] <=
              1);
 
   array<array<symmetry_t, dim>, 2> symmetries;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      symmetries[f][d] = is_outer_boundary[f][d] ? symmetry_t::outer_boundary
-                         : is_periodic[f][d]     ? symmetry_t::periodic
-                         : is_reflection[f][d]   ? symmetry_t::reflection
-                                                 : symmetry_t::outer_boundary;
+      symmetries[f][d] = is_interpatch[f][d]   ? symmetry_t::interpatch
+                         : is_periodic[f][d]   ? symmetry_t::periodic
+                         : is_reflection[f][d] ? symmetry_t::reflection
+                                               : symmetry_t::none;
 
   return symmetries;
 }
@@ -158,12 +160,11 @@ array<array<symmetry_t, dim>, 2> get_symmetries() {
 array<array<boundary_t, dim>, 2> get_default_boundaries() {
   DECLARE_CCTK_PARAMETERS;
 
-  const array<array<symmetry_t, dim>, 2> symmetries = get_symmetries();
+  const array<array<symmetry_t, dim>, 2> symmetries = get_symmetries(-1);
   array<array<bool, 3>, 2> is_symmetry;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none &&
-                          symmetries[f][d] != symmetry_t::outer_boundary;
+      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none;
 
   const array<array<bool, 3>, 2> is_dirichlet{{
       {{
@@ -237,12 +238,11 @@ array<array<boundary_t, dim>, 2> get_default_boundaries() {
 array<array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
   DECLARE_CCTK_PARAMETERS;
 
-  const array<array<symmetry_t, dim>, 2> symmetries = get_symmetries();
+  const array<array<symmetry_t, dim>, 2> symmetries = get_symmetries(-1);
   array<array<bool, 3>, 2> is_symmetry;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none &&
-                          symmetries[f][d] != symmetry_t::outer_boundary;
+      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none;
 
   array<array<boundary_t, dim>, 2> boundaries = get_default_boundaries();
 
@@ -1187,20 +1187,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   const amrex::Vector<amrex::IntVect> reffacts{}; // empty
 
   // Symmetries
-  if (CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2")) {
-    CCTK_INT is_interpatch_boundary[2 * dim];
-    const int ierr = MultiPatch_GetBoundarySpecification2(
-        patch, 2 * dim, is_interpatch_boundary);
-    assert(!ierr);
-    // TODO: Set this in get_symmetries()
-    for (int f = 0; f < 2; ++f)
-      for (int d = 0; d < dim; ++d)
-        symmetries[f][d] = is_interpatch_boundary[2 * d + f]
-                               ? symmetry_t::interpatch
-                               : symmetry_t::none;
-  } else {
-    symmetries = get_symmetries();
-  }
+  symmetries = get_symmetries(patch);
 
   {
     const std::array faces{"lower", "upper"};
@@ -1242,6 +1229,10 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
     amrex::FArrayBox::set_initval(
         std::numeric_limits<amrex::Real>::signaling_NaN());
   }
+  // Set tile size
+  pp.addarr(
+      "fabarray.mfiter_tile_size",
+      std::vector<int>{max_tile_size_x, max_tile_size_y, max_tile_size_z});
 
   amrcore = make_unique<CactusAmrCore>(patch, domain, max_num_levels - 1,
                                        ncells, coord, reffacts, is_periodic);
@@ -1256,14 +1247,6 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
       }
     }
   }
-}
-
-bool GHExt::PatchData::all_faces_have_symmetries() const {
-  bool res = true;
-  for (int f = 0; f < 2; ++f)
-    for (int d = 0; d < dim; ++d)
-      res &= symmetries.at(f).at(d) != symmetry_t::none;
-  return res;
 }
 
 GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
@@ -1483,6 +1466,18 @@ void GHExt::PatchData::LevelData::GroupData::free_tmp_mfabs() const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+bool GHExt::PatchData::LevelData::GroupData::
+    all_faces_have_symmetries_or_boundaries() const {
+  const auto &symmetries = ghext->patchdata.at(patch).symmetries;
+  bool res = true;
+  for (int f = 0; f < 2; ++f)
+    for (int d = 0; d < dim; ++d)
+      res &= symmetries.at(f).at(d) != symmetry_t::none ||
+             (symmetries.at(f).at(d) == symmetry_t::none &&
+              boundaries.at(f).at(d) != boundary_t::none);
+  return res;
+}
+
 void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     amrex::MultiFab &mfab) const {
   DECLARE_CCTK_PARAMETERS;
@@ -1511,7 +1506,7 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     if (!gdomain.contains(box))
       BoundaryCondition(*this, box, dest).apply();
   });
-  synchronize();
+  // synchronize();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1632,6 +1627,7 @@ void SetupGlobals() {
     assert(group.vartype == CCTK_VARIABLE_REAL);
     assert(group.disttype == CCTK_DISTRIB_CONSTANT);
     assert(group.dim >= 0);
+    assert(group.dim <= dim);
 
     globaldata.arraygroupdata.at(gi) =
         make_unique<GHExt::GlobalData::ArrayGroupData>();
@@ -1646,9 +1642,8 @@ void SetupGlobals() {
 
     CCTK_INT const *const *const sz = CCTK_GroupSizesI(gi);
     arraygroupdata.array_size = 1;
-    for (int d = 0; d < group.dim; ++d) {
+    for (int d = 0; d < group.dim; ++d)
       arraygroupdata.array_size = arraygroupdata.array_size * *sz[d];
-    }
 
     // Set up dynamic data
     arraygroupdata.dimension = group.dim;
@@ -1662,6 +1657,16 @@ void SetupGlobals() {
       arraygroupdata.ubnd[d] = *sz[d] - 1;
       arraygroupdata.bbox[2 * d] = arraygroupdata.bbox[2 * d + 1] = 1;
     }
+    // Extend the grid scalars and arrays to 3d
+    for (int d = group.dim; d < dim; ++d) {
+      arraygroupdata.lsh[d] = 1;
+      arraygroupdata.ash[d] = 1;
+      arraygroupdata.gsh[d] = 1;
+      arraygroupdata.nghostzones[d] = 0;
+      arraygroupdata.lbnd[d] = 0;
+      arraygroupdata.ubnd[d] = 0;
+      arraygroupdata.bbox[2 * d] = arraygroupdata.bbox[2 * d + 1] = 1;
+    }
 
     // Allocate data
     const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
@@ -1670,6 +1675,7 @@ void SetupGlobals() {
     arraygroupdata.data.resize(group.numtimelevels);
     arraygroupdata.valid.resize(group.numtimelevels);
     for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
+      // TODO: Allocate in managed memory
       arraygroupdata.data.at(tl).resize(arraygroupdata.numvars *
                                         arraygroupdata.array_size);
       why_valid_t why([]() { return "SetupGlobals"; });
@@ -1819,15 +1825,17 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
             groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
             patchdata.amrcore->Geom(level - 1), patchdata.amrcore->Geom(level),
             interpolator, groupdata.bcrecs);
-        const auto outer_valid = patchdata.all_faces_have_symmetries()
-                                     ? make_valid_outer()
-                                     : valid_t();
-        assert(outer_valid == make_valid_outer());
+        const auto outer_valid =
+            groupdata.all_faces_have_symmetries_or_boundaries()
+                ? make_valid_outer()
+                : valid_t();
         for (int vi = 0; vi < groupdata.numvars; ++vi) {
           groupdata.valid.at(tl).at(vi).set_all(
               make_valid_int() | make_valid_ghosts() | outer_valid,
               []() { return "MakeNewLevelFromCoarse after prolongation"; });
-          // check_valid(groupdata, vi, tl, nan_handling, []() {
+          // This cannot be called because it would access the data
+          // with old metadata
+          // check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
           //   return "MakeNewLevelFromCoarse after prolongation";
           // });
         }
@@ -1941,8 +1949,9 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
     amrex::Interpolater *const interpolator =
         get_interpolator(groupdata.indextype);
 
-    const auto outer_valid =
-        patchdata.all_faces_have_symmetries() ? make_valid_outer() : valid_t();
+    const auto outer_valid = groupdata.all_faces_have_symmetries_or_boundaries()
+                                 ? make_valid_outer()
+                                 : valid_t();
     assert(outer_valid == make_valid_outer());
 
     const nan_handling_t nan_handling = groupdata.do_checkpoint
@@ -2335,10 +2344,26 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   // Throw exceptions for failing AMReX assertions. With exceptions,
   // we get core files.
   pp.add("amrex.throw_exception", 1);
-  // Set tile size
-  pp.addarr("fabarray.mfiter_tile_size",
-            vector<int>{max_tile_size_x, max_tile_size_y, max_tile_size_z});
-  pamrex = amrex::Initialize(MPI_COMM_WORLD);
+
+  std::vector<char *> args;
+  for (std::size_t n = 0; n < 100; ++n)
+    if (amrex_parameters[n][0])
+      args.push_back(strdup(amrex_parameters[n]));
+  int argc = args.size();
+  args.push_back(nullptr);
+  char **argv = args.data();
+  if (verbose) {
+#pragma omp critical
+    {
+      CCTK_VINFO("  Run-time AMReX parameters:");
+      for (int n = 0; n < argc; ++n)
+        CCTK_VINFO("    [%d]: %s", n, argv[n]);
+    }
+  }
+  pamrex = amrex::Initialize(argc, argv, true, MPI_COMM_WORLD);
+  for (auto arg : args)
+    free(arg);
+  args.clear();
 
   // Create grid structure
   ghext = make_unique<GHExt>();
