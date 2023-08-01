@@ -338,9 +338,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni != 0 && bbox[ni == -1 ? 0 : 1][0]) ||
-                  (nj != 0 && bbox[nj == -1 ? 0 : 1][1]) ||
-                  (nk != 0 && bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -394,9 +394,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni != 0 && !bbox[ni == -1 ? 0 : 1][0]) ||
-                  (nj != 0 && !bbox[nj == -1 ? 0 : 1][1]) ||
-                  (nk != 0 && !bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni != 0 && !bbox[ni < 0 ? 0 : 1][0]) ||
+                  (nj != 0 && !bbox[nj < 0 ? 0 : 1][1]) ||
+                  (nk != 0 && !bbox[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -478,9 +478,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni == 0 || !bbox[ni == -1 ? 0 : 1][0]) &&
-                  (nj == 0 || !bbox[nj == -1 ? 0 : 1][1]) &&
-                  (nk == 0 || !bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni == 0 || !bbox[ni < 0 ? 0 : 1][0]) &&
+                  (nj == 0 || !bbox[nj < 0 ? 0 : 1][1]) &&
+                  (nk == 0 || !bbox[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -1350,6 +1350,8 @@ template <typename T> struct GF3D5 {
 template <typename T> struct is_GF3D5 : std::false_type {};
 template <typename T> struct is_GF3D5<GF3D5<T> > : std::true_type {};
 template <typename T> inline constexpr bool is_GF3D5_v = is_GF3D5<T>::value;
+
+////////////////////////////////////////////////////////////////////////////////
 
 template <typename T> struct GF3D5vector {
   static_assert((std::is_same_v<T, amrex::Real>));

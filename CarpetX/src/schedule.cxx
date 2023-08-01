@@ -117,11 +117,9 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
   }
 
   // Boundaries
-  const auto &symmetries = ghext->patchdata.at(leveldata.patch).symmetries;
   for (int d = 0; d < dim; ++d)
     for (int f = 0; f < 2; ++f)
-      bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)] &&
-                   symmetries[f][d] != symmetry_t::none;
+      bbox[f][d] = vbx[orient(d, f)] == domain[orient(d, f)];
 
   // Thread tile box
   for (int d = 0; d < dim; ++d) {
@@ -2229,7 +2227,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   std::vector<std::function<void()> > tasks1;
   std::vector<std::function<void()> > tasks2;
 
-  const bool have_multipatch_boundaries =
+  static const bool have_multipatch_boundaries =
       CCTK_IsFunctionAliased("MultiPatch_Interpolate");
 
   active_levels->loop([&](auto &restrict leveldata) {
@@ -2270,37 +2268,35 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                              ghext->patchdata.at(leveldata.patch)
                                  .amrcore->Geom(leveldata.level));
 
-          tasks1.emplace_back([&tasks2, &leveldata, &groupdata,
-                               have_multipatch_boundaries, nan_handling, tl,
-                               fillpatch_continue =
-                                   std::move(fillpatch_continue)]() {
-            auto fillpatch_finish = fillpatch_continue();
+          tasks1.emplace_back(
+              [&tasks2, &leveldata, &groupdata, nan_handling, tl,
+               fillpatch_continue = std::move(fillpatch_continue)]() {
+                auto fillpatch_finish = fillpatch_continue();
 
-            tasks2.emplace_back([&leveldata, &groupdata,
-                                 have_multipatch_boundaries, nan_handling, tl,
-                                 fillpatch_finish =
-                                     std::move(fillpatch_finish)]() {
-              fillpatch_finish();
+                tasks2.emplace_back(
+                    [&leveldata, &groupdata, nan_handling, tl,
+                     fillpatch_finish = std::move(fillpatch_finish)]() {
+                      fillpatch_finish();
 
-              for (int vi = 0; vi < groupdata.numvars; ++vi) {
-                groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
-                  return "SyncGroupsByDirI after syncing: "
-                         "Mark ghost zones as valid";
-                });
-                if (ghext->patchdata.at(leveldata.patch)
-                        .all_faces_have_symmetries())
-                  groupdata.valid.at(tl).at(vi).set_outer(true, []() {
-                    return "SyncGroupsByDirI after syncing: "
-                           "Mark outer boundaries as valid";
-                  });
-                poison_invalid(leveldata, groupdata, vi, tl);
-                if (!have_multipatch_boundaries)
-                  check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
-                    return "SyncGroupsByDirI after syncing";
-                  });
-              }
-            });
-          });
+                      for (int vi = 0; vi < groupdata.numvars; ++vi) {
+                        groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
+                          return "SyncGroupsByDirI after syncing: "
+                                 "Mark ghost zones as valid";
+                        });
+                        if (groupdata.all_faces_have_symmetries_or_boundaries())
+                          groupdata.valid.at(tl).at(vi).set_outer(true, []() {
+                            return "SyncGroupsByDirI after syncing: "
+                                   "Mark outer boundaries as valid";
+                          });
+                        poison_invalid(leveldata, groupdata, vi, tl);
+                        if (!have_multipatch_boundaries)
+                          check_valid(leveldata, groupdata, vi, tl,
+                                      nan_handling, []() {
+                                        return "SyncGroupsByDirI after syncing";
+                                      });
+                      }
+                    });
+              });
         } // for tl
 
       } else { // if leveldata.level > 0
@@ -2361,8 +2357,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                       return "SyncGroupsByDirI after prolongation: "
                              "Mark ghost zones as valid";
                     });
-                    if (ghext->patchdata.at(leveldata.patch)
-                            .all_faces_have_symmetries())
+                    if (groupdata.all_faces_have_symmetries_or_boundaries())
                       groupdata.valid.at(tl).at(vi).set_outer(true, []() {
                         return "SyncGroupsByDirI after prolongation: "
                                "Mark outer boundaries as valid";
@@ -2393,7 +2388,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   tasks2.clear();
   synchronize();
 
-  if (CCTK_IsFunctionAliased("MultiPatch_Interpolate")) {
+  if (have_multipatch_boundaries) {
     std::vector<CCTK_INT> cactusvarinds;
     for (int group : groups) {
       const auto &groupdata =
