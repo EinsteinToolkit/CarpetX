@@ -272,8 +272,8 @@ deriv2_2d(const TS var, const T dx, const T dy) {
     // We need fewer ndyvars than without vectorizon: Instead of `(2 *
     // deriv_order + 1) * vsize` scalars, we only need to calculate
     // `(2 * deriv_order + 1) + (vsize - 1)` scalars
-    constexpr int maxnpoints = deriv_order + 1 + vsize - 1;
-    constexpr std::ptrdiff_t ndyvars = div_ceil(maxnpoints, int(vsize));
+    constexpr std::ptrdiff_t maxnpoints = deriv_order + 1 + vsize - 1;
+    constexpr std::ptrdiff_t ndyvars = div_ceil(maxnpoints, vsize);
     std::array<R, ndyvars> dyvar;
 
     for (std::ptrdiff_t n = 0; n < maxnpoints; n += vsize) {
