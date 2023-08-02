@@ -180,8 +180,8 @@ void poison_invalid(const GHExt::PatchData::LevelData &leveldata,
 
   const active_levels_t active_levels(leveldata.level, leveldata.level + 1,
                                       leveldata.patch, leveldata.patch + 1);
-  loop_over_blocks(active_levels, [&](int patch, int level, int index,
-                                      int block, const cGH *cctkGH) {
+  loop_over_components(active_levels, [&](int patch, int level, int index,
+                                          int component, const cGH *cctkGH) {
     const Loop::GridDescBaseDevice grid(cctkGH);
     const Loop::GF3D2layout layout(cctkGH, groupdata.indextype);
     const Loop::GF3D2<CCTK_REAL> gf(
@@ -279,8 +279,8 @@ void check_valid(const GHExt::PatchData::LevelData &leveldata,
 
   const active_levels_t active_levels(leveldata.level, leveldata.level + 1,
                                       leveldata.patch, leveldata.patch + 1);
-  loop_over_blocks(active_levels, [&](int patch, int level, int index,
-                                      int block, const cGH *cctkGH) {
+  loop_over_components(active_levels, [&](int patch, int level, int index,
+                                          int component, const cGH *cctkGH) {
     const Loop::GridDescBaseDevice grid(cctkGH);
     const Loop::GF3D2layout layout(cctkGH, groupdata.indextype);
     const Loop::GF3D2<const CCTK_REAL> gf(
@@ -326,49 +326,68 @@ void check_valid(const GHExt::PatchData::LevelData &leveldata,
 
       struct info_t {
         where_t where;
+        int patch, level, component;
         vect<int, dim> I;
         vect<CCTK_REAL, dim> X;
         CCTK_REAL val;
       };
       std::vector<info_t> infos;
 
-      loop_over_blocks(active_levels, [&](int patch, int level, int index,
-                                          int block, const cGH *cctkGH) {
+      loop_over_components(active_levels, [&](int patch, int level, int index,
+                                              int component,
+                                              const cGH *cctkGH) {
         const Loop::GridDescBaseDevice grid(cctkGH);
         const Loop::GF3D2layout layout(cctkGH, groupdata.indextype);
         const Loop::GF3D2<const CCTK_REAL> gf(
-            layout, static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
+            layout, static_cast<const CCTK_REAL *>(CCTK_VarDataPtrI(
                         cctkGH, tl, groupdata.firstvarindex + vi)));
+#pragma omp critical(CarpetX_check_valid)
+        std::cerr << "valid grid=" << grid << "\n";
 
         if (valid.valid_int)
-          grid.loop_idx(
-              where_t::interior, groupdata.indextype, groupdata.nghostzones,
-              [&](const Loop::PointDesc &p) {
-                if (nan_check(grid, gf, p))
+          grid.loop_idx(where_t::interior, groupdata.indextype,
+                        groupdata.nghostzones, [&](const Loop::PointDesc &p) {
+                          if (nan_check(grid, gf, p))
 #pragma omp critical(CarpetX_check_valid)
-                  infos.push_back(info_t{where_t::interior, p.I, p.X, gf(p.I)});
-              });
+                            infos.push_back(info_t{where_t::interior, p.patch,
+                                                   p.level, p.component, p.I,
+                                                   p.X, gf(p.I)});
+                        });
         if (valid.valid_outer)
-          grid.loop_idx(
-              where_t::boundary, groupdata.indextype, groupdata.nghostzones,
-              [&](const Loop::PointDesc &p) {
-                if (nan_check(grid, gf, p))
+          grid.loop_idx(where_t::boundary, groupdata.indextype,
+                        groupdata.nghostzones, [&](const Loop::PointDesc &p) {
+                          if (nan_check(grid, gf, p))
 #pragma omp critical(CarpetX_check_valid)
-                  infos.push_back(info_t{where_t::interior, p.I, p.X, gf(p.I)});
-              });
+                            infos.push_back(info_t{where_t::boundary, p.patch,
+                                                   p.level, p.component, p.I,
+                                                   p.X, gf(p.I)});
+                        });
         if (valid.valid_ghosts)
-          grid.loop_idx(
-              where_t::ghosts, groupdata.indextype, groupdata.nghostzones,
-              [&](const Loop::PointDesc &p) {
-                if (nan_check(grid, gf, p))
+          grid.loop_idx(where_t::ghosts, groupdata.indextype,
+                        groupdata.nghostzones, [&](const Loop::PointDesc &p) {
+                          if (nan_check(grid, gf, p))
 #pragma omp critical(CarpetX_check_valid)
-                  infos.push_back(info_t{where_t::interior, p.I, p.X, gf(p.I)});
-              });
+                            infos.push_back(info_t{where_t::ghosts, p.patch,
+                                                   p.level, p.component, p.I,
+                                                   p.X, gf(p.I)});
+                        });
       });
       synchronize();
 
       std::sort(infos.begin(), infos.end(),
                 [](const info_t &a, const info_t &b) {
+                  if (a.level < b.level)
+                    return true;
+                  if (a.level > b.level)
+                    return false;
+                  if (a.patch < b.patch)
+                    return true;
+                  if (a.patch > b.patch)
+                    return false;
+                  if (a.component < b.component)
+                    return true;
+                  if (a.component > b.component)
+                    return false;
                   const std::less<vect<int, dim> > lt;
                   return lt(reversed(a.I), reversed(b.I));
                 });
@@ -377,7 +396,9 @@ void check_valid(const GHExt::PatchData::LevelData &leveldata,
       buf << setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1);
       for (const auto &info : infos)
         buf << "\n"
-            << info.where << " " << info.I << " " << info.X << " " << info.val;
+            << info.where << " level " << info.level << " patch " << info.patch
+            << " component " << info.component << " " << info.I << " " << info.X
+            << " " << info.val;
       CCTK_WARN(CCTK_WARN_ALERT, buf.str().c_str());
 
       CCTK_VERROR("%s: Grid function \"%s\" contains nans, infinities, or "
