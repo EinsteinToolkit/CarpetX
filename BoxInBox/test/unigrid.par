@@ -1,0 +1,43 @@
+ActiveThorns = "
+    BoxInBox
+    CarpetX
+    Coordinates
+    IOUtil
+"
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::poison_undefined_values = yes
+
+CarpetX::ncells_x = 32
+CarpetX::ncells_y = 32
+CarpetX::ncells_z = 32
+
+CarpetX::max_num_levels = 8
+CarpetX::regrid_every = 1
+
+BoxInBox::num_regions = 0
+
+CarpetX::boundary_x = "dirichlet"
+CarpetX::boundary_y = "dirichlet"
+CarpetX::boundary_z = "dirichlet"
+CarpetX::boundary_upper_x = "dirichlet"
+CarpetX::boundary_upper_y = "dirichlet"
+CarpetX::boundary_upper_z = "dirichlet"
+
+Cactus::cctk_itlast = 10
+
+IO::out_dir = $parfile
+IO::out_every = 10
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+CarpetX::out_norm_vars = "all"
+CarpetX::out_norm_omit_unstable = yes
+
+CarpetX::out_tsv_vars = "
+    CarpetX::regrid_error
+    Coordinates::vertex_coords
+    Coordinates::cell_coords
+"
