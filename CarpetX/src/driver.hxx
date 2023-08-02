@@ -239,11 +239,11 @@ struct GHExt {
       unique_ptr<amrex::FabArrayBase> fab;
 
       cctkGHptr patch_cctkGH;
-      vector<cctkGHptr> local_cctkGHs; // [block]
+      vector<cctkGHptr> local_cctkGHs; // [component]
 
       cGH *get_patch_cctkGH() const { return patch_cctkGH.get(); }
-      cGH *get_local_cctkGH(const int block) const {
-        return local_cctkGHs.at(block).get();
+      cGH *get_local_cctkGH(const int component) const {
+        return local_cctkGHs.at(component).get();
       }
 
       struct GroupData : public CommonGroupData {
@@ -330,10 +330,10 @@ struct GHExt {
     return patchdata.at(patch).leveldata.at(level).patch_cctkGH.get();
   }
   cGH *get_local_cctkGH(const int level, const int patch,
-                        const int block) const {
+                        const int component) const {
     return patchdata.at(patch)
         .leveldata.at(level)
-        .local_cctkGHs.at(block)
+        .local_cctkGHs.at(component)
         .get();
   }
 

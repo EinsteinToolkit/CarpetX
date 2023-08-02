@@ -725,3 +725,15 @@ CarpetX/TestProlongate
 CarpetX/TestSymmetries
 CarpetX/TmunuBaseX
 CarpetX/WaveToyX
+
+
+# # CapyrX thorns
+# !TARGET   = $ARR
+# !TYPE     = git
+# # !URL      = https://github.com/lucass-carneiro/CapyrX
+# !URL      = https://github.com/eschnett/CapyrX
+# !REPO_BRANCH = eschnett/interpolate
+# !REPO_PATH = $2
+# !CHECKOUT =
+# CapyrX/MultiPatch
+# CapyrX/TestMultiPatch

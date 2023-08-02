@@ -1332,13 +1332,13 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
     cGH *const cctkGH = ghext->get_level_cctkGH(level);
     enter_patch_mode(cctkGH, leveldata);
     patch_cctkGH = GHExt::cctkGHptr(copy_cctkGH(cctkGH));
-    int block = 0;
+    int component = 0;
     const auto mfitinfo = amrex::MFItInfo().EnableTiling();
     for (amrex::MFIter mfi(*leveldata.fab, mfitinfo); mfi.isValid();
-         ++mfi, ++block) {
+         ++mfi, ++component) {
       const MFPointer mfp(mfi);
       enter_local_mode(cctkGH, leveldata, mfp);
-      assert(int(local_cctkGHs.size()) == block);
+      assert(int(local_cctkGHs.size()) == component);
       local_cctkGHs.emplace_back(copy_cctkGH(cctkGH));
       leave_local_mode(cctkGH, leveldata, mfp);
     }
@@ -1494,7 +1494,7 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     if (geom.isPeriodic(d))
       gdomain.grow(d, mfab.nGrow(d));
 
-  loop_over_blocks(mfab, [&](int index, int block) {
+  loop_over_components(mfab, [&](int index, int component) {
     amrex::FArrayBox &dest = mfab[index];
     // const amrex::Box &box = mfp.fabbox();
     // const amrex::Box &box = dest.box();

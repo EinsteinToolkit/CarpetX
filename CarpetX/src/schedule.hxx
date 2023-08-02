@@ -108,10 +108,8 @@ extern optional<active_levels_t> active_levels;
 // Like an MFIter, but does not support iteration, instead it can be copied
 struct MFPointer {
   int m_index;
-  amrex::Box m_fabbox;
-  amrex::Box m_growntilebox;
-  amrex::Box m_validbox;
-  amrex::IntVect m_nGrowVect;
+  amrex::Box m_validbox; // interior of component
+  amrex::Box m_tilebox;  // interior of tile
 
   MFPointer() = delete;
   MFPointer(const MFPointer &) = default;
@@ -119,15 +117,31 @@ struct MFPointer {
   MFPointer &operator=(const MFPointer &) = default;
   MFPointer &operator=(MFPointer &&) = default;
   MFPointer(const amrex::MFIter &mfi)
-      : m_index((assert(mfi.isValid()), mfi.index())), m_fabbox(mfi.fabbox()),
-        m_growntilebox(mfi.growntilebox()), m_validbox(mfi.validbox()),
-        m_nGrowVect(mfi.theFabArrayBase().nGrowVect()) {}
+      : m_index((assert(mfi.isValid()), mfi.index())),
+        m_validbox(mfi.validbox()), m_tilebox(mfi.tilebox()) {}
 
   constexpr int index() const noexcept { return m_index; }
-  constexpr amrex::Box fabbox() const noexcept { return m_fabbox; }
-  constexpr amrex::Box growntilebox() const noexcept { return m_growntilebox; }
+
   constexpr amrex::Box validbox() const noexcept { return m_validbox; }
-  constexpr amrex::IntVect nGrowVect() const noexcept { return m_nGrowVect; }
+
+  constexpr amrex::Box tilebox() const noexcept { return m_tilebox; }
+
+  const amrex::Box fabbox(const amrex::IntVect &ng) const noexcept {
+    return amrex::grow(validbox(), ng);
+  }
+
+  const amrex::Box growntilebox(const amrex::IntVect &ng) const noexcept {
+    // return m_growntilebox;
+    amrex::Box bx = tilebox();
+    const amrex::Box &vbx = validbox();
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+      if (bx.smallEnd(d) == vbx.smallEnd(d))
+        bx.growLo(d, ng[d]);
+      if (bx.bigEnd(d) == vbx.bigEnd(d))
+        bx.growHi(d, ng[d]);
+    }
+    return bx;
+  }
 };
 
 struct GridDesc : GridDescBase {
@@ -135,7 +149,7 @@ struct GridDesc : GridDescBase {
   GridDesc() = delete;
   GridDesc(const GHExt::PatchData::LevelData &leveldata, const MFPointer &mfp);
   GridDesc(const GHExt::PatchData::LevelData &leveldata,
-           const int global_block);
+           const int global_component);
   GridDesc(const cGH *cctkGH) : GridDescBase(cctkGH) {}
 };
 
@@ -227,15 +241,15 @@ void leave_local_mode(cGH *restrict cctkGH,
                       const GHExt::PatchData::LevelData &restrict leveldata,
                       const MFPointer &mfp);
 
-// Loop over all blocks of a single patch and level
-void loop_over_blocks(
+// Loop over all components of a single patch and level
+void loop_over_components(
     amrex::FabArrayBase &fab,
-    const std::function<void(int index, int block)> &block_kernel);
-// Loop over all blocks of several patches and levels
-void loop_over_blocks(
+    const std::function<void(int index, int component)> &component_kernel);
+// Loop over all components of several patches and levels
+void loop_over_components(
     const active_levels_t &active_levels,
-    const std::function<void(int patch, int level, int index, int block,
-                             const cGH *cctkGH)> &block_kernel);
+    const std::function<void(int patch, int level, int index, int component,
+                             const cGH *cctkGH)> &component_kernel);
 void synchronize();
 
 // These functions are defined in valid.cxx. These prototypes should
