@@ -54,7 +54,6 @@
 !TARGET   = $ROOT
 !TYPE     = git
 !URL      = https://bitbucket.org/cactuscode/cactus.git
-!REPO_BRANCH = eschnett/level-block
 !NAME     = flesh
 !CHECKOUT = .clang-format CONTRIBUTORS COPYRIGHT doc lib Makefile README.md src
 
