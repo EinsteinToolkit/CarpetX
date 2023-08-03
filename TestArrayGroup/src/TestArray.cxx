@@ -35,11 +35,14 @@ extern "C" void TestArrayGroup_Initialize(CCTK_ARGUMENTS) {
   ierr = CCTK_GrouplshGI(cctkGH, group.dim, lsh.data(), gi);
   assert(!ierr);
 
+  const int i0 = cctk_lbnd[0];
+  const int j0 = cctk_lbnd[1];
+  const int k0 = cctk_lbnd[2];
   for (int k = 0; k < lsh[2]; k++) {
     for (int j = 0; j < lsh[1]; j++) {
       for (int i = 0; i < lsh[0]; i++) {
         const int index = CCTK_GFINDEX3D(cctkGH, i, j, k);
-        test_gf[index] = i * j * k;
+        test_gf[index] = (i0 + i) * (j0 + j) * (k0 + k);
       }
     }
   }
