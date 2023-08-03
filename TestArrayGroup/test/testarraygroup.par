@@ -20,5 +20,13 @@ CarpetX::max_num_levels = $nlevels
 
 CarpetX::dtfac = 0.5
 
-IO::out_dir = "arraytest"
+IO::out_dir = $parfile
+IO::parfile_write = "no"
 IO::out_every = 1
+
+CarpetX::out_metadata = no
+CarpetX::out_tsv_vars = "
+    TestArrayGroup::test_array
+    TestArrayGroup::test_gf
+    TestArrayGroup::test_scalar
+"
