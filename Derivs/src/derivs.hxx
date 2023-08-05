@@ -474,32 +474,32 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   return {
       detail::deriv2_1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[0]]);
+            return loadu<simd<T>>(&ptr[di * offsets[0]]);
           },
           dx[0]),
       detail::deriv2_2d<deriv_order, true>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[0] + dj * offsets[1]]);
+            return loadu<simd<T>>(&ptr[di * offsets[0] + dj * offsets[1]]);
           },
           dx[0], dx[1]),
       detail::deriv2_2d<deriv_order, true>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[0] + dj * offsets[2]]);
+            return loadu<simd<T>>(&ptr[di * offsets[0] + dj * offsets[2]]);
           },
           dx[0], dx[2]),
       detail::deriv2_1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[1]]);
+            return loadu<simd<T>>(&ptr[di * offsets[1]]);
           },
           dx[1]),
       detail::deriv2_2d<deriv_order, false>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[1] + dj * offsets[2]]);
+            return loadu<simd<T>>(&ptr[di * offsets[1] + dj * offsets[2]]);
           },
           dx[1], dx[2]),
       detail::deriv2_1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[2]]);
+            return loadu<simd<T>>(&ptr[di * offsets[2]]);
           },
           dx[2]),
   };
