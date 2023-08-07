@@ -44,9 +44,11 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
+          const vbool mask1 =
+              mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<2>(gf0, mask, p.I, dx);
+          const auto dval = calc_deriv<2>(gf0, mask1, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -57,9 +59,11 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
+          const vbool mask1 =
+              mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<4>(gf0, mask, p.I, dx);
+          const auto dval = calc_deriv<4>(gf0, mask1, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -87,10 +91,12 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
+          const vbool mask1 =
+              mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<2>(gf0, mask, p.I, dx);
-          const auto ddval = calc_deriv2<2>(gf0, mask, p.I, dx);
+          const auto dval = calc_deriv<2>(gf0, mask1, p.I, dx);
+          const auto ddval = calc_deriv2<2>(gf0, mask1, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
@@ -102,10 +108,12 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
+          const vbool mask1 =
+              mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<4>(gf0, mask, p.I, dx);
-          const auto ddval = calc_deriv2<4>(gf0, mask, p.I, dx);
+          const auto dval = calc_deriv<4>(gf0, mask1, p.I, dx);
+          const auto ddval = calc_deriv2<4>(gf0, mask1, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
