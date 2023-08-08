@@ -44,6 +44,8 @@ template <typename T, int order, int centering> struct interpolator {
   const int vi;
   const amrex::Array4<const T> &vars;
   const vect<int, dim> &derivs;
+  // Allow outer boundaries as interpolation sources
+  const bool allow_boundaries;
 
   static constexpr T eps() {
     using std::pow;
@@ -238,21 +240,21 @@ template <typename T, int order, int centering> struct interpolator {
     vect<vect<bool, dim>, 2> allowed_boundaries;
     for (int f = 0; f < 2; ++f)
       for (int d = 0; d < dim; ++d)
-        allowed_boundaries[f][d] = grid.bbox[f][d];
+        allowed_boundaries[f][d] = allow_boundaries ? true : !grid.bbox[f][d];
 
     // The point must lie inside the domain. At outer boundaries the
     // point may be in the boundary region, but at ghost boundaries
     // the point cannot be in the ghost region. We define as "ghost"
     // region here the interpolation stencil size which is `order /
     // 2`.
-    const auto x0_allowed =
-        x0 +
-        (!allowed_boundaries[0] * grid.nghostzones + (order - 1) / T(2)) * dx -
-        eps();
-    const auto x1_allowed =
-        x1 -
-        (!allowed_boundaries[1] * grid.nghostzones + (order - 1) / T(2)) * dx +
-        eps();
+    // const auto x0_allowed =
+    //     x0 +
+    //     (!allowed_boundaries[0] * grid.nghostzones + (order - 1) / T(2)) * dx -
+    //     eps();
+    // const auto x1_allowed =
+    //     x1 -
+    //     (!allowed_boundaries[1] * grid.nghostzones + (order - 1) / T(2)) * dx +
+    //     eps();
 
     // The allowed index range is [i0, i1]
     const auto i0_allowed = !allowed_boundaries[0] * grid.nghostzones;
@@ -409,11 +411,12 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
   }
 
   const CCTK_POINTER resultptrs = (CCTK_POINTER)output_arrays;
+  const bool allow_boundaries = true;
   CarpetX_Interpolate(
       cctkGH, N_interp_points, static_cast<const CCTK_REAL *>(coords[0]),
       static_cast<const CCTK_REAL *>(coords[1]),
       static_cast<const CCTK_REAL *>(coords[2]), N_output_arrays,
-      varinds.data(), operations.data(), resultptrs);
+      varinds.data(), operations.data(), allow_boundaries, resultptrs);
 
   return 0;
 }
@@ -426,6 +429,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
                                     const CCTK_INT nvars,
                                     const CCTK_INT *restrict const varinds,
                                     const CCTK_INT *restrict const operations,
+                                    const CCTK_INT allow_boundaries,
                                     const CCTK_POINTER resultptrs_) {
   DECLARE_CCTK_PARAMETERS;
   const cGH *restrict const cctkGH = static_cast<const cGH *>(cctkGH_);
@@ -436,6 +440,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
   // Convert global to patch-local coordinates
   // TODO: Call this only if there is a non-trivial patch system
+  // TODO: Don't call this for multipatch interpolation, precalculate this
+  // instead
   std::vector<CCTK_INT> patches(npoints);
   std::vector<CCTK_REAL> localsx(npoints);
   std::vector<CCTK_REAL> localsy(npoints);
@@ -649,8 +655,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
-        std::cerr << "patch=" << patch << " level=" << level
-                  << " component=" << component << " npoints=" << np << "\n";
+        // CCTK_VINFO("patch=%d level=%d component=%d npoints=%d", patch, level,
+        //            component, np);
 
         std::vector<std::vector<CCTK_REAL> > varresults(nvars);
 
@@ -685,32 +691,32 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
             switch (interpolation_order) {
             case 0: {
-              const interpolator<CCTK_REAL, 0, 0b000> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 0, 0b000> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
-              const interpolator<CCTK_REAL, 1, 0b000> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 1, 0b000> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
-              const interpolator<CCTK_REAL, 2, 0b000> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 2, 0b000> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
-              const interpolator<CCTK_REAL, 3, 0b000> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 3, 0b000> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
-              const interpolator<CCTK_REAL, 4, 0b000> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 4, 0b000> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
@@ -728,32 +734,32 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
             switch (interpolation_order) {
             case 0: {
-              const interpolator<CCTK_REAL, 0, 0b111> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 0, 0b111> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
-              const interpolator<CCTK_REAL, 1, 0b111> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 1, 0b111> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
-              const interpolator<CCTK_REAL, 2, 0b111> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 2, 0b111> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
-              const interpolator<CCTK_REAL, 3, 0b111> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 3, 0b111> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
-              const interpolator<CCTK_REAL, 4, 0b111> interp{grid, vi, vars,
-                                                             derivs};
+              const interpolator<CCTK_REAL, 4, 0b111> interp{
+                  grid, vi, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
