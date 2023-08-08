@@ -31,6 +31,7 @@ void FUNCTION Interpolate(
   CCTK_INT IN nvars,
   CCTK_INT ARRAY IN varinds,
   CCTK_INT ARRAY IN operations,
+  CCTK_INT IN allow_boundaries,
   CCTK_POINTER IN resultptrs)
 REQUIRES FUNCTION Interpolate
 
