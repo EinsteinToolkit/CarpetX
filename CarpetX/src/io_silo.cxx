@@ -39,6 +39,7 @@ using namespace std::experimental;
 #include <set>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -60,27 +61,19 @@ constexpr bool io_verbose = true;
 // }
 
 template <typename T> struct db_datatype;
-template <> struct db_datatype<char> {
-  static constexpr int value = DB_CHAR;
-};
-template <> struct db_datatype<short> {
-  static constexpr int value = DB_SHORT;
-};
-template <> struct db_datatype<int> {
-  static constexpr int value = DB_INT;
-};
-template <> struct db_datatype<long> {
-  static constexpr int value = DB_LONG;
-};
-template <> struct db_datatype<long long> {
-  static constexpr int value = DB_LONG_LONG;
-};
-template <> struct db_datatype<float> {
-  static constexpr int value = DB_FLOAT;
-};
-template <> struct db_datatype<double> {
-  static constexpr int value = DB_DOUBLE;
-};
+template <> struct db_datatype<char> : std::integral_constant<int, DB_CHAR> {};
+template <>
+struct db_datatype<short> : std::integral_constant<int, DB_SHORT> {};
+template <> struct db_datatype<int> : std::integral_constant<int, DB_INT> {};
+template <> struct db_datatype<long> : std::integral_constant<int, DB_LONG> {};
+template <>
+struct db_datatype<long long> : std::integral_constant<int, DB_LONG_LONG> {};
+template <>
+struct db_datatype<float> : std::integral_constant<int, DB_FLOAT> {};
+template <>
+struct db_datatype<double> : std::integral_constant<int, DB_DOUBLE> {};
+template <typename T>
+constexpr inline int db_datatype_v = db_datatype<T>::value;
 
 struct mesh_props_t {
   amrex::IntVect ngrow;
@@ -629,7 +622,7 @@ void InputSilo(const cGH *restrict const cctkGH,
               assert(ndims <= 3);
               for (int d = 0; d < ndims; ++d)
                 assert(quadvar->dims[d] == dims[d]);
-              assert(quadvar->datatype == db_datatype<CCTK_REAL>::value);
+              assert(quadvar->datatype == db_datatype_v<CCTK_REAL>);
               assert(quadvar->centering == centering);
               assert(quadvar->nvals == 1);
 
@@ -899,7 +892,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
             ierr = DBPutQuadmesh(file.get(), meshname.c_str(), nullptr,
                                  coord_ptrs.data(), dims_vc.data(), ndims,
-                                 db_datatype<CCTK_REAL>::value, DB_COLLINEAR,
+                                 db_datatype_v<CCTK_REAL>, DB_COLLINEAR,
                                  optlist.get());
             assert(!ierr);
           } // if write mesh
@@ -995,10 +988,10 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
               const void *const data_ptr = data + vi * zonecount;
 
-              ierr = DBPutQuadvar1(
-                  file.get(), varname.c_str(), meshname.c_str(), data_ptr,
-                  dims.data(), ndims, nullptr, 0, db_datatype<CCTK_REAL>::value,
-                  centering, optlist.get());
+              ierr = DBPutQuadvar1(file.get(), varname.c_str(),
+                                   meshname.c_str(), data_ptr, dims.data(),
+                                   ndims, nullptr, 0, db_datatype_v<CCTK_REAL>,
+                                   centering, optlist.get());
             } // for vi
           }   // if write_file
 
@@ -1415,10 +1408,10 @@ void OutputSilo(const cGH *restrict const cctkGH,
                              nullptr);
           assert(!ierr);
 
-          ierr = DBPutMrgvar(
-              metafile.get(), extentsname.c_str(), "mrgTree", 2 * ndims,
-              compname_ptrs.data(), ncomps_total, regionname_ptrs.data(),
-              db_datatype<CCTK_REAL>::value, data_ptrs.data(), nullptr);
+          ierr = DBPutMrgvar(metafile.get(), extentsname.c_str(), "mrgTree",
+                             2 * ndims, compname_ptrs.data(), ncomps_total,
+                             regionname_ptrs.data(), db_datatype_v<CCTK_REAL>,
+                             data_ptrs.data(), nullptr);
           assert(!ierr);
 
           // Write rank
