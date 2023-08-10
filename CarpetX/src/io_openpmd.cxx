@@ -93,8 +93,8 @@ openPMD::Format get_format() {
 // - fileBased: One file per iteration. Needs templated file name to encode
 //   iteration number.
 // - groupBased: Multiple iterations per file
-// - variableBased: Multiple iterations stored per variable. Need
-//   special support in the backend.
+// - variableBased: Multiple iterations stored per variable. Needs special
+//    support in the backend.
 constexpr openPMD::IterationEncoding iterationEncoding =
     openPMD::IterationEncoding::fileBased;
 
@@ -474,7 +474,9 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
   assert(series);
   assert(read_iters);
 
-  if (read_iters->begin() == read_iters->end()) {
+  // Find largest iteration
+  openPMD::SeriesIterator read_iter = read_iters->begin();
+  if (read_iter == read_iters->end()) {
     // Did not find a checkpoint file
     if (io_verbose) {
       CCTK_VINFO("Not recovering parameters:");
@@ -483,7 +485,18 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
     }
     return -1; // no iteration found
   }
-  openPMD::IndexedIteration iter = *read_iters->begin();
+
+  while (true) {
+    CCTK_VINFO("  Found iteration %d", int((*read_iter).iterationIndex));
+    openPMD::SeriesIterator next_read_iter = read_iter;
+    ++next_read_iter;
+    if (next_read_iter == read_iters->end())
+      break;
+    assert((*next_read_iter).iterationIndex > (*read_iter).iterationIndex);
+    read_iter = next_read_iter;
+  }
+
+  openPMD::IndexedIteration iter = *read_iter;
   const int input_iteration = iter.iterationIndex;
   CCTK_VINFO("Recovering parameters from checkpoint file \"%s\" iteration %d",
              filename->c_str(), input_iteration);
@@ -523,8 +536,14 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
   assert(series);
   assert(read_iters);
 
-  openPMD::IndexedIteration iter = *read_iters->begin();
+  // Find iteration
   // TODO: use non-streaming API, ask for `input_iteration` directly;
+  openPMD::SeriesIterator read_iter = read_iters->begin();
+  while (read_iter != read_iters->end() &&
+         std::int64_t((*read_iter).iterationIndex) <
+             std::int64_t(input_iteration))
+    ++read_iter;
+  openPMD::IndexedIteration iter = *read_iter;
   assert(std::int64_t(iter.iterationIndex) == std::int64_t(input_iteration));
 
   cctkGH->cctk_iteration = input_iteration;
@@ -670,10 +689,17 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
   assert(series);
   assert(read_iters);
 
-  assert(read_iters->begin() != read_iters->end());
-  openPMD::IndexedIteration iter = *read_iters->begin();
-  const std::uint64_t iterIndex = iter.iterationIndex;
-  CCTK_VINFO("  iteration: %d", int(iterIndex));
+  // Find iteration
+  // TODO: use non-streaming API, ask for `input_iteration` directly;
+  openPMD::SeriesIterator read_iter = read_iters->begin();
+  while (read_iter != read_iters->end() &&
+         std::int64_t((*read_iter).iterationIndex) <
+             std::int64_t(cctkGH->cctk_iteration))
+    ++read_iter;
+  openPMD::IndexedIteration iter = *read_iter;
+  assert(std::int64_t(iter.iterationIndex) ==
+         std::int64_t(cctkGH->cctk_iteration));
+  CCTK_VINFO("  iteration: %d", cctkGH->cctk_iteration);
 
   const CCTK_REAL time = iter.time<CCTK_REAL>();
   const CCTK_REAL dt = iter.dt<CCTK_REAL>();
