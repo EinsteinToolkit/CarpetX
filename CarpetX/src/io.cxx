@@ -504,16 +504,14 @@ int OutputGH(const cGH *restrict cctkGH) {
 
   {
     const int every = out_metadata_every == -1 ? out_every : out_metadata_every;
-    if (every > 0 && cctk_iteration % every == 0) {
+    if (every > 0 && cctk_iteration % every == 0)
       OutputMetadata(cctkGH);
-    }
   }
 
   {
     const int every = out_norm_every == -1 ? out_every : out_norm_every;
-    if (every > 0 && cctk_iteration % every == 0) {
+    if (every > 0 && cctk_iteration % every == 0)
       OutputNorms(cctkGH);
-    }
   }
 
   {
@@ -531,65 +529,62 @@ int OutputGH(const cGH *restrict cctkGH) {
                     "CarpetX::out_adios2_vars must be empty.");
 #endif
     }
-
-    {
-      const int every = out_openpmd_every == -1 ? out_every : out_openpmd_every;
-      if (every > 0 && cctk_iteration % every == 0) {
-        const vector<bool> group_enabled =
-            find_groups("openPMD", out_openpmd_vars);
-#ifdef HAVE_CAPABILITY_openPMD_api
-        // TODO: Stop at paramcheck time when openPMD output parameters
-        // are set, but openPMD is not available
-        const string simulation_name = get_simulation_name();
-        OutputOpenPMD(cctkGH, group_enabled, out_dir, simulation_name);
-#else
-        if (strlen(out_openpmd_vars) != 0)
-          CCTK_VERROR("openPMD is not enabled. The parameter "
-                      "CarpetX::out_openpmd_vars must be empty.");
-#endif
-      }
-    }
-
-    {
-      const int every =
-          out_plotfile_every == -1 ? out_every : out_plotfile_every;
-      if (every > 0 && cctk_iteration % every == 0) {
-        OutputPlotfile(cctkGH);
-      }
-    }
-
-    {
-      const int every = out_silo_every == -1 ? out_every : out_silo_every;
-      if (every > 0 && cctk_iteration % every == 0) {
-        const vector<bool> group_enabled = find_groups("Silo", out_silo_vars);
-#ifdef HAVE_CAPABILITY_Silo
-        // TODO: Stop at paramcheck time when Silo output parameters are
-        // set, but Silo is not available
-        const string simulation_name = get_simulation_name();
-        OutputSilo(cctkGH, group_enabled, out_dir, simulation_name);
-#else
-        if (strlen(out_silo_vars) != 0)
-          CCTK_VERROR("Silo is not enabled. The parameter "
-                      "CarpetX::out_silo_vars must be empty.");
-#endif
-      }
-    }
-
-    OutputTSVold(cctkGH);
-
-    {
-      const int every = out_tsv_every == -1 ? out_every : out_tsv_every;
-      if (every > 0 && cctk_iteration % every == 0) {
-        OutputTSV(cctkGH);
-      }
-    }
-
-    // Describe all output files
-    OutputMeta(cctkGH);
-
-    if (is_root)
-      CCTK_VINFO("OutputGH done.");
   }
+
+  {
+    const int every = out_openpmd_every == -1 ? out_every : out_openpmd_every;
+    if (every > 0 && cctk_iteration % every == 0) {
+      const vector<bool> group_enabled =
+          find_groups("openPMD", out_openpmd_vars);
+#ifdef HAVE_CAPABILITY_openPMD_api
+      // TODO: Stop at paramcheck time when openPMD output parameters
+      // are set, but openPMD is not available
+      const string simulation_name = get_simulation_name();
+      OutputOpenPMD(cctkGH, group_enabled, out_dir, simulation_name);
+#else
+      if (strlen(out_openpmd_vars) != 0)
+        CCTK_VERROR("openPMD is not enabled. The parameter "
+                    "CarpetX::out_openpmd_vars must be empty.");
+#endif
+    }
+  }
+
+  {
+    const int every = out_plotfile_every == -1 ? out_every : out_plotfile_every;
+    if (every > 0 && cctk_iteration % every == 0)
+      OutputPlotfile(cctkGH);
+  }
+
+  {
+    const int every = out_silo_every == -1 ? out_every : out_silo_every;
+    if (every > 0 && cctk_iteration % every == 0) {
+      const vector<bool> group_enabled = find_groups("Silo", out_silo_vars);
+#ifdef HAVE_CAPABILITY_Silo
+      // TODO: Stop at paramcheck time when Silo output parameters are
+      // set, but Silo is not available
+      const string simulation_name = get_simulation_name();
+      OutputSilo(cctkGH, group_enabled, out_dir, simulation_name);
+#else
+      if (strlen(out_silo_vars) != 0)
+        CCTK_VERROR("Silo is not enabled. The parameter "
+                    "CarpetX::out_silo_vars must be empty.");
+#endif
+    }
+  }
+
+  OutputTSVold(cctkGH);
+
+  {
+    const int every = out_tsv_every == -1 ? out_every : out_tsv_every;
+    if (every > 0 && cctk_iteration % every == 0)
+      OutputTSV(cctkGH);
+  }
+
+  // Describe all output files
+  OutputMeta(cctkGH);
+
+  if (is_root)
+    CCTK_VINFO("OutputGH done.");
 
   // TODO: This should be the number of variables output
   return 0;
