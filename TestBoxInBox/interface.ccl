@@ -1,0 +1,5 @@
+# Interface definition for thorn TestBoxInBox
+
+IMPLEMENTS: TestBoxInBox
+
+INHERITS: BoxInBox

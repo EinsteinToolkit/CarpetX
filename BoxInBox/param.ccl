@@ -1,0 +1,210 @@
+# Parameter definitions for thorn BoxInBox
+
+CCTK_INT num_regions "Number of refined regions"
+{
+  0:3 :: ""
+} 0
+
+
+
+################################################################################
+
+# Box 1
+
+KEYWORD shape_1 "Shape of refined region"
+{
+  "cube" :: "cube"
+  "sphere" :: "sphere"
+} "cube"
+
+
+
+BOOLEAN active_1 "Is this region active?"
+{
+} "yes"
+
+
+
+CCTK_INT num_levels_1 "Number of refinement levels for this centre"
+{
+  1:30 :: ""
+} 1
+
+
+
+CCTK_REAL position_x_1 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL position_y_1 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL position_z_1 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+
+
+CCTK_REAL radius_1[30] "Radius of refined region for this level"
+{
+  -1 :: "illegal"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_x_1[30] "x-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_y_1[30] "y-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_z_1[30] "z-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0
+
+
+
+################################################################################
+
+# Box 2
+
+KEYWORD shape_2 "Shape of refined region"
+{
+  "cube" :: "cube"
+  "sphere" :: "sphere"
+} "cube"
+
+
+
+BOOLEAN active_2 "Is this region active?"
+{
+} "yes"
+
+
+
+CCTK_INT num_levels_2 "Number of refinement levels for this centre"
+{
+  1:30 :: ""
+} 1
+
+
+
+CCTK_REAL position_x_2 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL position_y_2 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL position_z_2 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+
+
+CCTK_REAL radius_2[30] "Radius of refined region for this level"
+{
+  -1 :: "illegal"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_x_2[30] "x-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_y_2[30] "y-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_z_2[30] "z-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0
+
+
+
+################################################################################
+
+# Box 3
+
+KEYWORD shape_3 "Shape of refined region"
+{
+  "cube" :: "cube"
+  "sphere" :: "sphere"
+} "cube"
+
+
+
+BOOLEAN active_3 "Is this region active?"
+{
+} "yes"
+
+
+
+CCTK_INT num_levels_3 "Number of refinement levels for this centre"
+{
+  1:30 :: ""
+} 1
+
+
+
+CCTK_REAL position_x_3 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL position_y_3 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL position_z_3 "Position of this region"
+{
+  *:* :: ""
+} 0.0
+
+
+
+CCTK_REAL radius_3[30] "Radius of refined region for this level"
+{
+  -1 :: "illegal"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_x_3[30] "x-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_y_3[30] "y-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0
+
+CCTK_REAL radius_z_3[30] "z-radius of refined region for this level"
+{
+  -1 :: "ignore this radius"
+  0:* :: ""
+} -1.0

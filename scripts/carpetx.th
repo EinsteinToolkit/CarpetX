@@ -45,7 +45,7 @@
 !TARGET   = $ROOT
 !TYPE     = git
 !URL      = https://bitbucket.org/einsteintoolkit/manifest.git
-!REPO_PATH= $1
+!REPO_PATH = $1
 !NAME     = manifest
 !CHECKOUT = ./manifest
 
@@ -62,7 +62,7 @@
 !TARGET   = $ROOT
 !TYPE     = git
 !URL      = https://bitbucket.org/simfactory/simfactory2.git
-!REPO_PATH=$1
+!REPO_PATH = $1
 !NAME     = simfactory2
 !CHECKOUT = ./simfactory
 
@@ -78,7 +78,7 @@
 !TARGET   = $ROOT/utils
 !TYPE     = git
 !URL      = https://bitbucket.org/cactuscode/utilities.git
-!REPO_PATH= $2
+!REPO_PATH = $2
 !CHECKOUT = ./ParameterFiles ./Scripts ./Syntax
 
 
@@ -94,7 +94,7 @@
 !TYPE     = git
 !URL      = https://bitbucket.org/cactuscode/coredoc.git
 !NAME     = CoreDoc
-!REPO_PATH= $1
+!REPO_PATH = $1
 !CHECKOUT = ./CoreDoc
 
 
@@ -102,7 +102,7 @@
 !TARGET   = $ARR
 !TYPE     = git
 !URL      = https://bitbucket.org/cactuscode/cactusbase.git
-!REPO_PATH= $2
+!REPO_PATH = $2
 !CHECKOUT =
 CactusBase/Boundary
 # CactusBase/CartGrid3D
@@ -119,7 +119,7 @@ CactusBase/Time
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/cactuscode/cactusconnect.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # CactusConnect/HTTPD
 # CactusConnect/HTTPDExtra
@@ -129,7 +129,7 @@ CactusBase/Time
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/cactuscode/cactuselliptic.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT = CactusElliptic/EllPETSc CactusElliptic/TATPETSc
 # CactusElliptic/EllBase
 # #DISABLED CactusElliptic/EllPETSc
@@ -141,7 +141,7 @@ CactusBase/Time
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/cactuscode/cactusexamples.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT = CactusExamples/HelloWorldCUDA CactusExamples/HelloWorldOpenCL CactusExamples/WaveToyOpenCL
 # CactusExamples/DemoInterp
 # CactusExamples/FleshInfo
@@ -162,7 +162,7 @@ CactusBase/Time
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/cactuscode/cactusio.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # CactusIO/IOJpeg
 
@@ -170,7 +170,7 @@ CactusBase/Time
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/cactuscode/cactusnumerical.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # CactusNumerical/Cartoon2D
 # CactusNumerical/Dissipation
@@ -198,7 +198,7 @@ CactusBase/Time
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/cactuscode/cactuspugh.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # CactusPUGH/PUGH
 # CactusPUGH/PUGHInterp
@@ -209,7 +209,7 @@ CactusBase/Time
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/cactuscode/cactuspughio.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # CactusPUGHIO/IOHDF5
 # CactusPUGHIO/IOHDF5Util
@@ -218,7 +218,7 @@ CactusBase/Time
 !TARGET   = $ARR
 !TYPE     = git
 !URL      = https://bitbucket.org/cactuscode/cactustest.git
-!REPO_PATH= $2
+!REPO_PATH = $2
 !CHECKOUT = CactusTest/TestAllTypes
 #DISABLED CactusTest/TestAllTypes
 CactusTest/TestArrays
@@ -248,7 +248,7 @@ CactusTest/TestTypes
 !TARGET   = $ARR
 !TYPE     = git
 !URL      = https://bitbucket.org/cactuscode/cactusutils.git
-!REPO_PATH= $2
+!REPO_PATH = $2
 !CHECKOUT = CactusUtils/Accelerator CactusUtils/OpenCLRunTime
 #DISABLED CactusUtils/Accelerator
 CactusUtils/Formaline
@@ -270,7 +270,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/cactuscode/cactuswave.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # CactusWave/IDScalarWave
 # CactusWave/IDScalarWaveC
@@ -289,7 +289,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/eschnett/carpet.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT = Carpet/doc
 # Carpet/Carpet
 # Carpet/CarpetEvolutionMask
@@ -326,7 +326,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/eloisa/ctthorns.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # CTThorns/CT_Analytic
 # CTThorns/CT_MultiLevel
@@ -336,7 +336,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/einsteintoolkit/einsteinanalysis.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # EinsteinAnalysis/ADMAnalysis
 # EinsteinAnalysis/ADMMass
@@ -356,7 +356,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/einsteintoolkit/einsteinbase.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # EinsteinBase/ADMBase
 # EinsteinBase/ADMCoupling        # deprecated
@@ -372,7 +372,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/einsteintoolkit/einsteineos.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # EinsteinEOS/EOS_Hybrid
 # EinsteinEOS/EOS_IdealFluid
@@ -383,7 +383,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/einsteintoolkit/einsteinevolve.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # EinsteinEvolve/GRHydro
 # EinsteinEvolve/GRHydro_InitData
@@ -393,7 +393,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://github.com/barrywardell/EinsteinExact.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT = EinsteinExact/doc EinsteinExact/m EinsteinExact/tests
 # EinsteinExact/EinsteinExact_Test
 # EinsteinExact/GaugeWave
@@ -408,7 +408,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/einsteintoolkit/einsteininitialdata.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # EinsteinInitialData/DistortedBHIVP
 # EinsteinInitialData/Exact
@@ -442,7 +442,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://github.com/assumpcaothiago/NRPyElliptic.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # EinsteinInitialData/NRPyEllipticET
 
@@ -457,7 +457,7 @@ CactusUtils/WatchDog
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/einsteintoolkit/einsteinutils.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # EinsteinUtils/SetMask_SphericalSurface
 # EinsteinUtils/TGRtensor
@@ -514,7 +514,7 @@ ExternalLibraries/Boost
 !TYPE     = git
 !URL      = https://bitbucket.org/einsteintoolkit/lorene.git
 !NAME     = LORENE2
-!REPO_PATH= ../$2
+!REPO_PATH = ../$2
 !CHECKOUT = ExternalLibraries/LORENE2
 #DISABLED ExternalLibraries/LORENE2
 
@@ -530,7 +530,7 @@ ExternalLibraries/Boost
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://github.com/ianhinder/Kranc.git
-# !REPO_PATH= Auxiliary/Cactus
+# !REPO_PATH = Auxiliary/Cactus
 # !CHECKOUT =
 # KrancNumericalTools/GenericFD
 
@@ -539,7 +539,7 @@ ExternalLibraries/Boost
 !TARGET   = $ROOT/utils/Analysis
 !TYPE     = git
 !URL      = https://github.com/Sbozzolo/kuibit
-!REPO_PATH= $2
+!REPO_PATH = $2
 !CHECKOUT = kuibit/docs kuibit/examples kuibit/kuibit kuibit/LICENSE kuibit/README.md
 
 
@@ -560,7 +560,7 @@ ExternalLibraries/Boost
 # !TYPE     = git
 # !AUTH_URL = https://bitbucket.org/llamacode/llama.git
 # !URL      = https://bitbucket.org/llamacode/llama.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT = Llama/doc
 # Llama/ADMDerivatives
 # Llama/Coordinates
@@ -575,7 +575,7 @@ ExternalLibraries/Boost
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/einsteintoolkit/mclachlan.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT = McLachlan/doc McLachlan/m McLachlan/par McLachlan/ML_WaveToy_CL
 # McLachlan/ML_ADMConstraints
 # McLachlan/ML_ADMQuantities
@@ -594,7 +594,7 @@ ExternalLibraries/Boost
 !TARGET   = $ARR
 !TYPE     = git
 !URL      = https://bitbucket.org/cactuscode/numerical.git
-!REPO_PATH= $2
+!REPO_PATH = $2
 !CHECKOUT =
 Numerical/AEILocalInterp
 
@@ -603,7 +603,7 @@ Numerical/AEILocalInterp
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/einsteintoolkit/pittnullcode.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # PITTNullCode/NullConstr
 # PITTNullCode/NullDecomp
@@ -656,7 +656,7 @@ Numerical/AEILocalInterp
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/zach_etienne/wvuthorns.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # WVUThorns/Baikal
 # WVUThorns/BaikalVacuum
@@ -683,7 +683,7 @@ Numerical/AEILocalInterp
 # !TARGET   = $ARR
 # !TYPE     = git
 # !URL      = https://bitbucket.org/zach_etienne/wvuthorns_diagnostics.git
-# !REPO_PATH= $2
+# !REPO_PATH = $2
 # !CHECKOUT =
 # WVUThorns_Diagnostics/particle_tracerET
 # WVUThorns_Diagnostics/Seed_Magnetic_Fields_BNS
@@ -699,6 +699,7 @@ Numerical/AEILocalInterp
 CarpetX/ADMBaseX
 CarpetX/Algo
 CarpetX/Arith
+CarpetX/BoxInBox
 CarpetX/CarpetX
 CarpetX/Coordinates
 CarpetX/Derivs
@@ -714,6 +715,7 @@ CarpetX/SpacetimeWaveToyX
 CarpetX/StaggeredWaveToyX
 CarpetX/TestArrayGroup
 CarpetX/TestBoundaries
+CarpetX/TestBoxInBox
 CarpetX/TestInterpolate
 CarpetX/TestNorms
 CarpetX/TestODESolvers
@@ -723,3 +725,15 @@ CarpetX/TestProlongate
 CarpetX/TestSymmetries
 CarpetX/TmunuBaseX
 CarpetX/WaveToyX
+
+
+# # CapyrX thorns
+# !TARGET   = $ARR
+# !TYPE     = git
+# # !URL      = https://github.com/lucass-carneiro/CapyrX
+# !URL      = https://github.com/eschnett/CapyrX
+# !REPO_BRANCH = eschnett/interpolate
+# !REPO_PATH = $2
+# !CHECKOUT =
+# CapyrX/MultiPatch
+# CapyrX/TestMultiPatch

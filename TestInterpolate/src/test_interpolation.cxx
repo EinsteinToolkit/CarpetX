@@ -87,8 +87,8 @@ extern "C" void TestInterpolate_test_interpolation(CCTK_ARGUMENTS) {
   };
 
   Interpolate(cctkGH, npoints, coords[0], coords[1], coords[2], nvars,
-  (CCTK_INT const * const)varinds, (CCTK_INT const * const)operations,
-  (CCTK_REAL **)resultptrs);
+      (CCTK_INT const * const)varinds, (CCTK_INT const * const)operations, 1,
+      (CCTK_REAL **)resultptrs);
 
   const void* interp_coords[N_dims] = {
     coords[0], coords[1], coords[2]

@@ -40,7 +40,6 @@ using rat64 = rational<int64_t>;
 // Symmetries are domain properties
 enum class symmetry_t {
   none,
-  outer_boundary,
   interpatch,
   periodic,
   reflection,
@@ -48,7 +47,7 @@ enum class symmetry_t {
 std::ostream &operator<<(std::ostream &os, const symmetry_t symmetry);
 
 // Boundary conditions are group properties. They are valid only for faces where
-// the domain symmetry is `outer_boundary`.
+// the domain symmetry is `none`.
 enum class boundary_t {
   none,
   symmetry_boundary,
@@ -209,7 +208,6 @@ struct GHExt {
     int patch;
 
     array<array<symmetry_t, dim>, 2> symmetries;
-    bool all_faces_have_symmetries() const;
 
     // AMReX grid structure
     // TODO: convert this from unique_ptr to optional
@@ -241,11 +239,11 @@ struct GHExt {
       unique_ptr<amrex::FabArrayBase> fab;
 
       cctkGHptr patch_cctkGH;
-      vector<cctkGHptr> local_cctkGHs; // [block]
+      vector<cctkGHptr> local_cctkGHs; // [component]
 
       cGH *get_patch_cctkGH() const { return patch_cctkGH.get(); }
-      cGH *get_local_cctkGH(const int block) const {
-        return local_cctkGHs.at(block).get();
+      cGH *get_local_cctkGH(const int component) const {
+        return local_cctkGHs.at(component).get();
       }
 
       struct GroupData : public CommonGroupData {
@@ -265,6 +263,7 @@ struct GHExt {
         array<int, dim> nghostzones;
 
         array<array<boundary_t, dim>, 2> boundaries;
+        bool all_faces_have_symmetries_or_boundaries() const;
         vector<array<int, dim> > parities;
         vector<CCTK_REAL> dirichlet_values;
         vector<CCTK_REAL> robin_values;
@@ -331,10 +330,10 @@ struct GHExt {
     return patchdata.at(patch).leveldata.at(level).patch_cctkGH.get();
   }
   cGH *get_local_cctkGH(const int level, const int patch,
-                        const int block) const {
+                        const int component) const {
     return patchdata.at(patch)
         .leveldata.at(level)
-        .local_cctkGHs.at(block)
+        .local_cctkGHs.at(component)
         .get();
   }
 

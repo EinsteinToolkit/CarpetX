@@ -63,6 +63,7 @@ template <typename T, int D> struct units_t {
 struct PointDesc {
   units_t<int, dim> DI; // direction unit vectors
 
+  int level, patch, component;
   vect<int, dim> I; // grid point
   int iter;         // iteration
   // outward boundary normal (if in outer boundary), else zero
@@ -72,19 +73,20 @@ struct PointDesc {
   vect<int, dim> BI;
 
   // outer boundary points for this grid function (might be outside the current
-  // grid function block)
+  // grid function component)
   vect<int, dim> bnd_min, bnd_max;
   vect<int, dim> loop_min, loop_max; // loop shape
 
   vect<CCTK_REAL, dim> X;  // grid point coordinates
   vect<CCTK_REAL, dim> DX; // grid spacing
 
+  CCTK_BOOLVEC mask; // mask for grid loop
+
   // Deprecated
   int imin, imax;       // loop bounds, for SIMD vectorization
   int i, j, k;          // grid point
   CCTK_REAL x, y, z;    // grid point coordinates
   CCTK_REAL dx, dy, dz; // grid spacing
-  CCTK_BOOLVEC mask;    // mask for grid loop
 
   PointDesc() = delete;
   PointDesc(const PointDesc &) = default;
@@ -92,23 +94,25 @@ struct PointDesc {
   PointDesc &operator=(const PointDesc &) = default;
   PointDesc &operator=(PointDesc &&) = default;
 
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
-  PointDesc(const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
+  CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
+  PointDesc(const int level, const int patch, const int component,
+            const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
             const vect<int, dim> &I0, const vect<int, dim> &BI,
             const vect<int, dim> &bnd_min, const vect<int, dim> &bnd_max,
             const vect<int, dim> &loop_min, const vect<int, dim> &loop_max,
             const vect<CCTK_REAL, dim> &X, const vect<CCTK_REAL, dim> &DX)
-      : I(I), iter(iter), NI(NI), I0(I0), BI(BI), bnd_min(bnd_min),
-        bnd_max(bnd_max), loop_min(loop_min), loop_max(loop_max), X(X), DX(DX),
+      : level(level), patch(patch), component(component), I(I), iter(iter),
+        NI(NI), I0(I0), BI(BI), bnd_min(bnd_min), bnd_max(bnd_max),
+        loop_min(loop_min), loop_max(loop_max), X(X), DX(DX),
+        mask(Arith::mask_for_loop_tail<CCTK_BOOLVEC>(I[0], loop_max[0])),
         imin(loop_min[0]), imax(loop_max[0]), i(I[0]), j(I[1]), k(I[2]),
-        x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]), dz(DX[2]), mask() {
-             mask = Arith::mask_for_loop_tail<CCTK_BOOLVEC>(I[0], loop_max[0]);
-        }
+        x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
 
   friend std::ostream &operator<<(std::ostream &os, const PointDesc &p);
 };
 
 struct GridDescBase {
+  int level, patch, component;
   vect<int, dim> gsh;
   vect<int, dim> lbnd, ubnd;
   vect<int, dim> lsh;
@@ -118,8 +122,10 @@ struct GridDescBase {
   vect<int, dim> tmin, tmax;
 
   // for current level
-  vect<CCTK_REAL, dim> x0;
-  vect<CCTK_REAL, dim> dx;
+  // TODO: these are still cell centred, and so are cctk_origin_space and
+  // cctk_delta_space; fix this!
+  vect<CCTK_REAL, dim> x0; // origin_space
+  vect<CCTK_REAL, dim> dx; // delta_space
 
   friend std::ostream &operator<<(std::ostream &os, const GridDescBase &grid);
 
@@ -143,8 +149,8 @@ public:
     const vect<CCTK_REAL, dim> X =
         x0 + (lbnd + I - vect<CCTK_REAL, dim>(!CI) / 2) * dx;
     const vect<CCTK_REAL, dim> DX = dx;
-    return PointDesc(I, iter, NI, I0, BI, bnd_min, bnd_max, loop_min, loop_max,
-                     X, DX);
+    return PointDesc(level, patch, component, I, iter, NI, I0, BI, bnd_min,
+                     bnd_max, loop_min, loop_max, X, DX);
   }
 
   // Loop over a given box
@@ -184,7 +190,8 @@ public:
     }
   }
 
-  // Box for outer boundaries (might be outside the current grid function block)
+  // Box for outer boundaries (might be outside the current grid function
+  // component)
   template <int CI, int CJ, int CK>
   void boundary_box(const vect<int, dim> &group_nghostzones,
                     vect<int, dim> &restrict bnd_min,
@@ -197,7 +204,7 @@ public:
   }
 
   // Box for all points and for interior (non-ghost) points in the current grid
-  // function block (not restricted to a single tile)
+  // function component (not restricted to a single tile)
   template <int CI, int CJ, int CK>
   void domain_boxes(const vect<int, dim> &group_nghostzones,
                     vect<int, dim> &restrict all_min,
@@ -341,9 +348,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni != 0 && bbox[ni == -1 ? 0 : 1][0]) ||
-                  (nj != 0 && bbox[nj == -1 ? 0 : 1][1]) ||
-                  (nk != 0 && bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -397,9 +404,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni != 0 && !bbox[ni == -1 ? 0 : 1][0]) ||
-                  (nj != 0 && !bbox[nj == -1 ? 0 : 1][1]) ||
-                  (nk != 0 && !bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni != 0 && !bbox[ni < 0 ? 0 : 1][0]) ||
+                  (nj != 0 && !bbox[nj < 0 ? 0 : 1][1]) ||
+                  (nk != 0 && !bbox[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -481,9 +488,9 @@ public:
           for (int ni = -1; ni <= +1; ++ni) {
             if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
 
-              if ((ni == 0 || !bbox[ni == -1 ? 0 : 1][0]) &&
-                  (nj == 0 || !bbox[nj == -1 ? 0 : 1][1]) &&
-                  (nk == 0 || !bbox[nk == -1 ? 0 : 1][2])) {
+              if ((ni == 0 || !bbox[ni < 0 ? 0 : 1][0]) &&
+                  (nj == 0 || !bbox[nj < 0 ? 0 : 1][1]) &&
+                  (nk == 0 || !bbox[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk};
 
@@ -1353,6 +1360,8 @@ template <typename T> struct GF3D5 {
 template <typename T> struct is_GF3D5 : std::false_type {};
 template <typename T> struct is_GF3D5<GF3D5<T> > : std::true_type {};
 template <typename T> inline constexpr bool is_GF3D5_v = is_GF3D5<T>::value;
+
+////////////////////////////////////////////////////////////////////////////////
 
 template <typename T> struct GF3D5vector {
   static_assert((std::is_same_v<T, amrex::Real>));

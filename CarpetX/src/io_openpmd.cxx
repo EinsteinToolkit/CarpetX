@@ -93,8 +93,8 @@ openPMD::Format get_format() {
 // - fileBased: One file per iteration. Needs templated file name to encode
 //   iteration number.
 // - groupBased: Multiple iterations per file
-// - variableBased: Multiple iterations stored per variable. Need
-//   special support in the backend.
+// - variableBased: Multiple iterations stored per variable. Needs special
+//    support in the backend.
 constexpr openPMD::IterationEncoding iterationEncoding =
     openPMD::IterationEncoding::fileBased;
 
@@ -364,7 +364,8 @@ struct carpetx_openpmd_t {
 
   std::optional<std::string> filename;
   std::optional<openPMD::Series> series;
-  std::optional<openPMD::ReadIterations> read_iters;
+  // std::optional<openPMD::ReadIterations> read_iters;
+  std::optional<openPMD::Iteration> read_iter;
   std::optional<openPMD::WriteIterations> write_iters;
 
   int InputOpenPMDParameters(const std::string &input_dir,
@@ -439,6 +440,9 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
 
   const openPMD::Format format = get_format();
 
+  int input_iteration = -1;
+
+  assert(!series);
   if (!series) {
     if (io_verbose)
       CCTK_VINFO("Creating openPMD object...");
@@ -467,33 +471,39 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
       }
       return -1; // no iteration found
     }
-    read_iters =
-        std::make_optional<openPMD::ReadIterations>(series->readIterations());
+
+    // Find largest iteration
+    for (auto iter = series->iterations.begin();
+         iter != series->iterations.end(); ++iter)
+      input_iteration = iter->first;
+
+    if (input_iteration < 0) {
+      // Did not find a checkpoint file
+      if (io_verbose) {
+        CCTK_VINFO("Not recovering parameters:");
+        CCTK_VINFO("  Could not find an openPMD checkpoint file \"%s\"",
+                   filename->c_str());
+      }
+      return -1; // no iteration found
+    }
+
+    read_iter = std::make_optional<openPMD::Iteration>(
+        series->iterations[input_iteration]);
   }
   assert(filename);
   assert(series);
-  assert(read_iters);
+  // assert(read_iters);
+  assert(read_iter);
 
-  if (read_iters->begin() == read_iters->end()) {
-    // Did not find a checkpoint file
-    if (io_verbose) {
-      CCTK_VINFO("Not recovering parameters:");
-      CCTK_VINFO("  Could not find an openPMD checkpoint file \"%s\"",
-                 filename->c_str());
-    }
-    return -1; // no iteration found
-  }
-  openPMD::IndexedIteration iter = *read_iters->begin();
-  const int input_iteration = iter.iterationIndex;
   CCTK_VINFO("Recovering parameters from checkpoint file \"%s\" iteration %d",
              filename->c_str(), input_iteration);
 
   // Read metadata
   {
-    const bool has_parameters = iter.containsAttribute("AllParameters");
+    const bool has_parameters = read_iter->containsAttribute("AllParameters");
     assert(has_parameters);
     const openPMD::Attribute parameters_attr =
-        iter.getAttribute("AllParameters");
+        read_iter->getAttribute("AllParameters");
     assert(parameters_attr.dtype == openPMD::Datatype::STRING);
     const string parameters = parameters_attr.get<std::string>();
     IOUtil_SetAllParameters(parameters.data());
@@ -505,7 +515,7 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
 void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
                                                   const std::string &input_dir,
                                                   const std::string &input_file,
-                                                  int input_iteration) {
+                                                  const int input_iteration) {
   DECLARE_CCTK_PARAMETERS;
 
   assert(!input_dir.empty());
@@ -521,58 +531,55 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
 
   assert(filename);
   assert(series);
-  assert(read_iters);
-
-  openPMD::IndexedIteration iter = *read_iters->begin();
-  // TODO: use non-streaming API, ask for `input_iteration` directly;
-  assert(std::int64_t(iter.iterationIndex) == std::int64_t(input_iteration));
+  // assert(read_iters);
+  assert(read_iter);
 
   cctkGH->cctk_iteration = input_iteration;
-  cctkGH->cctk_time = iter.time<double>();
+  cctkGH->cctk_time = read_iter->time<double>();
 
   // TODO: Check whether attribute exists and has correct type
-  const int ndims = iter.getAttribute("numDims").get<std::int64_t>();
+  const int ndims = read_iter->getAttribute("numDims").get<std::int64_t>();
   assert(ndims >= 0);
 
-  const int npatches = iter.getAttribute("numPatches").get<std::int64_t>();
+  const int npatches =
+      read_iter->getAttribute("numPatches").get<std::int64_t>();
   assert(npatches == ghext->num_patches());
   std::vector<std::string> patch_suffixes;
   if (npatches == 1) {
-    assert(iter.getAttribute("patchSuffixes").dtype ==
+    assert(read_iter->getAttribute("patchSuffixes").dtype ==
            openPMD::Datatype::STRING);
     const std::string patch_suffix =
-        iter.getAttribute("patchSuffixes").get<std::string>();
+        read_iter->getAttribute("patchSuffixes").get<std::string>();
     patch_suffixes.resize(1);
     patch_suffixes.at(0) = patch_suffix;
   } else {
-    assert(iter.getAttribute("patchSuffixes").dtype ==
+    assert(read_iter->getAttribute("patchSuffixes").dtype ==
            openPMD::Datatype::VEC_STRING);
-    patch_suffixes =
-        iter.getAttribute("patchSuffixes").get<std::vector<std::string> >();
+    patch_suffixes = read_iter->getAttribute("patchSuffixes")
+                         .get<std::vector<std::string> >();
   }
   // TODOPATCH: Handle multiple patches
   assert(ghext->num_patches() == 1);
   const int patch = 0;
 
-  const int nlevels = iter.getAttribute("numLevels" + patch_suffixes.at(patch))
-                          .get<std::int64_t>();
+  const int nlevels =
+      read_iter->getAttribute("numLevels" + patch_suffixes.at(patch))
+          .get<std::int64_t>();
   assert(nlevels >= 0);
   std::vector<std::string> level_suffixes;
   if (nlevels == 1) {
-    assert(
-        iter.getAttribute("levelSuffixes" + patch_suffixes.at(patch)).dtype ==
-        openPMD::Datatype::STRING);
+    assert(read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+               .dtype == openPMD::Datatype::STRING);
     const std::string level_suffix =
-        iter.getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+        read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
             .get<std::string>();
     level_suffixes.resize(1);
     level_suffixes.at(0) = level_suffix;
   } else {
-    assert(
-        iter.getAttribute("levelSuffixes" + patch_suffixes.at(patch)).dtype ==
-        openPMD::Datatype::VEC_STRING);
+    assert(read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+               .dtype == openPMD::Datatype::VEC_STRING);
     level_suffixes =
-        iter.getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+        read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
             .get<std::vector<std::string> >();
   }
   assert(int(level_suffixes.size()) == nlevels);
@@ -585,7 +592,7 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
   // Read FabArrayBase (component positions and shapes)
   for (int level = 0; level < nlevels; ++level) {
     const std::vector<std::int64_t> chunk_infos =
-        iter.getAttribute("chunkInfo" + level_suffixes.at(level))
+        read_iter->getAttribute("chunkInfo" + level_suffixes.at(level))
             .get<std::vector<std::int64_t> >();
     assert(chunk_infos.size() % (2 * ndims) == 0);
     const int nfabs = chunk_infos.size() / (2 * ndims);
@@ -663,26 +670,25 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
     filename = std::make_optional<std::string>(buf.str());
     series = std::make_optional<openPMD::Series>(
         *filename, openPMD::Access::READ_ONLY, MPI_COMM_WORLD, options);
-    read_iters =
-        std::make_optional<openPMD::ReadIterations>(series->readIterations());
+    assert(series->iterations.count(cctkGH->cctk_iteration));
+    read_iter = std::make_optional<openPMD::Iteration>(
+        series->iterations[cctkGH->cctk_iteration]);
   }
   assert(filename);
   assert(series);
-  assert(read_iters);
+  // assert(read_iters);
+  assert(read_iter);
 
-  assert(read_iters->begin() != read_iters->end());
-  openPMD::IndexedIteration iter = *read_iters->begin();
-  const std::uint64_t iterIndex = iter.iterationIndex;
-  CCTK_VINFO("  iteration: %d", int(iterIndex));
+  CCTK_VINFO("  iteration: %d", cctkGH->cctk_iteration);
 
-  const CCTK_REAL time = iter.time<CCTK_REAL>();
-  const CCTK_REAL dt = iter.dt<CCTK_REAL>();
-  const double timeUnitSI = iter.timeUnitSI();
+  const CCTK_REAL time = read_iter->time<CCTK_REAL>();
+  const CCTK_REAL dt = read_iter->dt<CCTK_REAL>();
+  const double timeUnitSI = read_iter->timeUnitSI();
   CCTK_VINFO("  time: %f", double(time));
   CCTK_VINFO("  dt: %f", double(dt));
   CCTK_VINFO("  time unit SI: %f", timeUnitSI);
 
-  openPMD::Container<openPMD::Mesh> &meshes = iter.meshes;
+  openPMD::Container<openPMD::Mesh> &meshes = read_iter->meshes;
   CCTK_VINFO("  found %d meshes", int(meshes.size()));
 
   if (io_verbose) {
@@ -838,8 +844,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
           const std::string meshname = make_meshname(gi, leveldata.level);
           if (io_verbose)
             CCTK_VINFO("Reading mesh %s...", meshname.c_str());
-          assert(iter.meshes.count(meshname));
-          const openPMD::Mesh &mesh = iter.meshes.at(meshname);
+          assert(read_iter->meshes.count(meshname));
+          const openPMD::Mesh &mesh = read_iter->meshes.at(meshname);
           // TODO: The openPMD standard says to add an attribute
           // `refinementRatio`, which is a vector of integers
 
@@ -1039,8 +1045,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
         // Read mesh
 
         const std::string meshname = make_meshname(gi, -1);
-        assert(iter.meshes.count(meshname));
-        const openPMD::Mesh &mesh = iter.meshes.at(meshname);
+        assert(read_iter->meshes.count(meshname));
+        const openPMD::Mesh &mesh = read_iter->meshes.at(meshname);
         // TODO: The openPMD standard says to add an attribute
         // `refinementRatio`, which is a vector of integers
 
@@ -1181,10 +1187,11 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
   if (io_verbose)
     CCTK_VINFO("InputOpenPMD: Closing iteration...");
-  iter.close();
+  read_iter->close();
 
   if (io_verbose)
     CCTK_VINFO("InputOpenPMD: Deallocating objects...");
+  read_iter.reset();
   series.reset();
   filename.reset();
 

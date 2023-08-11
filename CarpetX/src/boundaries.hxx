@@ -6,7 +6,7 @@
 
 namespace CarpetX {
 
-namespace {
+namespace boundaries_detail {
 
 // TODO: Move these functions to loop.hxx
 
@@ -84,7 +84,8 @@ template <typename F> void run_tasks(const tasks_t<F> &tasks) {
 #endif
 }
 
-} // namespace
+} // namespace boundaries_detail
+using namespace boundaries_detail;
 
 ////////////////////////////////////////////////////////////////////////////////
 

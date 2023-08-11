@@ -1,0 +1,33 @@
+# Schedule definitions for thorn TestBoxInBox
+
+SCHEDULE TestBoxInBox_Update AT postinitial BEFORE EstimateError
+{
+  LANG: C
+  OPTIONS: global
+  READS: BoxInBox::active
+  READS: BoxInBox::num_levels
+  READS: BoxInBox::positions
+  READS: BoxInBox::radii
+  READS: BoxInBox::radiixyz
+  WRITES: BoxInBox::active
+  WRITES: BoxInBox::num_levels
+  WRITES: BoxInBox::positions
+  WRITES: BoxInBox::radii
+  WRITES: BoxInBox::radiixyz
+} "Update initial grid structure"
+
+SCHEDULE TestBoxInBox_Update AT poststep BEFORE EstimateError
+{
+  LANG: C
+  OPTIONS: global
+  READS: BoxInBox::active
+  READS: BoxInBox::num_levels
+  READS: BoxInBox::positions
+  READS: BoxInBox::radii
+  READS: BoxInBox::radiixyz
+  WRITES: BoxInBox::active
+  WRITES: BoxInBox::num_levels
+  WRITES: BoxInBox::positions
+  WRITES: BoxInBox::radii
+  WRITES: BoxInBox::radiixyz
+} "Update grid structure"
