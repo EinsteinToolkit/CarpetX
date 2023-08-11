@@ -716,6 +716,7 @@ CarpetX/StaggeredWaveToyX
 CarpetX/TestArrayGroup
 CarpetX/TestBoundaries
 CarpetX/TestBoxInBox
+CarpetX/TestDerivs
 CarpetX/TestInterpolate
 CarpetX/TestNorms
 CarpetX/TestODESolvers
