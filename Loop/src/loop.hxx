@@ -80,6 +80,8 @@ struct PointDesc {
   vect<CCTK_REAL, dim> X;  // grid point coordinates
   vect<CCTK_REAL, dim> DX; // grid spacing
 
+  CCTK_BOOLVEC mask; // mask for grid loop
+
   // Deprecated
   int imin, imax;       // loop bounds, for SIMD vectorization
   int i, j, k;          // grid point
@@ -92,7 +94,7 @@ struct PointDesc {
   PointDesc &operator=(const PointDesc &) = default;
   PointDesc &operator=(PointDesc &&) = default;
 
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
+  CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
   PointDesc(const int level, const int patch, const int component,
             const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
             const vect<int, dim> &I0, const vect<int, dim> &BI,
@@ -101,9 +103,10 @@ struct PointDesc {
             const vect<CCTK_REAL, dim> &X, const vect<CCTK_REAL, dim> &DX)
       : level(level), patch(patch), component(component), I(I), iter(iter),
         NI(NI), I0(I0), BI(BI), bnd_min(bnd_min), bnd_max(bnd_max),
-        loop_min(loop_min), loop_max(loop_max), X(X), DX(DX), imin(loop_min[0]),
-        imax(loop_max[0]), i(I[0]), j(I[1]), k(I[2]), x(X[0]), y(X[1]), z(X[2]),
-        dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
+        loop_min(loop_min), loop_max(loop_max), X(X), DX(DX),
+        mask(Arith::mask_for_loop_tail<CCTK_BOOLVEC>(I[0], loop_max[0])),
+        imin(loop_min[0]), imax(loop_max[0]), i(I[0]), j(I[1]), k(I[2]),
+        x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
 
   friend std::ostream &operator<<(std::ostream &os, const PointDesc &p);
 };
@@ -137,7 +140,7 @@ public:
 
   GridDescBase(const cGH *cctkGH);
 
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
+  CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
   point_desc(const vect<bool, dim> &CI, const vect<int, dim> &I, const int iter,
              const vect<int, dim> &NI, const vect<int, dim> &I0,
              const vect<int, dim> &BI, const vect<int, dim> &bnd_min,
@@ -1394,17 +1397,17 @@ public:
 
 #define CCTK_CENTERING_LAYOUT(L, V)                                            \
   constexpr Arith::vect<int, Loop::dim> L##_centered V;                        \
-  const Loop::GF3D5layout L##gf_layout(cctkGH, L##_centered)
+  const Loop::GF3D5layout cctk_layout_##L(cctkGH, L##_centered)
 #define CCTK_CENTERING_GF(C, L, N)                                             \
-  const Loop::GF3D5<C CCTK_REAL> N(L##gf_layout, cctk_ptr_##N)
+  const Loop::GF3D5<C CCTK_REAL> N(cctk_layout_##L, cctk_ptr_##N)
 
 #else
 
 #define CCTK_CENTERING_LAYOUT(L, V)                                            \
   constexpr Arith::vect<int, Loop::dim> L##_centered V;                        \
-  const Loop::GF3D2layout L##gf_layout(cctkGH, L##_centered)
+  const Loop::GF3D2layout cctk_layout_##L(cctkGH, L##_centered)
 #define CCTK_CENTERING_GF(C, L, N)                                             \
-  const Loop::GF3D2<C CCTK_REAL> N(L##gf_layout, cctk_ptr_##N)
+  const Loop::GF3D2<C CCTK_REAL> N(cctk_layout_##L, cctk_ptr_##N)
 
 #endif
 

@@ -1361,4 +1361,9 @@ template <typename T> struct one<simdl<T> > {
 };
 } // namespace Arith
 
+// Put these three things into the fake Cactus namespace
+using CCTK_BOOLVEC = Arith::simdl<CCTK_REAL>;
+using CCTK_REALVEC = Arith::simd<CCTK_REAL>;
+constexpr std::size_t CCTK_VECSIZE = std::tuple_size_v<CCTK_REALVEC>;
+
 #endif // #ifndef CARPETX_ARITH_SIMD_HXX
