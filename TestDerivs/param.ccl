@@ -1,0 +1,27 @@
+# Parameter definitions for thorn TestDerivs
+
+CCTK_REAL refined_radius "size of the refined region at the center"
+{
+  (0:* :: "any positive size"
+} 0.25
+
+CCTK_INT deriv_order "Order of spatial finite differencing" STEERABLE=never
+{
+  2 :: "Second order finite difference"
+  4 :: "Fourth order finite difference"
+} 4
+
+CCTK_REAL kxx "par for polynomial"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL kxy "par for polynomial"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL kyz "par for polynomial"
+{
+  *:* :: ""
+} 0.0

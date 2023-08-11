@@ -1,0 +1,33 @@
+# Schedule definitions for thorn TestDerivs
+
+STORAGE: chi
+STORAGE: dchi
+STORAGE: ddchi
+
+SCHEDULE TestDerivs_SetError AT postinitial
+{
+  LANG: C
+  WRITES: CarpetX::regrid_error(interior)
+} "Set up test grid"
+
+SCHEDULE TestDerivs_Set AT initial
+{
+  LANG: C
+  WRITES: chi(interior)
+  SYNC: chi
+} "Set up test data"
+
+SCHEDULE TestDerivs_Sync AT postregrid
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: chi
+} "Synchronize"
+
+SCHEDULE TestDerivs_CalcDerivs AT poststep
+{
+  LANG: C
+  READS: chi(everywhere)
+  WRITES: dchi(interior) ddchi(interior)
+  SYNC: dchi ddchi
+} "Calculate derivs"

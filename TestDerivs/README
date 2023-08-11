@@ -1,0 +1,10 @@
+Cactus Code Thorn TestDerivs
+Author(s)    : Liwei Ji <ljsma@rit.edu>
+Maintainer(s): Liwei Ji <ljsma@rit.edu>
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+This thorn tests the derivative operations in CarpetX by setting up a small
+grid and filling it with data from a polynomial.
