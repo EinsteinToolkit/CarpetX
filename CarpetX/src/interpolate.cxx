@@ -226,7 +226,7 @@ template <typename T, int order, int centering> struct interpolator {
   void interpolate3d(const Particles &particles,
                      std::vector<T> &varresult) const {
     const auto x0 = grid.x0 + (2 * grid.lbnd - !indextype) * grid.dx / 2;
-    const auto x1 = x0 + (grid.lsh - 1 - indextype) * grid.dx;
+    // const auto x1 = x0 + (grid.lsh - 1 - indextype) * grid.dx;
     const auto dx = grid.dx;
 
     assert(vars.end.x - vars.begin.x == grid.lsh[0]);
@@ -249,21 +249,17 @@ template <typename T, int order, int centering> struct interpolator {
     // 2`.
     // const auto x0_allowed =
     //     x0 +
-    //     (!allowed_boundaries[0] * grid.nghostzones + (order - 1) / T(2)) * dx -
-    //     eps();
+    //     (!allowed_boundaries[0] * grid.nghostzones + (order - 1) / T(2)) * dx
+    //     - eps();
     // const auto x1_allowed =
     //     x1 -
-    //     (!allowed_boundaries[1] * grid.nghostzones + (order - 1) / T(2)) * dx +
-    //     eps();
+    //     (!allowed_boundaries[1] * grid.nghostzones + (order - 1) / T(2)) * dx
+    //     + eps();
 
-    // The allowed index range is [i0, i1]
+    // The allowed index range is [i0, i1)
     const auto i0_allowed = !allowed_boundaries[0] * grid.nghostzones;
     const auto i1_allowed =
         grid.lsh - (!allowed_boundaries[1] * grid.nghostzones + order);
-
-    // The interior index range is [i0, i1]
-    const auto i0_interior = grid.nghostzones;
-    const auto i1_interior = grid.lsh - (grid.nghostzones + order);
 
     const int np = int(varresult.size());
 
@@ -272,67 +268,37 @@ template <typename T, int order, int centering> struct interpolator {
       const vect<T, dim> x{particles[n].rdata(0), particles[n].rdata(1),
                            particles[n].rdata(2)};
       // // Ensure the point is inside the domain
-      // if (!(all(x >= x0_allowed && x <= x1_allowed)))
-      //   std::cerr << "grid=" << grid
-      //             << " allowed_boundaries=" << allowed_boundaries
-      //             << " x0_allowed=" << x0_allowed
-      //             << " x1_allowed=" << x1_allowed << " x=" << x << "\n";
       // assert(all(x >= x0_allowed && x <= x1_allowed));
 
-      // Find stencil anchor
+      // Find stencil anchor (i.e. the leftmost stencil point)
       const auto qi = (x - x0) / dx;
       const auto lrint1 = [](auto a) {
         using std::lrint;
         return int(lrint(a));
       };
-      const auto i = fmap(lrint1, qi - order / T(2));
-      const auto di = qi - i;
+      auto i = fmap(lrint1, qi - order / T(2));
+      auto di = qi - i;
       // Consistency check
       assert(all(i >= 0 && i + order < grid.lsh));
 
-      // // Push point away from boundaries
-      // const auto clamp1 = [](auto i, auto i0, auto i1) {
-      //   using std::clamp;
-      //   return clamp(i, i0, i1);
-      // };
-      // const auto j = fmap(clamp1, i, i0_allowed, i1_allowed-1);
-      // const auto dj = di + (j - i);
-
       // Push point away from boundaries if they are just a little outside
-      auto j = i;
-      auto dj = di;
       for (int d = 0; d < dim; ++d) {
-        if (j[d] < i0_allowed[d] && dj[d] - order / T(2) >= +T(0.5) - eps()) {
-          j[d] += 1;
-          dj[d] -= 1;
+        if (i[d] + order / 2 < i0_allowed[d] &&
+            di[d] - order / T(2) >= +T(0.5) - eps()) {
+          i[d] += 1;
+          di[d] -= 1;
         }
-        if (j[d] >= i1_allowed[d] && dj[d] - order / T(2) <= -T(0.5) + eps()) {
-          j[d] -= 1;
-          dj[d] += 1;
-        }
-      }
-      // assert(all(j >= i0_allowed && j < i1_allowed));
-
-      // Push points into the interior if they are just a little outside
-      for (int d = 0; d < dim; ++d) {
-        if (j[d] < i0_interior[d] && dj[d] - order / T(2) >= +T(0.5) - eps()) {
-          j[d] += 1;
-          dj[d] -= 1;
-        }
-        if (j[d] >= i1_interior[d] && dj[d] - order / T(2) <= -T(0.5) + eps()) {
-          j[d] -= 1;
-          dj[d] += 1;
+        if (i[d] >= i1_allowed[d] && di[d] - order / T(2) <= -T(0.5) + eps()) {
+          i[d] -= 1;
+          di[d] += 1;
         }
       }
 
       // Avoid points on boundaries
-      const bool is_allowed = all(j >= i0_allowed && j < i1_allowed);
-      const bool is_inside = all(j >= i0_interior && j < i1_interior);
-      assert(is_inside <= is_allowed); // `P <= Q` is `P implies Q`
+      const bool is_allowed = all(i >= i0_allowed && i < i1_allowed);
+      assert(is_allowed);
 
-      const T res = !is_allowed  ? -2
-                    : !is_inside ? -1
-                                 : interpolate<dim - 1>(j, dj);
+      const T res = !is_allowed ? -2 : interpolate<dim - 1>(i, di);
 
       varresult[n] = res;
     }
@@ -651,7 +617,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
            ++pti) {
         const MFPointer mfp(pti);
         const GridDesc grid(leveldata, mfp);
-        const int component = mfp.index();
+        // const int component = mfp.index();
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
@@ -832,7 +798,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     assert(p >= 0);
     assert(p < int(results.size()));
     const auto &result = results.at(p);
-    assert(sendcounts.at(p) == result.size());
+    assert(sendcounts.at(p) == int(result.size()));
     assert(p >= 0);
     assert(p < int(senddispls.size()));
     assert(senddispls.at(p) >= 0);
