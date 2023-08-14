@@ -4,7 +4,7 @@ ActiveThorns = "
     TestOutput
 "
 
-Cactus::cctk_itlast = 0
+Cactus::cctk_itlast = 1
 Cactus::presync_mode = "mixed-error"
 
 CarpetX::verbose = yes

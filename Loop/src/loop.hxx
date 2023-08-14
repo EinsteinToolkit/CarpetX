@@ -63,6 +63,7 @@ template <typename T, int D> struct units_t {
 struct PointDesc {
   units_t<int, dim> DI; // direction unit vectors
 
+  int level, patch, component;
   vect<int, dim> I; // grid point
   int iter;         // iteration
   // outward boundary normal (if in outer boundary), else zero
@@ -72,12 +73,14 @@ struct PointDesc {
   vect<int, dim> BI;
 
   // outer boundary points for this grid function (might be outside the current
-  // grid function block)
+  // grid function component)
   vect<int, dim> bnd_min, bnd_max;
   vect<int, dim> loop_min, loop_max; // loop shape
 
   vect<CCTK_REAL, dim> X;  // grid point coordinates
   vect<CCTK_REAL, dim> DX; // grid spacing
+
+  CCTK_BOOLVEC mask; // mask for grid loop
 
   // Deprecated
   int imin, imax;       // loop bounds, for SIMD vectorization
@@ -91,14 +94,17 @@ struct PointDesc {
   PointDesc &operator=(const PointDesc &) = default;
   PointDesc &operator=(PointDesc &&) = default;
 
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
-  PointDesc(const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
+  CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
+  PointDesc(const int level, const int patch, const int component,
+            const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
             const vect<int, dim> &I0, const vect<int, dim> &BI,
             const vect<int, dim> &bnd_min, const vect<int, dim> &bnd_max,
             const vect<int, dim> &loop_min, const vect<int, dim> &loop_max,
             const vect<CCTK_REAL, dim> &X, const vect<CCTK_REAL, dim> &DX)
-      : I(I), iter(iter), NI(NI), I0(I0), BI(BI), bnd_min(bnd_min),
-        bnd_max(bnd_max), loop_min(loop_min), loop_max(loop_max), X(X), DX(DX),
+      : level(level), patch(patch), component(component), I(I), iter(iter),
+        NI(NI), I0(I0), BI(BI), bnd_min(bnd_min), bnd_max(bnd_max),
+        loop_min(loop_min), loop_max(loop_max), X(X), DX(DX),
+        mask(Arith::mask_for_loop_tail<CCTK_BOOLVEC>(I[0], loop_max[0])),
         imin(loop_min[0]), imax(loop_max[0]), i(I[0]), j(I[1]), k(I[2]),
         x(X[0]), y(X[1]), z(X[2]), dx(DX[0]), dy(DX[1]), dz(DX[2]) {}
 
@@ -106,6 +112,7 @@ struct PointDesc {
 };
 
 struct GridDescBase {
+  int level, patch, component;
   vect<int, dim> gsh;
   vect<int, dim> lbnd, ubnd;
   vect<int, dim> lsh;
@@ -115,8 +122,10 @@ struct GridDescBase {
   vect<int, dim> tmin, tmax;
 
   // for current level
-  vect<CCTK_REAL, dim> x0;
-  vect<CCTK_REAL, dim> dx;
+  // TODO: these are still cell centred, and so are cctk_origin_space and
+  // cctk_delta_space; fix this!
+  vect<CCTK_REAL, dim> x0; // origin_space
+  vect<CCTK_REAL, dim> dx; // delta_space
 
   friend std::ostream &operator<<(std::ostream &os, const GridDescBase &grid);
 
@@ -131,7 +140,7 @@ public:
 
   GridDescBase(const cGH *cctkGH);
 
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
+  CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
   point_desc(const vect<bool, dim> &CI, const vect<int, dim> &I, const int iter,
              const vect<int, dim> &NI, const vect<int, dim> &I0,
              const vect<int, dim> &BI, const vect<int, dim> &bnd_min,
@@ -140,8 +149,8 @@ public:
     const vect<CCTK_REAL, dim> X =
         x0 + (lbnd + I - vect<CCTK_REAL, dim>(!CI) / 2) * dx;
     const vect<CCTK_REAL, dim> DX = dx;
-    return PointDesc(I, iter, NI, I0, BI, bnd_min, bnd_max, loop_min, loop_max,
-                     X, DX);
+    return PointDesc(level, patch, component, I, iter, NI, I0, BI, bnd_min,
+                     bnd_max, loop_min, loop_max, X, DX);
   }
 
   // Loop over a given box
@@ -185,7 +194,8 @@ public:
     }
   }
 
-  // Box for outer boundaries (might be outside the current grid function block)
+  // Box for outer boundaries (might be outside the current grid function
+  // component)
   template <int CI, int CJ, int CK>
   void boundary_box(const vect<int, dim> &group_nghostzones,
                     vect<int, dim> &restrict bnd_min,
@@ -198,7 +208,7 @@ public:
   }
 
   // Box for all points and for interior (non-ghost) points in the current grid
-  // function block (not restricted to a single tile)
+  // function component (not restricted to a single tile)
   template <int CI, int CJ, int CK>
   void domain_boxes(const vect<int, dim> &group_nghostzones,
                     vect<int, dim> &restrict all_min,
@@ -1495,17 +1505,17 @@ public:
 
 #define CCTK_CENTERING_LAYOUT(L, V)                                            \
   constexpr Arith::vect<int, Loop::dim> L##_centered V;                        \
-  const Loop::GF3D5layout L##gf_layout(cctkGH, L##_centered)
+  const Loop::GF3D5layout cctk_layout_##L(cctkGH, L##_centered)
 #define CCTK_CENTERING_GF(C, L, N)                                             \
-  const Loop::GF3D5<C CCTK_REAL> N(L##gf_layout, cctk_ptr_##N)
+  const Loop::GF3D5<C CCTK_REAL> N(cctk_layout_##L, cctk_ptr_##N)
 
 #else
 
 #define CCTK_CENTERING_LAYOUT(L, V)                                            \
   constexpr Arith::vect<int, Loop::dim> L##_centered V;                        \
-  const Loop::GF3D2layout L##gf_layout(cctkGH, L##_centered)
+  const Loop::GF3D2layout cctk_layout_##L(cctkGH, L##_centered)
 #define CCTK_CENTERING_GF(C, L, N)                                             \
-  const Loop::GF3D2<C CCTK_REAL> N(L##gf_layout, cctk_ptr_##N)
+  const Loop::GF3D2<C CCTK_REAL> N(cctk_layout_##L, cctk_ptr_##N)
 
 #endif
 

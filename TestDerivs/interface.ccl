@@ -1,0 +1,22 @@
+# Interface definition for thorn TestDerivs
+IMPLEMENTS: TestDerivs
+
+INHERITS: CarpetX
+
+USES INCLUDE HEADER: defs.hxx
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: simd.hxx
+USES INCLUDE HEADER: vect.hxx
+USES INCLUDE HEADER: derivs.hxx
+
+CCTK_REAL chi TYPE=gf CENTERING={VVV} "Test grid function"
+
+CCTK_REAL dchi TYPE=gf CENTERING={VVV} TAGS='checkpoint="no"'
+{
+  dxchi dychi dzchi
+} "1st derivs of test grid function"
+
+CCTK_REAL ddchi TYPE=gf CENTERING={VVV} TAGS='checkpoint="no"'
+{
+  dxxchi dxychi dxzchi dyychi dyzchi dzzchi
+} "2nd derivs of test grid function"
