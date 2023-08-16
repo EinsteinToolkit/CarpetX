@@ -130,6 +130,18 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   return c2 * (var(2) - var(-2)) + c1 * (var(1) - var(-1));
 }
 
+template <int deriv_order, typename T, typename TS,
+          typename R = std::result_of_t<TS(int)> >
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 6, R>
+    deriv1d(const TS var, const T dx) {
+  const T c1 = 3 / (4 * dx);
+  const T c2 = -3 / (20 * dx);
+  const T c3 = 1 / (60 * dx);
+  return c3 * (var(3) - var(-3)) + c2 * (var(2) - var(-2)) +
+         c1 * (var(1) - var(-1));
+}
+
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE
     CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 2, simd<T> >
@@ -234,8 +246,8 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   // constexpr T c0 = -2 / pow2(dx);
   // constexpr T c1 = 1 / pow2(dx);
   // return c1 * (var(-1) + var(1)) + c0 * var(0);
-  const T c0 = 1 / pow2(dx);
-  return c0 * ((var(1) - var(0)) - (var(0) - var(-1)));
+  const T c1 = 1 / pow2(dx);
+  return c1 * ((var(1) - var(0)) - (var(0) - var(-1)));
 }
 
 template <int deriv_order, typename T, typename TS,
@@ -248,10 +260,32 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   // constexpr T c2 = -1 / T(12);
   // return (c2 * (var(-2) + var(2)) + c1 * (var(-1) + var(1)) + c0 * var(0)) /
   //        pow2(dx);
-  constexpr T c0 = 4 / T(3);
-  constexpr T c1 = -1 / T(12);
-  return (c1 * ((var(+2) - var(+0)) - (var(-0) - var(-2))) +
-          c0 * ((var(+1) - var(+0)) - (var(-0) - var(-1)))) /
+  constexpr T c1 = 4 / T(3);
+  constexpr T c2 = -1 / T(12);
+  return (c2 * ((var(+2) - var(+0)) - (var(-0) - var(-2))) +
+          c1 * ((var(+1) - var(+0)) - (var(-0) - var(-1)))) /
+         pow2(dx);
+}
+
+template <int deriv_order, typename T, typename TS,
+          typename R = std::result_of_t<TS(int)> >
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+    CCTK_DEVICE CCTK_HOST std::enable_if_t<deriv_order == 6, R>
+    deriv2_1d(const TS var, const T dx) {
+  // constexpr T c0 = -49 / T(18);
+  // constexpr T c1 = 3 / T(2);
+  // constexpr T c2 = -3 / T(20);
+  // constexpr T c3 = 1 / T(90);
+  // return (c3 * (var(-3) + var(3)) + c2 * (var(-2) + var(2)) +
+  //         c1 * (var(-1) + var(1)) + c0 * var(0)) /
+  //        pow2(dx);
+  // constexpr T c0 = -49 / T(18);
+  constexpr T c1 = 3 / T(2);
+  constexpr T c2 = -3 / T(20);
+  constexpr T c3 = 1 / T(90);
+  return (c3 * ((var(+3) - var(+0)) - (var(-0) - var(-3))) +
+          c2 * ((var(+2) - var(+0)) - (var(-0) - var(-2))) +
+          c1 * ((var(+1) - var(+0)) - (var(-0) - var(-1)))) /
          pow2(dx);
 }
 
