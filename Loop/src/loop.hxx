@@ -175,13 +175,13 @@ public:
           for (int i = loop_min[0]; i < loop_max[0]; i += VS) {
             // Grid point
             const vect<int, dim> I = {i, j, k};
-            // Outward boundary normal (if in outer boundary), else zero
+            // Outward boundary normal (if in outer boundary), else 0
             const vect<int, dim> NI =
                 vect<int, dim>(I > bnd_max - 1) - vect<int, dim>(I < bnd_min);
             // Nearest interior point
             const vect<int, dim> I0 =
                 if_else(NI == 0, 0, if_else(NI < 0, bnd_min, bnd_max - 1));
-            // Outward boundary normal (if on outermost interior point), else zero
+            // Outward boundary normal (if on outermost interior point), else 0
             const vect<int, dim> BI =
                 vect<int, dim>(I == bnd_max - 1) - vect<int, dim>(I == bnd_min);
             const PointDesc p =
@@ -531,17 +531,16 @@ public:
     } // for rank
   }
 
-  // Alex Dima:
-  // Modified from loop_bnd
-  // Loop over all "radiative" boundary points.
-  // These are interior points from the perspective of CarpetX (or AMReX)
-  // They correspond to points that are shifted inwards by = cctk_nghostzones[3]
-  // from those that CarpetX identifies as boundary points.
-  // This excludes ghost faces, but includes ghost edges/corners on non-ghost faces.
-  // Loop over faces first, then edges, then corners.
+  // Loop over the outermost "boundary" points in the interior. They correspond
+  // to points that are shifted inwards by = cctk_nghostzones[3] from those that
+  // CarpetX identifies as boundary points. From the perspective of CarpetX (or
+  // AMReX), these do not belong in the outer boundary, but rather the interior.
+  // This excludes ghost faces, but includes ghost edges/corners on non-ghost
+  // faces. Loop over faces first, then edges, then corners. Modified from
+  // loop_bnd.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_radbnd(const vect<int, dim> &group_nghostzones, const F &f) const {
+  loop_int_bnd(const vect<int, dim> &group_nghostzones, const F &f) const {
     // boundary_box sets bnd_min and bnd_max
     vect<int, dim> bnd_min, bnd_max;
     // if on (Carpetx) boundary points, then
@@ -552,8 +551,7 @@ public:
     // else,
     //   bnd_min = -100000000
     //   bnd_max = gsh + 1000000
-    //   where cctk_gsh : an array of cctk dim integers with the global grid size
-    // see line 190
+    // where cctk_gsh : an array of cctk dim integers with the global grid size
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
 
     // domain_boxes sets all_min, all_max, int_min and int_max
@@ -564,9 +562,16 @@ public:
     // Indices for the interior
     //   int_min = nghostzones;
     //   int_max = lsh - offset - nghostzones;
-    // see line 203
     domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
                              int_max);
+
+    // Shift the indices towards the interior by nghostzones
+    all_min += nghostzones;
+    int_min += nghostzones;
+    bnd_min += nghostzones;
+    all_max -= nghostzones;
+    int_max -= nghostzones;
+    bnd_max -= nghostzones;
 
     // rank selects: faces, edges, corners
     // rank(interior) = 3
@@ -588,28 +593,22 @@ public:
                   (nj != 0 && bbox[nj < 0 ? 0 : 1][1]) ||
                   (nk != 0 && bbox[nk < 0 ? 0 : 1][2])) {
 
-                const vect<int, dim> inormal{ni, nj, nk};  //define normal vector
+                const vect<int, dim> inormal{ni, nj, nk}; // normal vector
 
                 vect<int, dim> imin, imax;
-                for (int d = 0; d < dim; ++d) { // Set imin, imax in each direction
+                for (int d = 0; d < dim; ++d) {
                   switch (inormal[d]) {
                   case -1: // lower boundary
-                    // shift "upwards" from physical boundary by # of ghostpoints
-                    //                                      // xxx|~~~~~~~~~~~~~~|~~~
-                    imin[d] = all_min[d] + nghostzones[d];  // ~~~ ^~~~~~~~~~~~~~ ~~~
-                    imax[d] = int_min[d] + nghostzones[d];  // ~~~ ~~~^~~~~~~~~~~ ~~~
+                    imin[d] = all_min[d];
+                    imax[d] = int_min[d];
                     break;
                   case 0: // interior
-                    // shrink the interior by the # of ghostpoints on each side
-                    //                                      // ~~~|xxxxxxxxxxxxxx|~~~
-                    imin[d] = int_min[d] + nghostzones[d];  // ~~~ ~~~^~~~~~~~~~~ ~~~
-                    imax[d] = int_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~^~~~ ~~~
+                    imin[d] = int_min[d];
+                    imax[d] = int_max[d];
                     break;
                   case +1: // upper boundary
-                    // shift "downwards" from physical boundary by # of ghostpoints
-                    //                                      // ~~~|~~~~~~~~~~~~~~|xxx
-                    imin[d] = int_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~^~~~ ~~~
-                    imax[d] = all_max[d] - nghostzones[d];  // ~~~ ~~~~~~~~~~~~~^ ~~~
+                    imin[d] = int_max[d];
+                    imax[d] = all_max[d];
                     break;
                   default:
                     assert(0);
@@ -621,11 +620,7 @@ public:
                   imax[d] = min(tmax[d], imax[d]);
                 }
 
-                // Provide loop_box with bnd_min and bnd_max shifted my # of ghostpoints
-                // so that p.NI can be assigned correct values on the "radiative" boundary.
-                // (NewRad requires knowledge of the normal vectors to its boundary points)
-                loop_box<CI, CJ, CK, VS, N>
-                  (bnd_min+nghostzones, bnd_max-nghostzones, imin, imax, f);
+                loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
               }
             } // if rank
           }
