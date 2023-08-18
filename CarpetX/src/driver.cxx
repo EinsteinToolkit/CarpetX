@@ -56,6 +56,8 @@ int nProcs(const cGH *cctkGH);
 int Exit(cGH *cctkGH, int retval);
 int Abort(cGH *cctkGH, int retval);
 int Barrier(const cGH *cctkGHa);
+const int *ArrayGroupSizeB(const cGH *cctkGH, int dir, int gi,
+                           const char *groupname);
 int GroupDynamicData(const cGH *cctkGH, int gi, cGroupDynamicData *data);
 
 // Aliased functions
@@ -1624,7 +1626,9 @@ void SetupGlobals() {
     if (group.grouptype == CCTK_GF)
       continue;
     assert(group.grouptype == CCTK_ARRAY || group.grouptype == CCTK_SCALAR);
-    assert(group.vartype == CCTK_VARIABLE_REAL);
+    assert((group.vartype == CCTK_VARIABLE_REAL) ||
+           (group.vartype == CCTK_VARIABLE_COMPLEX) ||
+           (group.vartype == CCTK_VARIABLE_INT));
     assert(group.disttype == CCTK_DISTRIB_CONSTANT);
     assert(group.dim >= 0);
     assert(group.dim <= dim);
@@ -1669,6 +1673,7 @@ void SetupGlobals() {
     }
 
     // Allocate data
+    const size_t factor = group.vartype == CCTK_VARIABLE_COMPLEX ? 2 : 1;
     const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
@@ -1676,7 +1681,7 @@ void SetupGlobals() {
     arraygroupdata.valid.resize(group.numtimelevels);
     for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
       // TODO: Allocate in managed memory
-      arraygroupdata.data.at(tl).resize(arraygroupdata.numvars *
+      arraygroupdata.data.at(tl).resize(factor * arraygroupdata.numvars *
                                         arraygroupdata.array_size);
       why_valid_t why([]() { return "SetupGlobals"; });
       arraygroupdata.valid.at(tl).resize(arraygroupdata.numvars, why);
@@ -2320,6 +2325,7 @@ extern "C" int CarpetX_Startup() {
   CCTK_OverloadSyncGroupsByDirI(SyncGroupsByDirI);
 
   CCTK_OverloadInterpGridArrays(CarpetX_InterpGridArrays);
+  CCTK_OverloadArrayGroupSizeB(ArrayGroupSizeB);
   CCTK_OverloadGroupDynamicData(GroupDynamicData);
   return 0;
 }
@@ -2573,6 +2579,32 @@ CCTK_INT CarpetX_GetBoundarySizesAndTypes(
     }
   }
   return 0;
+}
+
+const int *ArrayGroupSizeB(const cGH *cctkGH, int dir, int gi,
+                           const char *groupname) {
+  if (groupname) {
+    gi = CCTK_GroupIndex(groupname);
+  }
+  assert(gi >= 0 and gi < CCTK_NumGroups());
+
+  // TODO: handle case of no storage allocated
+
+  cGroup group;
+  int ierr = CCTK_GroupData(gi, &group);
+  assert(!ierr);
+  assert(dir >= 0 && dir < group.dim);
+  if (group.grouptype == CCTK_GF) {
+    return &cctkGH->cctk_ash[dir];
+  } else if (group.grouptype == CCTK_SCALAR or group.grouptype == CCTK_ARRAY) {
+    GHExt::GlobalData &globaldata = ghext->globaldata;
+    GHExt::GlobalData::ArrayGroupData &arraygroupdata =
+        *globaldata.arraygroupdata.at(gi);
+    return &arraygroupdata.ash[dir];
+  } else {
+    CCTK_VERROR("Internal error: unexpected group type %d for group '%s'",
+                (int)group.grouptype, CCTK_FullGroupName(gi));
+  }
 }
 
 int GroupDynamicData(const cGH *cctkGH, int gi, cGroupDynamicData *data) {
