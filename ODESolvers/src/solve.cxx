@@ -651,6 +651,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   statecomp_t var, rhs;
   std::vector<int> var_groups, rhs_groups, dep_groups;
   int nvars = 0;
+  bool do_accumulate_nvars = true;
   assert(CarpetX::active_levels);
   CarpetX::active_levels->loop([&](const auto &leveldata) {
     for (const auto &groupdataptr : leveldata.groupdata) {
@@ -668,7 +669,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         var.mfabs.push_back(groupdata.mfab.at(tl).get());
         rhs.groupdatas.push_back(&rhs_groupdata);
         rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
-        if (leveldata.level == active_levels->min_level) {
+        if (do_accumulate_nvars) {
           nvars += groupdata.numvars;
           var_groups.push_back(groupdata.groupindex);
           rhs_groups.push_back(rhs_gi);
@@ -678,6 +679,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         }
       }
     }
+    do_accumulate_nvars = false;
   });
   if (verbose)
     CCTK_VINFO("  Integrating %d variables", nvars);
