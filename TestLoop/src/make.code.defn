@@ -1,0 +1,7 @@
+# Main make.code.defn file for thorn TestLoop
+
+# Source files in this directory
+SRCS = testloop.cxx
+
+# Subdirectories containing source files
+SUBDIRS = 

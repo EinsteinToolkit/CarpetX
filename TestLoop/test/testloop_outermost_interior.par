@@ -1,0 +1,47 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    TestLoop
+"
+
+Cactus::cctk_show_schedule = "no"
+Cactus::presync_mode = "mixed-error"
+
+Cactus::cctk_itlast = 0
+
+CarpetX::verbose = "no"
+CarpetX::poison_undefined_values = "yes"
+
+CarpetX::xmin = -10
+CarpetX::ymin = -10
+CarpetX::zmin = -10
+CarpetX::xmax = +10
+CarpetX::ymax = +10
+CarpetX::zmax = +10
+
+CarpetX::periodic_x = "yes"
+CarpetX::periodic_y = "yes"
+CarpetX::periodic_z = "yes"
+
+CarpetX::ncells_x = 40
+CarpetX::ncells_y = 40
+CarpetX::ncells_z = 40
+
+CarpetX::max_num_levels = 1
+CarpetX::regrid_every = 1
+CarpetX::regrid_error_threshold = 0.01
+
+CarpetX::dtfac = 0.5
+
+CarpetX::prolongation_type = "ddf"
+CarpetX::prolongation_order = 5
+CarpetX::ghost_size = 3
+
+IO::out_dir = $parfile
+IO::out_fileinfo = "none"
+IO::parfile_write = "no"
+IO::out_every = 1
+
+CarpetX::out_tsv_vars = "
+  TestLoop::testloop_gf
+"
