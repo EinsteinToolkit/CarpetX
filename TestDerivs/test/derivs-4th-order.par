@@ -1,0 +1,65 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    TestDerivs
+"
+
+$nlevels = 2
+$ncells = 30
+$blocking_factor = 2
+
+Cactus::cctk_show_schedule = "no"
+Cactus::presync_mode = "mixed-error"
+#Cactus::cctk_full_warnings = "yes"
+
+Cactus::cctk_itlast = 0
+
+CarpetX::verbose = "no"
+CarpetX::poison_undefined_values = "yes"
+
+$pi = 3.1415926535897932385
+CarpetX::xmin = 0.1234567-$pi
+CarpetX::ymin = 0.2345678-$pi
+CarpetX::zmin = 0.3456789-$pi
+CarpetX::xmax = 0.1234567+$pi
+CarpetX::ymax = 0.2345678+$pi
+CarpetX::zmax = 0.3456789+$pi
+
+CarpetX::periodic_x = "yes"
+CarpetX::periodic_y = "yes"
+CarpetX::periodic_z = "yes"
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::blocking_factor_x = $blocking_factor
+CarpetX::blocking_factor_y = $blocking_factor
+CarpetX::blocking_factor_z = $blocking_factor
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 1
+CarpetX::regrid_error_threshold = 0.01
+
+CarpetX::dtfac = 0.5
+
+CarpetX::prolongation_type = "ddf"
+CarpetX::prolongation_order = 5
+CarpetX::ghost_size = 2
+
+TestDerivs::deriv_order = 4
+TestDerivs::kxx = 1.0
+TestDerivs::kxy = 1.0
+TestDerivs::kyz = 1.0
+
+IO::out_dir = $parfile
+IO::out_fileinfo = "none"
+IO::parfile_write = "no"
+IO::out_every = 1
+
+CarpetX::out_metadata = "no"
+CarpetX::out_tsv_vars = "
+  TestDerivs::chi
+  TestDerivs::dchi
+  TestDerivs::ddchi
+"
