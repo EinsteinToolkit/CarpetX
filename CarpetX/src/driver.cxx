@@ -1684,7 +1684,7 @@ void SetupGlobals() {
       arraygroupdata.data.at(tl).resize(factor * arraygroupdata.numvars *
                                         arraygroupdata.array_size);
       why_valid_t why([]() { return "SetupGlobals"; });
-      arraygroupdata.valid.at(tl).resize(arraygroupdata.numvars, why);
+      arraygroupdata.valid.at(tl).resize(factor * arraygroupdata.numvars, why);
       for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
         // TODO: decide that valid_bnd == false always and rely on
         // initialization magic?
@@ -1692,13 +1692,14 @@ void SetupGlobals() {
         valid.valid_int = false;
         valid.valid_outer = true;
         valid.valid_ghosts = true;
-        arraygroupdata.valid.at(tl).at(vi).set_all(
-            valid, []() { return "SetupGlobals"; });
+        arraygroupdata.valid.at(tl).at(factor * vi).set_all(valid, []() {
+          return "SetupGlobals";
+        });
 
         // TODO: make poison_invalid and check_invalid virtual members of
         // CommonGroupData
-        poison_invalid(arraygroupdata, vi, tl);
-        check_valid(arraygroupdata, vi, tl, nan_handling,
+        poison_invalid(arraygroupdata, factor * vi, tl);
+        check_valid(arraygroupdata, factor * vi, tl, nan_handling,
                     []() { return "SetupGlobals"; });
       }
     }
@@ -2586,7 +2587,7 @@ const int *ArrayGroupSizeB(const cGH *cctkGH, int dir, int gi,
   if (groupname) {
     gi = CCTK_GroupIndex(groupname);
   }
-  assert(gi >= 0 and gi < CCTK_NumGroups());
+  assert(gi >= 0 && gi < CCTK_NumGroups());
 
   // TODO: handle case of no storage allocated
 
@@ -2594,14 +2595,17 @@ const int *ArrayGroupSizeB(const cGH *cctkGH, int dir, int gi,
   int ierr = CCTK_GroupData(gi, &group);
   assert(!ierr);
   assert(dir >= 0 && dir < group.dim);
-  if (group.grouptype == CCTK_GF) {
+  switch (group.grouptype) {
+  case CCTK_GF:
     return &cctkGH->cctk_ash[dir];
-  } else if (group.grouptype == CCTK_SCALAR or group.grouptype == CCTK_ARRAY) {
+  case CCTK_SCALAR:
+  case CCTK_ARRAY: {
     GHExt::GlobalData &globaldata = ghext->globaldata;
     GHExt::GlobalData::ArrayGroupData &arraygroupdata =
         *globaldata.arraygroupdata.at(gi);
     return &arraygroupdata.ash[dir];
-  } else {
+  }
+  default:
     CCTK_VERROR("Internal error: unexpected group type %d for group '%s'",
                 (int)group.grouptype, CCTK_FullGroupName(gi));
   }
