@@ -874,7 +874,9 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
             CCTK_VINFO("Reading %d variables with %d components...", numvars,
                        num_local_components);
 
-          bool group_has_no_ghosts = true;
+          const bool group_has_no_ghosts = groupdata.nghostzones[0] == 0 &&
+                                           groupdata.nghostzones[1] == 0 &&
+                                           groupdata.nghostzones[2] == 0;
 
           // Loop over components (AMReX boxes)
           for (int local_component = 0; local_component < num_local_components;
@@ -895,7 +897,6 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                        validbox.smallEnd(2)},
                 .hi = {validbox.bigEnd(0) + 1, validbox.bigEnd(1) + 1,
                        validbox.bigEnd(2) + 1}};
-            group_has_no_ghosts &= extbox == intbox;
             const box_t<int, 3> &box = input_ghosts ? extbox : intbox;
 
             const openPMD::Offset start =
@@ -1078,6 +1079,10 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
         if (io_verbose)
           CCTK_VINFO("Reading %d variables...", numvars);
 
+        const bool group_has_no_ghosts = groupdata.nghostzones[0] == 0 &&
+                                         groupdata.nghostzones[1] == 0 &&
+                                         groupdata.nghostzones[2] == 0;
+
         // exterior (with ghosts)
         for (int d = 0; d < dim; ++d)
           assert(groupdata.lsh[d] == groupdata.gsh[d]);
@@ -1177,8 +1182,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
           // Mark read variables as valid
           groupdata.valid.at(tl).at(vi).set_all(
-              input_ghosts || intbox == extbox ? make_valid_all()
-                                               : make_valid_int(),
+              input_ghosts || group_has_no_ghosts ? make_valid_all()
+                                                  : make_valid_int(),
               []() { return "read from openPMD file"; });
 
         } // for vi
