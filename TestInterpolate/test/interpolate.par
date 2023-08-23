@@ -1,6 +1,6 @@
 ActiveThorns = "
     CarpetX
-    Coordinates
+    CoordinatesX
     IOUtil
     SystemTopology
     TestInterpolate
