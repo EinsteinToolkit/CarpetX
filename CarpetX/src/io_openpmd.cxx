@@ -775,24 +775,24 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
       const amrex::Real *const xhi = geom.ProbHi();
       const amrex::Real *const dx = geom.CellSize();
       const box_t<CCTK_REAL, 3> rdomain{
-          .lo = {xlo[0] - output_ghosts * nghosts[0] * dx[0],
-                 xlo[1] - output_ghosts * nghosts[1] * dx[1],
-                 xlo[2] - output_ghosts * nghosts[2] * dx[2]},
-          .hi = {xhi[0] + output_ghosts * nghosts[0] * dx[0],
-                 xhi[1] + output_ghosts * nghosts[1] * dx[1],
-                 xhi[2] + output_ghosts * nghosts[2] * dx[2]}};
+          .lo = {xlo[0] - input_ghosts * nghosts[0] * dx[0],
+                 xlo[1] - input_ghosts * nghosts[1] * dx[1],
+                 xlo[2] - input_ghosts * nghosts[2] * dx[2]},
+          .hi = {xhi[0] + input_ghosts * nghosts[0] * dx[0],
+                 xhi[1] + input_ghosts * nghosts[1] * dx[1],
+                 xhi[2] + input_ghosts * nghosts[2] * dx[2]}};
       const amrex::Box &dom = geom.Domain();
       const amrex::IntVect &ilo = dom.smallEnd();
       const amrex::IntVect &ihi = dom.bigEnd();
       // The domain is always vertex centred. The tensor components are
       // then staggered if necessary.
       const box_t<int, 3> idomain{
-          .lo = {ilo[0] - output_ghosts * nghosts[0],
-                 ilo[1] - output_ghosts * nghosts[1],
-                 ilo[2] - output_ghosts * nghosts[2]},
-          .hi = {ihi[0] + output_ghosts * nghosts[0] + 1 + 1,
-                 ihi[1] + output_ghosts * nghosts[1] + 1 + 1,
-                 ihi[2] + output_ghosts * nghosts[2] + 1 + 1}};
+          .lo = {ilo[0] - input_ghosts * nghosts[0],
+                 ilo[1] - input_ghosts * nghosts[1],
+                 ilo[2] - input_ghosts * nghosts[2]},
+          .hi = {ihi[0] + input_ghosts * nghosts[0] + 1 + 1,
+                 ihi[1] + input_ghosts * nghosts[1] + 1 + 1,
+                 ihi[2] + input_ghosts * nghosts[2] + 1 + 1}};
       if (io_verbose) {
         CCTK_VINFO("Level: %d", leveldata.level);
         CCTK_VINFO("  xmin: [%f,%f,%f]", double(rdomain.lo[0]),
@@ -874,6 +874,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
             CCTK_VINFO("Reading %d variables with %d components...", numvars,
                        num_local_components);
 
+          bool group_has_no_ghosts = true;
+
           // Loop over components (AMReX boxes)
           for (int local_component = 0; local_component < num_local_components;
                ++local_component) {
@@ -893,7 +895,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                        validbox.smallEnd(2)},
                 .hi = {validbox.bigEnd(0) + 1, validbox.bigEnd(1) + 1,
                        validbox.bigEnd(2) + 1}};
-            const box_t<int, 3> &box = output_ghosts ? extbox : intbox;
+            group_has_no_ghosts &= extbox == intbox;
+            const box_t<int, 3> &box = input_ghosts ? extbox : intbox;
 
             const openPMD::Offset start =
                 to_vector(reversed(box.lo - idomain.lo));
@@ -913,7 +916,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
             amrex::FArrayBox &fab = mfab[component];
             for (int vi = 0; vi < numvars; ++vi) {
 
-              if (output_ghosts || intbox == extbox) {
+              if (input_ghosts || intbox == extbox) {
                 CCTK_REAL *const ptr = fab.dataPtr() + vi * np;
 #if OPENPMDAPI_VERSION_GE(0, 15, 0)
                 record_components.at(vi).loadChunkRaw(ptr, start, count);
@@ -1000,7 +1003,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
           // Mark read variables as valid
           for (int vi = 0; vi < numvars; ++vi)
             groupdata.valid.at(tl).at(vi).set_all(
-                input_ghosts ? make_valid_all() : make_valid_int(),
+                input_ghosts || group_has_no_ghosts ? make_valid_all()
+                                                    : make_valid_int(),
                 []() { return "read from openPMD file"; });
         }
       } // for gi
@@ -1086,8 +1090,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                                    .hi = ivect(groupdata.lsh) -
                                          ivect(groupdata.nghostzones)};
         // It seems that openPMD assumes that chunks do not have ghost zones
-        assert(!output_ghosts);
-        const box_t<int, 3> &box = output_ghosts ? extbox : intbox;
+        assert(!input_ghosts);
+        const box_t<int, 3> &box = input_ghosts ? extbox : intbox;
 
         const openPMD::Offset start = to_vector(reversed(box.lo - idomain.lo));
         const openPMD::Extent count = to_vector(reversed(box.shape()));
@@ -1114,7 +1118,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
         for (int vi = 0; vi < numvars; ++vi) {
           CCTK_REAL *const cactus_var_ptr =
               groupdata.data.at(tl).data() + vi * cactus_np;
-          if (output_ghosts || intbox == extbox) {
+          if (input_ghosts || intbox == extbox) {
 #if OPENPMDAPI_VERSION_GE(0, 15, 0)
             record_components.at(vi).loadChunkRaw(cactus_var_ptr, start, count);
 #else
@@ -1173,7 +1177,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
           // Mark read variables as valid
           groupdata.valid.at(tl).at(vi).set_all(
-              input_ghosts ? make_valid_all() : make_valid_int(),
+              input_ghosts || intbox == extbox ? make_valid_all()
+                                               : make_valid_int(),
               []() { return "read from openPMD file"; });
 
         } // for vi
