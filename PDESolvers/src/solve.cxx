@@ -420,7 +420,7 @@ void enumerate_points(
   assert(v0_pt >= 0);
   const int vi_pt = vn_pt - v0_pt;
   assert(vi_pt >= 0);
-  // const int vn_vcx = CCTK_VarIndex("Coordinates::vcoordx");
+  // const int vn_vcx = CCTK_VarIndex("CoordinatesX::vcoordx");
   // assert(vn_vcx >= 0);
   // const int gi_vcx = CCTK_GroupIndexFromVarI(vn_vcx);
   // assert(gi_vcx >= 0);
