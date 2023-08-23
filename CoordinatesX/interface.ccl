@@ -1,6 +1,6 @@
-# Interface definition for thorn Coordinates
+# Interface definition for thorn CoordinatesX
 
-IMPLEMENTS: Coordinates
+IMPLEMENTS: CoordinatesX
 
 USES INCLUDE HEADER: loop_device.hxx
 

@@ -4,10 +4,10 @@
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
-namespace Coordinates {
+namespace CoordinatesX {
 
-extern "C" void Coordinates_Setup(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_Coordinates_Setup;
+extern "C" void CoordinatesX_Setup(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_CoordinatesX_Setup;
   DECLARE_CCTK_PARAMETERS;
 
   grid.loop_all_device<0, 0, 0>(
@@ -42,4 +42,4 @@ extern "C" void Coordinates_Setup(CCTK_ARGUMENTS) {
           CCTK_ATTRIBUTE_ALWAYS_INLINE { cvol(p.I) = p.dx * p.dy * p.dz; });
 }
 
-} // namespace Coordinates
+} // namespace CoordinatesX
