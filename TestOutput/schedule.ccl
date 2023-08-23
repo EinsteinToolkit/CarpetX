@@ -23,3 +23,25 @@ SCHEDULE TestOutput_SetVarsGlobal AT initial
   WRITES: a2(everywhere)
   WRITES: a3(everywhere)
 } "Set up global test variables"
+
+SCHEDULE TestOutput_UpdateVarsLocal AT evol
+{
+  LANG: C
+  READS: gf(everywhere)
+  WRITES: gf(interior)
+  SYNC: gf
+} "Update local test variables"
+
+SCHEDULE TestOutput_UpdateVarsGlobal AT evol
+{
+  LANG: C
+  OPTIONS: global
+  READS: sc(everywhere)
+  READS: a1(everywhere)
+  READS: a2(everywhere)
+  READS: a3(everywhere)
+  WRITES: sc(everywhere)
+  WRITES: a1(everywhere)
+  WRITES: a2(everywhere)
+  WRITES: a3(everywhere)
+} "Update global test variables"
