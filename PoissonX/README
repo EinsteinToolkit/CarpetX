@@ -1,4 +1,4 @@
-Cactus Code Thorn Poisson
+Cactus Code Thorn PoissonX
 Author(s)    : Erik Schnetter <schnetter@gmail.com>
 Maintainer(s): Erik Schnetter <schnetter@gmail.com>
 Licence      : LGPL
@@ -6,4 +6,4 @@ Licence      : LGPL
 
 1. Purpose
 
-Solve the Poisson equation
+Solve the PoissonX equation

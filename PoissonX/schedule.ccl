@@ -1,32 +1,32 @@
-# Schedule definitions for thorn Poisson
+# Schedule definitions for thorn PoissonX
 
-SCHEDULE Poisson_Source AT initial BEFORE PDESolvers_Solve
+SCHEDULE PoissonX_Source AT initial BEFORE PDESolvers_Solve
 {
   LANG: C
   WRITES: src(everywhere)
 } "Set source function"
 
-SCHEDULE Poisson_ChooseInitialGuess AT initial BEFORE Poisson_Init
+SCHEDULE PoissonX_ChooseInitialGuess AT initial BEFORE PoissonX_Init
 {
   LANG: C
   OPTIONS: GLOBAL
   WRITES: need_initial_guess
 } "Set need_initial_guess"
 
-SCHEDULE Poisson_Init AT initial BEFORE PDESolvers_Solve IF Poisson::need_initial_guess
+SCHEDULE PoissonX_Init AT initial BEFORE PDESolvers_Solve IF PoissonX::need_initial_guess
 {
   LANG: C
   WRITES: sol(interior)
 } "Initialize solution"
 
-SCHEDULE Poisson_Sync AT initial AFTER Poisson_Init BEFORE PDESolvers_Solve # IF Poisson::need_initial_guess
+SCHEDULE PoissonX_Sync AT initial AFTER PoissonX_Init BEFORE PDESolvers_Solve # IF PoissonX::need_initial_guess
 {
   LANG: C
   OPTIONS: global
   SYNC: sol
 } "Synchronize solution"
 
-SCHEDULE Poisson_Boundaries AT initial AFTER Poisson_Sync BEFORE PDESolvers_Solve # IF Poisson::need_initial_guess
+SCHEDULE PoissonX_Boundaries AT initial AFTER PoissonX_Sync BEFORE PDESolvers_Solve # IF PoissonX::need_initial_guess
 {
   LANG: C
   WRITES: sol(boundary)
@@ -34,20 +34,20 @@ SCHEDULE Poisson_Boundaries AT initial AFTER Poisson_Sync BEFORE PDESolvers_Solv
 
 
 
-SCHEDULE Poisson_Sync IN PDESolvers_Residual
+SCHEDULE PoissonX_Sync IN PDESolvers_Residual
 {
   LANG: C
   OPTIONS: global
   SYNC: sol
 } "Synchronize solution"
 
-SCHEDULE Poisson_Boundaries IN PDESolvers_Residual AFTER Poisson_Sync
+SCHEDULE PoissonX_Boundaries IN PDESolvers_Residual AFTER PoissonX_Sync
 {
   LANG: C
   WRITES: sol(boundary)
 } "Initialize boundaries of solution"
 
-SCHEDULE Poisson_Residual IN PDESolvers_Residual AFTER (Poisson_Sync, Poisson_Boundaries)
+SCHEDULE PoissonX_Residual IN PDESolvers_Residual AFTER (PoissonX_Sync, PoissonX_Boundaries)
 {
   LANG: C
   READS: PDESolvers::point_type(everywhere)
@@ -56,7 +56,7 @@ SCHEDULE Poisson_Residual IN PDESolvers_Residual AFTER (Poisson_Sync, Poisson_Bo
   WRITES: res(interior)
 } "Evaluate residual"
 
-# SCHEDULE Poisson_ResidualBoundaries IN PDESolvers_Residual AFTER Poisson_Sync
+# SCHEDULE PoissonX_ResidualBoundaries IN PDESolvers_Residual AFTER PoissonX_Sync
 # {
 #   LANG: C
 #   READS: PDESolvers::point_type(everywhere)
@@ -65,27 +65,27 @@ SCHEDULE Poisson_Residual IN PDESolvers_Residual AFTER (Poisson_Sync, Poisson_Bo
 #   WRITES: res(boundary)
 # } "Evaluate residual on boundaries"
 # 
-# SCHEDULE Poisson_ResidualSync IN PDESolvers_Residual AFTER (Poisson_Residual, Poisson_ResidualBoundaries)
+# SCHEDULE PoissonX_ResidualSync IN PDESolvers_Residual AFTER (PoissonX_Residual, PoissonX_ResidualBoundaries)
 # {
 #   LANG: C
 #   OPTIONS: global
 #   SYNC: res
 # } "Synchronize residual"
 
-SCHEDULE Poisson_Sync IN PDESolvers_Jacobian
+SCHEDULE PoissonX_Sync IN PDESolvers_Jacobian
 {
   LANG: C
   OPTIONS: global
   SYNC: sol
 } "Synchronize solution"
 
-SCHEDULE Poisson_Boundaries IN PDESolvers_Jacobian AFTER Poisson_Sync
+SCHEDULE PoissonX_Boundaries IN PDESolvers_Jacobian AFTER PoissonX_Sync
 {
   LANG: C
   WRITES: sol(boundary)
 } "Initialize boundaries of solution"
 
-SCHEDULE Poisson_Jacobian IN PDESolvers_Jacobian AFTER (Poisson_Sync, Poisson_Boundaries)
+SCHEDULE PoissonX_Jacobian IN PDESolvers_Jacobian AFTER (PoissonX_Sync, PoissonX_Boundaries)
 {
   LANG: C
   READS: PDESolvers::point_type(everywhere)
@@ -100,14 +100,14 @@ SCHEDULE GROUP PDESolvers_Residual AT initial AFTER PDESolvers_Solve
 {
 } "Evaluate residual after solving"
 
-SCHEDULE Poisson_ResidualSync AT initial AFTER PDESolvers_Residual
+SCHEDULE PoissonX_ResidualSync AT initial AFTER PDESolvers_Residual
 {
   LANG: C
   OPTIONS: global
   SYNC: res
 } "Synchronize residual"
 
-SCHEDULE Poisson_ResidualBoundaries AT initial AFTER Poisson_ResidualSync
+SCHEDULE PoissonX_ResidualBoundaries AT initial AFTER PoissonX_ResidualSync
 {
   LANG: C
   READS: PDESolvers::point_type(boundary)

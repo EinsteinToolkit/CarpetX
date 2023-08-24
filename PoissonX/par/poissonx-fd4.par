@@ -2,7 +2,7 @@ ActiveThorns = "
     CarpetX
     IOUtil
     PDESolvers
-    Poisson
+    PoissonX
     SystemTopology
 "
 
@@ -44,7 +44,7 @@ PDESolvers::petsc_options = "-snes_linesearch_type basic -ksp_type bcgs -snes_mo
 PDESolvers::dnz = 13
 PDESolvers::onz = 8
 
-Poisson::fdorder = 4
+PoissonX::fdorder = 4
 
 IO::out_dir = $parfile
 IO::out_every = 1

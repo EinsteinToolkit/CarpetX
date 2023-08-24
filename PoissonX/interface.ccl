@@ -1,6 +1,6 @@
-# Interface definition for thorn Poisson
+# Interface definition for thorn PoissonX
 
-IMPLEMENTS: Poisson
+IMPLEMENTS: PoissonX
 
 INHERITS: PDESolvers
 

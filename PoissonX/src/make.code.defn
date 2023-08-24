@@ -1,4 +1,4 @@
-# Main make.code.defn file for thorn Poisson
+# Main make.code.defn file for thorn PoissonX
 
 # Source files in this directory
 SRCS = poisson.cxx
