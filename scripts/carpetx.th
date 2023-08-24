@@ -709,7 +709,7 @@ CarpetX/HydroBaseX
 CarpetX/Loop
 CarpetX/ODESolvers
 CarpetX/PDESolvers
-CarpetX/Poisson
+CarpetX/PoissonX
 CarpetX/SIMDWaveToyX
 CarpetX/SpacetimeWaveToyX
 CarpetX/StaggeredWaveToyX

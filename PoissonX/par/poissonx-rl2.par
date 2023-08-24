@@ -3,7 +3,7 @@ ActiveThorns = "
     ErrorEstimator
     IOUtil
     PDESolvers
-    Poisson
+    PoissonX
     SystemTopology
 "
 
