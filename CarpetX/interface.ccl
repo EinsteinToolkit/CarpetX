@@ -140,7 +140,7 @@ PROVIDES FUNCTION Interpolate WITH CarpetX_Interpolate LANGUAGE C
 #  CCTK_POINTER ARRAY IN output_arrays)
 #USES FUNCTION SymmetryInterpolate
 
-void FUNCTION MultiPatch_GlobalToLocal( \
+void FUNCTION MultiPatch_GlobalToLocal2( \
   CCTK_INT IN npoints, \
   CCTK_REAL ARRAY IN globalsx, \
   CCTK_REAL ARRAY IN globalsy, \
@@ -149,7 +149,7 @@ void FUNCTION MultiPatch_GlobalToLocal( \
   CCTK_REAL ARRAY OUT localsx, \
   CCTK_REAL ARRAY OUT localsy, \
   CCTK_REAL ARRAY OUT localsz)
-USES FUNCTION MultiPatch_GlobalToLocal
+USES FUNCTION MultiPatch_GlobalToLocal2
 
 CCTK_INT FUNCTION DriverInterpolate(
   CCTK_POINTER_TO_CONST IN cctkGH,
