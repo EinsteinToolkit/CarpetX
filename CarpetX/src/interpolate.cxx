@@ -401,8 +401,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   const cGH *restrict const cctkGH = static_cast<const cGH *>(cctkGH_);
   assert(in_global_mode(cctkGH));
 
-  static const bool have_MultiPatch_GlobalToLocal =
-      CCTK_IsFunctionAliased("MultiPatch_GlobalToLocal");
+  static const bool have_MultiPatch_GlobalToLocal2 =
+      CCTK_IsFunctionAliased("MultiPatch_GlobalToLocal2");
 
   // Convert global to patch-local coordinates
   // TODO: Call this only if there is a non-trivial patch system
@@ -412,10 +412,10 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   std::vector<CCTK_REAL> localsx(npoints);
   std::vector<CCTK_REAL> localsy(npoints);
   std::vector<CCTK_REAL> localsz(npoints);
-  if (have_MultiPatch_GlobalToLocal) {
-    MultiPatch_GlobalToLocal(npoints, globalsx, globalsy, globalsz,
-                             patches.data(), localsx.data(), localsy.data(),
-                             localsz.data());
+  if (have_MultiPatch_GlobalToLocal2) {
+    MultiPatch_GlobalToLocal2(npoints, globalsx, globalsy, globalsz,
+                              patches.data(), localsx.data(), localsy.data(),
+                              localsz.data());
   } else {
     // TODO: Don't copy
     for (int n = 0; n < npoints; ++n) {
