@@ -1,6 +1,6 @@
 ActiveThorns = "
     CarpetX
-    Coordinates
+    CoordinatesX
     IOUtil
 "
 
@@ -16,4 +16,4 @@ IO::parfile_write = "no"
 IO::out_every = 3
 
 CarpetX::out_metadata = no
-CarpetX::out_tsv_vars = "Coordinates::cell_volume"
+CarpetX::out_tsv_vars = "CoordinatesX::cell_volume"

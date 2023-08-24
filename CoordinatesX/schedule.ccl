@@ -1,6 +1,6 @@
-# Schedule definitions for thorn Coordinates
+# Schedule definitions for thorn CoordinatesX
 
-SCHEDULE Coordinates_Setup AT basegrid
+SCHEDULE CoordinatesX_Setup AT basegrid
 {
   LANG: C
   WRITES: vertex_coords(everywhere)

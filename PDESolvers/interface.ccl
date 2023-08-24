@@ -2,7 +2,7 @@
 
 IMPLEMENTS: PDESolvers
 
-# INHERITS: Coordinates
+# INHERITS: CoordinatesX
 
 INCLUDES HEADER: pdesolvers.hxx IN pdesolvers.hxx
 

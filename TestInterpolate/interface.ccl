@@ -2,7 +2,7 @@
 
 IMPLEMENTS: TestInterpolate
 
-INHERITS: Coordinates
+INHERITS: CoordinatesX
 
 USES INCLUDE HEADER: loop.hxx
 
