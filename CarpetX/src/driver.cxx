@@ -1684,7 +1684,6 @@ void SetupGlobals() {
     arraygroupdata.data.resize(group.numtimelevels);
     arraygroupdata.valid.resize(group.numtimelevels);
     for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
-      // TODO: Allocate in managed memory
       arraygroupdata.data.at(tl).resize(
           amrex::Box(amrex::IntVect(arraygroupdata.lbnd),
                      amrex::IntVect(arraygroupdata.ubnd)),
