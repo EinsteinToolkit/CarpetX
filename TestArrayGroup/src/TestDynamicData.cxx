@@ -2,9 +2,13 @@
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
+#include "loop.hxx"
+
+using Loop::dim;
+
 extern "C" void TestArrayGroup_DynamicData(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
-  DECLARE_CCTK_ARGUMENTS;
+  DECLARE_CCTK_ARGUMENTS_TestArrayGroup_DynamicData;
 
   struct errorcount_t {
     int lsh, ash, gsh, lbnd, ubnd, bbox, nghostzones;
@@ -21,7 +25,7 @@ extern "C" void TestArrayGroup_DynamicData(CCTK_ARGUMENTS) {
     if (ierr)
       CCTK_ERROR("error in GroupData for grid functions");
 
-    if (gf_data.dim != gf_group.dim || gf_data.dim <= 0)
+    if (gf_data.dim != gf_group.dim || gf_data.dim != 3)
       CCTK_ERROR("incorrect dimension in grid function dynamic data");
     if (gf_data.activetimelevels != CCTK_ActiveTimeLevelsGI(cctkGH, gf_gi))
       CCTK_ERROR("incorrect activetimelevels in grid function dynamic data");
@@ -73,7 +77,7 @@ extern "C" void TestArrayGroup_DynamicData(CCTK_ARGUMENTS) {
     if (ierr)
       CCTK_ERROR("error in GroupData for scalars");
 
-    if (scalar_data.dim != scalar_group.dim || scalar_data.dim < 0)
+    if (scalar_data.dim != scalar_group.dim || scalar_data.dim != 0)
       CCTK_ERROR("incorrect dimension in grid scalar dynamic data");
     if (scalar_data.activetimelevels !=
         CCTK_ActiveTimeLevelsGI(cctkGH, scalar_gi))
@@ -97,6 +101,25 @@ extern "C" void TestArrayGroup_DynamicData(CCTK_ARGUMENTS) {
       if (scalar_data.bbox[2 * i + 1] != -1)
         error.bbox += 1;
       if (scalar_data.nghostzones[i] != -1)
+        error.nghostzones += 1;
+    }
+    // data is padded to Loop:dim with "neutral"
+    for (int i = scalar_data.dim; i < dim; i++) {
+      if (scalar_data.lsh[i] != 1)
+        error.lsh += 1;
+      if (scalar_data.ash[i] != 1)
+        error.ash += 1;
+      if (scalar_data.gsh[i] != 1)
+        error.gsh += 1;
+      if (scalar_data.lbnd[i] != 0)
+        error.lbnd += 1;
+      if (scalar_data.ubnd[i] != 0)
+        error.lbnd += 1;
+      if (scalar_data.bbox[2 * i] != 1)
+        error.bbox += 1;
+      if (scalar_data.bbox[2 * i + 1] != 1)
+        error.bbox += 1;
+      if (scalar_data.nghostzones[i] != 0)
         error.nghostzones += 1;
     }
     if (error.lsh)
@@ -128,7 +151,7 @@ extern "C" void TestArrayGroup_DynamicData(CCTK_ARGUMENTS) {
 
     const int sz[2] = {5, 6};
 
-    if (array_data.dim != array_group.dim || array_data.dim <= 0)
+    if (array_data.dim != array_group.dim || array_data.dim != 2)
       CCTK_ERROR("incorrect dimension in array dynamic data");
     if (array_data.activetimelevels != 1)
       CCTK_ERROR("incorrect activetimelevels in array dynamic data");
@@ -145,6 +168,25 @@ extern "C" void TestArrayGroup_DynamicData(CCTK_ARGUMENTS) {
       if (array_data.lbnd[i] != 0)
         error.lbnd += 1;
       if (array_data.ubnd[i] != sz[i] - 1)
+        error.lbnd += 1;
+      if (array_data.bbox[2 * i] != 1)
+        error.bbox += 1;
+      if (array_data.bbox[2 * i + 1] != 1)
+        error.bbox += 1;
+      if (array_data.nghostzones[i] != 0)
+        error.nghostzones += 1;
+    }
+    // data is padded to Loop:dim with "neutral"
+    for (int i = array_data.dim; i < dim; i++) {
+      if (array_data.lsh[i] != 1)
+        error.lsh += 1;
+      if (array_data.ash[i] != 1)
+        error.ash += 1;
+      if (array_data.gsh[i] != 1)
+        error.gsh += 1;
+      if (array_data.lbnd[i] != 0)
+        error.lbnd += 1;
+      if (array_data.ubnd[i] != 0)
         error.lbnd += 1;
       if (array_data.bbox[2 * i] != 1)
         error.bbox += 1;
