@@ -7,6 +7,7 @@
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
 FROM ubuntu:22.04
+# FROM jammy-20230804   # jammy is ubuntu:22.04
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -23,6 +24,7 @@ RUN apt-get update && \
         gfortran \
         git \
         hdf5-tools \
+        less \
         libboost-all-dev \
         libfftw3-dev \
         libgit2-dev \
@@ -69,9 +71,9 @@ RUN mkdir dist && \
 # ADIOS2 is a parallel I/O library, comparable to HDF5
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.9.0.tar.gz && \
-    tar xzf v2.9.0.tar.gz && \
-    cd ADIOS2-2.9.0 && \
+    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.9.1.tar.gz && \
+    tar xzf v2.9.1.tar.gz && \
+    cd ADIOS2-2.9.1 && \
     mkdir build && \
     cd build && \
     cmake .. && \
@@ -94,7 +96,7 @@ RUN mkdir src && \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_C_COMPILER=gcc \
         -DCMAKE_CXX_COMPILER=g++ \
-        -Dsimd=SSE2 \
+        -Dsimd=AVX2 \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         .. && \
     make -j$(nproc) && \
@@ -107,9 +109,9 @@ RUN mkdir src && \
 # - Depends on ADIOS2
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.1.tar.gz && \
-    tar xzf 0.15.1.tar.gz && \
-    cd openPMD-api-0.15.1 && \
+    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.2.tar.gz && \
+    tar xzf 0.15.2.tar.gz && \
+    cd openPMD-api-0.15.2 && \
     mkdir build && \
     cd build && \
     cmake .. && \
@@ -167,13 +169,28 @@ RUN mkdir src && \
     true) && \
     rm -rf src
 
+# Install SimulationIO (requires yaml-cpp)
+# SimulationIO is an I/O library like HDF5
+RUN mkdir src && \
+    (cd src && \
+    wget https://github.com/eschnett/SimulationIO/archive/refs/tags/version/9.0.3.tar.gz && \
+    tar xzf 9.0.3.tar.gz && \
+    cd SimulationIO-version-9.0.3 && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    true) && \
+    rm -rf src
+
 ARG real_precision=real64
 
 # Install AMReX
 # AMReX provides adaptive mesh refinement
 # - Enable Fortran for `docker/Dockerfile`
 # - Install this last because it changes most often
-# Should we  keep AMReX source tree around for debugging?
+# Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
     wget https://github.com/AMReX-Codes/amrex/archive/23.08.tar.gz && \
