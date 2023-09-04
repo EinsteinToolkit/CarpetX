@@ -18,13 +18,16 @@ RUN apt-get update && \
     apt-get --yes --no-install-recommends install \
         build-essential \
         ca-certificates \
+        cmake \
         cvs \
         g++ \
         gfortran \
         git \
         hdf5-tools \
         less \
+        libblosc-dev \
         libboost-all-dev \
+        libbz2-dev \
         libfftw3-dev \
         libgit2-dev \
         libgsl-dev \
@@ -34,6 +37,8 @@ RUN apt-get update && \
         libopenmpi-dev \
         libpetsc-real-dev \
         libudev-dev \
+        meson \
+        ninja-build \
         perl \
         pkg-config \
         python2 \
@@ -48,24 +53,6 @@ RUN apt-get update && \
         && \
     rm -rf /var/lib/apt/lists/*
 
-# # jinja2 >= 3.1 removes jinja2.Markup, causing failures:
-# # https://github.com/bokeh/bokeh/pull/11174
-# RUN pip install jinja2==3.0.3 && \
-#     pip install bokeh==2.0.1 && \
-#     pip install matplotlib && \
-#     pip install requests && \
-#     pip install pygit2==1.0.3
-
-# Install cmake
-# We need a modern cmake to build AMReX
-RUN mkdir dist && \
-    (cd dist && \
-    wget https://github.com/Kitware/CMake/releases/download/v3.21.2/cmake-3.21.2-linux-x86_64.tar.gz && \
-    tar xzf cmake-3.21.2-linux-x86_64.tar.gz && \
-    rsync -r cmake-3.21.2-linux-x86_64/ /usr/local && \
-    true) && \
-    rm -rf dist
-
 # Install ADIOS2
 # ADIOS2 is a parallel I/O library, comparable to HDF5
 RUN mkdir src && \
@@ -73,11 +60,15 @@ RUN mkdir src && \
     wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.9.1.tar.gz && \
     tar xzf v2.9.1.tar.gz && \
     cd ADIOS2-2.9.1 && \
-    mkdir build && \
-    cd build && \
-    cmake .. && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
+    cmake -B build -G Ninja -S . \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_TESTING=OFF \
+        -DADIOS2_BUILD_EXAMPLES=OFF \
+        -DADIOS2_USE_Fortran=OFF \
+        && \
+    cmake --build build && \
+    cmake --install build && \
     true) && \
     rm -rf src
 
@@ -89,38 +80,50 @@ RUN mkdir src && \
     wget https://github.com/agenium-scale/nsimd/archive/refs/tags/v3.0.1.tar.gz && \
     tar xzf v3.0.1.tar.gz && \
     cd nsimd-3.0.1 && \
-    mkdir build && \
-    cd build && \
-    cmake \
+    cmake -B build -G Ninja -S . \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-        -DCMAKE_C_COMPILER=gcc \
-        -DCMAKE_CXX_COMPILER=g++ \
-        -Dsimd=AVX2 \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
-        .. && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
+        -Dsimd=AVX2 \
+        && \
+    cmake --build build && \
+    cmake --install build && \
     true) && \
     rm -rf src
 
 # Install openPMD-api
 # openPMD-api defines a standard for laying out AMR data in a file
-# - Depends on ADIOS2
+# - depends on ADIOS2
 RUN mkdir src && \
     (cd src && \
     wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.2.tar.gz && \
     tar xzf 0.15.2.tar.gz && \
     cd openPMD-api-0.15.2 && \
-    mkdir build && \
-    cd build && \
-    cmake .. && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
+    cmake -B build -G Ninja -S . \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_EXAMPLES=OFF \
+        && \
+    cmake --build build && \
+    cmake --install build && \
+    true) && \
+    rm -rf src
+
+# Install RePrimAnd
+# RePrimAnd is a physics package for nuclear equations of state
+RUN mkdir src && \
+    (cd src && \
+    wget https://github.com/wokast/RePrimAnd/archive/refs/tags/v1.6.tar.gz && \
+    tar xzf v1.6.tar.gz && \
+    cd RePrimAnd-1.6 && \
+    meson build --buildtype=release --prefix=/usr/local && \
+    ninja -C build && \
+    ninja -C build install && \
     true) && \
     rm -rf src
 
 # Install Silo
-# openPMD-api defines a standard for laying out AMR data in a file
+# Silo defines a standard for laying out AMR data in a file
 RUN mkdir src && \
     (cd src && \
     wget https://github.com/LLNL/Silo/releases/download/v4.11/silo-4.11.tar.gz && \
@@ -132,7 +135,8 @@ RUN mkdir src && \
         --disable-fortran \
         --enable-optimization \
         --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial/include,/usr/lib/x86_64-linux-gnu/hdf5/serial/lib \
-        --prefix=/usr/local && \
+        --prefix=/usr/local \
+        && \
     make -j$(nproc) && \
     make -j$(nproc) install && \
     true) && \
@@ -145,11 +149,9 @@ RUN mkdir src && \
     wget https://github.com/astro-informatics/ssht/archive/v1.5.2.tar.gz && \
     tar xzf v1.5.2.tar.gz && \
     cd ssht-1.5.2 && \
-    mkdir build && \
-    cd build && \
-    cmake .. && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
+    cmake -B build -G Ninja -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build build && \
+    cmake --install build && \
     true) && \
     rm -rf src
 
@@ -160,26 +162,42 @@ RUN mkdir src && \
     wget https://github.com/jbeder/yaml-cpp/archive/yaml-cpp-0.6.3.tar.gz && \
     tar xzf yaml-cpp-0.6.3.tar.gz && \
     cd yaml-cpp-yaml-cpp-0.6.3 && \
-    mkdir build && \
-    cd build && \
-    cmake .. && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
+    cmake -B build -G Ninja -S .  \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DYAML_CPP_BUILD_TESTS=OFF \
+        && \
+    cmake --build build && \
+    cmake --install build && \
     true) && \
     rm -rf src
 
-# Install SimulationIO (requires yaml-cpp)
+# Install ASDF
+# ASDF is an I/O library like HDF5
+# - depends on yaml-cpp
+RUN mkdir src && \
+    (cd src && \
+    wget https://github.com/eschnett/asdf-cxx/archive/refs/tags/version/7.2.1.tar.gz && \
+    tar xzf 7.2.1.tar.gz && \
+    cd asdf-cxx-version-7.2.1 && \
+    cmake -B build -G Ninja -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build build && \
+    cmake --install build && \
+    true) && \
+    rm -rf src
+
+# Install SimulationIO
 # SimulationIO is an I/O library like HDF5
+# - depends on asdf-cxx
+# - depends on yaml-cpp
 RUN mkdir src && \
     (cd src && \
     wget https://github.com/eschnett/SimulationIO/archive/refs/tags/version/9.0.3.tar.gz && \
     tar xzf 9.0.3.tar.gz && \
     cd SimulationIO-version-9.0.3 && \
-    mkdir build && \
-    cd build && \
-    cmake .. && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
+    cmake -B build -G Ninja -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build build && \
+    cmake --install build && \
     true) && \
     rm -rf src
 
@@ -195,24 +213,24 @@ RUN mkdir src && \
     wget https://github.com/AMReX-Codes/amrex/archive/23.08.tar.gz && \
     tar xzf 23.08.tar.gz && \
     cd amrex-23.08 && \
-    mkdir build && \
-    cd build && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
         *) exit 1;; \
     esac && \
-    cmake \
-        -DAMReX_GPU_BACKEND=CUDA \
+    cmake -B build -G Ninja -S . \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_SHARED_LIBS=ON \
         -DAMReX_CUDA_ARCH=7.0 \
+        -DAMReX_FORTRAN=OFF \
+        -DAMReX_FORTRAN_INTERFACES=OFF \
+        -DAMReX_GPU_BACKEND=CUDA \
         -DAMReX_OMP=ON \
         -DAMReX_PARTICLES=ON \
         -DAMReX_PRECISION="$precision" \
-        -DBUILD_SHARED_LIBS=ON \
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-        -DCMAKE_INSTALL_PREFIX=/usr/local \
-        .. && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
+        && \
+    cmake --build build && \
+    cmake --install build && \
     true) && \
     rm -rf src
