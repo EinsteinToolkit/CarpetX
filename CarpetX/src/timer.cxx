@@ -4,13 +4,33 @@
 
 namespace CarpetX {
 
-Timer::Timer(const string &name)
+Timer::Timer(const std::string &name)
     : name(name), handle([&]() {
         int handle1;
 #pragma omp critical
         handle1 = CCTK_TimerCreate(name.c_str());
         return handle1;
       }()) {
+}
+
+void Timer::start() {
+#pragma omp critical
+  {
+    CCTK_TimerStartI(handle);
+#ifdef __CUDACC__
+    range = nvtxRangeStartA(name.c_str());
+#endif
+  }
+}
+
+void Timer::stop() {
+#pragma omp critical
+  {
+#ifdef __CUDACC__
+    nvtxRangeEnd(range);
+#endif
+    CCTK_TimerStopI(handle);
+  }
 }
 
 void Timer::print() const {
@@ -27,26 +47,6 @@ void Timer::print() const {
       CCTK_TimerPrintDataI(handle, clock);
     if (is_running)
       CCTK_TimerStartI(handle);
-  }
-}
-
-Interval::Interval(const Timer &timer) : timer(timer) {
-#pragma omp critical
-  {
-    CCTK_TimerStartI(timer.handle);
-#ifdef __CUDACC__
-    range = nvtxRangeStartA(timer.name.c_str());
-#endif
-  }
-}
-
-Interval::~Interval() {
-#pragma omp critical
-  {
-    CCTK_TimerStopI(timer.handle);
-#ifdef __CUDACC__
-    nvtxRangeEnd(range);
-#endif
   }
 }
 

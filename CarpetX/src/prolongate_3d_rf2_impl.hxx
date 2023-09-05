@@ -1075,7 +1075,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     }
   });
 
-  const Timer &timer = timers.at(thread_num);
+  Timer &timer = timers.at(thread_num);
   Interval interval(timer);
 
   for (int d = 0; d < dim; ++d)
