@@ -1854,7 +1854,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
       timer_iter = get<0>(timers.emplace(attribute, buf.str()));
     }
   }
-  const Timer &timer = timer_iter->second;
+  Timer &timer = timer_iter->second;
   Interval interval(timer);
 
   assert(active_levels);

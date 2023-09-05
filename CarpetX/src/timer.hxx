@@ -10,15 +10,18 @@
 #include <string>
 
 namespace CarpetX {
-using namespace std;
 
 class Interval;
 
 class Timer {
-  friend class Interval;
+public:
+  std::string name;
 
-  string name;
+private:
   int handle;
+#ifdef __CUDACC__
+  nvtxRangeId_t range;
+#endif
 
 public:
   Timer() = delete;
@@ -27,22 +30,26 @@ public:
   Timer(Timer &&) = default;
   Timer &operator=(Timer &&) = default;
 
-  Timer(const string &name);
+  Timer(const std::string &name);
 
-  string get_name() const { return name; }
+  void start();
+  void stop();
+
   void print() const;
 };
 
 class Interval {
-  const Timer &timer;
-#ifdef __CUDACC__
-  nvtxRangeId_t range;
-#endif
+  Timer &timer;
 
 public:
   Interval() = delete;
-  Interval(const Timer &timer);
-  ~Interval();
+  Interval(const Interval &) = delete;
+  Interval(Interval &&) = delete;
+  Interval &operator=(const Interval &) = delete;
+  Interval &operator=(Interval &&) = delete;
+
+  Interval(Timer &timer) : timer(timer) { timer.start(); }
+  ~Interval() { timer.stop(); }
 };
 
 } // namespace CarpetX

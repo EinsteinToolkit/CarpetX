@@ -26,6 +26,8 @@ namespace CarpetX {
 
 constexpr int NEG = -1, INT = 0, POS = +1;
 
+constexpr int maxncomps = 10;
+
 template <int NI, int NJ, int NK>
 void BoundaryCondition::apply_on_face() const {
   constexpr Arith::vect<int, dim> inormal{NI, NJ, NK};
@@ -36,16 +38,16 @@ void BoundaryCondition::apply_on_face() const {
   for (int d = 0; d < dim; ++d) {
     if (inormal[d] < 0) {
       // We have to fill the lower boundary
-      bmin[d] = amin[d];
-      bmax[d] = min(amax[d], imin[d]);
+      bmin[d] = dmin[d];
+      bmax[d] = min(dmax[d], imin[d]);
     } else if (inormal[d] > 0) {
       // We have to fill the upper boundary
-      bmin[d] = max(amin[d], imax[d]);
-      bmax[d] = amax[d];
+      bmin[d] = max(dmin[d], imax[d]);
+      bmax[d] = dmax[d];
     } else {
       // This direction is not a boundary
-      bmin[d] = max(amin[d], imin[d]);
-      bmax[d] = min(amax[d], imax[d]);
+      bmin[d] = max(dmin[d], imin[d]);
+      bmax[d] = min(dmax[d], imax[d]);
     }
   }
 
@@ -57,7 +59,7 @@ void BoundaryCondition::apply_on_face() const {
     return;
 
   // Find which symmetry or boundary conditions apply to us. On edges
-  // or in corners, multiple conditions will apply.
+  // or in corners multiple conditions will apply.
   if constexpr (NI == 0) {
     // interior
     apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::none>(bmin,
@@ -100,7 +102,7 @@ void BoundaryCondition::apply_on_face_symbcx(
     const Arith::vect<int, dim> &bmin,
     const Arith::vect<int, dim> &bmax) const {
   // Find which symmetry or boundary conditions apply to us. On edges
-  // or in corners, multiple conditions will apply.
+  // or in corners multiple conditions will apply.
   if constexpr (NJ == 0) {
     // interior
     apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
@@ -144,7 +146,7 @@ void BoundaryCondition::apply_on_face_symbcxy(
     const Arith::vect<int, dim> &bmin,
     const Arith::vect<int, dim> &bmax) const {
   // Find which symmetry or boundary conditions apply to us. On edges
-  // or in corners, multiple conditions will apply.
+  // or in corners multiple conditions will apply.
   if constexpr (NK == 0) {
     // interior
     apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
@@ -196,7 +198,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
   // TODO: Move loop over components to the far outside
 
   const int ncomps = dest.nComp();
-  assert(ncomps <= BoundaryKernel::maxncomps);
+  assert(ncomps <= maxncomps);
   const int cmin = 0;
   const int cmax = ncomps;
 
@@ -213,7 +215,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
   } else {
     // This is the generic case for applying boundary conditions.
 
-    Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps> dirichlet_values;
+    Arith::vect<CCTK_REAL, maxncomps> dirichlet_values;
     for (int comp = 0; comp < ncomps; ++comp)
       dirichlet_values[comp] = groupdata.dirichlet_values.at(comp);
 
@@ -223,9 +225,9 @@ void BoundaryCondition::apply_on_face_symbcxyz(
         if (inormal[d] != 0) {
           neumann_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
           if (inormal[d] < 0)
-            assert(neumann_source[d] < amax[d]);
+            assert(neumann_source[d] < dmax[d]);
           else
-            assert(neumann_source[d] >= amin[d]);
+            assert(neumann_source[d] >= dmin[d]);
         }
       } else {
         neumann_source[d] = 666666666; // go for a segfault
@@ -238,11 +240,11 @@ void BoundaryCondition::apply_on_face_symbcxyz(
         assert(inormal[d] != 0);
         linear_extrapolation_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
         if (inormal[d] < 0) {
-          assert(linear_extrapolation_source[d] < amax[d]);
-          assert(linear_extrapolation_source[d] - inormal[d] < amax[d]);
+          assert(linear_extrapolation_source[d] < dmax[d]);
+          assert(linear_extrapolation_source[d] - inormal[d] < dmax[d]);
         } else {
-          assert(linear_extrapolation_source[d] >= amin[d]);
-          assert(linear_extrapolation_source[d] - inormal[d] >= amin[d]);
+          assert(linear_extrapolation_source[d] >= dmin[d]);
+          assert(linear_extrapolation_source[d] - inormal[d] >= dmin[d]);
         }
       } else {
         linear_extrapolation_source[d] = 666666666; // go for a segfault
@@ -255,15 +257,15 @@ void BoundaryCondition::apply_on_face_symbcxyz(
         assert(inormal[d] != 0);
         robin_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
         if (inormal[d] < 0)
-          assert(robin_source[d] < amax[d]);
+          assert(robin_source[d] < dmax[d]);
         else
-          assert(robin_source[d] >= amin[d]);
+          assert(robin_source[d] >= dmin[d]);
       } else {
         robin_source[d] = 666666666; // go for a segfault
       }
     }
 
-    Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps> robin_values;
+    Arith::vect<CCTK_REAL, maxncomps> robin_values;
     for (int comp = 0; comp < ncomps; ++comp)
       robin_values[comp] = groupdata.robin_values.at(comp);
 
@@ -275,15 +277,15 @@ void BoundaryCondition::apply_on_face_symbcxyz(
             inormal[d] < 0 ? 2 * imin[d] - groupdata.indextype.at(d)
                            : 2 * (imax[d] - 1) + groupdata.indextype.at(d);
         if (inormal[d] < 0)
-          assert(reflection_offset[d] - bmin[d] < amax[d]);
+          assert(reflection_offset[d] - bmin[d] < dmax[d]);
         else
-          assert(reflection_offset[d] - (bmax[d] - 1) >= amin[d]);
+          assert(reflection_offset[d] - (bmax[d] - 1) >= dmin[d]);
       } else {
         reflection_offset[d] = 666666666; // go for a segfault
       }
     }
 
-    Arith::vect<CCTK_REAL, BoundaryKernel::maxncomps> reflection_parities;
+    Arith::vect<CCTK_REAL, maxncomps> reflection_parities;
     for (int comp = 0; comp < ncomps; ++comp) {
       CCTK_REAL reflection_parity = +1;
       for (int d = 0; d < dim; ++d)
@@ -301,7 +303,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
     const auto kernel =
         [
 #ifdef CCTK_DEBUG
-            amin = amin, amax = amax, dmin = dmin, dmax = dmax,
+            dmin = dmin, dmax = dmax,
 #endif
             xmin = xmin, dx = dx, layout = layout, destptr = destptr1,
             //
@@ -405,7 +407,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                   }
 #ifdef CCTK_DEBUG
                   for (int d = 0; d < dim; ++d)
-                    assert(dst[d] >= amin[d] && dst[d] < amax[d]);
+                    assert(dst[d] >= dmin[d] && dst[d] < dmax[d]);
 #endif
                   if constexpr (any(symmetries == symmetry_t::reflection))
                     val *= reflection_parity;
@@ -414,7 +416,18 @@ void BoundaryCondition::apply_on_face_symbcxyz(
               }
             };
 
-    loop_region(kernel, bmin, bmax);
+    // Note: Calling `loop_region` is much slower than calling `ParallelFor`
+    // directly.
+    // Maybe the `attribute(noinline)` is to blame?
+    // loop_region(kernel, bmin, bmax);
+    const amrex::Box box(amrex::IntVect(bmin[0], bmin[1], bmin[2]),
+                         amrex::IntVect(bmax[0] - 1, bmax[1] - 1, bmax[2] - 1));
+    amrex::ParallelFor(box,
+                       [=] CCTK_DEVICE(const int i, const int j, const int k)
+                           CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                             const Arith::vect<int, dim> p{i, j, k};
+                             kernel(p);
+                           });
   }
 }
 
