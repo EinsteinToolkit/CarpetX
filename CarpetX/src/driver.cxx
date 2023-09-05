@@ -1209,31 +1209,6 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
       symmetries[0][1] == symmetry_t::periodic,
       symmetries[0][2] == symmetry_t::periodic};
 
-  // Set blocking factors via parameter table since AmrMesh needs to
-  // know them when its constructor is running, but there are no
-  // constructor arguments for them
-  amrex::ParmParse pp;
-  pp.add("amr.max_grid_size_x", max_grid_size_x);
-  pp.add("amr.max_grid_size_y", max_grid_size_y);
-  pp.add("amr.max_grid_size_z", max_grid_size_z);
-  pp.add("amr.refine_grid_layout", refine_grid_layout);
-  pp.add("amr.blocking_factor_x", blocking_factor_x);
-  pp.add("amr.blocking_factor_y", blocking_factor_y);
-  pp.add("amr.blocking_factor_z", blocking_factor_z);
-  pp.add("amr.grid_eff", grid_efficiency);
-  if (poison_undefined_values) {
-    // Tell AMReX to initialize FArrayBoxes with nans
-    pp.add("fab.do_initval", true);
-    pp.add("fab.init_snan", true);
-    amrex::FArrayBox::set_do_initval(true);
-    amrex::FArrayBox::set_initval(
-        std::numeric_limits<amrex::Real>::signaling_NaN());
-  }
-  // Set tile size
-  pp.addarr(
-      "fabarray.mfiter_tile_size",
-      std::vector<int>{max_tile_size_x, max_tile_size_y, max_tile_size_z});
-
   amrcore = make_unique<CactusAmrCore>(patch, domain, max_num_levels - 1,
                                        ncells, coord, reffacts, is_periodic);
 
@@ -1482,6 +1457,9 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     amrex::MultiFab &mfab) const {
   DECLARE_CCTK_PARAMETERS;
 
+  static Timer timer("apply_boundary_conditions");
+  Interval interval(timer);
+
   const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(level);
 
   if (geom.isAllPeriodic())
@@ -1494,17 +1472,14 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     if (geom.isPeriodic(d))
       gdomain.grow(d, mfab.nGrow(d));
 
-  loop_over_components(mfab, [&](int index, int component) {
+  // This loop is parallel
+  loop_over_components(mfab, [&](const int index, const int component) {
     amrex::FArrayBox &dest = mfab[index];
-    // const amrex::Box &box = mfp.fabbox();
-    // const amrex::Box &box = dest.box();
-    const amrex::Box &box = mfab.fabbox(index);
-    assert(box == dest.box());
 
     // If there are cells not in the valid + periodic grown box,
     // then we need to fill them here
-    if (!gdomain.contains(box))
-      BoundaryCondition(*this, box, dest).apply();
+    if (!gdomain.contains(dest.box()))
+      BoundaryCondition(*this, dest).apply();
   });
   // synchronize();
 }
@@ -2338,12 +2313,37 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
 
   // Initialize AMReX
   amrex::ParmParse pp;
+
   // Don't catch Unix signals. If signals are caught, we don't get
   // core files.
   pp.add("amrex.signal_handling", 0);
   // Throw exceptions for failing AMReX assertions. With exceptions,
   // we get core files.
   pp.add("amrex.throw_exception", 1);
+
+  // Set blocking factors via parameter table since AmrMesh needs to
+  // know them when its constructor is running, but there are no
+  // constructor arguments for them
+  pp.add("amr.max_grid_size_x", max_grid_size_x);
+  pp.add("amr.max_grid_size_y", max_grid_size_y);
+  pp.add("amr.max_grid_size_z", max_grid_size_z);
+  pp.add("amr.refine_grid_layout", refine_grid_layout);
+  pp.add("amr.blocking_factor_x", blocking_factor_x);
+  pp.add("amr.blocking_factor_y", blocking_factor_y);
+  pp.add("amr.blocking_factor_z", blocking_factor_z);
+  pp.add("amr.grid_eff", grid_efficiency);
+  if (poison_undefined_values) {
+    // Tell AMReX to initialize FArrayBoxes with nans
+    pp.add("fab.do_initval", true);
+    pp.add("fab.init_snan", true);
+    amrex::FArrayBox::set_do_initval(true);
+    amrex::FArrayBox::set_initval(
+        std::numeric_limits<amrex::Real>::signaling_NaN());
+  }
+  // Set tile size
+  pp.addarr(
+      "fabarray.mfiter_tile_size",
+      std::vector<int>{max_tile_size_x, max_tile_size_y, max_tile_size_z});
 
   std::vector<char *> args;
   for (std::size_t n = 0; n < 100; ++n)

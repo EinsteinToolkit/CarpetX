@@ -14,9 +14,9 @@ extern "C" void TestInterpolate_test_interpolation(CCTK_ARGUMENTS) {
   const CCTK_INT all_operations[1 + N_dims + N_dims*(N_dims-1)] = {0, 1, 2, 3, 11, 12, 13, 22, 23, 33};
 
   const CCTK_INT all_varinds[N_dims] = {
-      CCTK_VarIndex("Coordinates::vcoordx"),
-      CCTK_VarIndex("Coordinates::vcoordy"),
-      CCTK_VarIndex("Coordinates::vcoordz"),
+      CCTK_VarIndex("CoordinatesX::vcoordx"),
+      CCTK_VarIndex("CoordinatesX::vcoordy"),
+      CCTK_VarIndex("CoordinatesX::vcoordz"),
   };
 
   constexpr int nvars = DIM(all_varinds) * DIM(all_operations);

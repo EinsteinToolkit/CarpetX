@@ -1,7 +1,0 @@
-# Main make.code.defn file for thorn Coordinates
-
-# Source files in this directory
-SRCS = coordinates.cxx
-
-# Subdirectories containing source files
-SUBDIRS =

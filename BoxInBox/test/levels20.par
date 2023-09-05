@@ -1,7 +1,7 @@
 ActiveThorns = "
     BoxInBox
     CarpetX
-    Coordinates
+    CoordinatesX
     IOUtil
 "
 
@@ -58,6 +58,6 @@ CarpetX::out_norm_omit_unstable = yes
 
 CarpetX::out_tsv_vars = "
     CarpetX::regrid_error
-    Coordinates::vertex_coords
-    Coordinates::cell_coords
+    CoordinatesX::vertex_coords
+    CoordinatesX::cell_coords
 "

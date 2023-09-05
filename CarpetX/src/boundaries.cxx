@@ -1,13 +1,18 @@
 #include "boundaries.hxx"
 #include "boundaries_impl.hxx"
+// #include "timer.hxx"
 
 #include <vect.hxx>
 
 #include <AMReX.H>
 
+#include <omp.h>
+
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 #include <type_traits>
+#include <vector>
 
 namespace CarpetX {
 
@@ -28,7 +33,7 @@ namespace CarpetX {
 
 BoundaryCondition::BoundaryCondition(
     const GHExt::PatchData::LevelData::GroupData &groupdata,
-    const amrex::Box &box, amrex::FArrayBox &dest)
+    amrex::FArrayBox &dest)
     : groupdata(groupdata), patchdata(ghext->patchdata.at(groupdata.patch)),
       geom(patchdata.amrcore->Geom(groupdata.level)), dest(dest),
       imin{geom.Domain().smallEnd(0), geom.Domain().smallEnd(1),
@@ -44,17 +49,27 @@ BoundaryCondition::BoundaryCondition(
            geom.ProbHi(1) - CCTK_REAL(0.5) * groupdata.indextype[1] + 1,
            geom.ProbHi(2) - CCTK_REAL(0.5) * groupdata.indextype[2] + 1},
       dx{geom.CellSize(0), geom.CellSize(1), geom.CellSize(2)},
-      amin{box.smallEnd(0), box.smallEnd(1), box.smallEnd(2)},
-      amax{box.bigEnd(0) + 1, box.bigEnd(1) + 1, box.bigEnd(2) + 1},
       dmin{dest.box().smallEnd(0), dest.box().smallEnd(1),
            dest.box().smallEnd(2)},
       dmax{dest.box().bigEnd(0) + 1, dest.box().bigEnd(1) + 1,
            dest.box().bigEnd(2) + 1},
       layout(dmin, dmax), destptr(dest.dataPtr()) {
+  // static std::vector<Timer> timers = [&]() {
+  //   std::vector<Timer> timers;
+  //   timers.reserve(omp_get_max_threads());
+  //   for (int t = 0; t < omp_get_max_threads(); ++t) {
+  //     std::ostringstream buf;
+  //     buf << "BoundaryCondition::BoundaryCondition#" << t;
+  //     timers.emplace_back(buf.str());
+  //   }
+  //   return timers;
+  // }();
+  // Interval interval(timers.at(omp_get_thread_num()));
+
   // Check centering
-  assert(box.ixType() == dest.box().ixType());
   for (int d = 0; d < dim; ++d)
-    assert((box.type(d) == amrex::IndexType::CELL) == groupdata.indextype[d]);
+    assert((dest.box().type(d) == amrex::IndexType::CELL) ==
+           groupdata.indextype[d]);
 
   // Ensure we have enough ghost zones
   // TODO: Implement this
@@ -63,8 +78,8 @@ BoundaryCondition::BoundaryCondition(
 
   // Ensure the destination array is large enough
   for (int d = 0; d < dim; ++d) {
-    assert(dest.box().smallEnd(d) <= amin[d]);
-    assert(dest.box().bigEnd(d) + 1 >= amax[d]);
+    assert(dest.box().smallEnd(d) <= dmin[d]);
+    assert(dest.box().bigEnd(d) + 1 >= dmax[d]);
   }
 }
 
@@ -195,7 +210,7 @@ CCTK_DEVICE void BoundaryKernel::operator()(const Arith::vect<int, dim> &dst,
       }
 #ifdef CCTK_DEBUG
       for (int d = 0; d < dim; ++d)
-        assert(dst[d] >= amin[d] && dst[d] < amax[d]);
+        assert(dst[d] >= dmin[d] && dst[d] < dmax[d]);
 #endif
       if (any(symmetries == symmetry_t::reflection))
         val *= reflection_parity;
@@ -205,6 +220,28 @@ CCTK_DEVICE void BoundaryKernel::operator()(const Arith::vect<int, dim> &dst,
 }
 
 void BoundaryCondition::apply() const {
+  // static std::vector<Timer> timers = [&]() {
+  //   std::vector<Timer> timers;
+  //   timers.reserve(omp_get_max_threads());
+  //   for (int t = 0; t < omp_get_max_threads(); ++t) {
+  //     std::ostringstream buf;
+  //     buf << "BoundaryCondition::apply#" << t;
+  //     timers.emplace_back(buf.str());
+  //   }
+  //   return timers;
+  // }();
+  // static std::vector<Timer> kernel_timers = [&]() {
+  //   std::vector<Timer> timers;
+  //   timers.reserve(omp_get_max_threads());
+  //   for (int t = 0; t < omp_get_max_threads(); ++t) {
+  //     std::ostringstream buf;
+  //     buf << "BoundaryKernel::operator()#" << t;
+  //     timers.emplace_back(buf.str());
+  //   }
+  //   return timers;
+  // }();
+  // Interval interval(timers.at(omp_get_thread_num()));
+
   assert(tasks.empty());
 
   for (int nk = -1; nk <= +1; ++nk) {
@@ -219,16 +256,16 @@ void BoundaryCondition::apply() const {
         for (int d = 0; d < dim; ++d) {
           if (inormal[d] < 0) {
             // We have to fill the lower boundary
-            bmin[d] = amin[d];
-            bmax[d] = min(amax[d], imin[d]);
+            bmin[d] = dmin[d];
+            bmax[d] = min(dmax[d], imin[d]);
           } else if (inormal[d] > 0) {
             // We have to fill the upper boundary
-            bmin[d] = max(amin[d], imax[d]);
-            bmax[d] = amax[d];
+            bmin[d] = max(dmin[d], imax[d]);
+            bmax[d] = dmax[d];
           } else {
             // This direction is not a boundary
-            bmin[d] = max(amin[d], imin[d]);
-            bmax[d] = min(amax[d], imax[d]);
+            bmin[d] = max(dmin[d], imin[d]);
+            bmax[d] = min(dmax[d], imax[d]);
           }
         }
 
@@ -290,9 +327,9 @@ void BoundaryCondition::apply() const {
               if (inormal[d] != 0) {
                 neumann_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
                 if (inormal[d] < 0)
-                  assert(neumann_source[d] < amax[d]);
+                  assert(neumann_source[d] < dmax[d]);
                 else
-                  assert(neumann_source[d] >= amin[d]);
+                  assert(neumann_source[d] >= dmin[d]);
               }
             } else {
               neumann_source[d] = 666666666; // go for a segfault
@@ -306,11 +343,11 @@ void BoundaryCondition::apply() const {
               linear_extrapolation_source[d] =
                   inormal[d] < 0 ? imin[d] : imax[d] - 1;
               if (inormal[d] < 0) {
-                assert(linear_extrapolation_source[d] < amax[d]);
-                assert(linear_extrapolation_source[d] - inormal[d] < amax[d]);
+                assert(linear_extrapolation_source[d] < dmax[d]);
+                assert(linear_extrapolation_source[d] - inormal[d] < dmax[d]);
               } else {
-                assert(linear_extrapolation_source[d] >= amin[d]);
-                assert(linear_extrapolation_source[d] - inormal[d] >= amin[d]);
+                assert(linear_extrapolation_source[d] >= dmin[d]);
+                assert(linear_extrapolation_source[d] - inormal[d] >= dmin[d]);
               }
             } else {
               linear_extrapolation_source[d] = 666666666; // go for a segfault
@@ -323,9 +360,9 @@ void BoundaryCondition::apply() const {
               assert(inormal[d] != 0);
               robin_source[d] = inormal[d] < 0 ? imin[d] : imax[d] - 1;
               if (inormal[d] < 0)
-                assert(robin_source[d] < amax[d]);
+                assert(robin_source[d] < dmax[d]);
               else
-                assert(robin_source[d] >= amin[d]);
+                assert(robin_source[d] >= dmin[d]);
             } else {
               robin_source[d] = 666666666; // go for a segfault
             }
@@ -344,9 +381,9 @@ void BoundaryCondition::apply() const {
                       ? 2 * imin[d] - groupdata.indextype.at(d)
                       : 2 * (imax[d] - 1) + groupdata.indextype.at(d);
               if (inormal[d] < 0)
-                assert(reflection_offset[d] - bmin[d] < amax[d]);
+                assert(reflection_offset[d] - bmin[d] < dmax[d]);
               else
-                assert(reflection_offset[d] - (bmax[d] - 1) >= amin[d]);
+                assert(reflection_offset[d] - (bmax[d] - 1) >= dmin[d]);
             } else {
               reflection_offset[d] = 666666666; // go for a segfault
             }
@@ -370,18 +407,39 @@ void BoundaryCondition::apply() const {
               robin_source, robin_values, reflection_offset,
               reflection_parities);
 
-          const task_t<BoundaryKernel> task =
-              make_task(std::move(kernel), bmin, bmax, cmin, cmax);
+          {
+            // Interval kernel_interval(kernel_timers.at(omp_get_thread_num()));
+            const amrex::Box box(
+                amrex::IntVect(bmin[0], bmin[1], bmin[2]),
+                amrex::IntVect(bmax[0] - 1, bmax[1] - 1, bmax[2] - 1));
+            for (int comp = cmin; comp < cmax; ++comp)
+              amrex::ParallelFor(box,
+                                 [kernel, comp] CCTK_DEVICE(
+                                     const int i, const int j, const int k)
+                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                       const Arith::vect<int, dim> p{i, j, k};
+                                       kernel(p, comp, comp + 1);
+                                     });
+            // amrex::ParallelFor(box,
+            //                    [kernel, cmin, cmax] CCTK_DEVICE(
+            //                        const int i, const int j, const int k)
+            //                        CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            //                          const Arith::vect<int, dim> p{i, j, k};
+            //                          kernel(p, cmin, cmax);
+            //                        });
+          }
+          // const task_t<BoundaryKernel> task =
+          //     make_task(std::move(kernel), bmin, bmax, cmin, cmax);
           // run_task(task);
-          tasks.push_back(std::move(task));
+          // tasks.push_back(std::move(task));
 
         } // if !all(symmetries == none && boundaries == none)
       }   // for ni, nj, nk
     }
   }
 
-  run_tasks(tasks);
-  tasks.clear();
+  // run_tasks(tasks);
+  // tasks.clear();
 }
 
 #endif

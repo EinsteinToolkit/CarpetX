@@ -1,0 +1,9 @@
+# Schedule definitions for thorn CoordinatesX
+
+SCHEDULE CoordinatesX_Setup AT basegrid
+{
+  LANG: C
+  WRITES: vertex_coords(everywhere)
+  WRITES: cell_coords(everywhere)
+  WRITES: cell_volume(everywhere)
+} "Set coordinate grid functions"

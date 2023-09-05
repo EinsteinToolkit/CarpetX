@@ -701,7 +701,7 @@ CarpetX/Algo
 CarpetX/Arith
 CarpetX/BoxInBox
 CarpetX/CarpetX
-CarpetX/Coordinates
+CarpetX/CoordinatesX
 CarpetX/Derivs
 CarpetX/ErrorEstimator
 CarpetX/FluxWaveToyX
@@ -709,7 +709,7 @@ CarpetX/HydroBaseX
 CarpetX/Loop
 CarpetX/ODESolvers
 CarpetX/PDESolvers
-CarpetX/Poisson
+CarpetX/PoissonX
 CarpetX/SIMDWaveToyX
 CarpetX/SpacetimeWaveToyX
 CarpetX/StaggeredWaveToyX

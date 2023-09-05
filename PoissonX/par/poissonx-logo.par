@@ -1,0 +1,56 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    PDESolvers
+    PoissonX
+"
+
+CarpetX::verbose = no
+
+Cactus::cctk_show_schedule = no
+
+Cactus::presync_mode = "mixed-error"
+
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 0.0
+
+CarpetX::xmin = -1.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+
+CarpetX::xmax = +1.0
+CarpetX::ymax = +1.0
+CarpetX::zmax = +1.0
+
+CarpetX::ncells_x = 64
+CarpetX::ncells_y = 64
+CarpetX::ncells_z = 64
+
+CarpetX::periodic_x = no
+CarpetX::periodic_y = no
+CarpetX::periodic_z = no
+
+CarpetX::ghost_size = 1
+
+CarpetX::max_num_levels = 1
+CarpetX::regrid_every = 0
+
+CarpetX::prolongation_type = "ddf"
+CarpetX::prolongation_order = 1
+CarpetX::interpolation_order = 1
+
+PDESolvers::petsc_options = "-snes_linesearch_type basic -ksp_type bcgs -snes_monitor ascii -snes_converged_reason -ksp_monitor -ksp_converged_reason"
+
+PoissonX::source = "logo"
+
+IO::out_dir = $parfile
+IO::out_every = 1
+IO::out_mode = "np"
+IO::out_proc_every = 1
+
+CarpetX::out_metadata = yes
+CarpetX::out_openpmd_vars = "all"
+CarpetX::out_plotfile_groups = ""
+CarpetX::out_silo_vars = "all"
+CarpetX::out_tsv = no
+CarpetX::out_tsv_vars = "all"

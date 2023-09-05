@@ -8,6 +8,6 @@ SCHEDULE TestInterpolate_test_interpolation AT poststep
 {
   LANG: C
   OPTIONS: global
-  READS: Coordinates::vertex_coords(everywhere)
+  READS: CoordinatesX::vertex_coords(everywhere)
   WRITES: results_interpolate, results_driver_interpolate, reference
 } "Test interpolation operators"
