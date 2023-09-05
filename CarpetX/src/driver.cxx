@@ -1482,6 +1482,9 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     amrex::MultiFab &mfab) const {
   DECLARE_CCTK_PARAMETERS;
 
+  static Timer timer("apply_boundary_conditions");
+  Interval interval(timer);
+
   const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(level);
 
   if (geom.isAllPeriodic())
@@ -1494,17 +1497,14 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     if (geom.isPeriodic(d))
       gdomain.grow(d, mfab.nGrow(d));
 
-  loop_over_components(mfab, [&](int index, int component) {
+  // This loop is parallel
+  loop_over_components(mfab, [&](const int index, const int component) {
     amrex::FArrayBox &dest = mfab[index];
-    // const amrex::Box &box = mfp.fabbox();
-    // const amrex::Box &box = dest.box();
-    const amrex::Box &box = mfab.fabbox(index);
-    assert(box == dest.box());
 
     // If there are cells not in the valid + periodic grown box,
     // then we need to fill them here
-    if (!gdomain.contains(box))
-      BoundaryCondition(*this, box, dest).apply();
+    if (!gdomain.contains(dest.box()))
+      BoundaryCondition(*this, dest).apply();
   });
   // synchronize();
 }

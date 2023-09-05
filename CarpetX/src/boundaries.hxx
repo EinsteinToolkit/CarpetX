@@ -25,6 +25,7 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
                               });
 }
 
+#if 0
 template <typename F> struct task_t {
   F kernel;
 
@@ -50,6 +51,7 @@ task_t<F> make_task(const F &kernel, const Arith::vect<int, dim> &imin,
 }
 
 template <typename F> void run_task(const task_t<F> &task) {
+#ifdef AMREX_USE_GPU
   amrex::ParallelFor(
       task.box(),
       [kernel = task.kernel, cmin = task.cmin, cmax = task.cmax] CCTK_DEVICE(
@@ -57,11 +59,23 @@ template <typename F> void run_task(const task_t<F> &task) {
         const Arith::vect<int, dim> p{i, j, k};
         kernel(p, cmin, cmax);
       });
+#else
+  for (int comp = task.cmin; comp < task.cmax; ++comp) {
+    amrex::ParallelFor(task.box(), [kernel = task.kernel, comp] CCTK_DEVICE(
+                                       const int i, const int j, const int k)
+                                       CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                         const Arith::vect<int, dim> p{i, j, k};
+                                         kernel(p, comp, comp + 1);
+                                       });
+  }
+#endif
 }
 
 template <typename F> using tasks_t = amrex::Vector<task_t<F> >;
 
 template <typename F> void run_tasks(const tasks_t<F> &tasks) {
+  DECLARE_CCTK_PARAMETERS;
+
 #ifdef AMREX_USE_GPU
   amrex::ParallelFor(tasks, [=] CCTK_DEVICE(const int i, const int j,
                                             const int k, const task_t<F> &task)
@@ -83,16 +97,16 @@ template <typename F> void run_tasks(const tasks_t<F> &tasks) {
   }
 #endif
 }
+#endif
 
 } // namespace boundaries_detail
 using namespace boundaries_detail;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#if 0
 struct BoundaryKernel {
 #ifdef CCTK_DEBUG
-  // Region to fill
-  Arith::vect<int, dim> amin, amax;
   // Destination region
   Arith::vect<int, dim> dmin, dmax;
 #endif
@@ -124,20 +138,18 @@ struct BoundaryKernel {
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE void
   operator()(const Arith::vect<int, dim> &dst, int cmin, int cmax) const;
 };
+#endif
 
 struct BoundaryCondition {
-
   const GHExt::PatchData::LevelData::GroupData &groupdata;
   const GHExt::PatchData &patchdata;
   const amrex::Geometry &geom;
   amrex::FArrayBox &dest;
 
-  // Interior of the domain
+  // Interior of the domain: Do not set any points in this region
   Arith::vect<int, dim> imin, imax;
   Arith::vect<CCTK_REAL, dim> xmin, xmax, dx;
 
-  // Region to fill
-  Arith::vect<int, dim> amin, amax;
   // Destination region
   Arith::vect<int, dim> dmin, dmax;
 
@@ -145,7 +157,7 @@ struct BoundaryCondition {
   CCTK_REAL *restrict destptr;
 
   BoundaryCondition(const GHExt::PatchData::LevelData::GroupData &groupdata,
-                    const amrex::Box &box, amrex::FArrayBox &dest);
+                    amrex::FArrayBox &dest);
 
   BoundaryCondition(const BoundaryCondition &) = delete;
   BoundaryCondition(BoundaryCondition &&) = delete;
@@ -154,6 +166,7 @@ struct BoundaryCondition {
 
   void apply() const;
 
+#if 0
   BoundaryKernel boundary_kernel(
       const Arith::vect<int, dim> inormal,
       const Arith::vect<symmetry_t, dim> symmetries,
@@ -169,7 +182,7 @@ struct BoundaryCondition {
           &reflection_parities) const {
     return BoundaryKernel{
 #ifdef CCTK_DEBUG
-        amin, amax, dmin, dmax,
+        dmin, dmax,
 #endif
         xmin, dx, layout, destptr,
         //
@@ -180,6 +193,7 @@ struct BoundaryCondition {
   }
 
   mutable tasks_t<BoundaryKernel> tasks;
+#endif
 
   template <int NI, int NJ, int NK> void apply_on_face() const;
 
