@@ -2324,7 +2324,6 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   // Set blocking factors via parameter table since AmrMesh needs to
   // know them when its constructor is running, but there are no
   // constructor arguments for them
-  amrex::ParmParse pp;
   pp.add("amr.max_grid_size_x", max_grid_size_x);
   pp.add("amr.max_grid_size_y", max_grid_size_y);
   pp.add("amr.max_grid_size_z", max_grid_size_z);
