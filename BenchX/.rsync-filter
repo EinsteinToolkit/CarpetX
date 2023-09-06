@@ -1,0 +1,2 @@
+exclude Manifest.toml
+protect Manifest.toml
