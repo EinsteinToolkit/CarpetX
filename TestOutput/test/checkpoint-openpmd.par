@@ -40,7 +40,7 @@ CarpetX::out_tsv_vars = "
 "
 
 CarpetX::checkpoint_method = "openpmd"
-IO::checkpoint_dir = "../checkpoints"
+IO::checkpoint_dir = $parfile + "/checkpoints"
 IO::checkpoint_ID = yes
 IO::checkpoint_every = 1
 IO::checkpoint_on_terminate = yes

@@ -2,6 +2,8 @@
 
 IMPLEMENTS: TestArrayGroup
 
+USES INCLUDE HEADER: loop.hxx
+
 CCTK_REAL test_array[4] TYPE=array DIM=2 SIZE=5,6 DISTRIB=constant
 {
   test1 test2 test3

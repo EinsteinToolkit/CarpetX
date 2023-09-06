@@ -29,7 +29,7 @@ extern "C" void TestOutput_SetVarsGlobal(CCTK_ARGUMENTS) {
   for (int k = 0; k < 5; ++k)
     for (int j = 0; j < 6; ++j)
       for (int i = 0; i < 7; ++i)
-        a3[(k * 5 + j) * 7 + i] = 10000 * k + 100 * j + i;
+        a3[(k * 6 + j) * 7 + i] = 10000 * k + 100 * j + i;
 }
 
 extern "C" void TestOutput_UpdateVarsLocal(CCTK_ARGUMENTS) {
@@ -58,7 +58,7 @@ extern "C" void TestOutput_UpdateVarsGlobal(CCTK_ARGUMENTS) {
   for (int k = 0; k < 5; ++k)
     for (int j = 0; j < 6; ++j)
       for (int i = 0; i < 7; ++i)
-        a3[(k * 5 + j) * 7 + i] += 1;
+        a3[(k * 6 + j) * 7 + i] += 1;
 }
 
 } // namespace TestOutput

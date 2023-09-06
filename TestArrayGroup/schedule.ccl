@@ -6,18 +6,17 @@ SCHEDULE TestArrayGroup_Initialize AT Initial
   WRITES: test_scalar(everywhere)
   WRITES: test_array(everywhere)
   WRITES: test_gf(everywhere)
-} "Initialize data in the test arrays"
+} "Initialize data in grid functions, scalars, and distrib=const arrays"
 
 SCHEDULE TestArrayGroup_Compare AT PostInitial
-{
-  LANG: C
-  READS: test_array(everywhere)
-} "Test data in the test arrays"
-
-SCHEDULE TestArrayGroup_DynamicData AT PostInitial
 {
   LANG: C
   READS: test_scalar(everywhere)
   READS: test_array(everywhere)
   READS: test_gf(everywhere)
+} "Test data in grid functions, scalars, and distrib=const arrays"
+
+SCHEDULE TestArrayGroup_DynamicData AT PostInitial
+{
+  LANG: C
 } "Test DynamicData for grid functions, scalars, and distrib=const arrays"
