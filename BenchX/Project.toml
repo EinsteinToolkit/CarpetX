@@ -1,0 +1,10 @@
+name = "BenchX"
+uuid = "4a7445ca-521a-46fd-b5b0-9db89af74352"
+authors = ["Erik Schnetter <schnetter@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
