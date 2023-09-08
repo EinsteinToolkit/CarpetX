@@ -3,7 +3,9 @@
 # Source files in this directory
 SRCS =						\
 	TestArray.cxx \
-	TestDynamicData.cxx
+	TestArray.F90 \
+	TestDynamicData.cxx \
+	TestDynamicData.F90
 
 # Subdirectories containing source files
 SUBDIRS = 
