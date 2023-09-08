@@ -16,7 +16,25 @@ SCHEDULE TestArrayGroup_Compare AT PostInitial
   READS: test_gf(everywhere)
 } "Test data in grid functions, scalars, and distrib=const arrays"
 
+SCHEDULE TestArrayGroup_CompareF AT PostInitial
+{
+  LANG: Fortran
+  # no local support so far
+  OPTION: global
+  READS: test_scalar(everywhere)
+  READS: test_array(everywhere)
+} "Test data in grid scalars and distrib=const arrays"
+
 SCHEDULE TestArrayGroup_DynamicData AT PostInitial
 {
   LANG: C
 } "Test DynamicData for grid functions, scalars, and distrib=const arrays"
+
+SCHEDULE TestArrayGroup_DynamicDataF AT PostInitial
+{
+  LANG: Fortran
+  # no local support so far
+  OPTION: global
+  READS: test_scalar(everywhere)
+  READS: test_array(everywhere)
+} "Test DynamicData for Fortran scalars, and distrib=const arrays"
