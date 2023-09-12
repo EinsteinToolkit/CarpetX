@@ -274,8 +274,8 @@ public:
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_int_bnd_device(const vect<int, dim> &group_nghostzones,
-                      const F &f) const {
+  loop_outermost_int_device(const vect<int, dim> &group_nghostzones,
+                            const F &f) const {
     // boundary_box sets bnd_min and bnd_max
     vect<int, dim> bnd_min, bnd_max;
     // if on (Carpetx) boundary points, then
@@ -299,6 +299,11 @@ public:
     //   int_max = lsh - offset - nghostzones;
     domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
                              int_max);
+
+    // Check that the actual number of ghost zones isn't overridden
+    for (int d = 0; d < dim; ++d) {
+      assert(group_nghostzones[d] == nghostzones[d]);
+    }
 
     // Shift the indices towards the interior by nghostzones
     all_min += nghostzones;
