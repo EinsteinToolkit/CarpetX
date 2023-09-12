@@ -6,4 +6,4 @@ Licence      : LGPL
 
 1. Purpose
 
-This thorn tests the loop_int_bnd constructs by filling the outermost "boundary" points in the interior, which can be used for evolved boundary conditions (e.g. radiative boundary conditions, which are implemented in SpacetimeX/NewRadX).
+This thorn tests the loop_outermost_int constructs by filling the outermost "boundary" points in the interior, which can be used for evolved boundary conditions (e.g. radiative boundary conditions, which are implemented in SpacetimeX/NewRadX).
