@@ -1,0 +1,138 @@
+ActiveThorns = "
+    ADMBase
+    AsterSeeds
+    AsterX
+    BoxInBox
+    CarpetX
+    HydroBase
+    IOUtil
+    ODESolvers
+    # SystemTopology
+    TOVSolver
+    TimerReport
+    TmunuBase
+    Z4c
+"
+
+$nlevels = 8
+$ncells_x = 128
+$ncells_y = 128
+$ncells_z = 128
+$blocking_factor = 8
+$max_grid_size = 32
+$max_tile_size_x = 16
+$max_tile_size_y = 16
+$max_tile_size_z = 16
+
+CarpetX::verbose = no
+Cactus::cctk_show_schedule = no
+CarpetX::poison_undefined_values = no
+
+Cactus::presync_mode = "mixed-error"
+
+Cactus::terminate = "iteration"
+Cactus::cctk_itlast = 2
+
+CarpetX::xmin = -20.0
+CarpetX::ymin = -20.0
+CarpetX::zmin = -20.0
+
+CarpetX::xmax = +20.0
+CarpetX::ymax = +20.0
+CarpetX::zmax = +20.0
+
+CarpetX::ncells_x = $ncells_x
+CarpetX::ncells_y = $ncells_y
+CarpetX::ncells_z = $ncells_z
+
+CarpetX::blocking_factor_x = $blocking_factor
+CarpetX::blocking_factor_y = $blocking_factor
+CarpetX::blocking_factor_z = $blocking_factor
+
+CarpetX::max_grid_size_x = $max_grid_size
+CarpetX::max_grid_size_y = $max_grid_size
+CarpetX::max_grid_size_z = $max_grid_size
+
+CarpetX::max_tile_size_x = $max_tile_size_x
+CarpetX::max_tile_size_y = $max_tile_size_y
+CarpetX::max_tile_size_z = $max_tile_size_z
+
+CarpetX::boundary_x = "neumann"
+CarpetX::boundary_y = "neumann"
+CarpetX::boundary_z = "neumann"
+CarpetX::boundary_upper_x = "neumann"
+CarpetX::boundary_upper_y = "neumann"
+CarpetX::boundary_upper_z = "neumann"
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 0
+
+BoxInBox::num_regions = 1
+BoxInBox::num_levels_1 = $nlevels
+BoxInBox::radius_1[1] = 20.0 / 2
+BoxInBox::radius_1[2] = 20.0 / 4
+BoxInBox::radius_1[3] = 20.0 / 8
+BoxInBox::radius_1[4] = 20.0 / 16
+BoxInBox::radius_1[5] = 20.0 / 32
+BoxInBox::radius_1[6] = 20.0 / 64
+BoxInBox::radius_1[7] = 20.0 / 128
+
+CarpetX::prolongation_type = "natural"
+CarpetX::prolongation_order = 5
+
+CarpetX::ghost_size = 3
+
+ODESolvers::method = "RK4"
+CarpetX::dtfac = 0.25
+
+ADMBase::initial_data = "tov"
+ADMBase::initial_lapse = "tov"
+ADMBase::initial_shift = "tov"
+ADMBase::initial_dtlapse = "zero"
+ADMBase::initial_dtshift = "zero"
+
+Z4c::calc_ADM_vars = yes
+Z4c::calc_ADMRHS_vars = no
+Z4c::calc_constraints = no
+
+Z4c::chi_floor = 1.0e-6
+Z4c::alphaG_floor = 1.0e-8
+Z4c::epsdiss = 0.32
+
+TOVSolver::TOV_Rho_Central[0] = 1.28e-3
+TOVSolver::TOV_Gamma = 2.0
+TOVSolver::TOV_K = 100.0
+
+AsterSeeds::test_type = "3DTest"
+AsterSeeds::test_case = "magTOV"
+AsterSeeds::Afield_config = "internal dipole"
+AsterSeeds::Ab = 10000.0
+AsterSeeds::press_cut = 0.04
+AsterSeeds::press_max = 1.638e-4
+AsterSeeds::Avec_kappa = 2.0
+
+AsterX::rho_abs_min = 1e-13
+AsterX::atmo_tol = 1e-3
+AsterX::flux_type = "HLLE"
+AsterX::max_iter = 100
+AsterX::c2p_tol = 1e-8
+AsterX::vector_potential_gauge = "algebraic"
+
+ReconX::reconstruction_method = "ppm"
+
+EOSX::evol_eos_name = "IdealGas"
+EOSX::gl_gamma = 2.0
+EOSX::poly_gamma = 2.0
+EOSX::poly_k = 100
+
+IO::out_dir = $parfile
+IO::out_every = 0
+CarpetX::out_performance_every = 1
+
+TimerReport::out_every = 1
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_all_timers = no
+TimerReport::output_all_timers_readable = no
+TimerReport::output_all_timers_together = no
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 50

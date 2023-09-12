@@ -172,6 +172,7 @@ struct GHExt {
       int nghostzones[dim];
 
       ArrayGroupData() {
+        array_size = -1;
         dimension = -1;
         activetimelevels = -1;
         for (int d = 0; d < dim; d++) {

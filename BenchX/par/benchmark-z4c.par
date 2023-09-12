@@ -1,0 +1,97 @@
+ActiveThorns = "
+    ADMBaseX
+    CarpetX
+    ErrorEstimator
+    Formaline
+    IOUtil
+    ODESolvers
+    # SystemTopology
+    TimerReport
+    TmunuBaseX
+    Z4c
+"
+
+$nlevels = 8
+$ncells_x = 128
+$ncells_y = 128
+$ncells_z = 128
+$blocking_factor = 8
+$max_grid_size = 32
+$max_tile_size_x = 1073741824
+$max_tile_size_y = 16
+$max_tile_size_z = 16
+
+CarpetX::verbose = no
+Cactus::cctk_show_schedule = no
+CarpetX::poison_undefined_values = no
+
+Cactus::presync_mode = "mixed-error"
+
+Cactus::terminate = "iteration"
+Cactus::cctk_itlast = 10
+
+CarpetX::xmin = 0.0
+CarpetX::ymin = 0.0
+CarpetX::zmin = 0.0
+
+CarpetX::xmax = 1.0
+CarpetX::ymax = 1.0
+CarpetX::zmax = 1.0
+
+CarpetX::ncells_x = $ncells_x
+CarpetX::ncells_y = $ncells_y
+CarpetX::ncells_z = $ncells_z
+
+CarpetX::blocking_factor_x = $blocking_factor
+CarpetX::blocking_factor_y = $blocking_factor
+CarpetX::blocking_factor_z = $blocking_factor
+
+CarpetX::max_grid_size_x = $max_grid_size
+CarpetX::max_grid_size_y = $max_grid_size
+CarpetX::max_grid_size_z = $max_grid_size
+
+CarpetX::max_tile_size_x = $max_tile_size_x
+CarpetX::max_tile_size_y = $max_tile_size_y
+CarpetX::max_tile_size_z = $max_tile_size_z
+
+CarpetX::reflection_x = yes
+CarpetX::reflection_y = yes
+CarpetX::reflection_z = yes
+CarpetX::boundary_upper_x = "dirichlet"
+CarpetX::boundary_upper_y = "dirichlet"
+CarpetX::boundary_upper_z = "dirichlet"
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 0
+CarpetX::regrid_error_threshold = 2.0
+
+ErrorEstimator::region_shape = "cube"
+ErrorEstimator::scale_by_resolution = yes
+
+CarpetX::prolongation_type = "ddf"
+CarpetX::prolongation_order = 5
+
+CarpetX::ghost_size = 3
+
+ODESolvers::method = "RK4"
+CarpetX::dtfac = 0.5
+
+ADMBaseX::initial_data = "Cartesian Minkowski"
+ADMBaseX::initial_lapse = "one"
+ADMBaseX::initial_shift = "zero"
+
+Z4c::calc_ADM_vars = no
+Z4c::calc_ADMRHS_vars = no
+Z4c::calc_constraints = no
+
+IO::out_dir = $parfile
+IO::out_every = 0
+CarpetX::out_performance_every = 10
+
+TimerReport::out_every = 10
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_all_timers = no
+TimerReport::output_all_timers_readable = no
+TimerReport::output_all_timers_together = no
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 50

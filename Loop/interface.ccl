@@ -7,4 +7,9 @@ USES INCLUDE HEADER: vect.hxx
 
 INCLUDES HEADER: loop.hxx IN loop.hxx
 INCLUDES HEADER: loop_device.hxx IN loop_device.hxx
-INCLUDES HEADER: loopcontrol.h IN loopcontrol.h
+
+# We cannot include the heder file `loopcontrol.h` since Carpet already does this,
+# and including header files is a build-time choice, not a run-time choice.
+# Disabling this is not a real loss because most CarpetX thorns will be using
+# the CarpetX Loop functions.
+# INCLUDES HEADER: loopcontrol.h IN loopcontrol.h
