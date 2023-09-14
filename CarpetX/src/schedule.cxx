@@ -2271,8 +2271,6 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       CCTK_IsFunctionAliased("MultiPatch_Interpolate");
 
   active_levels->loop([&](auto &restrict leveldata) {
-#warning "TODO"
-    CCTK_VINFO("sync level=%d patch=%d", leveldata.level, leveldata.patch);
     for (const int gi : groups) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
       const nan_handling_t nan_handling = groupdata.do_checkpoint
