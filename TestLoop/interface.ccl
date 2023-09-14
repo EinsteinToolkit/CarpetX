@@ -1,0 +1,9 @@
+# Interface definition for thorn TestLoop
+IMPLEMENTS: TestLoop
+
+INHERITS: CarpetX
+
+USES INCLUDE HEADER: loop.hxx
+USES INCLUDE HEADER: loop_device.hxx
+
+CCTK_REAL testloop_gf TYPE=gf CENTERING={VVV} "Test grid function"

@@ -173,11 +173,15 @@ public:
         for (int j = loop_min[1]; j < loop_max[1]; ++j) {
 #pragma omp simd
           for (int i = loop_min[0]; i < loop_max[0]; i += VS) {
+            // Grid point
             const vect<int, dim> I = {i, j, k};
+            // Outward boundary normal (if in outer boundary), else 0
             const vect<int, dim> NI =
                 vect<int, dim>(I > bnd_max - 1) - vect<int, dim>(I < bnd_min);
+            // Nearest interior point
             const vect<int, dim> I0 =
                 if_else(NI == 0, 0, if_else(NI < 0, bnd_min, bnd_max - 1));
+            // Outward boundary normal (if on outermost interior point), else 0
             const vect<int, dim> BI =
                 vect<int, dim>(I == bnd_max - 1) - vect<int, dim>(I == bnd_min);
             const PointDesc p =
@@ -524,6 +528,111 @@ public:
           }
         }
       }
+    } // for rank
+  }
+
+  // Loop over the outermost "boundary" points in the interior. They correspond
+  // to points that are shifted inwards by = cctk_nghostzones[3] from those that
+  // CarpetX identifies as boundary points. From the perspective of CarpetX (or
+  // AMReX), these do not belong in the outer boundary, but rather the interior.
+  // This excludes ghost faces, but includes ghost edges/corners on non-ghost
+  // faces. Loop over faces first, then edges, then corners. Modified from
+  // loop_bnd.
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
+  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  loop_outermost_int(const vect<int, dim> &group_nghostzones,
+                     const F &f) const {
+    // boundary_box sets bnd_min and bnd_max
+    vect<int, dim> bnd_min, bnd_max;
+    // if on (Carpetx) boundary points, then
+    //   bnd_min = nghostzones - lbnd
+    //   bnd_max = gsh - offset - nghostzones - lbnd
+    //   where lbnd : an array of cctk dim integers containing the lowest index
+    //   (in each direction) of the local grid, as seen on the global grid
+    // else,
+    //   bnd_min = -100000000
+    //   bnd_max = gsh + 1000000
+    // where cctk_gsh : an array of cctk dim integers with the global grid size
+    boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
+
+    // domain_boxes sets all_min, all_max, int_min and int_max
+    vect<int, dim> all_min, all_max, int_min, int_max;
+    // Indices for the entire grid
+    //   all_min = ghost_offset;
+    //   all_max = lsh - offset - ghost_offset;
+    // Indices for the interior
+    //   int_min = nghostzones;
+    //   int_max = lsh - offset - nghostzones;
+    domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
+                             int_max);
+
+    // Check that the actual number of ghost zones isn't overridden
+    for (int d = 0; d < dim; ++d) {
+      assert(group_nghostzones[d] == nghostzones[d]);
+    }
+
+    // Shift the indices towards the interior by nghostzones
+    all_min += nghostzones;
+    int_min += nghostzones;
+    bnd_min += nghostzones;
+    all_max -= nghostzones;
+    int_max -= nghostzones;
+    bnd_max -= nghostzones;
+
+    // rank selects: faces, edges, corners
+    // rank(interior) = 3
+    // rank(face)     = 2
+    // rank(edge)     = 1
+    // rank(corner)   = 0
+    for (int rank = dim - 1; rank >= 0; --rank) {
+
+      // Nested loops that determine {ni,nj,nk} components of the normal vector
+      for (int nk = -1; nk <= +1; ++nk) {
+        for (int nj = -1; nj <= +1; ++nj) {
+          for (int ni = -1; ni <= +1; ++ni) {
+            // True when the normal vector is normal to a {face, edge, corner}
+            if ((ni == 0) + (nj == 0) + (nk == 0) == rank) {
+              // True when point is on left/right boundary,
+              // and vector is not parallel to a {face,corner,edge}
+              // In either of the 3 directions
+              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2])) {
+
+                const vect<int, dim> inormal{ni, nj, nk}; // normal vector
+
+                vect<int, dim> imin, imax;
+                for (int d = 0; d < dim; ++d) {
+                  switch (inormal[d]) {
+                  case -1: // lower boundary
+                    imin[d] = all_min[d];
+                    imax[d] = int_min[d];
+                    break;
+                  case 0: // interior
+                    imin[d] = int_min[d];
+                    imax[d] = int_max[d];
+                    break;
+                  case +1: // upper boundary
+                    imin[d] = int_max[d];
+                    imax[d] = all_max[d];
+                    break;
+                  default:
+                    assert(0);
+                  }
+
+                  using std::min, std::max;
+                  // Adjust loop_box index range according to tile min, max
+                  imin[d] = max(tmin[d], imin[d]);
+                  imax[d] = min(tmax[d], imax[d]);
+                }
+
+                loop_box<CI, CJ, CK, VS, N>(bnd_min, bnd_max, imin, imax, f);
+              }
+            } // if rank
+          }
+        }
+      }
+
     } // for rank
   }
 

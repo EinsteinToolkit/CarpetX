@@ -1,0 +1,9 @@
+Cactus Code Thorn TestLoop
+Author(s)    : Cheng-Hsin Cheng <chcheng3@illinois.edu>
+Maintainer(s): Cheng-Hsin Cheng <chcheng3@illinois.edu>
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+This thorn tests the loop_outermost_int constructs by filling the outermost "boundary" points in the interior, which can be used for evolved boundary conditions (e.g. radiative boundary conditions, which are implemented in SpacetimeX/NewRadX).
