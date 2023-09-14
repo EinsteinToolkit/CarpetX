@@ -124,8 +124,7 @@ template <typename T, int D> struct vect {
 
   template <typename U>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect(vect<U, D> x)
-      : elts(construct_array<T, D>(
-            [&](int d) ARITH_INLINE { return std::move(x[d]); })) {}
+      : elts(construct_array<T, D>([&](int d) ARITH_INLINE { return x[d]; })) {}
 
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect(array<T, D> arr)
       : elts(std::move(arr)) {}
@@ -156,9 +155,9 @@ template <typename T, int D> struct vect {
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect(vector<T> &&vec)
       : elts(construct_array<T, D>([&](size_t d) ARITH_INLINE {
 #ifdef CCTK_DEBUG
-          return std::move(vec.at(d));
+          return vec.at(d);
 #else
-          return std::move(vec[d]);
+          return vec[d];
 #endif
         })) {
   }
