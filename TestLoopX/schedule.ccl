@@ -1,22 +1,22 @@
-# Schedule definitions for thorn TestLoop
+# Schedule definitions for thorn TestLoopX
 
 STORAGE: testloop_gf
 
-SCHEDULE TestLoop_Init AT initial
+SCHEDULE TestLoopX_Init AT initial
 {
   LANG: C
   WRITES: testloop_gf(interior)
   SYNC: testloop_gf
 } "Initialize test grid function"
 
-SCHEDULE TestLoop_Sync AT postregrid
+SCHEDULE TestLoopX_Sync AT postregrid
 {
   LANG: C
   OPTIONS: global
   SYNC: testloop_gf
 } "Synchronize test grid function"
 
-SCHEDULE TestLoop_OutermostInterior AT poststep
+SCHEDULE TestLoopX_OutermostInterior AT poststep
 {
   LANG: C
   READS: testloop_gf(interior)

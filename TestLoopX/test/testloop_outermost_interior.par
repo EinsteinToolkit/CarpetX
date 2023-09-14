@@ -1,7 +1,7 @@
 ActiveThorns = "
     CarpetX
     IOUtil
-    TestLoop
+    TestLoopX
 "
 
 Cactus::cctk_show_schedule = "no"
@@ -43,5 +43,5 @@ IO::parfile_write = "no"
 IO::out_every = 1
 
 CarpetX::out_tsv_vars = "
-  TestLoop::testloop_gf
+  TestLoopX::testloop_gf
 "

@@ -1,5 +1,5 @@
-# Interface definition for thorn TestLoop
-IMPLEMENTS: TestLoop
+# Interface definition for thorn TestLoopX
+IMPLEMENTS: TestLoopX
 
 INHERITS: CarpetX
 
