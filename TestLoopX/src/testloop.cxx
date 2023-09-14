@@ -4,11 +4,11 @@
 #include <loop.hxx>
 #include <loop_device.hxx>
 
-namespace TestLoop {
+namespace TestLoopX {
 using namespace Loop;
 
-extern "C" void TestLoop_Init(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestLoop_Init;
+extern "C" void TestLoopX_Init(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestLoopX_Init;
   DECLARE_CCTK_PARAMETERS;
 
   grid.loop_int_device<0, 0, 0>(
@@ -19,12 +19,12 @@ extern "C" void TestLoop_Init(CCTK_ARGUMENTS) {
       });
 }
 
-extern "C" void TestLoop_Sync(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestLoop_Sync;
+extern "C" void TestLoopX_Sync(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestLoopX_Sync;
 }
 
-extern "C" void TestLoop_OutermostInterior(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestLoop_OutermostInterior;
+extern "C" void TestLoopX_OutermostInterior(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestLoopX_OutermostInterior;
   DECLARE_CCTK_PARAMETERS;
 
   grid.loop_outermost_int<0, 0, 0>(
@@ -42,4 +42,4 @@ extern "C" void TestLoop_OutermostInterior(CCTK_ARGUMENTS) {
       });
 }
 
-} // namespace TestLoop
+} // namespace TestLoopX
