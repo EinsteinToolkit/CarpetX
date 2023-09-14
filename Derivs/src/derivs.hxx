@@ -51,7 +51,7 @@ template <std::ptrdiff_t I0, std::ptrdiff_t I1, symmetry S> struct stencil {
         r += coeffs[n] * arr(n + I0);
       }
       r /= divisor;
-      return std::move(r);
+      return r;
     }
     if constexpr (antisymmetric) {
       R r{0};
@@ -60,12 +60,12 @@ template <std::ptrdiff_t I0, std::ptrdiff_t I1, symmetry S> struct stencil {
         r += coeffs[n] * (arr(n + I0) - arr(n1 + I0));
       }
       r /= divisor;
-      return std::move(r);
+      return r;
     }
     R r{0};
     for (std::ptrdiff_t n = 0; n < N; ++n)
       r += coeffs[n] * arr(n + I0);
-    return std::move(r);
+    return r;
   }
 };
 
