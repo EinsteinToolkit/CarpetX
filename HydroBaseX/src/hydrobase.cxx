@@ -30,13 +30,13 @@ extern "C" void HydroBaseX_initial_data(CCTK_ARGUMENTS) {
 
   grid.loop_all_device<1, 0, 0>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p)
-                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avecx(p.I) = 0; });
+                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avecx(p.I) = 0; Avecx_rhs(p.I) = 0; });
   grid.loop_all_device<0, 1, 0>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p)
-                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avecy(p.I) = 0; });
+                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avecy(p.I) = 0; Avecy_rhs(p.I) = 0; });
   grid.loop_all_device<0, 0, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p)
-                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avecz(p.I) = 0; });
+                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avecz(p.I) = 0; Avecz_rhs(p.I) = 0; });
 }
 
 } // namespace HydroBaseX

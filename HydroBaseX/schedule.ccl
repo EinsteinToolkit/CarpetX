@@ -39,5 +39,8 @@ if (CCTK_EQUALS(initial_hydro, "vacuum")) {
     WRITES: Avecx(everywhere)
     WRITES: Avecy(everywhere)
     WRITES: Avecz(everywhere)
+    WRITES: Avecx_rhs(everywhere)
+    WRITES: Avecy_rhs(everywhere)
+    WRITES: Avecz_rhs(everywhere)
   } "Set up vacuum initial data"
 }
