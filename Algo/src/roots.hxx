@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <cmath>
 #include <limits>
 #include <utility>
