@@ -6,8 +6,9 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real32 .
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
-FROM ubuntu:22.04
-# FROM jammy-20230804   # jammy is ubuntu:22.04
+# FROM ubuntu:22.04
+# jammy is ubuntu:22.04
+FROM ubuntu:jammy-20230816
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -21,7 +22,10 @@ RUN apt-get update && \
         ca-certificates \
         cmake \
         cvs \
+        diffutils \
+        elfutils \
         g++ \
+        gdb \
         gfortran \
         git \
         hdf5-tools \
@@ -37,12 +41,15 @@ RUN apt-get update && \
         libopenblas-dev \
         libopenmpi-dev \
         libpetsc-real-dev \
+        libtool \
         libudev-dev \
         libyaml-cpp-dev \
+        m4 \
         meson \
         ninja-build \
+        numactl \
         perl \
-        pkg-config \
+        pkgconf \
         python2 \
         python3 \
         python3-pip \
@@ -54,6 +61,37 @@ RUN apt-get update && \
         zlib1g-dev \
         && \
     rm -rf /var/lib/apt/lists/*
+
+# Install HPCToolkit
+# Install this first because it is expensive to build
+RUN mkdir src && \
+    (cd src && \
+    wget https://github.com/spack/spack/releases/download/v0.20.1/spack-0.20.1.tar.gz && \
+    tar xzf spack-0.20.1.tar.gz && \
+    export SPACK_ROOT="$(pwd)/spack-0.20.1" && \
+    mkdir -p "${HOME}/.spack" && \
+    echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
+    . ${SPACK_ROOT}/share/spack/setup-env.sh && \
+    spack external find \
+        autoconf \
+        automake \
+        cmake \
+        diffutils \
+        elfutils \
+        gmake \
+        libtool \
+        m4 \
+        meson \
+        ninja \
+        numactl \
+        perl \
+        pkgconf \
+        python \
+    && \
+    spack install --fail-fast hpctoolkit ~viewer && \
+    spack view --dependencies no hardlink /hpctoolkit hpctoolkit && \
+    true) && \
+    rm -rf src "${HOME}/.spack"
 
 # Install ADIOS2
 # ADIOS2 is a parallel I/O library, comparable to HDF5
