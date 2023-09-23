@@ -6,8 +6,9 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real32 .
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
-FROM ubuntu:22.04
-# FROM jammy-20230804   # jammy is ubuntu:22.04
+# FROM ubuntu:22.04
+# jammy is ubuntu:22.04
+FROM ubuntu:jammy-20230816
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -80,13 +81,15 @@ RUN mkdir src && \
         gmake \
         libtool \
         m4 \
+        meson \
+        ninja \
         numactl \
         perl \
         pkgconf \
         python \
     && \
     spack install --fail-fast hpctoolkit ~viewer && \
-    spack view --dependencies no hardlink /hpctoolkit hpctoolkit ~viewer && \
+    spack view --dependencies no hardlink /hpctoolkit hpctoolkit && \
     true) && \
     rm -rf src "${HOME}/.spack"
 

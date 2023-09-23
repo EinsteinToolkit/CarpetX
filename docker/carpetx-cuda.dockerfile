@@ -81,6 +81,7 @@ RUN mkdir src && \
         libtool \
         m4 \
         meson \
+        ninja \
         numactl \
         perl \
         pkgconf \
