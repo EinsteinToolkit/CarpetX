@@ -1474,16 +1474,16 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     if (geom.isPeriodic(d))
       gdomain.grow(d, mfab.nGrow(d));
 
-  // This loop is parallel
-  loop_over_components(mfab, [&](const int index, const int component) {
-    amrex::FArrayBox &dest = mfab[index];
-
-    // If there are cells not in the valid + periodic grown box,
-    // then we need to fill them here
+  // Do not tile because the boundary boxes are likely already small
+  const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync();
+#pragma omp parallel
+  for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi) {
+    amrex::FArrayBox &dest = mfab[mfi];
+    // If there are cells not in the valid + periodic grown box, then
+    // we need to fill them here
     if (!gdomain.contains(dest.box()))
       BoundaryCondition(*this, dest).apply();
-  });
-  // synchronize();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
