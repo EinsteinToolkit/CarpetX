@@ -2716,6 +2716,7 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
               assert(0);
             }
           }
+#endif
 
           // TODO: Also remember old why_valid for interior?
           for (int vi = 0; vi < groupdata.numvars; ++vi) {
