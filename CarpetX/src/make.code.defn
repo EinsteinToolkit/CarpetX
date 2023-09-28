@@ -53,6 +53,7 @@ SRCS =							\
 	reduction.cxx					\
 	regrid_error.cxx				\
 	schedule.cxx					\
+	task_manager.cxx				\
 	timer.cxx					\
 	valid.cxx
 

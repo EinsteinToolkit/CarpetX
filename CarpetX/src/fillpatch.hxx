@@ -2,18 +2,19 @@
 #define CARPETX_CARPETX_FILLPATCH_HXX
 
 #include "driver.hxx"
+#include "task_manager.hxx"
 
 #include <functional>
 
 namespace CarpetX {
 
 // Sync
-std::function<std::function<void()>()>
-FillPatch_Sync(const GHExt::PatchData::LevelData::GroupData &groupdata,
-               amrex::MultiFab &mfab, const amrex::Geometry &geom);
+void FillPatch_Sync(task_manager &tasks1, task_manager &tasks2,
+                    const GHExt::PatchData::LevelData::GroupData &groupdata,
+                    amrex::MultiFab &mfab, const amrex::Geometry &geom);
 
-// Prolongate (but do not sync) ghosts. Expects coarse mfab synced (but not
-// necessarily ghost-prolongated).
+// Prolongate (but do not sync) ghosts. Expects coarse mfab synced (?)
+// (but not necessarily ghost-prolongated).
 std::function<std::function<void()>()> FillPatch_ProlongateGhosts(
     const GHExt::PatchData::LevelData::GroupData &groupdata,
     amrex::MultiFab &mfab, const amrex::MultiFab &cmfab,
