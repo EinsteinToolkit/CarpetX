@@ -9,6 +9,9 @@
 namespace CarpetX {
 
 // Sync
+std::function<std::function<void()>()>
+FillPatch_Sync(const GHExt::PatchData::LevelData::GroupData &groupdata,
+               amrex::MultiFab &mfab, const amrex::Geometry &geom);
 void FillPatch_Sync(task_manager &tasks1, task_manager &tasks2,
                     const GHExt::PatchData::LevelData::GroupData &groupdata,
                     amrex::MultiFab &mfab, const amrex::Geometry &geom);

@@ -32,6 +32,17 @@ task0 do_nothing1() {}
 task1 do_nothing2() { return do_nothing1; }
 } // namespace
 
+task2 FillPatch_Sync(const GHExt::PatchData::LevelData::GroupData &groupdata,
+                     MultiFab &mfab, const Geometry &geom) {
+  mfab.FillBoundary_nowait(0, mfab.nComp(), mfab.nGrowVect(),
+                           geom.periodicity());
+  return [&groupdata, &mfab]() -> task1 {
+    mfab.FillBoundary_finish();
+    groupdata.apply_boundary_conditions(mfab);
+    return do_nothing2();
+  };
+}
+
 void FillPatch_Sync(task_manager &tasks2, task_manager &tasks3,
                     const GHExt::PatchData::LevelData::GroupData &groupdata,
                     MultiFab &mfab, const Geometry &geom) {
