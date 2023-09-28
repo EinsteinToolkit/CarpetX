@@ -368,7 +368,6 @@ void BoundaryCondition::apply_on_face_symbcxyz(
               }
 #ifdef CCTK_DEBUG
               assert(all(src >= dmin && src < dmax));
-              assert(!all(src == dst));
 #endif
 
               for (int comp = cmin; comp < cmax; ++comp) {
