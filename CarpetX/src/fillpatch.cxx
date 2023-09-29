@@ -1,8 +1,10 @@
 #include "fillpatch.hxx"
+#include "schedule.hxx"
 
 #include <utility>
 
 #include <AMReX_FillPatchUtil.H>
+#include <AMReX_MultiFabUtil.H>
 
 namespace CarpetX {
 
@@ -37,8 +39,19 @@ task2 FillPatch_Sync(const GHExt::PatchData::LevelData::GroupData &groupdata,
   return [&groupdata, &mfab]() -> task1 {
     mfab.FillBoundary_finish();
     groupdata.apply_boundary_conditions(mfab);
-    return do_nothing1;
+    return do_nothing2();
   };
+}
+
+void FillPatch_Sync(task_manager &tasks2, task_manager &tasks3,
+                    const GHExt::PatchData::LevelData::GroupData &groupdata,
+                    MultiFab &mfab, const Geometry &geom) {
+  mfab.FillBoundary_nowait(0, mfab.nComp(), mfab.nGrowVect(),
+                           geom.periodicity());
+  tasks2.submit([&groupdata, &mfab]() {
+    mfab.FillBoundary_finish();
+    groupdata.apply_boundary_conditions(mfab);
+  });
 }
 
 task2 FillPatch_ProlongateGhosts(

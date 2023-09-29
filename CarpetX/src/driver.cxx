@@ -1474,16 +1474,16 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     if (geom.isPeriodic(d))
       gdomain.grow(d, mfab.nGrow(d));
 
-  // This loop is parallel
-  loop_over_components(mfab, [&](const int index, const int component) {
-    amrex::FArrayBox &dest = mfab[index];
-
-    // If there are cells not in the valid + periodic grown box,
-    // then we need to fill them here
+  // Do not tile because the boundary boxes are likely already small
+  const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync();
+#pragma omp parallel
+  for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi) {
+    amrex::FArrayBox &dest = mfab[mfi];
+    // If there are cells not in the valid + periodic grown box, then
+    // we need to fill them here
     if (!gdomain.contains(dest.box()))
       BoundaryCondition(*this, dest).apply();
-  });
-  // synchronize();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1666,12 +1666,11 @@ void SetupGlobals() {
         valid.valid_ghosts = true;
         arraygroupdata.valid.at(tl).at(vi).set_all(
             valid, []() { return "SetupGlobals"; });
-
-        // TODO: make poison_invalid and check_invalid virtual members of
-        // CommonGroupData
-        poison_invalid(arraygroupdata, vi, tl);
-        check_valid(arraygroupdata, vi, tl, nan_handling,
-                    []() { return "SetupGlobals"; });
+        // TODO: make poison_invalid and check_invalid virtual members
+        // of CommonGroupData
+        poison_invalid_ga(gi, vi, tl);
+        check_valid_ga(gi, vi, tl, nan_handling,
+                       []() { return "SetupGlobals"; });
       }
     }
   }
@@ -1693,6 +1692,7 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
   if (level >= int(level_modified.size()))
     level_modified.resize(level + 1, true);
   level_modified.at(level) = true;
+  const active_levels_t active_levels(level, level + 1, patch, patch + 1);
 
   // Initialize data
   const auto &leveldata = patchdata.leveldata.at(level);
@@ -1706,12 +1706,10 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
     if (group.grouptype != CCTK_GF)
       continue;
 
-    const GHExt::PatchData::LevelData::GroupData &groupdata =
-        *leveldata.groupdata.at(gi);
-
+    const auto &restrict groupdata = *leveldata.groupdata.at(gi);
     for (int tl = 0; tl < int(groupdata.mfab.size()); ++tl)
       for (int vi = 0; vi < groupdata.numvars; ++vi)
-        poison_invalid(leveldata, groupdata, vi, tl);
+        poison_invalid_gf(active_levels, gi, vi, tl);
   }
 
   if (verbose)
@@ -1754,6 +1752,10 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
   auto &patchdata = ghext->patchdata.at(patch);
   auto &leveldata = patchdata.leveldata.at(level);
   auto &coarseleveldata = patchdata.leveldata.at(level - 1);
+  const active_levels_t active_levels(level, level + 1, patch, patch + 1);
+  const active_levels_t active_coarse_levels(level - 1, level, patch,
+                                             patch + 1);
+
   const int num_groups = CCTK_NumGroups();
   for (int gi = 0; gi < num_groups; ++gi) {
     cGroup group;
@@ -1794,9 +1796,9 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
           error_if_invalid(coarsegroupdata, vi, tl, make_valid_all(), []() {
             return "MakeNewLevelFromCoarse before prolongation";
           });
-          check_valid(
-              coarseleveldata, coarsegroupdata, vi, tl, nan_handling,
-              []() { return "MakeNewLevelFromCoarse before prolongation"; });
+          check_valid_gf(active_coarse_levels, gi, vi, tl, nan_handling, []() {
+            return "MakeNewLevelFromCoarse before prolongation";
+          });
         }
         FillPatch_NewLevel(
             groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
@@ -1812,18 +1814,17 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
               []() { return "MakeNewLevelFromCoarse after prolongation"; });
           // This cannot be called because it would access the data
           // with old metadata
-          // check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
+          // check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
           //   return "MakeNewLevelFromCoarse after prolongation";
           // });
         }
       }
 
-      for (int vi = 0; vi < groupdata.numvars; ++vi) {
-        // Already poisoned by SetupLevel
-        check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
+      // Already poisoned by SetupLevel
+      for (int vi = 0; vi < groupdata.numvars; ++vi)
+        check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
           return "MakeNewLevelFromCoarse after prolongation";
         });
-      }
     } // for tl
 
   } // for gi
@@ -1846,6 +1847,9 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   auto &leveldata = patchdata.leveldata.at(level);
   assert(leveldata.level > 0);
   auto &coarseleveldata = patchdata.leveldata.at(level - 1);
+  const active_levels_t active_levels(level, level + 1, patch, patch + 1);
+  const active_levels_t active_coarse_levels(level - 1, level, patch,
+                                             patch + 1);
 
   // Copy or prolongate
   assert(!use_subcycling_wip);
@@ -1874,22 +1878,21 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
                                             : nan_handling_t::allow_nans;
 
     for (int tl = 0; tl < ntls; ++tl) {
-      for (int vi = 0; vi < groupdata.numvars; ++vi)
-        poison_invalid(leveldata, groupdata, vi, tl);
+      for (int vi = 0; vi < groupdata.numvars; ++vi) {
+        poison_invalid_gf(active_levels, gi, vi, tl);
 
-      if (tl < prolongate_tl) {
-        for (int vi = 0; vi < groupdata.numvars; ++vi) {
+        if (tl < prolongate_tl) {
           error_if_invalid(coarsegroupdata, vi, tl, make_valid_all(),
                            []() { return "RemakeLevel before prolongation"; });
           error_if_invalid(groupdata, vi, tl, make_valid_all(),
                            []() { return "RemakeLevel before prolongation"; });
-          check_valid(coarseleveldata, coarsegroupdata, vi, tl, nan_handling,
-                      []() { return "RemakeLevel before prolongation"; });
-          check_valid(leveldata, groupdata, vi, tl, nan_handling,
-                      []() { return "RemakeLevel before prolongation"; });
         }
-      }
-    } // for tl
+        check_valid_gf(active_coarse_levels, gi, vi, tl, nan_handling,
+                       []() { return "RemakeLevel before prolongation"; });
+        check_valid_gf(active_levels, gi, vi, tl, nan_handling,
+                       []() { return "RemakeLevel before prolongation"; });
+      } // for vi
+    }   // for tl
 
   } // for gi
 
@@ -1956,11 +1959,10 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
       }
 
       for (int vi = 0; vi < groupdata.numvars; ++vi) {
-        poison_invalid(leveldata, groupdata, vi, tl);
-        check_valid(leveldata, groupdata, vi, tl, nan_handling,
-                    []() { return "RemakeLevel after prolongation"; });
+        poison_invalid_gf(active_levels, gi, vi, tl);
+        check_valid_gf(active_levels, gi, vi, tl, nan_handling,
+                       []() { return "RemakeLevel after prolongation"; });
       }
-
     } // for tl
 
   } // for gi

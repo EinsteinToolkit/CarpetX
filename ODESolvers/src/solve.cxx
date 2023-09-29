@@ -124,7 +124,7 @@ struct statecomp_t {
 // Initialize the temporary mfab mechanism
 void statecomp_t::init_tmp_mfabs() {
   assert(CarpetX::active_levels);
-  CarpetX::active_levels->loop([&](const auto &leveldata) {
+  CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
     for (const auto &groupdataptr : leveldata.groupdata) {
       if (groupdataptr == nullptr)
         continue;
@@ -137,7 +137,7 @@ void statecomp_t::init_tmp_mfabs() {
 // Free all temporary mfabs that we might have allocated
 void statecomp_t::free_tmp_mfabs() {
   assert(CarpetX::active_levels);
-  CarpetX::active_levels->loop([&](const auto &leveldata) {
+  CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
     for (const auto &groupdataptr : leveldata.groupdata) {
       if (groupdataptr == nullptr)
         continue;
@@ -150,8 +150,6 @@ void statecomp_t::free_tmp_mfabs() {
 // State that the state vector has valid data in the interior
 void statecomp_t::set_valid(const valid_t valid) const {
   for (auto groupdata : groupdatas) {
-    auto &leveldata = CarpetX::ghext->patchdata.at(groupdata->patch)
-                          .leveldata.at(groupdata->level);
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
       const int tl = 0;
       groupdata->valid.at(tl).at(vi).set_int(valid.valid_int, [=]() {
@@ -172,7 +170,12 @@ void statecomp_t::set_valid(const valid_t valid) const {
             << (valid.valid_int ? "valid" : "invalid");
         return buf.str();
       });
-      CarpetX::poison_invalid(leveldata, *groupdata, vi, tl);
+      // TODO: Parallelize over patches, levels, group, variables, and
+      // timelevels
+      const active_levels_t active_levels(
+          groupdata->level, groupdata->level + 1, groupdata->patch,
+          groupdata->patch + 1);
+      CarpetX::poison_invalid_gf(active_levels, groupdata->groupindex, vi, tl);
     }
   }
 }
@@ -225,13 +228,16 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
 void statecomp_t::check_valid(const valid_t required,
                               const function<string()> &why) const {
   for (const auto groupdata : groupdatas) {
-    const auto &leveldata = CarpetX::ghext->patchdata.at(groupdata->patch)
-                                .leveldata.at(groupdata->level);
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
       const int tl = 0;
       CarpetX::error_if_invalid(*groupdata, vi, tl, required, why);
-      CarpetX::check_valid(leveldata, *groupdata, vi, tl,
-                           nan_handling_t::forbid_nans, why);
+      // TODO: Parallelize over pathces, levels, group, variables, and
+      // timelevels
+      const active_levels_t active_levels(
+          groupdata->level, groupdata->level + 1, groupdata->patch,
+          groupdata->patch + 1);
+      CarpetX::check_valid_gf(active_levels, groupdata->groupindex, vi, tl,
+                              nan_handling_t::forbid_nans, why);
     }
   }
 }
@@ -622,7 +628,7 @@ std::vector<int> get_group_dependents(const int gi) {
 
 // Mark groups as invalid
 void mark_invalid(const std::vector<int> &groups) {
-  CarpetX::active_levels->loop([&](const auto &leveldata) {
+  CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
     for (const int gi : groups) {
       auto &groupdata = *leveldata.groupdata.at(gi);
       // Invalidate all variables of the current time level
@@ -653,7 +659,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   int nvars = 0;
   bool do_accumulate_nvars = true;
   assert(CarpetX::active_levels);
-  CarpetX::active_levels->loop([&](const auto &leveldata) {
+  CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
     for (const auto &groupdataptr : leveldata.groupdata) {
       // TODO: add support for evolving grid scalars
       if (groupdataptr == nullptr)

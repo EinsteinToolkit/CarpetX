@@ -3,6 +3,7 @@
 #include "io.hxx"
 #include "loop.hxx"
 #include "schedule.hxx"
+#include "task_manager.hxx"
 #include "timer.hxx"
 #include "valid.hxx"
 
@@ -768,110 +769,111 @@ extern "C" CCTK_INT CarpetX_GetCallFunctionCount() {
 #endif
 }
 
-void loop_over_components(
-    amrex::FabArrayBase &fab,
-    const std::function<void(int index, int component)> &component_kernel) {
-  DECLARE_CCTK_PARAMETERS;
+active_levels_t::active_levels_t(const int min_level, const int max_level,
+                                 const int min_patch, const int max_patch)
+    : min_level(min_level), max_level(max_level), min_patch(min_patch),
+      max_patch(max_patch) {
+  assert(min_level >= 0);
+  assert(max_level <= ghext->num_levels());
+  assert(min_patch >= 0);
+  assert(max_patch <= ghext->num_patches());
+}
+active_levels_t::active_levels_t(const int min_level, const int max_level)
+    : active_levels_t(min_level, max_level, 0, ghext->num_patches()) {}
+active_levels_t::active_levels_t() : active_levels_t(0, ghext->num_levels()) {}
 
-  // Choose kernel launch method
-  enum class launch_method_t { serial, openmp, cuda };
-  launch_method_t launch_method;
-  if (CCTK_EQUALS(kernel_launch_method, "serial")) {
-    launch_method = launch_method_t::serial;
-  } else if (CCTK_EQUALS(kernel_launch_method, "openmp")) {
-    launch_method = launch_method_t::openmp;
-  } else if (CCTK_EQUALS(kernel_launch_method, "cuda")) {
-    launch_method = launch_method_t::cuda;
-  } else if (CCTK_EQUALS(kernel_launch_method, "default")) {
-#ifdef AMREX_USE_GPU
-    launch_method = launch_method_t::cuda;
-#else
-    launch_method = launch_method_t::openmp;
-#endif
-  } else {
-    CCTK_ERROR("internal error");
-  }
-
-  switch (launch_method) {
-
-  case launch_method_t::serial: {
-    // No parallelism
-
-    // Note: The amrex::MFIter uses global variables and OpenMP barriers
-    int component = 0;
-    const auto mfitinfo = amrex::MFItInfo().EnableTiling();
-    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++component) {
-      const MFPointer mfp(mfi);
-      component_kernel(mfp.index(), component);
-    }
-    break;
-  }
-
-  case launch_method_t::openmp: {
-    // OpenMP
-
-    std::vector<std::function<void()> > tasks;
-
-    // Note: The amrex::MFIter uses global variables and OpenMP barriers
-    int component = 0;
-    const auto mfitinfo = amrex::MFItInfo().EnableTiling();
-    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++component) {
-      const MFPointer mfp(mfi);
-      auto task = [&component_kernel, mfp, component]() {
-        component_kernel(mfp.index(), component);
-      };
-      tasks.push_back(std::move(task));
-    }
-
-    // run all tasks
-#pragma omp parallel for schedule(dynamic)
-    for (size_t i = 0; i < tasks.size(); ++i)
-      tasks[i]();
-
-    // There is an implicit OpenMP barrier here.
-
-    break;
-  }
-
-  case launch_method_t::cuda: {
-    // CUDA
-
-    // No OpenMP parallelization when using GPUs
-    int component = 0;
-    const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync().EnableTiling();
-    for (amrex::MFIter mfi(fab, mfitinfo); mfi.isValid(); ++mfi, ++component) {
-      const MFPointer mfp(mfi);
-      component_kernel(mfp.index(), component);
-#ifdef AMREX_USE_GPU
-      if (gpu_sync_after_every_kernel) {
-        amrex::Gpu::streamSynchronize();
-        AMREX_GPU_ERROR_CHECK();
+void active_levels_t::assert_consistent_iterations() const {
+  rat64 good_iteration = -1;
+  for (int level = min_level; level < max_level; ++level) {
+    for (int patch = min_patch; patch < max_patch; ++patch) {
+      const auto &patchdata = ghext->patchdata.at(patch);
+      if (level < int(patchdata.leveldata.size())) {
+        const auto &leveldata = patchdata.leveldata.at(level);
+        const auto &iteration = leveldata.iteration;
+        if (good_iteration == -1)
+          good_iteration = iteration;
+        assert(iteration == good_iteration);
       }
-#endif
     }
-
-    break;
-  }
-
-  default:
-    CCTK_ERROR("internal error");
   }
 }
 
-void loop_over_components(
-    const active_levels_t &active_levels,
-    const std::function<void(int patch, int level, int index, int component,
-                             const cGH *cctkGH)> &component_kernel) {
-  DECLARE_CCTK_PARAMETERS;
+// Loop over all active patches of all active levels from coarsest to
+// finest
+void active_levels_t::loop_coarse_to_fine(
+    const std::function<void(GHExt::PatchData::LevelData &level)> &kernel)
+    const {
+  assert(omp_get_num_threads() == 1);
+  assert_consistent_iterations();
+  for (int level = min_level; level < max_level; ++level) {
+    for (int patch = min_patch; patch < max_patch; ++patch) {
+      auto &patchdata = ghext->patchdata.at(patch);
+      if (level < int(patchdata.leveldata.size()))
+        kernel(patchdata.leveldata.at(level));
+    }
+  }
+}
 
-  active_levels.loop([&](const auto &restrict leveldata) {
-    loop_over_components(
-        *leveldata.fab,
-        [&leveldata, &component_kernel](const int index, const int component) {
-          cGH *restrict const localGH = leveldata.get_local_cctkGH(component);
-          component_kernel(leveldata.patch, leveldata.level, index, component,
-                           localGH);
-        });
+// Loop over all active patches of all active levels from finest to
+// coarsest
+void active_levels_t::loop_fine_to_coarse(
+    const std::function<void(GHExt::PatchData::LevelData &level)> &kernel)
+    const {
+  assert(omp_get_num_threads() == 1);
+  assert_consistent_iterations();
+  for (int level = max_level - 1; level >= min_level; --level) {
+    for (int patch = min_patch; patch < max_patch; ++patch) {
+      auto &patchdata = ghext->patchdata.at(patch);
+      if (level < int(patchdata.leveldata.size()))
+        kernel(patchdata.leveldata.at(level));
+    }
+  }
+}
+
+// Loop over all components of all active patches of all active levels
+// in parallel
+void active_levels_t::loop_parallel(
+    const std::function<void(int patch, int level, int index, int component,
+                             const cGH *cctkGH)> &kernel) const {
+  assert(omp_get_num_threads() == 1);
+  task_manager tasks;
+
+  loop_coarse_to_fine([&](const auto &restrict leveldata) {
+    int component = 0;
+    const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync().EnableTiling();
+    const auto &fab0 = *leveldata.fab;
+    for (amrex::MFIter mfi(fab0, mfitinfo); mfi.isValid(); ++mfi, ++component) {
+      const int index = mfi.index();
+      tasks.submit_serially([&kernel, &leveldata, index, component]() {
+        const int patch = leveldata.patch;
+        const int level = leveldata.level;
+        cGH *restrict const localGH = leveldata.get_local_cctkGH(component);
+        kernel(patch, level, index, component, localGH);
+      });
+    }
+  });
+
+  // Run all tasks
+  tasks.run_tasks();
+  // There is an implicit OpenMP barrier here.
+}
+
+// Loop over all components of all active patches of all active levels
+// serially
+void active_levels_t::loop_serially(
+    const std::function<void(int patch, int level, int index, int component,
+                             const cGH *cctkGH)> &kernel) const {
+  loop_coarse_to_fine([&](const auto &restrict leveldata) {
+    int component = 0;
+    const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync().EnableTiling();
+    const auto &fab0 = *leveldata.fab;
+    for (amrex::MFIter mfi(fab0, mfitinfo); mfi.isValid(); ++mfi, ++component) {
+      const int index = mfi.index();
+      const int patch = leveldata.patch;
+      const int level = leveldata.level;
+      cGH *restrict const localGH = leveldata.get_local_cctkGH(component);
+      kernel(patch, level, index, component, localGH);
+    }
   });
 }
 
@@ -1332,7 +1334,7 @@ int Initialise(tFleshConfig *config) {
   if (!restrict_during_sync) {
     // Restrict
     assert(active_levels);
-    active_levels->loop_reverse([&](const auto &leveldata) {
+    active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
       if (leveldata.level != ghext->num_levels() - 1)
         Restrict(cctkGH, leveldata.level);
     });
@@ -1396,6 +1398,7 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
   static Timer timer("InvalidateTimelevels");
   Interval interval(timer);
 
+  // TODO: Parallelize over groups
   const int num_groups = CCTK_NumGroups();
   for (int gi = 0; gi < num_groups; ++gi) {
     cGroup group;
@@ -1403,23 +1406,29 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
     assert(!ierr);
 
     if (group.grouptype == CCTK_GF) {
-      assert(active_levels);
-      active_levels->loop([&](const auto &restrict leveldata) {
-        auto &restrict groupdata = *leveldata.groupdata.at(gi);
-        if (!groupdata.do_checkpoint) {
+      const auto &patchdata0 = ghext->patchdata.at(0);
+      const auto &leveldata0 = patchdata0.leveldata.at(0);
+      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+      if (!groupdata0.do_checkpoint) {
+        const int ntls0 = groupdata0.mfab.size();
+        assert(active_levels);
+        active_levels->loop_serially([&](const auto &restrict leveldata) {
+          auto &restrict groupdata = *leveldata.groupdata.at(gi);
           // Invalidate all time levels
           const int ntls = groupdata.mfab.size();
-          for (int tl = 0; tl < ntls; ++tl) {
-            for (int vi = 0; vi < groupdata.numvars; ++vi) {
+          assert(ntls == ntls0);
+          for (int tl = 0; tl < ntls; ++tl)
+            for (int vi = 0; vi < groupdata.numvars; ++vi)
               groupdata.valid.at(tl).at(vi).set_all(valid_t(), []() {
                 return "InvalidateTimelevels (invalidate all non-checkpointed "
                        "variables)";
               });
-              poison_invalid(leveldata, groupdata, vi, tl);
-            }
-          }
-        }
-      });
+        });
+        // TODO: Parallelize over timelevels and variables
+        for (int tl = 0; tl < ntls0; ++tl)
+          for (int vi = 0; vi < groupdata0.numvars; ++vi)
+            poison_invalid_gf(*active_levels, gi, vi, tl);
+      }
     } else { // CCTK_ARRAY or CCTK_SCALAR
 
       auto &restrict globaldata = ghext->globaldata;
@@ -1427,16 +1436,17 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
       if (!arraygroupdata.do_checkpoint) {
         // Invalidate all time levels
         const int ntls = arraygroupdata.data.size();
-        for (int tl = 0; tl < ntls; ++tl) {
-          for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
+        for (int tl = 0; tl < ntls; ++tl)
+          for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
             // TODO: handle this more nicely
             arraygroupdata.valid.at(tl).at(vi).set_int(false, []() {
               return "InvalidateTimelevels (invalidate all non-checkpointed "
                      "variables)";
             });
-            poison_invalid(arraygroupdata, vi, tl);
-          }
-        }
+        // TODO: Parallelize over timelevels and variables
+        for (int tl = 0; tl < ntls; ++tl)
+          for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
+            poison_invalid_ga(gi, vi, tl);
       }
     }
 
@@ -1453,6 +1463,7 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
   cctkGH->cctk_time += cctkGH->cctk_delta_time;
   update_cctkGHs(cctkGH);
 
+  // TODO: Parallelize over groups
   const int num_groups = CCTK_NumGroups();
   for (int gi = 0; gi < num_groups; ++gi) {
     cGroup group;
@@ -1460,26 +1471,29 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
     assert(!ierr);
 
     if (group.grouptype == CCTK_GF) {
+      const auto &patchdata0 = ghext->patchdata.at(0);
+      const auto &leveldata0 = patchdata0.leveldata.at(0);
+      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+      const int ntls0 = groupdata0.mfab.size();
+      const nan_handling_t nan_handling = groupdata0.do_checkpoint
+                                              ? nan_handling_t::forbid_nans
+                                              : nan_handling_t::allow_nans;
 
       assert(active_levels);
-      active_levels->loop([&](auto &restrict leveldata) {
+      active_levels->loop_serially([&](auto &restrict leveldata) {
         auto &restrict groupdata = *leveldata.groupdata.at(gi);
-        const nan_handling_t nan_handling = groupdata.do_checkpoint
-                                                ? nan_handling_t::forbid_nans
-                                                : nan_handling_t::allow_nans;
         const int ntls = groupdata.mfab.size();
+        assert(ntls == ntls0);
         // Rotate time levels and invalidate current time level
         if (ntls > 1) {
           rotate(groupdata.mfab.begin(), groupdata.mfab.end() - 1,
                  groupdata.mfab.end());
           rotate(groupdata.valid.begin(), groupdata.valid.end() - 1,
                  groupdata.valid.end());
-          for (int vi = 0; vi < groupdata.numvars; ++vi) {
+          for (int vi = 0; vi < groupdata.numvars; ++vi)
             groupdata.valid.at(0).at(vi).set_all(valid_t(), []() {
               return "CycletimeLevels (invalidate current time level)";
             });
-            poison_invalid(leveldata, groupdata, vi, 0);
-          }
         }
         // All time levels (except the current) must be valid everywhere for
         // checkpointed groups
@@ -1489,11 +1503,14 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
               error_if_invalid(groupdata, vi, tl, make_valid_all(), []() {
                 return "CycleTimelevels for the state vector";
               });
-        for (int tl = 0; tl < ntls; ++tl)
-          for (int vi = 0; vi < groupdata.numvars; ++vi)
-            check_valid(leveldata, groupdata, vi, tl, nan_handling,
-                        []() { return "CycleTimelevels"; });
       });
+      for (int vi = 0; vi < groupdata0.numvars; ++vi) {
+        if (ntls0 > 1)
+          poison_invalid_gf(*active_levels, gi, vi, 0);
+        for (int tl = 0; tl < ntls0; ++tl)
+          check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
+                         []() { return "CycleTimelevels"; });
+      }
     } else { // CCTK_ARRAY or CCTK_SCALAR
 
       auto &restrict globaldata = ghext->globaldata;
@@ -1512,13 +1529,13 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
           arraygroupdata.valid.at(0).at(vi).set_int(false, []() {
             return "CycletimeLevels (invalidate current time level)";
           });
-          poison_invalid(arraygroupdata, vi, 0);
+          poison_invalid_ga(gi, vi, 0);
         }
       }
       for (int tl = 0; tl < ntls; ++tl)
         for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
-          check_valid(arraygroupdata, vi, tl, nan_handling,
-                      []() { return "CycleTimelevels"; });
+          check_valid_ga(gi, vi, tl, nan_handling,
+                         []() { return "CycleTimelevels"; });
     }
 
   } // for gi
@@ -1692,7 +1709,7 @@ int Evolve(tFleshConfig *config) {
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
       // Advance iteration number on this batch of levels
-      active_levels->loop([&](auto &restrict leveldata) {
+      active_levels->loop_serially([&](auto &restrict leveldata) {
         leveldata.iteration += leveldata.delta_iteration;
       });
 
@@ -1865,7 +1882,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     for (const auto &rd : reads) {
       if (CCTK_GroupTypeI(rd.gi) == CCTK_GF) {
 
-        active_levels->loop([&](const auto &restrict leveldata) {
+        active_levels->loop_serially([&](const auto &restrict leveldata) {
           const auto &restrict groupdata = *leveldata.groupdata.at(rd.gi);
           const valid_t &need = rd.valid;
           valid_t have = groupdata.valid.at(rd.tl).at(rd.vi).get();
@@ -1885,28 +1902,34 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     const vector<clause_t> &reads = decode_clauses(attribute, rdwr_t::read);
     for (const auto &rd : reads) {
       if (CCTK_GroupTypeI(rd.gi) == CCTK_GF) {
+        const auto &patchdata0 = ghext->patchdata.at(0);
+        const auto &leveldata0 = patchdata0.leveldata.at(0);
+        const auto &groupdata0 = *leveldata0.groupdata.at(rd.gi);
+        const nan_handling_t nan_handling = groupdata0.do_checkpoint
+                                                ? nan_handling_t::forbid_nans
+                                                : nan_handling_t::allow_nans;
 
-        active_levels->loop([&](const auto &restrict leveldata) {
+        active_levels->loop_serially([&](const auto &restrict leveldata) {
           const auto &restrict groupdata = *leveldata.groupdata.at(rd.gi);
-          const nan_handling_t nan_handling = groupdata.do_checkpoint
-                                                  ? nan_handling_t::forbid_nans
-                                                  : nan_handling_t::allow_nans;
           const valid_t &need = rd.valid;
-          error_if_invalid(groupdata, rd.vi, rd.tl, need, [&]() {
-            ostringstream buf;
-            buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
-                << attribute->where << ": " << attribute->thorn
-                << "::" << attribute->routine << " checking input";
-            return buf.str();
-          });
-          check_valid(leveldata, groupdata, rd.vi, rd.tl, nan_handling, [&]() {
-            ostringstream buf;
-            buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
-                << attribute->where << ": " << attribute->thorn
-                << "::" << attribute->routine << " checking input";
-            return buf.str();
-          });
+          error_if_invalid(
+              groupdata, rd.vi, rd.tl, need, [attribute, cctkGH]() {
+                ostringstream buf;
+                buf << "CallFunction iteration " << cctkGH->cctk_iteration
+                    << " " << attribute->where << ": " << attribute->thorn
+                    << "::" << attribute->routine << " checking input";
+                return buf.str();
+              });
         });
+        check_valid_gf(*active_levels, rd.gi, rd.vi, rd.tl, nan_handling,
+                       [attribute, cctkGH]() {
+                         ostringstream buf;
+                         buf << "CallFunction iteration "
+                             << cctkGH->cctk_iteration << " "
+                             << attribute->where << ": " << attribute->thorn
+                             << "::" << attribute->routine << " checking input";
+                         return buf.str();
+                       });
       } else { // CCTK_ARRAY or CCTK_SCALAR
 
         const auto &restrict arraygroupdata =
@@ -1915,20 +1938,22 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
         const valid_t &need = rd.valid;
-        error_if_invalid(arraygroupdata, rd.vi, rd.tl, need, [&]() {
-          ostringstream buf;
-          buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
-              << attribute->where << ": " << attribute->thorn
-              << "::" << attribute->routine << " checking input";
-          return buf.str();
-        });
-        check_valid(arraygroupdata, rd.vi, rd.tl, nan_handling, [&]() {
-          ostringstream buf;
-          buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
-              << attribute->where << ": " << attribute->thorn
-              << "::" << attribute->routine << " checking input";
-          return buf.str();
-        });
+        error_if_invalid(
+            arraygroupdata, rd.vi, rd.tl, need, [attribute, cctkGH]() {
+              ostringstream buf;
+              buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
+                  << attribute->where << ": " << attribute->thorn
+                  << "::" << attribute->routine << " checking input";
+              return buf.str();
+            });
+        check_valid_ga(
+            rd.gi, rd.vi, rd.tl, nan_handling, [attribute, cctkGH]() {
+              ostringstream buf;
+              buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
+                  << attribute->where << ": " << attribute->thorn
+                  << "::" << attribute->routine << " checking input";
+              return buf.str();
+            });
       }
     }
   }
@@ -1953,7 +1978,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
       if (CCTK_GroupTypeI(wr.gi) == CCTK_GF) {
 
-        active_levels->loop([&](auto &restrict leveldata) {
+        active_levels->loop_serially([&](auto &restrict leveldata) {
           auto &restrict groupdata = *leveldata.groupdata.at(wr.gi);
           const valid_t &provided = wr.valid;
           groupdata.valid.at(wr.tl).at(wr.vi).set_invalid(
@@ -1966,8 +1991,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                     << ": Poison output variables that are not input variables";
                 return buf.str();
               });
-          poison_invalid(leveldata, groupdata, wr.vi, wr.tl);
         });
+        poison_invalid_gf(*active_levels, wr.gi, wr.vi, wr.tl);
       } else { // CCTK_ARRAY or CCTK_SCALAR
         auto &restrict arraygroupdata =
             *ghext->globaldata.arraygroupdata.at(wr.gi);
@@ -1982,7 +2007,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                   << ": Poison output variables that are not input variables";
               return buf.str();
             });
-        poison_invalid(arraygroupdata, wr.vi, wr.tl);
+        poison_invalid_ga(wr.gi, wr.vi, wr.tl);
       }
     }
   }
@@ -2014,9 +2039,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
   switch (mode) {
   case mode_t::local:
     // Call function once per tile
-    loop_over_components(*active_levels, [&](int patch, int level, int index,
-                                             int component,
-                                             const cGH *local_cctkGH) {
+    active_levels->loop_parallel([&](int patch, int level, int index,
+                                     int component, const cGH *local_cctkGH) {
       update_cctkGH(const_cast<cGH *>(local_cctkGH), cctkGH);
       CCTK_CallFunction(function, attribute, const_cast<cGH *>(local_cctkGH));
     });
@@ -2038,7 +2062,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
   // Check checksums
   if (poison_undefined_values)
-    check_checksums(checksums, [&]() {
+    check_checksums(checksums, [attribute, cctkGH]() {
       ostringstream buf;
       buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
           << attribute->where << ": " << attribute->thorn
@@ -2051,12 +2075,15 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     const vector<clause_t> &writes = decode_clauses(attribute, rdwr_t::write);
     for (const auto &wr : writes) {
       if (CCTK_GroupTypeI(wr.gi) == CCTK_GF) {
+        const auto &patchdata0 = ghext->patchdata.at(0);
+        const auto &leveldata0 = patchdata0.leveldata.at(0);
+        const auto &groupdata0 = *leveldata0.groupdata.at(wr.gi);
+        const nan_handling_t nan_handling = groupdata0.do_checkpoint
+                                                ? nan_handling_t::forbid_nans
+                                                : nan_handling_t::allow_nans;
 
-        active_levels->loop([&](auto &restrict leveldata) {
+        active_levels->loop_serially([&](auto &restrict leveldata) {
           auto &restrict groupdata = *leveldata.groupdata.at(wr.gi);
-          const nan_handling_t nan_handling = groupdata.do_checkpoint
-                                                  ? nan_handling_t::forbid_nans
-                                                  : nan_handling_t::allow_nans;
           const valid_t &provided = wr.valid;
           groupdata.valid.at(wr.tl).at(wr.vi).set_valid(
               provided,
@@ -2068,14 +2095,17 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                     << ": Mark output variables as valid";
                 return buf.str();
               });
-          check_valid(leveldata, groupdata, wr.vi, wr.tl, nan_handling, [&]() {
-            ostringstream buf;
-            buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
-                << attribute->where << ": " << attribute->thorn
-                << "::" << attribute->routine << " checking output";
-            return buf.str();
-          });
         });
+        check_valid_gf(*active_levels, wr.gi, wr.vi, wr.tl, nan_handling,
+                       [attribute, cctkGH]() {
+                         ostringstream buf;
+                         buf << "CallFunction iteration "
+                             << cctkGH->cctk_iteration << " "
+                             << attribute->where << ": " << attribute->thorn
+                             << "::" << attribute->routine
+                             << " checking output";
+                         return buf.str();
+                       });
       } else { // CCTK_ARRAY or CCTK_SCALAR
         auto &restrict arraygroupdata =
             *ghext->globaldata.arraygroupdata.at(wr.gi);
@@ -2093,13 +2123,14 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                   << ": Mark output variables as valid";
               return buf.str();
             });
-        check_valid(arraygroupdata, wr.vi, wr.tl, nan_handling, [&]() {
-          ostringstream buf;
-          buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
-              << attribute->where << ": " << attribute->thorn
-              << "::" << attribute->routine << " checking output";
-          return buf.str();
-        });
+        check_valid_ga(
+            wr.gi, wr.vi, wr.tl, nan_handling, [attribute, cctkGH]() {
+              ostringstream buf;
+              buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
+                  << attribute->where << ": " << attribute->thorn
+                  << "::" << attribute->routine << " checking output";
+              return buf.str();
+            });
       }
     }
   }
@@ -2110,12 +2141,15 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         decode_clauses(attribute, rdwr_t::invalid);
     for (const auto &inv : invalids) {
       if (CCTK_GroupTypeI(inv.gi) == CCTK_GF) {
+        const auto &patchdata0 = ghext->patchdata.at(0);
+        const auto &leveldata0 = patchdata0.leveldata.at(0);
+        const auto &groupdata0 = *leveldata0.groupdata.at(inv.gi);
+        const nan_handling_t nan_handling = groupdata0.do_checkpoint
+                                                ? nan_handling_t::forbid_nans
+                                                : nan_handling_t::allow_nans;
 
-        active_levels->loop([&](auto &restrict leveldata) {
+        active_levels->loop_serially([&](auto &restrict leveldata) {
           auto &restrict groupdata = *leveldata.groupdata.at(inv.gi);
-          const nan_handling_t nan_handling = groupdata.do_checkpoint
-                                                  ? nan_handling_t::forbid_nans
-                                                  : nan_handling_t::allow_nans;
           const valid_t &invalidated = inv.valid;
           groupdata.valid.at(inv.tl).at(inv.vi).set_invalid(
               invalidated,
@@ -2127,15 +2161,17 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                     << ": Mark invalid variables as invalid";
                 return buf.str();
               });
-          check_valid(
-              leveldata, groupdata, inv.vi, inv.tl, nan_handling, [&]() {
-                ostringstream buf;
-                buf << "CallFunction iteration " << cctkGH->cctk_iteration
-                    << " " << attribute->where << ": " << attribute->thorn
-                    << "::" << attribute->routine << " checking output";
-                return buf.str();
-              });
         });
+        check_valid_gf(*active_levels, inv.gi, inv.vi, inv.tl, nan_handling,
+                       [attribute, cctkGH]() {
+                         ostringstream buf;
+                         buf << "CallFunction iteration "
+                             << cctkGH->cctk_iteration << " "
+                             << attribute->where << ": " << attribute->thorn
+                             << "::" << attribute->routine
+                             << " checking output";
+                         return buf.str();
+                       });
       } else { // CCTK_ARRAY or CCTK_SCALAR
         auto &restrict arraygroupdata =
             *ghext->globaldata.arraygroupdata.at(inv.gi);
@@ -2153,13 +2189,14 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                   << ": Mark invalid variables as invalid";
               return buf.str();
             });
-        check_valid(arraygroupdata, inv.vi, inv.tl, nan_handling, [&]() {
-          ostringstream buf;
-          buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
-              << attribute->where << ": " << attribute->thorn
-              << "::" << attribute->routine << " checking output";
-          return buf.str();
-        });
+        check_valid_ga(
+            inv.gi, inv.vi, inv.tl, nan_handling, [attribute, cctkGH]() {
+              ostringstream buf;
+              buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
+                  << attribute->where << ": " << attribute->thorn
+                  << "::" << attribute->routine << " checking output";
+              return buf.str();
+            });
       }
     }
   }
@@ -2224,7 +2261,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 
   // Skip groups that have valid ghosts and boundaries
   if (CCTK_EQUALS(presync_mode, "presync-only")) {
-    active_levels->loop([&](auto &restrict leveldata) {
+    active_levels->loop_serially([&](auto &restrict leveldata) {
       vector<int> new_groups;
       for (const int gi : groups) {
         auto &restrict groupdata = *leveldata.groupdata.at(gi);
@@ -2254,7 +2291,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   }
 
   if (restrict_during_sync) {
-    active_levels->loop_reverse([&](const auto &leveldata) {
+    active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
       if (leveldata.level < ghext->num_levels() - 1)
         Restrict(cctkGH, leveldata.level, groups);
     });
@@ -2264,18 +2301,87 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     // CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
   }
 
-  std::vector<std::function<void()> > tasks1;
-  std::vector<std::function<void()> > tasks2;
-
   static const bool have_multipatch_boundaries =
       CCTK_IsFunctionAliased("MultiPatch_Interpolate");
 
-  active_levels->loop([&](auto &restrict leveldata) {
-    for (const int gi : groups) {
+  // Check preconditions
+  for (const int gi : groups) {
+    const auto &patchdata0 = ghext->patchdata.at(0);
+    const auto &leveldata0 = patchdata0.leveldata.at(0);
+    const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+    const nan_handling_t nan_handling = groupdata0.do_checkpoint
+                                            ? nan_handling_t::forbid_nans
+                                            : nan_handling_t::allow_nans;
+    // We always sync all directions.
+    // If there is more than one time level, then we don't sync the
+    // oldest.
+    // TODO: during evolution, sync only one time level
+    const int ntls0 = groupdata0.mfab.size();
+    const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
+
+    active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata.do_checkpoint
-                                              ? nan_handling_t::forbid_nans
-                                              : nan_handling_t::allow_nans;
+
+      if (leveldata.level > 0) {
+
+        const int level = leveldata.level;
+        const auto &restrict coarseleveldata =
+            ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
+        auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
+        assert(coarsegroupdata.numvars == groupdata.numvars);
+
+        for (int tl = 0; tl < sync_tl0; ++tl) {
+          for (int vi = 0; vi < groupdata.numvars; ++vi) {
+            error_if_invalid(coarsegroupdata, vi, tl, make_valid_int(), []() {
+              return "SyncGroupsByDirI on coarse level before prolongation";
+            });
+          }
+        } // for tl
+
+      } // if leveldata.level > 0
+
+      for (int tl = 0; tl < sync_tl0; ++tl) {
+        for (int vi = 0; vi < groupdata.numvars; ++vi) {
+          // Synchronization only uses the interior
+          error_if_invalid(groupdata, vi, tl, make_valid_int(),
+                           []() { return "SyncGroupsByDirI before syncing"; });
+          groupdata.valid.at(tl).at(vi).set_invalid(make_valid_ghosts(), []() {
+            return "SyncGroupsByDirI before syncing: "
+                   "Mark ghost zones as invalid";
+          });
+        }
+      } // for tl
+    });
+
+    active_levels_t active_fine_levels = *active_levels;
+    using std::max;
+    active_fine_levels.min_level = max(active_fine_levels.min_level, 1);
+    for (int tl = 0; tl < sync_tl0; ++tl) {
+      for (int vi = 0; vi < groupdata0.numvars; ++vi) {
+        check_valid_gf(active_fine_levels, gi, vi, tl, nan_handling, []() {
+          return "SyncGroupsByDirI on coarse level before prolongation";
+        });
+        poison_invalid_gf(*active_levels, gi, vi, tl);
+        check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
+                       []() { return "SyncGroupsByDirI before syncing"; });
+      }
+    } // for tl
+  }   // for gi
+
+  // We need to loop over groups, patches, and levels in a definite
+  // order so that AMReX's communication pattern does not get
+  // confused. Therefore all the loops here are serial. The only
+  // parallelization happens within AMReX and within our boundary
+  // conditions. This is not efficient.
+
+  task_manager tasks1;
+  task_manager tasks2;
+  task_manager tasks3;
+
+  for (const int gi : groups) {
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+
       // We always sync all directions.
       // If there is more than one time level, then we don't sync the
       // oldest.
@@ -2284,62 +2390,20 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
 
       if (leveldata.level == 0) {
+        // Copy from adjacent boxes on same level
 
         for (int tl = 0; tl < sync_tl; ++tl) {
-          for (int vi = 0; vi < groupdata.numvars; ++vi) {
-            // Synchronization only uses the interior
-            error_if_invalid(groupdata, vi, tl, make_valid_int(), []() {
-              return "SyncGroupsByDirI before syncing";
-            });
-            groupdata.valid.at(tl).at(vi).set_invalid(
-                make_valid_ghosts(), []() {
-                  return "SyncGroupsByDirI before syncing: "
-                         "Mark ghost zones as invalid";
-                });
-            poison_invalid(leveldata, groupdata, vi, tl);
-            check_valid(leveldata, groupdata, vi, tl, nan_handling,
-                        []() { return "SyncGroupsByDirI before syncing"; });
-          }
-
-          // Copy from adjacent boxes on same level
-
-          auto fillpatch_continue =
-              FillPatch_Sync(groupdata, *groupdata.mfab.at(tl),
-                             ghext->patchdata.at(leveldata.patch)
-                                 .amrcore->Geom(leveldata.level));
-
-          tasks1.emplace_back(
-              [&tasks2, &leveldata, &groupdata, nan_handling, tl,
-               fillpatch_continue = std::move(fillpatch_continue)]() {
-                auto fillpatch_finish = fillpatch_continue();
-
-                tasks2.emplace_back(
-                    [&leveldata, &groupdata, nan_handling, tl,
-                     fillpatch_finish = std::move(fillpatch_finish)]() {
-                      fillpatch_finish();
-
-                      for (int vi = 0; vi < groupdata.numvars; ++vi) {
-                        groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
-                          return "SyncGroupsByDirI after syncing: "
-                                 "Mark ghost zones as valid";
-                        });
-                        if (groupdata.all_faces_have_symmetries_or_boundaries())
-                          groupdata.valid.at(tl).at(vi).set_outer(true, []() {
-                            return "SyncGroupsByDirI after syncing: "
-                                   "Mark outer boundaries as valid";
-                          });
-                        poison_invalid(leveldata, groupdata, vi, tl);
-                        if (!have_multipatch_boundaries)
-                          check_valid(leveldata, groupdata, vi, tl,
-                                      nan_handling, []() {
-                                        return "SyncGroupsByDirI after syncing";
-                                      });
-                      }
-                    });
-              });
+          tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
+                                  tl]() {
+            FillPatch_Sync(tasks2, tasks3, groupdata, *groupdata.mfab.at(tl),
+                           ghext->patchdata.at(leveldata.patch)
+                               .amrcore->Geom(leveldata.level));
+          });
         } // for tl
 
       } else { // if leveldata.level > 0
+        // Copy from adjacent boxes on same level, and interpolate
+        // from next coarser level
 
         const int level = leveldata.level;
         const auto &restrict coarseleveldata =
@@ -2351,82 +2415,78 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
             get_interpolator(groupdata.indextype);
 
         for (int tl = 0; tl < sync_tl; ++tl) {
-          for (int vi = 0; vi < groupdata.numvars; ++vi) {
-            error_if_invalid(coarsegroupdata, vi, tl, make_valid_int(), []() {
-              return "SyncGroupsByDirI on coarse level before prolongation";
+
+          tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
+                                  &coarsegroupdata, interpolator, tl]() {
+            auto task2 = FillPatch_ProlongateGhosts(
+                groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
+                ghext->patchdata.at(leveldata.patch)
+                    .amrcore->Geom(leveldata.level - 1),
+                ghext->patchdata.at(leveldata.patch)
+                    .amrcore->Geom(leveldata.level),
+                interpolator, groupdata.bcrecs);
+            tasks2.submit([&tasks3, task2 = std::move(task2)]() {
+              auto task3 = task2();
+              tasks3.submit([task3 = std::move(task3)]() { task3(); });
             });
-            error_if_invalid(groupdata, vi, tl, make_valid_int(), []() {
-              return "SyncGroupsByDirI on fine level before prolongation";
-            });
-            poison_invalid(leveldata, groupdata, vi, tl);
-            check_valid(coarseleveldata, coarsegroupdata, vi, tl, nan_handling,
-                        []() {
-                          return "SyncGroupsByDirI on coarse level before "
-                                 "prolongation";
-                        });
-            check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
-              return "SyncGroupsByDirI on fine level before prolongation";
-            });
-            groupdata.valid.at(tl).at(vi).set_ghosts(false, []() {
-              return "SyncGroupsByDirI before prolongation: "
-                     "Mark ghosts as invalid";
-            });
-          }
-
-          // Copy from adjacent boxes on same level, and interpolate from next
-          // coarser level
-
-          auto fillpatch_continue = FillPatch_ProlongateGhosts(
-              groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
-              ghext->patchdata.at(leveldata.patch).amrcore->Geom(level - 1),
-              ghext->patchdata.at(leveldata.patch).amrcore->Geom(level),
-              interpolator, groupdata.bcrecs);
-
-          tasks1.emplace_back(
-              [&tasks2, &leveldata, &groupdata, nan_handling, tl,
-               fillpatch_continue = std::move(fillpatch_continue)]() {
-                auto fillpatch_finish = fillpatch_continue();
-
-                tasks2.emplace_back([&leveldata, &groupdata, nan_handling, tl,
-                                     fillpatch_finish =
-                                         std::move(fillpatch_finish)]() {
-                  fillpatch_finish();
-
-                  for (int vi = 0; vi < groupdata.numvars; ++vi) {
-                    groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
-                      return "SyncGroupsByDirI after prolongation: "
-                             "Mark ghost zones as valid";
-                    });
-                    if (groupdata.all_faces_have_symmetries_or_boundaries())
-                      groupdata.valid.at(tl).at(vi).set_outer(true, []() {
-                        return "SyncGroupsByDirI after prolongation: "
-                               "Mark outer boundaries as valid";
-                      });
-                    poison_invalid(leveldata, groupdata, vi, tl);
-                    check_valid(
-                        leveldata, groupdata, vi, tl, nan_handling,
-                        []() { return "SyncGroupsByDirI after prolongation"; });
-                  }
-                });
-              });
+          });
 
         } // for tl
 
       } // if leveldata.level > 0
+    });
+  } // for gi
 
-    } // for gi
-  });
+  tasks1.run_tasks_serially();
+  synchronize();
+  tasks2.run_tasks_serially();
+  synchronize();
+  tasks3.run_tasks_serially();
   synchronize();
 
-  for (auto task1 : tasks1)
-    task1();
-  tasks1.clear();
-  synchronize();
+  // Check postconditions
+  for (const int gi : groups) {
+    const auto &patchdata0 = ghext->patchdata.at(0);
+    const auto &leveldata0 = patchdata0.leveldata.at(0);
+    const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+    const nan_handling_t nan_handling = groupdata0.do_checkpoint
+                                            ? nan_handling_t::forbid_nans
+                                            : nan_handling_t::allow_nans;
+    // We always sync all directions.
+    // If there is more than one time level, then we don't sync the
+    // oldest.
+    // TODO: during evolution, sync only one time level
+    const int ntls0 = groupdata0.mfab.size();
+    const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
 
-  for (auto task2 : tasks2)
-    task2();
-  tasks2.clear();
-  synchronize();
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+
+      for (int tl = 0; tl < sync_tl0; ++tl) {
+        for (int vi = 0; vi < groupdata.numvars; ++vi) {
+          groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
+            return "SyncGroupsByDirI after syncing: "
+                   "Mark ghost zones as valid";
+          });
+          if (groupdata.all_faces_have_symmetries_or_boundaries())
+            groupdata.valid.at(tl).at(vi).set_outer(true, []() {
+              return "SyncGroupsByDirI after syncing: "
+                     "Mark outer boundaries as valid";
+            });
+        }
+      } // for tl
+    });
+
+    for (int tl = 0; tl < sync_tl0; ++tl) {
+      for (int vi = 0; vi < groupdata0.numvars; ++vi) {
+        poison_invalid_gf(*active_levels, gi, vi, tl);
+        // TODO: Check after applying multi-patch boundaries
+        if (!have_multipatch_boundaries)
+          check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
+                         []() { return "SyncGroupsByDirI after syncing"; });
+      }
+    } // for tl
+  }   // for gi
 
   if (have_multipatch_boundaries) {
     std::vector<CCTK_INT> cactusvarinds;
@@ -2438,24 +2498,28 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     }
     MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
 
-    active_levels->loop([&](auto &restrict leveldata) {
-      for (const int gi : groups) {
-        auto &restrict groupdata = *leveldata.groupdata.at(gi);
-        const nan_handling_t nan_handling = groupdata.do_checkpoint
-                                                ? nan_handling_t::forbid_nans
-                                                : nan_handling_t::allow_nans;
-        const int ntls = groupdata.mfab.size();
-        const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+    for (const int gi : groups) {
+      const auto &patchdata0 = ghext->patchdata.at(0);
+      const auto &leveldata0 = patchdata0.leveldata.at(0);
+      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+      const nan_handling_t nan_handling = groupdata0.do_checkpoint
+                                              ? nan_handling_t::forbid_nans
+                                              : nan_handling_t::allow_nans;
+      // We always sync all directions.
+      // If there is more than one time level, then we don't sync the
+      // oldest.
+      // TODO: during evolution, sync only one time level
+      const int ntls0 = groupdata0.mfab.size();
+      const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
 
-        assert(leveldata.level == 0);
+      assert(active_levels->max_level == 1);
 
-        for (int tl = 0; tl < sync_tl; ++tl)
-          for (int vi = 0; vi < groupdata.numvars; ++vi)
-            check_valid(leveldata, groupdata, vi, tl, nan_handling,
-                        []() { return "SyncGroupsByDirI after syncing"; });
+      for (int tl = 0; tl < sync_tl0; ++tl)
+        for (int vi = 0; vi < groupdata0.numvars; ++vi)
+          check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
+                         []() { return "SyncGroupsByDirI after syncing"; });
 
-      } // for gi
-    });
+    } // for gi
 
   } else {
     assert(ghext->num_patches() == 1);
@@ -2540,11 +2604,11 @@ void Reflux(const cGH *cctkGH, int level) {
           finegroupdata.freg->Reflux(*groupdata.mfab.at(tl), 1.0, 0, 0,
                                      groupdata.numvars, geom);
 
-          for (int vi = 0; vi < finegroupdata.numvars; ++vi) {
-            check_valid(
-                fineleveldata, finegroupdata, vi, tl, nan_handling,
-                []() { return "Reflux after refluxing: Fine level data"; });
-          }
+          const active_levels_t active_levels(level, level + 1);
+          for (int vi = 0; vi < finegroupdata.numvars; ++vi)
+            check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
+              return "Reflux after refluxing: Fine level data";
+            });
         }
       } // for gi
     }   // if level exists
@@ -2566,9 +2630,14 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
   assert(gi_regrid_error >= 0);
 
   for (const auto &patchdata : ghext->patchdata) {
+    const int patch = patchdata.patch;
     if (level + 1 < int(patchdata.leveldata.size())) {
       auto &leveldata = patchdata.leveldata.at(level);
       const auto &fineleveldata = patchdata.leveldata.at(level + 1);
+      const active_levels_t active_levels(level, level + 1, patch, patch + 1);
+      const active_levels_t active_fine_levels(level + 1, level + 2, patch,
+                                               patch + 1);
+
       for (const int gi : groups) {
         cGroup group;
         int ierr = CCTK_GroupData(gi, &group);
@@ -2603,19 +2672,20 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
             error_if_invalid(finegroupdata, vi, tl, make_valid_int(), []() {
               return "Restrict on fine level before restricting";
             });
-            poison_invalid(fineleveldata, finegroupdata, vi, tl);
-            check_valid(
-                fineleveldata, finegroupdata, vi, tl, nan_handling,
-                []() { return "Restrict on fine level before restricting"; });
+            poison_invalid_gf(active_fine_levels, gi, vi, tl);
+            check_valid_gf(active_fine_levels, gi, vi, tl, nan_handling, []() {
+              return "Restrict on fine level before restricting";
+            });
             error_if_invalid(groupdata, vi, tl, make_valid_int(), []() {
               return "Restrict on coarse level before restricting";
             });
-            poison_invalid(leveldata, groupdata, vi, tl);
-            check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
+            poison_invalid_gf(active_levels, gi, vi, tl);
+            check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
               return "Restrict on coarse level before restricting";
             });
           }
 
+#if 1
           {
             static Timer timer("Restrict::average_down");
             Interval interval(timer);
@@ -2646,6 +2716,7 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
               assert(0);
             }
           }
+#endif
 
           // TODO: Also remember old why_valid for interior?
           for (int vi = 0; vi < groupdata.numvars; ++vi) {
@@ -2654,8 +2725,8 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
             groupdata.valid.at(tl).at(vi).set_invalid(
                 make_valid_outer() | make_valid_ghosts(),
                 []() { return "Restrict"; });
-            poison_invalid(leveldata, groupdata, vi, tl);
-            check_valid(leveldata, groupdata, vi, tl, nan_handling, []() {
+            poison_invalid_gf(active_levels, gi, vi, tl);
+            check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
               return "Restrict on coarse level after restricting";
             });
           }
