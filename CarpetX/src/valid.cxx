@@ -102,25 +102,25 @@ void error_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
                       const std::function<std::string()> &msg) {
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
-    CCTK_VERROR(
-        "%s: Grid std::function \"%s\" is invalid on patch %d, refinement "
-        "level %d, time level %d; required: %s, found: %s",
-        msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
-        groupdata.patch, groupdata.level, tl, required.explanation().c_str(),
-        groupdata.valid.at(tl).at(vi).explanation().c_str());
+    CCTK_VERROR("%s: Grid function \"%s\" is invalid on patch %d, refinement "
+                "level %d, time level %d; required: %s, found: %s",
+                msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
+                groupdata.patch, groupdata.level, tl,
+                required.explanation().c_str(),
+                groupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 void warn_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
                      int vi, int tl, const valid_t &required,
                      const std::function<std::string()> &msg) {
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
-    CCTK_VWARN(
-        CCTK_WARN_ALERT,
-        "%s: Grid std::function \"%s\" is invalid on patch %d, refinement "
-        "level %d, time level %d; required: %s, found: %s",
-        msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
-        groupdata.patch, groupdata.level, tl, required.explanation().c_str(),
-        groupdata.valid.at(tl).at(vi).explanation().c_str());
+    CCTK_VWARN(CCTK_WARN_ALERT,
+               "%s: Grid function \"%s\" is invalid on patch %d, refinement "
+               "level %d, time level %d; required: %s, found: %s",
+               msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
+               groupdata.patch, groupdata.level, tl,
+               required.explanation().c_str(),
+               groupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 
 // Ensure arrays are valid
@@ -129,23 +129,23 @@ void error_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata,
                       const std::function<std::string()> &msg) {
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
-    CCTK_VERROR("%s: Array \"%s\" is invalid on time level %d; "
-                "required %s, found %s",
-                msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
-                tl, required.explanation().c_str(),
-                groupdata.valid.at(tl).at(vi).explanation().c_str());
+    CCTK_VERROR(
+        "%s: Array \"%s\" is invalid on time level %d; required %s, found %s",
+        msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi), tl,
+        required.explanation().c_str(),
+        groupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 void warn_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata, int vi,
                      int tl, const valid_t &required,
                      const std::function<std::string()> &msg) {
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
-    CCTK_VWARN(CCTK_WARN_ALERT,
-               "%s: Array \"%s\" is invalid on time level %d; "
-               "required %s, found %s",
-               msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi),
-               tl, required.explanation().c_str(),
-               groupdata.valid.at(tl).at(vi).explanation().c_str());
+    CCTK_VWARN(
+        CCTK_WARN_ALERT,
+        "%s: Array \"%s\" is invalid on time level %d; required %s, found %s",
+        msg().c_str(), CCTK_FullVarName(groupdata.firstvarindex + vi), tl,
+        required.explanation().c_str(),
+        groupdata.valid.at(tl).at(vi).explanation().c_str());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -159,7 +159,7 @@ constexpr std::uint64_t ipoison = 0xfff8000000000000ULL + 0xdeadbeef;
 #endif
 static_assert(sizeof ipoison == sizeof(CCTK_REAL));
 
-// Poison grid std::functions
+// Poison grid functions
 void poison_invalid_gf(const active_levels_t &active_levels, const int gi,
                        const int vi, const int tl) {
   DECLARE_CCTK_PARAMETERS;
@@ -247,7 +247,7 @@ void poison_invalid_ga(const int gi, const int vi, const int tl) {
   }
 }
 
-// Ensure grid std::functions are not poisoned
+// Ensure grid functions are not poisoned
 void check_valid_gf(const active_levels_t &active_levels, const int gi,
                     const int vi, const int tl,
                     const nan_handling_t nan_handling1,
@@ -423,7 +423,7 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
   const auto &leveldata0 = patchdata0.leveldata.at(0);
   const auto &groupdata0 = *leveldata0.groupdata.at(gi);
   CCTK_VWARN(CCTK_WARN_ALERT,
-             "%s: Grid std::function \"%s\" contains %td nans, infinities, or "
+             "%s: Grid function \"%s\" contains %td nans, infinities, or "
              "poison in box (%g,%g,%g):(%g,%g,%g); expected valid %s",
              msg().c_str(), CCTK_FullVarName(groupdata0.firstvarindex + vi),
              std::size_t(nan_count), double(nan_xmin[0]), double(nan_xmin[1]),
@@ -457,8 +457,8 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
         << " " << info.val;
   CCTK_WARN(CCTK_WARN_ALERT, buf.str().c_str());
 
-  CCTK_VERROR("%s: Grid std::function \"%s\" contains nans, infinities, or "
-              "poison; expected valid %s",
+  CCTK_VERROR("%s: Grid function \"%s\" contains nans, infinities, or poison; "
+              "expected valid %s",
               msg().c_str(), CCTK_FullVarName(groupdata0.firstvarindex + vi),
               groupdata0.valid.at(tl).at(vi).explanation().c_str());
 }
