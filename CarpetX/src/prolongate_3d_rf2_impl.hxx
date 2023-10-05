@@ -113,6 +113,25 @@ template <typename T> struct coeffs1d<CC, POLY, /*order*/ 4, T> {
       -45 / T(2048), +105 / T(512), +945 / T(1024), -63 / T(512), +35 / T(2048),
   };
 };
+template <typename T> struct coeffs1d<CC, POLY, /*order*/ 5, T> {
+  static constexpr std::array<T, 6> coeffs = {
+      +63 / T(8192),   -495 / T(8192), +1155 / T(4096),
+      +3465 / T(4096), -693 / T(8192), +77 / T(8192),
+  };
+};
+template <typename T> struct coeffs1d<CC, POLY, /*order*/ 6, T> {
+  static constexpr std::array<T, 7> coeffs = {
+      +273 / T(65536),  -1287 / T(32768), +15015 / T(65536), +15015 / T(16384),
+      -9009 / T(65536), +1001 / T(32768), -231 / T(65536),
+  };
+};
+template <typename T> struct coeffs1d<CC, POLY, /*order*/ 7, T> {
+  static constexpr std::array<T, 8> coeffs = {
+      -429 / T(262144),   +4095 / T(262144),   -19305 / T(262144),
+      +75075 / T(262144), +225225 / T(262144), -27027 / T(262144),
+      +5005 / T(262144),  -495 / T(262144),
+  };
+};
 
 // Hermite interpolation (with matched first derivatives)
 
@@ -1041,20 +1060,19 @@ prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
   return crse;
 }
 
+#if 0
 template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
           interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK, fallback_t FB>
-void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
-                       ORDERK,
-                       FB>::interp(const amrex::FArrayBox &crse, int crse_comp,
-                                   amrex::FArrayBox &fine, int fine_comp,
-                                   int ncomp, const amrex::Box &fine_region,
-                                   const amrex::IntVect &ratio,
-                                   const amrex::Geometry &crse_geom,
-                                   const amrex::Geometry &fine_geom,
-                                   amrex::Vector<amrex::BCRec> const &bcr,
-                                   int actual_comp, int actual_state,
-                                   amrex::RunOn gpu_or_cpu) {
+void prolongate_3d_rf2<
+    CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ, ORDERK,
+    FB>::interp(const amrex::FArrayBox &crse, const int crse_comp,
+                amrex::FArrayBox &fine, const int fine_comp, const int ncomp,
+                const amrex::Box &fine_region, const amrex::IntVect &ratio,
+                const amrex::Geometry &crse_geom,
+                const amrex::Geometry &fine_geom,
+                amrex::Vector<amrex::BCRec> const &bcr, const int actual_comp,
+                const int actual_state, const amrex::RunOn gpu_or_cpu) {
   DECLARE_CCTK_PARAMETERS;
 
   static std::once_flag have_timers;
@@ -1103,9 +1121,11 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
     static test_interp1d<CENTK, INTPK, ORDERK, CCTK_REAL> testk;
   }
 
+#ifdef CCTK_DEBUG
   // The points we will access, i.e. the coarsened fine region, with ghosts
   // added
   const amrex::Box source_region = CoarseBox(target_region, /*reffact*/ 2);
+#endif
 
   const auto crsebox = crse.box();
   const auto finebox = fine.box();
@@ -1298,7 +1318,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                 }
               }
             }
-          }
+          } // if any_use_shift
 
           const CCTK_REAL val = call_stencil_3d(
               [&](const int di, const int dj, const int dk) {
@@ -1452,7 +1472,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
             }
 
             res = need_fallback ? val_lin : val;
-          }
+          } // if FB != FB_NONE
 
           setfine(ifine[0], ifine[1], ifine[2], res);
         },
@@ -1473,22 +1493,491 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
   //   AMREX_GPU_ERROR_CHECK();
   // #endif
 }
+#endif
+
+#if 1
+template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
+          interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
+          int ORDERI, int ORDERJ, int ORDERK, fallback_t FB>
+void prolongate_3d_rf2<
+    CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ, ORDERK,
+    FB>::interp(const amrex::FArrayBox &crse_box, const int crse_comp,
+                amrex::FArrayBox &fine_box, const int fine_comp,
+                const int ncomps, const amrex::Box &fine_region,
+                const amrex::IntVect &ratio, const amrex::Geometry &crse_geom,
+                const amrex::Geometry &fine_geom,
+                amrex::Vector<amrex::BCRec> const &bcr, const int actual_comp,
+                const int actual_state, const amrex::RunOn gpu_or_cpu) {
+  DECLARE_CCTK_PARAMETERS;
+
+  constexpr int maxncomps = 10;
+  assert(ncomps <= maxncomps);
+
+  static std::once_flag have_timers;
+  static std::vector<Timer> timers;
+
+  const int thread_num = omp_get_thread_num();
+
+  call_once(have_timers, [&]() {
+    const int num_threads = omp_get_num_threads();
+    timers.reserve(num_threads);
+    for (int i = 0; i < num_threads; ++i) {
+      std::ostringstream buf;
+      buf << "prolongate_3d_rf2<[" << CENTI << "," << CENTJ << "," << CENTK
+          << "],[" << INTPI << "," << INTPJ << "," << INTPK << "],[" << ORDERI
+          << "," << ORDERJ << "," << ORDERK << "," << FB << "]>[thread=" << i
+          << "]";
+      timers.emplace_back(buf.str());
+    }
+  });
+
+  Timer &timer = timers.at(thread_num);
+  Interval interval(timer);
+
+  for (int d = 0; d < dim; ++d)
+    assert(ratio.getVect()[d] == 2);
+  // ??? assert(gpu_or_cpu == RunOn::Cpu);
+
+  assert(actual_comp == 0);  // ???
+  assert(actual_state == 0); // ???
+
+  // Target box is intersection of fine_region and domain of fine
+  const amrex::Box target_region = fine_region & fine_box.box();
+  assert(target_region == fine_region);
+
+  using STENCILI = interp1d<CENTI, INTPI, ORDERI>;
+  using STENCILJ = interp1d<CENTJ, INTPJ, ORDERJ>;
+  using STENCILK = interp1d<CENTK, INTPK, ORDERK>;
+
+  constexpr vect<centering_t, dim> centering{CENTI, CENTJ, CENTK};
+  constexpr vect<interpolation_t, dim> interpolation{INTPI, INTPJ, INTPK};
+  constexpr vect<int, dim> order{ORDERI, ORDERJ, ORDERK};
+
+  {
+    static test_interp1d<CENTI, INTPI, ORDERI, CCTK_REAL> testi;
+    static test_interp1d<CENTJ, INTPJ, ORDERJ, CCTK_REAL> testj;
+    static test_interp1d<CENTK, INTPK, ORDERK, CCTK_REAL> testk;
+  }
+
+#ifdef CCTK_DEBUG
+  // The points we will access, i.e. the coarsened fine region, with ghosts
+  // added
+  const amrex::Box source_region = CoarseBox(target_region, /*reffact*/ 2);
+#endif
+
+  const auto crsebox = crse_box.box();
+  const auto finebox = fine_box.box();
+
+  constexpr vect<int, dim> required_ghosts{
+      STENCILI::required_ghosts,
+      STENCILJ::required_ghosts,
+      STENCILK::required_ghosts,
+  };
+
+  // Do we need shifted stencils?
+  constexpr vect<bool, dim> use_shift{interpolation[0] == ENO && order[0] > 0,
+                                      interpolation[1] == ENO && order[1] > 0,
+                                      interpolation[2] == ENO && order[2] > 0};
+
+  const CCTK_REAL *restrict const crseptr = crse_box.dataPtr(crse_comp);
+  const std::ptrdiff_t crsenp = crse_box.dataPtr(1) - crse_box.dataPtr(0);
+  CCTK_REAL *restrict fineptr = fine_box.dataPtr(fine_comp);
+  const std::ptrdiff_t finenp = fine_box.dataPtr(1) - fine_box.dataPtr(0);
+
+  const auto crse =
+      [=] CCTK_DEVICE(const int i, const int j, const int k, const int comp)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            const amrex::IntVect vcrse(i, j, k);
+#ifdef CCTK_DEBUG
+            assert(crsebox.contains(vcrse));
+#endif
+            return crseptr[crsebox.index(vcrse) + comp * crsenp];
+          };
+#ifdef CCTK_DEBUG
+  const auto fine =
+      [=] CCTK_DEVICE(const int i, const int j, const int k, const int comp)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE {
+            const amrex::IntVect vfine(i, j, k);
+#ifdef CCTK_DEBUG
+            assert(finebox.contains(vfine));
+#endif
+            return fineptr[finebox.index(vfine) + comp * finenp];
+          };
+#endif
+  const auto setfine =
+      [=] CCTK_DEVICE(const int i, const int j, const int k, const int comp,
+                      const CCTK_REAL val) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        const amrex::IntVect vfine(i, j, k);
+#ifdef CCTK_DEBUG
+        assert(finebox.contains(vfine));
+#endif
+        fineptr[finebox.index(vfine) + comp * finenp] = val;
+      };
+
+#ifdef CCTK_DEBUG
+  // Check that the input values are finite
+  amrex::ParallelFor(source_region,
+                     [=] CCTK_DEVICE(const int i, const int j, const int k)
+                         CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                           for (int comp = 0; comp < ncomps; ++comp)
+                             assert(isfinite(crse(i, j, k, comp)));
+                         });
+#endif
+
+  // Undivided differences
+  // Maximum ENO shift
+  constexpr vect<int, dim> maxshift{use_shift[0] ? required_ghosts[0] / 2 : 0,
+                                    use_shift[1] ? required_ghosts[1] / 2 : 0,
+                                    use_shift[2] ? required_ghosts[2] / 2 : 0};
+
+  // We don't pre-calculate the undivided differences
+
+  const vect<int, dim> imin{target_region.loVect()[0],
+                            target_region.loVect()[1],
+                            target_region.loVect()[2]};
+  const vect<int, dim> imax{target_region.hiVect()[0] + 1,
+                            target_region.hiVect()[1] + 1,
+                            target_region.hiVect()[2] + 1};
+  loop_region(
+      [=] CCTK_DEVICE(
+          const vect<int, dim> &ifine) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        // Redefine `constexpr` values since they are only captured as
+        // `const` by nvcc
+        constexpr vect<interpolation_t, dim> interpolation{INTPI, INTPJ, INTPK};
+        constexpr vect<int, dim> order{ORDERI, ORDERJ, ORDERK};
+        // Do we need shifted stencils?
+        constexpr vect<bool, dim> use_shift{
+            interpolation[0] == ENO && order[0] > 0,
+            interpolation[1] == ENO && order[1] > 0,
+            interpolation[2] == ENO && order[2] > 0};
+        // Maximum ENO shift
+        constexpr vect<int, dim> maxshift{
+            use_shift[0] ? required_ghosts[0] / 2 : 0,
+            use_shift[1] ? required_ghosts[1] / 2 : 0,
+            use_shift[2] ? required_ghosts[2] / 2 : 0};
+
+        const vect<int, dim> icrse = ifine >> 1;
+        const vect<int, dim> off = ifine & 0x1;
+
+        // Choose stencil shift
+        vect<int, dim> shift{0, 0, 0};
+        constexpr bool any_use_shift = any(use_shift);
+        if (any_use_shift) {
+          CCTK_REAL min_dd = 1 / CCTK_REAL(0);
+          // Loop over all possible shifts
+          for (int sk = -maxshift[2]; sk <= +maxshift[2]; ++sk) {
+            for (int sj = -maxshift[1]; sj <= +maxshift[1]; ++sj) {
+              for (int si = -maxshift[0]; si <= +maxshift[0]; ++si) {
+
+                // Stencil radius
+                // This stencil radius already takes the shift into account,
+                // but only for stencils that use a shift. Undo this; we add
+                // the shift back later manually.
+                vect<std::array<int, 2>, dim> stencil_radius{
+                    STENCILI().stencil_radius(si, off[0]),
+                    STENCILJ().stencil_radius(sj, off[1]),
+                    STENCILK().stencil_radius(sk, off[2])};
+                if (use_shift[0]) {
+                  stencil_radius[0][0] -= si;
+                  stencil_radius[0][1] -= si;
+                }
+                if (use_shift[1]) {
+                  stencil_radius[1][0] -= sj;
+                  stencil_radius[1][1] -= sj;
+                }
+                if (use_shift[2]) {
+                  stencil_radius[2][0] -= sk;
+                  stencil_radius[2][1] -= sk;
+                }
+
+                // Calculate all undivided differences in the x-direction,
+                // looping over the y- and z-directions and finding the
+                // maximum undivided difference there
+                CCTK_REAL ddx = 0;
+                if (use_shift[0]) {
+                  for (int comp = 0; comp < ncomps; ++comp) {
+                    for (int dk = stencil_radius[2][0];
+                         dk <= stencil_radius[2][1]; ++dk) {
+                      for (int dj = stencil_radius[1][0];
+                           dj <= stencil_radius[1][1]; ++dj) {
+                        const CCTK_REAL dd =
+                            undivided_difference_1d<CENTI, INTPI, ORDERI>()(
+                                [&](const int di) {
+                                  return crse(icrse[0] + si + di,
+                                              icrse[1] + sj + dj,
+                                              icrse[2] + sk + dk, comp);
+                                });
+                        ddx = fmax(ddx, fabs(dd));
+                      }
+                    }
+                  }
+                }
+
+                // Same with y-undivided differences
+                CCTK_REAL ddy = 0;
+                if (use_shift[1]) {
+                  for (int comp = 0; comp < ncomps; ++comp) {
+                    for (int dk = stencil_radius[2][0];
+                         dk <= stencil_radius[2][1]; ++dk) {
+                      for (int di = stencil_radius[0][0];
+                           di <= stencil_radius[0][1]; ++di) {
+                        const CCTK_REAL dd =
+                            undivided_difference_1d<CENTJ, INTPJ, ORDERJ>()(
+                                [&](const int dj) {
+                                  return crse(icrse[0] + si + di,
+                                              icrse[1] + sj + dj,
+                                              icrse[2] + sk + dk, comp);
+                                });
+                        ddy = fmax(ddy, fabs(dd));
+                      }
+                    }
+                  }
+                }
+
+                // Same with z-undivided differences
+                CCTK_REAL ddz = 0;
+                if (use_shift[2]) {
+                  for (int comp = 0; comp < ncomps; ++comp) {
+                    for (int dj = stencil_radius[1][0];
+                         dj <= stencil_radius[1][1]; ++dj) {
+                      for (int di = stencil_radius[0][0];
+                           di <= stencil_radius[0][1]; ++di) {
+                        const CCTK_REAL dd =
+                            undivided_difference_1d<CENTK, INTPK, ORDERK>()(
+                                [&](const int dk) {
+                                  return crse(icrse[0] + si + di,
+                                              icrse[1] + sj + dj,
+                                              icrse[2] + sk + dk, comp);
+                                });
+                        ddz = fmax(ddz, fabs(dd));
+                      }
+                    }
+                  }
+                }
+
+                // Prefer centred stencils
+                const CCTK_REAL penalty =
+                    1 + sqrt(std::numeric_limits<CCTK_REAL>::epsilon()) *
+                            (abs(si) + abs(sj) + abs(sk));
+                const CCTK_REAL dd = penalty * fmax(fmax(ddx, ddy), ddz);
+                if (dd < min_dd) {
+                  min_dd = dd;
+                  shift = {si, sj, sk};
+                }
+              }
+            }
+          }
+        } // if any_use_shift
+
+        std::array<CCTK_REAL, maxncomps> vals;
+        for (int comp = 0; comp < ncomps; ++comp)
+          vals[comp] = call_stencil_3d(
+              [&](const int di, const int dj, const int dk) {
+                return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk, comp);
+              },
+              [&](const auto &crse) {
+                return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0], off[0]);
+              },
+              [&](const auto &crse) {
+                return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1], off[1]);
+              },
+              [&](const auto &crse) {
+                return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2], off[2]);
+              });
+
+        std::array<CCTK_REAL, maxncomps> ress;
+
+        if constexpr (FB == FB_NONE || ((INTPI != CONS || ORDERI <= 1) &&
+                                        (INTPJ != CONS || ORDERJ <= 1) &&
+                                        (INTPK != CONS || ORDERK <= 1))) {
+
+          for (int comp = 0; comp < ncomps; ++comp)
+            ress[comp] = vals[comp];
+
+        } else {
+
+          bool need_fallback = false;
+          {
+            const std::array<int, 2> sradi =
+                interp1d<CENTI, INTPI, ORDERI>().stencil_radius(shift[0],
+                                                                off[0]);
+            const std::array<int, 2> sradj =
+                interp1d<CENTJ, INTPJ, ORDERJ>().stencil_radius(shift[1],
+                                                                off[1]);
+            const std::array<int, 2> sradk =
+                interp1d<CENTK, INTPK, ORDERK>().stencil_radius(shift[2],
+                                                                off[2]);
+            CCTK_REAL minval = +1 / CCTK_REAL(0), maxval = -1 / CCTK_REAL(0);
+            for (int comp = 0; comp < ncomps; ++comp) {
+              for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                    using std::fmax, std::fmin;
+                    minval = fmin(minval, crse(icrse[0] + di, icrse[1] + dj,
+                                               icrse[2] + dk, comp));
+                    maxval = fmax(maxval, crse(icrse[0] + di, icrse[1] + dj,
+                                               icrse[2] + dk, comp));
+                  }
+                }
+              }
+              need_fallback |= vals[comp] < minval || vals[comp] > maxval;
+            }
+
+            if constexpr (INTPI == CONS) {
+              bool need_fallback_i = false;
+              for (int comp = 0; comp < ncomps; ++comp) {
+                for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                  for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                    // using std::signbit;
+                    // const bool s0 = signbit(
+                    //     crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk) -
+                    //     crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk));
+                    const CCTK_REAL s0 =
+                        crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk, comp) -
+                        crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk, comp);
+                    for (int di = sradi[0] + 2; di <= sradi[1]; ++di) {
+                      // const bool s = signbit(
+                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
+                      //     crse(icrse[0] + (di - 1), icrse[1] + dj,
+                      //          icrse[2] + dk));
+                      // need_fallback_i |= s != s0;
+                      const CCTK_REAL s =
+                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                               comp) -
+                          crse(icrse[0] + (di - 1), icrse[1] + dj,
+                               icrse[2] + dk, comp);
+                      need_fallback_i |= s * s0 < 0;
+                    }
+                  }
+                }
+                need_fallback |= need_fallback_i;
+              }
+            }
+
+            if constexpr (INTPJ == CONS) {
+              bool need_fallback_j = false;
+              for (int comp = 0; comp < ncomps; ++comp) {
+                for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                    // using std::signbit;
+                    // const bool s0 = signbit(
+                    //     crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk) -
+                    //     crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk));
+                    const CCTK_REAL s0 =
+                        crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk, comp) -
+                        crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk, comp);
+                    for (int dj = sradj[0] + 2; dj <= sradj[1]; ++dj) {
+                      // const bool s = signbit(
+                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
+                      //     crse(icrse[0] + di, icrse[1] + (dj - 1),
+                      //          icrse[2] + dk));
+                      // need_fallback_j |= s != s0;
+                      const CCTK_REAL s =
+                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                               comp) -
+                          crse(icrse[0] + di, icrse[1] + (dj - 1),
+                               icrse[2] + dk, comp);
+                      need_fallback_j |= s * s0 < 0;
+                    }
+                  }
+                }
+                need_fallback |= need_fallback_j;
+              }
+            }
+
+            if constexpr (INTPK == CONS) {
+              bool need_fallback_k = false;
+              for (int comp = 0; comp < ncomps; ++comp) {
+                for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                    // using std::signbit;
+                    // const bool s0 = signbit(
+                    //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1) -
+                    //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0));
+                    const CCTK_REAL s0 =
+                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1, comp) -
+                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0, comp);
+                    for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
+                      // const bool s = signbit(
+                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
+                      //     crse(icrse[0] + di, icrse[1] + dj,
+                      //          icrse[2] + (dk - 1)));
+                      // need_fallback_k |= s != s0;
+                      const CCTK_REAL s = crse(icrse[0] + di, icrse[1] + dj,
+                                               icrse[2] + dk, comp) -
+                                          crse(icrse[0] + di, icrse[1] + dj,
+                                               icrse[2] + (dk - 1), comp);
+                      need_fallback_k |= s * s0 < 0;
+                    }
+                  }
+                }
+                need_fallback |= need_fallback_k;
+              }
+            }
+          }
+
+          constexpr int LINORDERI = INTPI == CONS ? 1 : ORDERI;
+          constexpr int LINORDERJ = INTPJ == CONS ? 1 : ORDERJ;
+          constexpr int LINORDERK = INTPK == CONS ? 1 : ORDERK;
+          std::array<CCTK_REAL, maxncomps> val_lins;
+          for (int comp = 0; comp < ncomps; ++comp) {
+            val_lins[comp] = call_stencil_3d(
+                [&](const int di, const int dj, const int dk) {
+                  return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                              comp);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTI, INTPI, LINORDERI>()(crse, 0, off[0]);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTJ, INTPJ, LINORDERJ>()(crse, 0, off[1]);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTK, INTPK, LINORDERK>()(crse, 0, off[2]);
+                });
+          }
+
+          for (int comp = 0; comp < ncomps; ++comp)
+            ress[comp] = need_fallback ? val_lins[comp] : vals[comp];
+
+        } // if FB != FB_NONE
+
+        for (int comp = 0; comp < ncomps; ++comp)
+          setfine(ifine[0], ifine[1], ifine[2], comp, ress[comp]);
+      },
+      imin, imax);
+
+#ifdef CCTK_DEBUG
+  // Check that the output values are finite
+  amrex::ParallelFor(target_region,
+                     [=] CCTK_DEVICE(const int i, const int j, const int k)
+                         CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                           for (int comp = 0; comp < ncomps; ++comp)
+                             assert(isfinite(fine(i, j, k, comp)));
+                         });
+#endif
+
+  // #ifdef __CUDACC__
+  //   amrex::Gpu::synchronize();
+  //   AMREX_GPU_ERROR_CHECK();
+  // #endif
+}
+#endif
 
 template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
           interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK, fallback_t FB>
-void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
-                       ORDERK,
-                       FB>::interp_face(const amrex::FArrayBox &crse,
-                                        int crse_comp, amrex::FArrayBox &fine,
-                                        int fine_comp, int ncomp,
-                                        const amrex::Box &fine_region,
-                                        const amrex::IntVect &ratio,
-                                        const amrex::IArrayBox &solve_mask,
-                                        const amrex::Geometry &crse_geom,
-                                        const amrex::Geometry &fine_geom,
-                                        amrex::Vector<amrex::BCRec> const &bcr,
-                                        int bccomp, amrex::RunOn gpu_or_cpu) {
+void prolongate_3d_rf2<
+    CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ, ORDERK,
+    FB>::interp_face(const amrex::FArrayBox &crse, const int crse_comp,
+                     amrex::FArrayBox &fine, const int fine_comp,
+                     const int ncomp, const amrex::Box &fine_region,
+                     const amrex::IntVect &ratio,
+                     const amrex::IArrayBox &solve_mask,
+                     const amrex::Geometry &crse_geom,
+                     const amrex::Geometry &fine_geom,
+                     amrex::Vector<amrex::BCRec> const &bcr, const int bccomp,
+                     const amrex::RunOn gpu_or_cpu) {
   // solve_mask; ???
   assert(bccomp == 0); // ???
   interp(crse, crse_comp, fine, fine_comp, ncomp, fine_region, ratio, crse_geom,
