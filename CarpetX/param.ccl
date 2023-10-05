@@ -297,56 +297,56 @@ STRING robin_upper_z_vars "Override boundary condition at upper z boundary"
 
 
 
-CCTK_INT blocking_factor_x "Blocking factor"
+CCTK_INT blocking_factor_x "Blocking factor" STEERABLE=recover
 {
   1:* :: ""
 } 8
 
-CCTK_INT blocking_factor_y "Blocking factor"
+CCTK_INT blocking_factor_y "Blocking factor" STEERABLE=recover
 {
   1:* :: ""
 } 8
 
-CCTK_INT blocking_factor_z "Blocking factor"
+CCTK_INT blocking_factor_z "Blocking factor" STEERABLE=recover
 {
   1:* :: "must be a power of 2"
 } 8
 
-CCTK_REAL grid_efficiency "Minimum AMR grid efficiency"
+CCTK_REAL grid_efficiency "Minimum AMR grid efficiency" STEERABLE=recover
 {
   0.0:* :: ""
 } 0.7
 
-CCTK_INT max_grid_size_x "Maximum grid size"
+CCTK_INT max_grid_size_x "Maximum grid size" STEERABLE=recover
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
-CCTK_INT max_grid_size_y "Maximum grid size"
+CCTK_INT max_grid_size_y "Maximum grid size" STEERABLE=recover
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
-CCTK_INT max_grid_size_z "Maximum grid size"
+CCTK_INT max_grid_size_z "Maximum grid size" STEERABLE=recover
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
-BOOLEAN refine_grid_layout "Ensure that each MPI process has at least one grid"
+BOOLEAN refine_grid_layout "Ensure that each MPI process has at least one grid" STEERABLE=recover
 {
 } yes
 
-CCTK_INT max_tile_size_x "Maximum tile size"
+CCTK_INT max_tile_size_x "Maximum tile size" STEERABLE=recover
 {
   1:* :: ""
 } 1024000
 
-CCTK_INT max_tile_size_y "Maximum tile size"
+CCTK_INT max_tile_size_y "Maximum tile size" STEERABLE=recover
 {
   1:* :: ""
 } 16
 
-CCTK_INT max_tile_size_z "Maximum tile size"
+CCTK_INT max_tile_size_z "Maximum tile size" STEERABLE=recover
 {
   1:* :: ""
 } 32
