@@ -527,11 +527,10 @@ void enter_global_mode(cGH *restrict cctkGH) {
         auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
         for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
           const auto &restrict vars = arraygroupdata.data.at(tl);
-          for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
+          for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
             cctkGH->data[arraygroupdata.firstvarindex + vi][tl] =
                 const_cast<CCTK_REAL *>(
                     &vars.at(vi * arraygroupdata.array_size));
-          }
         }
       }
     }
@@ -555,11 +554,9 @@ void leave_global_mode(cGH *restrict cctkGH) {
         continue;
       } else { // CCTK_ARRAY or CCTK_SCALAR
         auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
-        for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
-          for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
+        for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl)
+          for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
             cctkGH->data[arraygroupdata.firstvarindex + vi][tl] = nullptr;
-          }
-        }
       }
     }
   }
@@ -748,10 +745,9 @@ void leave_local_mode(cGH *restrict cctkGH,
       continue;
 
     auto &restrict groupdata = *leveldata.groupdata.at(gi);
-    for (int tl = 0; tl < int(groupdata.mfab.size()); ++tl) {
+    for (int tl = 0; tl < int(groupdata.mfab.size()); ++tl)
       for (int vi = 0; vi < groupdata.numvars; ++vi)
         cctkGH->data[groupdata.firstvarindex + vi][tl] = nullptr;
-    }
   }
   assert(in_patch_mode(cctkGH));
 }
@@ -1782,7 +1778,7 @@ int Evolve(tFleshConfig *config) {
                total_evolution_output_time);
     CCTK_VINFO("  total iterations:                %d", total_iterations);
     CCTK_VINFO("  total cells updated:             %g", total_cell_updates);
-    CCTK_VINFO("  average interations per second: %g",
+    CCTK_VINFO("  average iterations per second: %g",
                total_iterations / total_evolution_time);
     CCTK_VINFO("  average cell updates per second: %g",
                total_cell_updates / total_evolution_time);
@@ -1790,7 +1786,7 @@ int Evolve(tFleshConfig *config) {
     if (out_performance && CCTK_MyProc(NULL) == 0) {
       const int every =
           out_performance_every == -1 ? out_every : out_performance_every;
-      if (every > 0 && cctkGH->cctk_iteration % every == 0) {
+      if (every > 0 && cctkGH->cctk_iteration % every == 0)
         performance_file << "  " << total_iterations << ":\n"
                          << "    evolution-seconds: " << total_evolution_time
                          << "\n"
@@ -1803,7 +1799,6 @@ int Evolve(tFleshConfig *config) {
                          << "    evolution-iterations: " << total_iterations
                          << "\n"
                          << flush;
-      }
     }
 
   } // main loop

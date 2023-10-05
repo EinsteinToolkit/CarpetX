@@ -16,7 +16,6 @@
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 
 struct valid_t {
   bool valid_int, valid_outer, valid_ghosts;
@@ -56,18 +55,18 @@ struct valid_t {
   }
 
   friend bool operator==(const valid_t &x, const valid_t &y) {
-    return make_tuple(x.valid_int, x.valid_outer, x.valid_ghosts) ==
-           make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
+    return std::make_tuple(x.valid_int, x.valid_outer, x.valid_ghosts) ==
+           std::make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
   }
   friend bool operator<(const valid_t &x, const valid_t &y) {
-    return make_tuple(x.valid_int, x.valid_outer, x.valid_ghosts) <
-           make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
+    return std::make_tuple(x.valid_int, x.valid_outer, x.valid_ghosts) <
+           std::make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
   }
 
   std::string explanation() const;
 
   friend std::ostream &operator<<(std::ostream &os, const valid_t v);
-  operator string() const;
+  operator std::string() const;
   friend YAML::Emitter &operator<<(YAML::Emitter &yaml, const valid_t v);
 };
 
@@ -93,14 +92,14 @@ namespace std {
 using namespace CarpetX;
 template <> struct equal_to<valid_t> {
   constexpr bool operator()(const valid_t &x, const valid_t &y) const {
-    return make_tuple(x.valid_int, x.valid_outer, x.valid_ghosts) ==
-           make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
+    return std::make_tuple(x.valid_int, x.valid_outer, x.valid_ghosts) ==
+           std::make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
   }
 };
 template <> struct less<valid_t> {
   constexpr bool operator()(const valid_t &x, const valid_t &y) const {
-    return make_tuple(x.valid_int, x.valid_outer, x.valid_ghosts) <
-           make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
+    return std::make_tuple(x.valid_int, x.valid_outer, x.valid_ghosts) <
+           std::make_tuple(y.valid_int, y.valid_outer, y.valid_ghosts);
   }
 };
 } // namespace std
@@ -108,21 +107,22 @@ namespace CarpetX {
 
 class why_valid_t {
   valid_t valid;
-  function<string()> why_int, why_outer, why_ghosts;
+  std::function<std::string()> why_int, why_outer, why_ghosts;
 
 public:
   // The constructor that doesn't give a reason should never be called
   why_valid_t() = delete;
-  why_valid_t(const function<string()> &why) : why_valid_t(false, why) {}
-  why_valid_t(bool b, const function<string()> &why)
+  why_valid_t(const std::function<std::string()> &why)
+      : why_valid_t(false, why) {}
+  why_valid_t(bool b, const std::function<std::string()> &why)
       : why_valid_t(valid_t(b), why) {}
-  why_valid_t(const valid_t &val, const function<string()> &why)
+  why_valid_t(const valid_t &val, const std::function<std::string()> &why)
       : valid(val), why_int(why), why_outer(why), why_ghosts(why) {}
 
   const valid_t &get() const { return valid; }
 
   void set(const valid_t &which, const valid_t &val,
-           const function<string()> &why) {
+           const std::function<std::string()> &why) {
     valid = (valid & ~which) | (val & which);
     if (which.valid_int)
       why_int = why;
@@ -131,29 +131,31 @@ public:
     if (which.valid_ghosts)
       why_ghosts = why;
   }
-  void set_all(const valid_t &val, const function<string()> &why) {
+  void set_all(const valid_t &val, const std::function<std::string()> &why) {
     set(valid_t(true), val, why);
   }
-  void set_int(bool b, const function<string()> &why) {
+  void set_int(bool b, const std::function<std::string()> &why) {
     set(make_valid_int(), valid_t(b), why);
   }
-  void set_outer(bool b, const function<string()> &why) {
+  void set_outer(bool b, const std::function<std::string()> &why) {
     set(make_valid_outer(), valid_t(b), why);
   }
-  void set_ghosts(bool b, const function<string()> &why) {
+  void set_ghosts(bool b, const std::function<std::string()> &why) {
     set(make_valid_ghosts(), valid_t(b), why);
   }
-  void set_invalid(const valid_t &which, const function<string()> &why) {
+  void set_invalid(const valid_t &which,
+                   const std::function<std::string()> &why) {
     set(which, valid_t(false), why);
   }
-  void set_valid(const valid_t &which, const function<string()> &why) {
+  void set_valid(const valid_t &which,
+                 const std::function<std::string()> &why) {
     set(which, valid_t(true), why);
   }
 
   std::string explanation() const;
 
   friend std::ostream &operator<<(std::ostream &os, const why_valid_t &why);
-  operator string() const;
+  operator std::string() const;
   friend YAML::Emitter &operator<<(YAML::Emitter &yaml, const why_valid_t &why);
 };
 
@@ -177,12 +179,12 @@ struct checksum_t {
     return !(x == y);
   }
 
-  friend ostream &operator<<(ostream &os, const checksum_t &x) {
-    return os << "checksum_t{where:" << x.where << ",crc:0x" << hex
-              << setfill('0') << setw(8) << x.crc << "}";
+  friend std::ostream &operator<<(std::ostream &os, const checksum_t &x) {
+    return os << "checksum_t{where:" << x.where << ",crc:0x" << std::hex
+              << std::setfill('0') << std::setw(8) << x.crc << "}";
   }
-  operator string() const {
-    ostringstream buf;
+  operator std::string() const {
+    std::ostringstream buf;
     buf << *this;
     return buf.str();
   }
@@ -202,7 +204,7 @@ struct tiletag_t {
            std::make_tuple(y.patch, y.level, y.component, y.gi, y.vi, y.tl);
   }
 
-  friend ostream &operator<<(ostream &os, const tiletag_t &x) {
+  friend std::ostream &operator<<(std::ostream &os, const tiletag_t &x) {
     return os << "tiletag_t{"
               << "patch:" << x.patch << ","
               << "level:" << x.level << ","
@@ -211,19 +213,19 @@ struct tiletag_t {
               << "vi:" << x.vi << ","
               << "tl:" << x.tl << "}";
   }
-  operator string() const {
-    ostringstream buf;
+  operator std::string() const {
+    std::ostringstream buf;
     buf << *this;
     return buf.str();
   }
 };
 
-typedef map<tiletag_t, checksum_t> checksums_t;
+typedef std::map<tiletag_t, checksum_t> checksums_t;
 
-checksums_t
-calculate_checksums(const vector<vector<vector<valid_t> > > &will_write);
+checksums_t calculate_checksums(
+    const std::vector<std::vector<std::vector<valid_t> > > &will_write);
 void check_checksums(const checksums_t &checksums,
-                     const std::function<string()> &where);
+                     const std::function<std::string()> &where);
 
 } // namespace CarpetX
 
