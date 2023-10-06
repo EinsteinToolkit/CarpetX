@@ -117,14 +117,14 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
     cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
-  } else if (CCTK_EQUALS(prolongation_type, "ddf-eno")) {
+  } else if (CCTK_EQUALS(prolongation_type, "eno")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = true;
     cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
-  } else if (CCTK_EQUALS(prolongation_type, "ddf-hermite")) {
+  } else if (CCTK_EQUALS(prolongation_type, "hermite")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
@@ -296,14 +296,14 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
-  } else if (CCTK_EQUALS(prolongation_type, "ddf-eno")) {
+  } else if (CCTK_EQUALS(prolongation_type, "eno")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = true;
     cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
-  } else if (CCTK_EQUALS(prolongation_type, "ddf-hermite")) {
+  } else if (CCTK_EQUALS(prolongation_type, "hermite")) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
