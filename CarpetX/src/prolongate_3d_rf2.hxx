@@ -71,7 +71,9 @@ public:
   virtual amrex::Box CoarseBox(const amrex::Box &fine,
                                const amrex::IntVect &ratio) override;
 
+#ifndef AMREX_USE_GPU
 private:
+#endif
   void interp_per_var(const amrex::FArrayBox &crse, int crse_comp,
                       amrex::FArrayBox &fine, int fine_comp, int ncomp,
                       const amrex::Box &fine_region,
