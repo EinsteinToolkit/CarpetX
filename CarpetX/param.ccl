@@ -410,6 +410,10 @@ CCTK_INT prolongation_order "Prolongation order"
   0:* :: ""
 } 1
 
+BOOLEAN prolongate_per_group "Prolongate all variables in a group together"
+{
+} no
+
 CCTK_INT interpolation_order "Interpolation order" STEERABLE=always
 {
   0:* :: ""

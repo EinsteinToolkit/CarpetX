@@ -71,6 +71,25 @@ public:
   virtual amrex::Box CoarseBox(const amrex::Box &fine,
                                const amrex::IntVect &ratio) override;
 
+private:
+  void interp_per_var(const amrex::FArrayBox &crse, int crse_comp,
+                      amrex::FArrayBox &fine, int fine_comp, int ncomp,
+                      const amrex::Box &fine_region,
+                      const amrex::IntVect &ratio,
+                      const amrex::Geometry &crse_geom,
+                      const amrex::Geometry &fine_geom,
+                      amrex::Vector<amrex::BCRec> const &bcr, int actual_comp,
+                      int actual_state, amrex::RunOn gpu_or_cpu);
+  void interp_per_group(const amrex::FArrayBox &crse, int crse_comp,
+                        amrex::FArrayBox &fine, int fine_comp, int ncomp,
+                        const amrex::Box &fine_region,
+                        const amrex::IntVect &ratio,
+                        const amrex::Geometry &crse_geom,
+                        const amrex::Geometry &fine_geom,
+                        amrex::Vector<amrex::BCRec> const &bcr, int actual_comp,
+                        int actual_state, amrex::RunOn gpu_or_cpu);
+
+public:
   virtual void interp(const amrex::FArrayBox &crse, int crse_comp,
                       amrex::FArrayBox &fine, int fine_comp, int ncomp,
                       const amrex::Box &fine_region,

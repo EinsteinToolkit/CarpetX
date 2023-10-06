@@ -1060,19 +1060,20 @@ prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
   return crse;
 }
 
-#if 0
 template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
           interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK, fallback_t FB>
 void prolongate_3d_rf2<
     CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ, ORDERK,
-    FB>::interp(const amrex::FArrayBox &crse, const int crse_comp,
-                amrex::FArrayBox &fine, const int fine_comp, const int ncomp,
-                const amrex::Box &fine_region, const amrex::IntVect &ratio,
-                const amrex::Geometry &crse_geom,
-                const amrex::Geometry &fine_geom,
-                amrex::Vector<amrex::BCRec> const &bcr, const int actual_comp,
-                const int actual_state, const amrex::RunOn gpu_or_cpu) {
+    FB>::interp_per_var(const amrex::FArrayBox &crse, const int crse_comp,
+                        amrex::FArrayBox &fine, const int fine_comp,
+                        const int ncomp, const amrex::Box &fine_region,
+                        const amrex::IntVect &ratio,
+                        const amrex::Geometry &crse_geom,
+                        const amrex::Geometry &fine_geom,
+                        amrex::Vector<amrex::BCRec> const &bcr,
+                        const int actual_comp, const int actual_state,
+                        const amrex::RunOn gpu_or_cpu) {
   DECLARE_CCTK_PARAMETERS;
 
   static std::once_flag have_timers;
@@ -1493,21 +1494,21 @@ void prolongate_3d_rf2<
   //   AMREX_GPU_ERROR_CHECK();
   // #endif
 }
-#endif
 
-#if 1
 template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
           interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
           int ORDERI, int ORDERJ, int ORDERK, fallback_t FB>
 void prolongate_3d_rf2<
     CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ, ORDERK,
-    FB>::interp(const amrex::FArrayBox &crse_box, const int crse_comp,
-                amrex::FArrayBox &fine_box, const int fine_comp,
-                const int ncomps, const amrex::Box &fine_region,
-                const amrex::IntVect &ratio, const amrex::Geometry &crse_geom,
-                const amrex::Geometry &fine_geom,
-                amrex::Vector<amrex::BCRec> const &bcr, const int actual_comp,
-                const int actual_state, const amrex::RunOn gpu_or_cpu) {
+    FB>::interp_per_group(const amrex::FArrayBox &crse_box, const int crse_comp,
+                          amrex::FArrayBox &fine_box, const int fine_comp,
+                          const int ncomps, const amrex::Box &fine_region,
+                          const amrex::IntVect &ratio,
+                          const amrex::Geometry &crse_geom,
+                          const amrex::Geometry &fine_geom,
+                          amrex::Vector<amrex::BCRec> const &bcr,
+                          const int actual_comp, const int actual_state,
+                          const amrex::RunOn gpu_or_cpu) {
   DECLARE_CCTK_PARAMETERS;
 
   constexpr int maxncomps = 10;
@@ -1962,7 +1963,29 @@ void prolongate_3d_rf2<
   //   AMREX_GPU_ERROR_CHECK();
   // #endif
 }
-#endif
+
+template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
+          interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
+          int ORDERI, int ORDERJ, int ORDERK, fallback_t FB>
+void prolongate_3d_rf2<
+    CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ, ORDERK,
+    FB>::interp(const amrex::FArrayBox &crse_box, const int crse_comp,
+                amrex::FArrayBox &fine_box, const int fine_comp,
+                const int ncomps, const amrex::Box &fine_region,
+                const amrex::IntVect &ratio, const amrex::Geometry &crse_geom,
+                const amrex::Geometry &fine_geom,
+                amrex::Vector<amrex::BCRec> const &bcr, const int actual_comp,
+                const int actual_state, const amrex::RunOn gpu_or_cpu) {
+  DECLARE_CCTK_PARAMETERS;
+  if (!prolongate_per_group)
+    interp_per_var(crse_box, crse_comp, fine_box, fine_comp, ncomps,
+                   fine_region, ratio, crse_geom, fine_geom, bcr, actual_comp,
+                   actual_state, gpu_or_cpu);
+  else
+    interp_per_group(crse_box, crse_comp, fine_box, fine_comp, ncomps,
+                     fine_region, ratio, crse_geom, fine_geom, bcr, actual_comp,
+                     actual_state, gpu_or_cpu);
+}
 
 template <centering_t CENTI, centering_t CENTJ, centering_t CENTK,
           interpolation_t INTPI, interpolation_t INTPJ, interpolation_t INTPK,
