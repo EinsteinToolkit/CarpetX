@@ -76,7 +76,6 @@
 %  homepage at www.cactuscode.org)
 \usepackage{../../../../doc/latex/cactus}
 \usepackage{xcolor, listings}
-\usepackage[title]{appendix}
 
 % Code listing boxes
 \lstset{
@@ -143,7 +142,10 @@
 % The following sections are suggestive only.
 % Remove them or add your own.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Introduction}
+\label{sec:intro}
+
 \todo{This document should cover the topics listed \href{https://docs.einsteintoolkit.org/et-docs/CarpetX_Transition}{here}.}\\
 \todo{We should have some words explaining what \CarpetX is.}
 
@@ -154,7 +156,12 @@
 \end{enumerate}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Building and using standard images}
+\label{sec:std_imgs}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Loops over grid elements}
+\label{sec:loops}
 
 Contrary to \Carpet, in \CarpetX, loops over grid elements are not written explicitly. Operations that are to be executed for every grid element (cells, edges or points) are specified via \texttt{C++} \href{https://en.cppreference.com/w/cpp/language/lambda}{\textit{lambda functions}}, also known as closures or anonymous functions.
 
@@ -216,6 +223,7 @@ The macros \texttt{DECLARE\_CCTK\_ARGUMENTSX\_WaveToyX\_RHS}, \texttt{CCTK\_ARGU
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Loop regions}
+\label{sec:loop_regions}
 
 Before actually writing any code that iterates over grid elements, one must choose \textit{which} elements are to be iterated over. We shall refer to the set of points in the grid hierarchy will be iterated over when a loop is executed as a \textit{Loop region}. The following regions are defined in the \texttt{Loop} API:
 
@@ -230,11 +238,10 @@ Before actually writing any code that iterates over grid elements, one must choo
 \todo{Picture of grid regions}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Non-vectorized loops}
+\subsection{Loop methods}
+\label{sec:loop_methods}
 
-Non vectorized loops iterate over grid elements one element at a time without taking advantage of hardware vectorization capabilities (SIMD).
-
-Remember that the macro \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} provides a variable called \texttt{grid}, which is an instance of either \texttt{GridDescBase} or \texttt{GridDescBaseDevice} classes which contain functions for looping over grid elements on the CPU or GPU, respectively. The name of each looping function is formed according to
+Remember that the macro \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} provides a variable called \texttt{grid}, which is an instance of either \texttt{GridDescBase} or \texttt{GridDescBaseDevice} classes which contain functions for looping over grid elements on the CPU or GPU, respectively. The name of each looping method is formed according to
 %
 \begin{center}
     \texttt{loop\_} + \textless loop region\textgreater + [\_\texttt{device}]
@@ -252,78 +259,159 @@ To obtain a GPU equivalent version, one would simply append \texttt{\_device} to
     grid.loop_int_device<...>(...);
 \end{lstlisting}
 
-Alternatively, it is also possible to execute loops by calling the \texttt{loop} method of the \texttt{grid} variable and providing an instance of the enumeration \texttt{where\_t} either as a template parameter (thus specifying the loop location at compile time) or as a regular function parameter (specifying the loop region during runtime). To specify a location using \texttt{loop} with template arguments, one would call
-%
-\begin{lstlisting}
-    grid.loop<..., REG>(...);
-\end{lstlisting}
-% 
-or
-%
-\begin{lstlisting}
-  grid.loop<...>(REG, ...);
-\end{lstlisting}
-%
-where \texttt{REG} is one of the following
-%
-\begin{enumerate}
-  \item \texttt{everywhere}.
-  \item \texttt{interior}.
-  \item \texttt{boundary}.
-  \item \texttt{ghosts}
-\end{enumerate}
-
-Note that these functions do not have an explicit optional \texttt{device} suffix attached to them to inddicate that the loop is to be done on a GPU. Control of the processing unit in which the code is executed in this case is controlled by the type of the \texttt{grid} variable and therefore, if one wishes to run on the GPU instead of the CPU, one must be sure to include \texttt{loop\_device.hxx} instead of simply \texttt{loop.hxx}.
-
-Let us now look at the required parameter of loop functions. For loop functions that specify a grid region \texttt{REG} and processing unit \texttt{PU} in the function's name, the typical signature is as follows
+Let us now look at the required parameter of loop methods.The typical signature is as follows
 
 \begin{lstlisting}
-  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
+  template <int CI, int CJ, int CK, ..., typename F>
   void loop_REG_PU(const vect<int, dim> &group_nghostzones, const F &f);
 \end{lstlisting}
 
-The template parameters caen be understood as follows:
+The template parameters meanings are as follows:
 
 \begin{enumerate}
   \item \texttt{CI}: Centering index for the first grid direction. Must be set explicitly.
   \item \texttt{CJ}: Centering index for the second grid direction. Must be set explicitly.
   \item \texttt{CK}: Centering index for the third grid direction. Must be set explicitly.
-  \item \texttt{VS}: Vector size. Its value must be set to 1 when running on GPUs, when running on CPUs that have no SIMD instructions available or when one wishes to disable vectorization altogether. It is not required to be set explicitly and defaults to 1.
-  \item \texttt{N}: \todo{What is this?}
-  \item \texttt{F}: The type (signature) of the lambda function passed to the loop. It is not required to be set explicitly and is automatically deduced by the compiler.
+  \item \texttt{F}: The type signature of the lambda function passed to the loop. It is not required to be set explicitly and is automatically deduced by the compiler.
 \end{enumerate}
 
-\begin{lstlisting}
-  template <int CI, int CJ, int CK, where_t where, typename F>
-  loop(const vect<int, dim> &group_nghostzones, const F &f);
-\end{lstlisting}
+Function parameter meanings are as follows:
+
+\begin{enumerate}
+  \item \texttt{group\_nghostzones}: The number of ghost zones in each direction of the grid. This can be obtained by calling \texttt{grid.nghostzones}.
+  \item \texttt{f}: The \texttt{C++} lambda to be executed on each step of the loop.
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Loop Lambdas}
+
+We shall now discuss the syntax and the available elements of the lambda functions that are to be fed to the Loop methods described in Section \ref{sec:loop_methods}.
+
+To start, let us be reminded of the general syntax of a lambda function in \texttt{C++}:
 
 \begin{lstlisting}
-  template <int CI, int CJ, int CK, typename F>
-  void loop(where_t where, const vect<int, dim> &group_nghostzones,
-       const F &f);
+  // append ; if assigning to a variable
+  [capture_parameter] (argument_list) -> return_type { function_body }
+\end{lstlisting}
+
+When running on GPUs, the \texttt{capture\_parameter} field used should always be \texttt{=} , indicating pass by value (copy) rather than \texttt{\&}, indicating pass by reference. The \texttt{argument\_list} of the lambda should receive only one element of type \texttt{PointDesc} (which will be described on Sec.~\ref{sec:point_des}) and the lambda must return no value, which means that \texttt{return\_type} can be omitted altogether.
+
+This means that a typical lambda passed to a loop method will have the form
+%
+\begin{lstlisting}
+  [=] (const Loop::PointDesc &p) {
+    // loop body
+  }
 \end{lstlisting}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{SIMD Vectorized loops}
+\subsection{The \texttt{PointDesc} type and loop lambda body}
+\label{sec:point_des}
+
+The \texttt{PointDesc} type provides a complete description of the current grid element in the loop. The following members are the ones that are expected to be used more often:
+%
+\begin{enumerate}
+  \item \texttt{I}: A 3-element array containing the grid point indices.
+  \item \texttt{DI}: A 3-element array containing the direction unit vectors from the current grind point.
+  \item \texttt{X}: A 3-element array containing the point's coordinates.
+  \item \text{DX}: A 3-element array containing the point's grid spacings.
+  \item {iter}: The current loop iteration.
+\end{enumerate}
+
+In the body of a loop lambda, grid functions declared in the thorn's \texttt{schedule.ccl} file are available as \texttt{GF3D2} objects, which are \texttt{C++} wrappers around native \Cactus\space grid functions. These objects are accessible by directly calling them as functions taking arrays of grid indices as input. Such indices, in turn can be obtained by directly accessing \texttt{PointDesc} members.
+
+\subsection{Example: Computing a RHS with finite differences}
+
+Let us now combine the elements describe thus far into a single example. Let us suppose that the following system of PDEs is implemented in \Cactus:
+
+\begin{align}
+  \partial_t u & = \rho \label{eq:toy_loop_0}\\
+  \partial_t \rho & = \partial_x^2 u + \partial_y^2 u + \partial_z^2 u \label{eq:toy_loop_1}
+\end{align}
+
+Let us suppose that the grid functions \texttt{u} and \texttt{rho} where made available, while grid functions \texttt{u\_rhs} and \texttt{rho\_rhs} are their corresponding RHS storage variables. The function that computes the RHS of Eqs.~\eqref{eq:toy_loop_0}-\eqref{eq:toy_loop_1} can be written as
+
+\begin{lstlisting}
+extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_LoopExample_RHS;
+  DECLARE_CCTK_PARAMETERS;
+
+  // The grid variable is implicitly defined via the CCTK macros
+  // A 0/1 in template parameters indicate that a grid is vertex/cell centered
+  grid.loop_int<0, 0, 0>(
+    grid.nghostzones,
+
+    // The loop lambda
+    [=] (const Loop::PointDesc &p) {
+      using std::pow;
+
+      const CCTK_REAL hx = p.DX[0] * p.dX[0];
+      const CCTK_REAL hy = p.DX[1] * p.dX[1];
+      const CCTK_REAL hz = p.DX[2] * p.dX[2];
+      
+      const CCTK_REAL dudx = u(p.I - p.DI[0]) - 2 * u(p.I) 
+        + u(p.I + p.DI[0])/hx;
+
+      const CCTK_REAL dudy = u(p.I - p.DI[1]) - 2 * u(p.I) 
+        + u(p.I + p.DI[1])/hy;
+
+      const CCTK_REAL dudz = u(p.I - p.DI[2]) - 2 * u(p.I) 
+        + u(p.I + p.DI[2])/hz;
+
+      u_rhs(p.I) = rho(p.I);
+      rho_rhs(p.I) = ddu;
+
+    } // Ending of the loop lambda
+  ); // Ending of the loop_int call
+}
+\end{lstlisting}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Method of Lines via \texttt{ODESolvers}}
+\section{SIMD Vectorization of loops}
+\label{sec:simd_loops}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Using flux}
+\label{sec:flux}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Time integration using \texttt{ODESolvers}}
 \label{sec:odesolvers}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Implementing boundary conditions}
+\label{sec:bcs}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Writing CCL files}
+\label{sec:ccl_files}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Adding and controlling AMR}
+\label{sec:amr}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Analyzing data}
+\label{sec:data}
+
+\subsection{OpenPMD}
+\label{sec:openpmd}
+
+\subsection{SILO}
+\label{sec:silo}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Acknowledgements}
 
-\begin{appendices}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section {\texttt{C++} lambda function syntax primer}
-\end{appendices}
-
 \begin{thebibliography}{9}
-
 \end{thebibliography}
 
 % Do not delete next line
 % END CACTUS THORNGUIDE
 
 \end{document}
+
+How to specify things in CCL files
+How to get mesh refinement
+How to analyze results from openPMD/SILO
+How to interpolate data
