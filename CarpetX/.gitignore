@@ -1,0 +1,6 @@
+
+doc/*.aux
+doc/*.log
+doc/*.fdb_latexmk
+doc/*.fls
+doc/*.out

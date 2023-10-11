@@ -1,0 +1,329 @@
+% *======================================================================*
+%  Cactus Thorn template for ThornGuide documentation
+%  Author: Ian Kelley
+%  Date: Sun Jun 02, 2002
+%  $Header$
+%
+%  Thorn documentation in the latex file doc/documentation.tex
+%  will be included in ThornGuides built with the Cactus make system.
+%  The scripts employed by the make system automatically include
+%  pages about variables, parameters and scheduling parsed from the
+%  relevant thorn CCL files.
+%
+%  This template contains guidelines which help to assure that your
+%  documentation will be correctly added to ThornGuides. More
+%  information is available in the Cactus UsersGuide.
+%
+%  Guidelines:
+%   - Do not change anything before the line
+%       % START CACTUS THORNGUIDE",
+%     except for filling in the title, author, date, etc. fields.
+%        - Each of these fields should only be on ONE line.
+%        - Author names should be separated with a \\ or a comma.
+%   - You can define your own macros, but they must appear after
+%     the START CACTUS THORNGUIDE line, and must not redefine standard
+%     latex commands.
+%   - To avoid name clashes with other thorns, 'labels', 'citations',
+%     'references', and 'image' names should conform to the following
+%     convention:
+%       ARRANGEMENT_THORN_LABEL
+%     For example, an image wave.eps in the arrangement CactusWave and
+%     thorn WaveToyC should be renamed to CactusWave_WaveToyC_wave.eps
+%   - Graphics should only be included using the graphicx package.
+%     More specifically, with the "\includegraphics" command.  Do
+%     not specify any graphic file extensions in your .tex file. This
+%     will allow us to create a PDF version of the ThornGuide
+%     via pdflatex.
+%   - References should be included with the latex "\bibitem" command.
+%   - Use \begin{abstract}...\end{abstract} instead of \abstract{...}
+%   - Do not use \appendix, instead include any appendices you need as
+%     standard sections.
+%   - For the benefit of our Perl scripts, and for future extensions,
+%     please use simple latex.
+%
+% *======================================================================*
+%
+% Example of including a graphic image:
+%    \begin{figure}[ht]
+% 	\begin{center}
+%    	   \includegraphics[width=6cm]{MyArrangement_MyThorn_MyFigure}
+% 	\end{center}
+% 	\caption{Illustration of this and that}
+% 	\label{MyArrangement_MyThorn_MyLabel}
+%    \end{figure}
+%
+% Example of using a label:
+%   \label{MyArrangement_MyThorn_MyLabel}
+%
+% Example of a citation:
+%    \cite{MyArrangement_MyThorn_Author99}
+%
+% Example of including a reference
+%   \bibitem{MyArrangement_MyThorn_Author99}
+%   {J. Author, {\em The Title of the Book, Journal, or periodical}, 1 (1999),
+%   1--16. {\tt http://www.nowhere.com/}}
+%
+% *======================================================================*
+
+% If you are using CVS use this line to give version information
+% $Header$
+
+\documentclass{article}
+
+% Use the Cactus ThornGuide style file
+% (Automatically used from Cactus distribution, if you have a
+%  thorn without the Cactus Flesh download this from the Cactus
+%  homepage at www.cactuscode.org)
+\usepackage{../../../../doc/latex/cactus}
+\usepackage{xcolor, listings}
+\usepackage[title]{appendix}
+
+% Code listing boxes
+\lstset{
+    language=C++,
+    breaklines=true,
+    basicstyle=\tt,
+    keywordstyle=\color{blue},
+    identifierstyle=\color{magenta},
+    frame=single
+}
+
+\begin{document}
+
+% The author of the documentation
+\author{
+    Erik Schnetter \textless eriks@email.com\textgreater \\
+    Lucas Timotheo Sanches \textless lucas.t.s.carneiro@gmail.com\textgreater \\
+    Steve Brandt \textless steves@email.com\textgreater\\
+}
+
+% The title of the document (not necessarily the name of the Thorn)
+\title{CarpetX}
+
+% the date your document was last changed, if your document is in CVS,
+% please use:
+%    \date{$ $Date$ $}
+% when using git instead record the commit ID:
+%    \date{$ $Id$ $}
+% and add this line to your repos' .gitattributes file:
+% **.tex ident
+\date{\today} % TODO: This should be replaced with the final date once we are done
+
+\maketitle
+
+% Do not delete next line
+% START CACTUS THORNGUIDE
+
+% Add all definitions used in this documentation here
+\newcommand{\CarpetX}{\texttt{CarpetX }}
+\newcommand{\Cactus}{\texttt{Cactus}}
+\newcommand{\Carpet}{\texttt{Carpet}}
+\newcommand{\AMReX}{\texttt{AMReX}}
+\newcommand{\ETK}{\texttt{Einstein Toolkit}}
+\newcommand{\todo}[1]{\textcolor{red}{TODO: #1}}
+
+\begin{figure*}[ht]
+    \begin{center}
+        \includegraphics[width=6cm]{logo.png}
+    \end{center}
+    \label{fig:logo}
+\end{figure*}
+
+% Add an abstract for this thorn's documentation
+\begin{abstract}
+
+\todo{Maybe change this description}\\
+
+\CarpetX is a \href{https://www.cactuscode.org/index.html}{\Cactus} driver based on \href{https://amrex-codes.github.io/}{\AMReX}, a software framework for block-structured AMR (adaptive mesh refinement). \CarpetX is intended for the \href{https://einsteintoolkit.org/}{\ETK}.
+
+\end{abstract}
+
+\newpage
+
+% The following sections are suggestive only.
+% Remove them or add your own.
+
+\section{Introduction}
+\todo{This document should cover the topics listed \href{https://docs.einsteintoolkit.org/et-docs/CarpetX_Transition}{here}.}\\
+\todo{We should have some words explaining what \CarpetX is.}
+
+\begin{enumerate}
+    \item \texttt{loop.hxx/where\_t/ghosts\_inclusive}
+    \item What loop functions should be used? \texttt{loop\_device} or the other ones?
+    \item Picture of grid regions
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Loops over grid elements}
+
+Contrary to \Carpet, in \CarpetX, loops over grid elements are not written explicitly. Operations that are to be executed for every grid element (cells, edges or points) are specified via \texttt{C++} \href{https://en.cppreference.com/w/cpp/language/lambda}{\textit{lambda functions}}, also known as closures or anonymous functions.
+
+These objects behave like regular \texttt{C++} functions, but can be defined \textit{inline}, that is, on the body of a function or as an argument to another function.
+
+An important concept to grasp with lambda function is \textit{captures}. If a lambda (let us call this the child function) is defined in the body of an outer function (let us call this the parent function), the child can access variables define in the parent function, provided that these variables are \textit{captured}. The two most relevant modes of capture while using \CarpetX are \textit{capture by reference} (denoted with the \texttt{\&} sign in the square brackets denoting the start of the lambda) and \textit{capture by value} (denoted by an \texttt{=} sign inside the square brackets of the lambda declaration).
+
+When running on GPUs, capture by values are \textit{required}. This is because data must be copied from host (CPU side) memory to device (GPU side) memory in order to be executed.
+
+The API for writting loops in \CarpetX is provided by the \texttt{Loop} thorn. To use it, one must add
+%
+\begin{lstlisting}[language=Bash]
+    REQUIRES Loop
+\end{lstlisting}
+%
+to the thorn's \texttt{configuration.ccl} file and
+%
+\begin{lstlisting}[language=Bash]
+    INHERITS: CarpetX   
+    USES INCLUDE HEADER: loop.hxx        # For using CarpetX on CPUs
+    USES INCLUDE HEADER: loop_device.hxx # For using CarpetX on GPUs
+\end{lstlisting}
+%
+to the thorn's \texttt{interface.ccl} file. Furthermore, one must include the \texttt{Loop} API header file in all source files where the API is needed by adding
+%
+\begin{lstlisting}
+    #include <loop_device.hxx>
+\end{lstlisting}
+%
+to the beginning of the source file.
+
+To understand how to utilize the \texttt{Loop} API within \Cactus\space scheduled functions, let us consider the following excerpt from the \texttt{schedule.ccl} file of the \texttt{WaveToyX} thorn, included in the \CarpetX repository:
+%
+\begin{lstlisting}[language=Bash]
+    SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
+    {
+        LANG: C
+        READS: state(everywhere)
+        WRITES: rhs(interior)
+        SYNC: rhs
+    } "Calculate scalar wave RHS"
+\end{lstlisting}
+
+This schedule block declares to \Cactus\space that a \texttt{C++} function (with \texttt{C} linkage) called \texttt{WaveToyX\_RHS} should be executed on the \texttt{ODESolvers\_RHS} schedule bin (for further information on \texttt{ODESolvers}, see Sec.~\ref{sec:odesolvers}).
+
+The first few lines of \texttt{C++} source for \texttt{WaveToyX\_RHS} read
+%
+\begin{lstlisting}
+    extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
+        DECLARE_CCTK_ARGUMENTSX_WaveToyX_RHS;
+        DECLARE_CCTK_PARAMETERS;
+        .
+        .
+        .
+    }
+\end{lstlisting}
+%
+The macros \texttt{DECLARE\_CCTK\_ARGUMENTSX\_WaveToyX\_RHS}, \texttt{CCTK\_ARGUMENTS} and \texttt{DECLARE\_CCTK\_PARAMETERS} allow the thorn writer to access parameters and grid functions declared in the thorn's \texttt{.ccl} files. Note that \Cactus\space now supports the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} macro, where \texttt{FUNC\_NAME} is the name of a function declared in the \texttt{schedule.ccl} file. These macros restrict the access of a function to it's schedule-declared grid functions. More importantly, it provides a variable called \texttt{grid} which can be used to access the functionalities of the \texttt{Loop} API.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Loop regions}
+
+Before actually writing any code that iterates over grid elements, one must choose \textit{which} elements are to be iterated over. We shall refer to the set of points in the grid hierarchy will be iterated over when a loop is executed as a \textit{Loop region}. The following regions are defined in the \texttt{Loop} API:
+
+\begin{enumerate}
+    \item All: This region refers to all points contained in the grid. Denoted in code by the \texttt{all} suffix.
+    
+    \item Interior: This region refers to the interior of the grid. Denoted in code by the \texttt{int} prefix.
+    
+    \item Outermost interior: This region refers to the outermost "boundary" points in the interior. They correspond to points that are shifted inwards by = cctk\_nghostzones[3] from those that CarpetX identifies as boundary points. From the perspective of CarpetX (or AMReX), these do not belong in the outer boundary, but rather the interior. This excludes ghost faces, but includes ghost edges/corners on non-ghost faces. Loop over faces first, then edges, then corners. Modified from loop\_bnd\_device. Denoted in code by the \texttt{outermost\_int} suffix.
+\end{enumerate}
+
+\todo{Picture of grid regions}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Non-vectorized loops}
+
+Non vectorized loops iterate over grid elements one element at a time without taking advantage of hardware vectorization capabilities (SIMD).
+
+Remember that the macro \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} provides a variable called \texttt{grid}, which is an instance of either \texttt{GridDescBase} or \texttt{GridDescBaseDevice} classes which contain functions for looping over grid elements on the CPU or GPU, respectively. The name of each looping function is formed according to
+%
+\begin{center}
+    \texttt{loop\_} + \textless loop region\textgreater + [\_\texttt{device}]
+\end{center}
+
+For example, to loop over boundaries using the CPU one would call
+%
+\begin{lstlisting}
+    grid.loop_bnd<...>(...);
+\end{lstlisting}
+%
+To obtain a GPU equivalent version, one would simply append \texttt{\_device} to the function name. Thus, for example, to loop over the interior using a GPU, one would call 
+
+\begin{lstlisting}
+    grid.loop_int_device<...>(...);
+\end{lstlisting}
+
+Alternatively, it is also possible to execute loops by calling the \texttt{loop} method of the \texttt{grid} variable and providing an instance of the enumeration \texttt{where\_t} either as a template parameter (thus specifying the loop location at compile time) or as a regular function parameter (specifying the loop region during runtime). To specify a location using \texttt{loop} with template arguments, one would call
+%
+\begin{lstlisting}
+    grid.loop<..., REG>(...);
+\end{lstlisting}
+% 
+or
+%
+\begin{lstlisting}
+  grid.loop<...>(REG, ...);
+\end{lstlisting}
+%
+where \texttt{REG} is one of the following
+%
+\begin{enumerate}
+  \item \texttt{everywhere}.
+  \item \texttt{interior}.
+  \item \texttt{boundary}.
+  \item \texttt{ghosts}
+\end{enumerate}
+
+Note that these functions do not have an explicit optional \texttt{device} suffix attached to them to inddicate that the loop is to be done on a GPU. Control of the processing unit in which the code is executed in this case is controlled by the type of the \texttt{grid} variable and therefore, if one wishes to run on the GPU instead of the CPU, one must be sure to include \texttt{loop\_device.hxx} instead of simply \texttt{loop.hxx}.
+
+Let us now look at the required parameter of loop functions. For loop functions that specify a grid region \texttt{REG} and processing unit \texttt{PU} in the function's name, the typical signature is as follows
+
+\begin{lstlisting}
+  template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
+  void loop_REG_PU(const vect<int, dim> &group_nghostzones, const F &f);
+\end{lstlisting}
+
+The template parameters caen be understood as follows:
+
+\begin{enumerate}
+  \item \texttt{CI}: Centering index for the first grid direction. Must be set explicitly.
+  \item \texttt{CJ}: Centering index for the second grid direction. Must be set explicitly.
+  \item \texttt{CK}: Centering index for the third grid direction. Must be set explicitly.
+  \item \texttt{VS}: Vector size. Its value must be set to 1 when running on GPUs, when running on CPUs that have no SIMD instructions available or when one wishes to disable vectorization altogether. It is not required to be set explicitly and defaults to 1.
+  \item \texttt{N}: \todo{What is this?}
+  \item \texttt{F}: The type (signature) of the lambda function passed to the loop. It is not required to be set explicitly and is automatically deduced by the compiler.
+\end{enumerate}
+
+\begin{lstlisting}
+  template <int CI, int CJ, int CK, where_t where, typename F>
+  loop(const vect<int, dim> &group_nghostzones, const F &f);
+\end{lstlisting}
+
+\begin{lstlisting}
+  template <int CI, int CJ, int CK, typename F>
+  void loop(where_t where, const vect<int, dim> &group_nghostzones,
+       const F &f);
+\end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{SIMD Vectorized loops}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Method of Lines via \texttt{ODESolvers}}
+\label{sec:odesolvers}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Acknowledgements}
+
+\begin{appendices}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section {\texttt{C++} lambda function syntax primer}
+\end{appendices}
+
+\begin{thebibliography}{9}
+
+\end{thebibliography}
+
+% Do not delete next line
+% END CACTUS THORNGUIDE
+
+\end{document}
