@@ -84,7 +84,10 @@
     basicstyle=\tt,
     keywordstyle=\color{blue},
     identifierstyle=\color{magenta},
-    frame=single
+    frame=single,
+    numbers=left,
+    stepnumber=1,
+    showstringspaces=false,
 }
 
 \begin{document}
@@ -114,7 +117,7 @@
 % START CACTUS THORNGUIDE
 
 % Add all definitions used in this documentation here
-\newcommand{\CarpetX}{\texttt{CarpetX }}
+\newcommand{\CarpetX}{\texttt{CarpetX}}
 \newcommand{\Cactus}{\texttt{Cactus}}
 \newcommand{\Carpet}{\texttt{Carpet}}
 \newcommand{\AMReX}{\texttt{AMReX}}
@@ -133,7 +136,7 @@
 
 \todo{Maybe change this description}\\
 
-\CarpetX is a \href{https://www.cactuscode.org/index.html}{\Cactus} driver based on \href{https://amrex-codes.github.io/}{\AMReX}, a software framework for block-structured AMR (adaptive mesh refinement). \CarpetX is intended for the \href{https://einsteintoolkit.org/}{\ETK}.
+\CarpetX\space is a \href{https://www.cactuscode.org/index.html}{\Cactus} driver based on \href{https://amrex-codes.github.io/}{\AMReX}, a software framework for block-structured AMR (adaptive mesh refinement). \CarpetX\space is intended for the \href{https://einsteintoolkit.org/}{\ETK}.
 
 \end{abstract}
 
@@ -147,7 +150,7 @@
 \label{sec:intro}
 
 \todo{This document should cover the topics listed \href{https://docs.einsteintoolkit.org/et-docs/CarpetX_Transition}{here}.}\\
-\todo{We should have some words explaining what \CarpetX is.}
+\todo{We should have some words explaining what \CarpetX\space is.}
 
 \begin{enumerate}
     \item \texttt{loop.hxx/where\_t/ghosts\_inclusive}
@@ -167,11 +170,11 @@ Contrary to \Carpet, in \CarpetX, loops over grid elements are not written expli
 
 These objects behave like regular \texttt{C++} functions, but can be defined \textit{inline}, that is, on the body of a function or as an argument to another function.
 
-An important concept to grasp with lambda function is \textit{captures}. If a lambda (let us call this the child function) is defined in the body of an outer function (let us call this the parent function), the child can access variables define in the parent function, provided that these variables are \textit{captured}. The two most relevant modes of capture while using \CarpetX are \textit{capture by reference} (denoted with the \texttt{\&} sign in the square brackets denoting the start of the lambda) and \textit{capture by value} (denoted by an \texttt{=} sign inside the square brackets of the lambda declaration).
+An important concept to grasp with lambda function is \textit{captures}. If a lambda (let us call this the child function) is defined in the body of an outer function (let us call this the parent function), the child can access variables define in the parent function, provided that these variables are \textit{captured}. The two most relevant modes of capture while using \CarpetX\space are \textit{capture by reference} (denoted with the \texttt{\&} sign in the square brackets denoting the start of the lambda) and \textit{capture by value} (denoted by an \texttt{=} sign inside the square brackets of the lambda declaration).
 
 When running on GPUs, capture by values are \textit{required}. This is because data must be copied from host (CPU side) memory to device (GPU side) memory in order to be executed.
 
-The API for writting loops in \CarpetX is provided by the \texttt{Loop} thorn. To use it, one must add
+The API for writting loops in \CarpetX\space is provided by the \texttt{Loop} thorn. To use it, one must add
 %
 \begin{lstlisting}[language=Bash]
     REQUIRES Loop
@@ -193,7 +196,7 @@ to the thorn's \texttt{interface.ccl} file. Furthermore, one must include the \t
 %
 to the beginning of the source file.
 
-To understand how to utilize the \texttt{Loop} API within \Cactus\space scheduled functions, let us consider the following excerpt from the \texttt{schedule.ccl} file of the \texttt{WaveToyX} thorn, included in the \CarpetX repository:
+To understand how to utilize the \texttt{Loop} API within \Cactus\space scheduled functions, let us consider the following excerpt from the \texttt{schedule.ccl} file of the \texttt{WaveToyX} thorn, included in the \CarpetX\space repository:
 %
 \begin{lstlisting}[language=Bash]
     SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
@@ -219,7 +222,7 @@ The first few lines of \texttt{C++} source for \texttt{WaveToyX\_RHS} read
     }
 \end{lstlisting}
 %
-The macros \texttt{DECLARE\_CCTK\_ARGUMENTSX\_WaveToyX\_RHS}, \texttt{CCTK\_ARGUMENTS} and \texttt{DECLARE\_CCTK\_PARAMETERS} allow the thorn writer to access parameters and grid functions declared in the thorn's \texttt{.ccl} files. Note that \Cactus\space now supports the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} macro, where \texttt{FUNC\_NAME} is the name of a function declared in the \texttt{schedule.ccl} file. These macros restrict the access of a function to it's schedule-declared grid functions. More importantly, it provides a variable called \texttt{grid} which can be used to access the functionalities of the \texttt{Loop} API.
+The macros \texttt{DECLARE\_CCTK\_ARGUMENTSX\_WaveToyX\_RHS}, \texttt{CCTK\_ARGUMENTS} and \texttt{DECLARE\_CCTK\_PARAMETERS} allow the thorn writer to access parameters and grid functions declared in the thorn's \texttt{.ccl} files. Note that \Cactus\space now supports the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} macro, where \texttt{FUNC\_NAME} is the name of a grid function declared in the \texttt{schedule.ccl} file. These macros restrict the access of a function to it's schedule-declared grid functions. More importantly, it provides a variable called \texttt{grid} which can be used to access the functionalities of the \texttt{Loop} API.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Loop regions}
@@ -232,7 +235,7 @@ Before actually writing any code that iterates over grid elements, one must choo
     
     \item Interior: This region refers to the interior of the grid. Denoted in code by the \texttt{int} prefix.
     
-    \item Outermost interior: This region refers to the outermost "boundary" points in the interior. They correspond to points that are shifted inwards by = cctk\_nghostzones[3] from those that CarpetX identifies as boundary points. From the perspective of CarpetX (or AMReX), these do not belong in the outer boundary, but rather the interior. This excludes ghost faces, but includes ghost edges/corners on non-ghost faces. Loop over faces first, then edges, then corners. Modified from loop\_bnd\_device. Denoted in code by the \texttt{outermost\_int} suffix.
+    \item Outermost interior: This region refers to the outermost "boundary" points in the interior. They correspond to points that are shifted inwards by = cctk\_nghostzones[3] from those that CarpetX identifies as boundary points. From the perspective of CarpetX (or AMReX), these do not belong in the outer boundary, but rather the interior. This excludes ghost faces, but includes ghost edges/corners on non-ghost faces. Loop over faces first, then edges, then corners. Denoted in code by the \texttt{outermost\_int} suffix.
 \end{enumerate}
 
 \todo{Picture of grid regions}
@@ -318,7 +321,7 @@ The \texttt{PointDesc} type provides a complete description of the current grid 
   \item {iter}: The current loop iteration.
 \end{enumerate}
 
-In the body of a loop lambda, grid functions declared in the thorn's \texttt{schedule.ccl} file are available as \texttt{GF3D2} objects, which are \texttt{C++} wrappers around native \Cactus\space grid functions. These objects are accessible by directly calling them as functions taking arrays of grid indices as input. Such indices, in turn can be obtained by directly accessing \texttt{PointDesc} members.
+In the body of a loop lambda, grid functions declared in the thorn's \texttt{interface.ccl} file are available as \texttt{GF3D2} objects, which are \texttt{C++} wrappers around native \Cactus\space grid functions. These objects are accessible by directly calling them as functions taking arrays of grid indices as input. Such indices, in turn can be obtained by directly accessing \texttt{PointDesc} members.
 
 \subsection{Example: Computing a RHS with finite differences}
 
@@ -377,6 +380,73 @@ extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Time integration using \texttt{ODESolvers}}
 \label{sec:odesolvers}
+
+In \CarpetX, time integration of PDEs via the Method of Lines is provided by the \texttt{ODESolvers} thorn. This makes time integration tightly coupled with the grid driver, allowing for more optimization opportunities and better integration.
+
+From the user's perspective, \texttt{ODESolvers} is very similar (and sometimes even more straightforward) the \texttt{MoL} thorn, but a few key differences need to be observed. Firstly, not all integrators available to \texttt{MoL} are available to \texttt{ODESolvers}. The list of all supported methods is displayed in Tab.~\ref{tab:odesolvers_methods}. Method selection occurs via configuration file, by setting
+%
+\begin{lstlisting}[language=bash]
+  ODESolvers::method = "Method name"
+\end{lstlisting}
+%
+and the default method used if none other is set is "RK2".
+
+\begin{table}[]
+  \centering
+  \begin{tabular}{cc}
+  Name           & Description                                         \\ \hline\hline
+  constant       & The state vector is kept constant in time           \\
+  Euler          & Forward Euler method                                \\
+  RK2            & Explicit midpoint rule                              \\
+  RK3            & Runge-Kutta's third-order method                    \\
+  RK4            & Classic RK4 method                                  \\
+  SSPRK3         & Third-order Strong Stability Preserving Runge-Kutta \\
+  RKF78          & Runge-Kutta-Fehlberg 7(8)                           \\
+  DP87           & Dormand \& Prince 8(7)                              \\
+  Implicit Euler & Implicit Euler method                               \\ \hline\hline
+  \end{tabular}
+  \caption{Available methods in \texttt{ODESolvers}}
+  \label{tab:odesolvers_methods}
+\end{table}
+
+Additionally, users can set verbose output from the time integrator by setting
+%
+\begin{lstlisting}
+  ODESolvers::verbose = "yes"
+\end{lstlisting}
+%
+By default, this option is set to \texttt{"no"}. Note that, in contrast to \texttt{MoL}, the number of parameters that are required to be set via configuration file for a successful time integration has been significantly reduced.
+
+To actually perform time evolution, the PDE system of interest needs to be declared to \Cactus\space as a set of Left-Hand Side (or LHS, or more commonly \textit{state vector}) grid functions plus a set of Right-Hand Side (RHS) grid functions. The RHS grid functions correspond exactly to the right-hand side of the evolution equations while the state vectors stores the variables being derived in time in the current time step. More time steps can be stored internally, depending on the time integrator of choice, but this is an implementation detail that is supervised automatically by \texttt{ODESolvers}. To make this clear, consider the PDE system comprised of Eqs.~\eqref{eq:toy_loop_0}-\eqref{eq:toy_loop_1}. In this example, the state vector would be the set $(u,\rho)$ while the right-hand side would be all elements to the right of the equal signs. Note that derivative appearing on the RHS are only derivatives in space. By discretizing space with a grid and replacing continuous derivatives with finite approximations (by using finite differences, for instance) the time-space dependent PDE system now becomes a ODE system in time, with the state vector being the sought variables. By providing the RHS of the PDE system, \texttt{ODESolvers} can apply the configured time stepping method and compute the next time steps of the state vector.
+
+To see how \texttt{ODESolvers} is used in practice, let us turn once again to the \texttt{WaveToyX} example, bundled with \CarpetX. To begin, let us look at this example's \texttt{interface.ccl} file
+
+\begin{lstlisting}
+  CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="energy error"'
+  {
+    u
+    rho
+  } "Scalar wave state vector"
+
+  CCTK_REAL rhs TYPE=gf TAGS='checkpoint="no"'
+  {
+    u_rhs
+    rho_rhs
+  } "RHS of scalar wave state vector"
+
+  CCTK_REAL energy TYPE=gf TAGS='checkpoint="no"'
+  {
+    eps
+  } "Energy density"
+
+  CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
+  {
+    u_err
+    rho_err
+  } "Error in scalar wave state vector"
+\end{lstlisting}
+
+In lines1-5, the group of real grid functions called \texttt{state}, consisting of grid function \texttt{u} and \texttt{rho}, is declared. The \texttt{TYPE=gf} entry indicates that the variables in this group are grid functions (more details on Sec.~\ref{sec:ccl_files}). The \texttt{TAGS} entry is particularly important in this instance. It consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. The \texttt{rhs="rhs"} pair indicates that these grid functions have an associated RHS group, that is, a group of variables with grid functions responsible for storing the PDE system's RHS and this group is called \texttt{"rhs"} which is defined later in lines 7-11. This information is used by \texttt{ODESolvers} while taking a time step and is tightly coupled to \Cactus\space file parsers. \todo{Explain the dependents key}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Implementing boundary conditions}
