@@ -134,9 +134,7 @@
 % Add an abstract for this thorn's documentation
 \begin{abstract}
 
-\todo{Maybe change this description}\\
-
-\CarpetX\space is a \href{https://www.cactuscode.org/index.html}{\Cactus} driver based on \href{https://amrex-codes.github.io/}{\AMReX}, a software framework for block-structured AMR (adaptive mesh refinement). \CarpetX\space is intended for the \href{https://einsteintoolkit.org/}{\ETK}.
+\todo{Maybe change this description}. \CarpetX\space is a \href{https://www.cactuscode.org/index.html}{\Cactus} driver based on \href{https://amrex-codes.github.io/}{\AMReX}, a software framework for block-structured AMR (adaptive mesh refinement). \CarpetX\space is intended for the \href{https://einsteintoolkit.org/}{\ETK}.
 
 \end{abstract}
 
@@ -272,13 +270,13 @@ Let us now look at the required parameter of loop methods. The typical signature
 The template parameters meanings are as follows:
 
 \begin{enumerate}
-  \item \texttt{CI}: Centering index for the first grid direction. Must be set explicitly.
-  \item \texttt{CJ}: Centering index for the second grid direction. Must be set explicitly.
-  \item \texttt{CK}: Centering index for the third grid direction. Must be set explicitly.
+  \item \texttt{CI}: Centering index for the first grid direction. Must be set explicitly and be either 0 or 1. 0 means that this direction will be looped over grid vertices, while 1 means that it will be looped over cell centers.
+  \item \texttt{CJ}: Centering index for the second grid direction. Must be set explicitly and be either 0 or 1. 0 means that this direction will be looped over grid vertices, while 1 means that it will be looped over cell centers.
+  \item \texttt{CK}: Centering index for the third grid direction. Must be set explicitly and be either 0 or 1. 0 means that this direction will be looped over grid vertices, while 1 means that it will be looped over cell centers.
   \item \texttt{F}: The type signature of the lambda function passed to the loop. It is not required to be set explicitly and is automatically deduced by the compiler.
 \end{enumerate}
 
-Function parameter meanings are as follows:
+Note that centering indexes can be mixed: setting the indices to $(1,0,0)$, for instance, creates loops over faces on the \texttt{x} direction. Function parameter meanings are as follows:
 
 \begin{enumerate}
   \item \texttt{group\_nghostzones}: The number of ghost zones in each direction of the grid. This can be obtained by calling \texttt{grid.nghostzones}.
@@ -415,11 +413,17 @@ Additionally, users can set verbose output from the time integrator by setting
   ODESolvers::verbose = "yes"
 \end{lstlisting}
 %
-By default, this option is set to \texttt{"no"}. Note that, in contrast to \texttt{MoL}, the number of parameters that are required to be set via configuration file for a successful time integration has been significantly reduced.
+By default, this option is set to \texttt{"no"}. Finally, to control the step size of the time integrator, it is possible to set the configuration parameter \texttt{CarpetX::dtfac}, which defaults to $0.5$, is defined as
+%
+\begin{equation}
+  \texttt{dtfac} = \texttt{dt}/\min(\texttt{delta\_space})
+\end{equation}
+%
+where $\min(\texttt{delta\_space})$ refers to the smallest step size defined in the \CarpetX\space grid and \texttt{dt} is the time integrator step.
 
 To actually perform time evolution, the PDE system of interest needs to be declared to \Cactus\space as a set of Left-Hand Side (or LHS, or more commonly \textit{state vector}) grid functions plus a set of Right-Hand Side (RHS) grid functions. The RHS grid functions correspond exactly to the right-hand side of the evolution equations while the state vectors stores the variables being derived in time in the current time step. More time steps can be stored internally, depending on the time integrator of choice, but this is an implementation detail that is supervised automatically by \texttt{ODESolvers}. To make this clear, consider the PDE system comprised of Eqs.~\eqref{eq:toy_loop_0}-\eqref{eq:toy_loop_1}. In this example, the state vector would be the set $(u,\rho)$ while the right-hand side would be all elements to the right of the equal signs. Note that derivative appearing on the RHS are only derivatives in space. By discretizing space with a grid and replacing continuous derivatives with finite approximations (by using finite differences, for instance) the time-space dependent PDE system now becomes a ODE system in time, with the state vector being the sought variables. By providing the RHS of the PDE system, \texttt{ODESolvers} can apply the configured time stepping method and compute the next time steps of the state vector.
 
-To see how \texttt{ODESolvers} is used in practice, let us turn once again to the \texttt{WaveToyX} example, bundled with \CarpetX. To begin, let us look at this example's \texttt{interface.ccl} file
+To see how \texttt{ODESolvers} is used in practice, let us turn once again to the \texttt{WaveToyX} example, bundled with \CarpetX. To begin, let us look at an excerpt from this example's \texttt{interface.ccl} file
 
 \begin{lstlisting}
   CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="energy error"'
@@ -434,19 +438,33 @@ To see how \texttt{ODESolvers} is used in practice, let us turn once again to th
     rho_rhs
   } "RHS of scalar wave state vector"
 
-  CCTK_REAL energy TYPE=gf TAGS='checkpoint="no"'
-  {
-    eps
-  } "Energy density"
-
-  CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
-  {
-    u_err
-    rho_err
-  } "Error in scalar wave state vector"
+  ...
 \end{lstlisting}
 
-In lines1-5, the group of real grid functions called \texttt{state}, consisting of grid function \texttt{u} and \texttt{rho}, is declared. The \texttt{TYPE=gf} entry indicates that the variables in this group are grid functions (more details on Sec.~\ref{sec:ccl_files}). The \texttt{TAGS} entry is particularly important in this instance. It consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. The \texttt{rhs="rhs"} pair indicates that these grid functions have an associated RHS group, that is, a group of variables with grid functions responsible for storing the PDE system's RHS and this group is called \texttt{"rhs"} which is defined later in lines 7-11. This information is used by \texttt{ODESolvers} while taking a time step and is tightly coupled to \Cactus\space file parsers. \todo{Explain the dependents key}.
+In lines1-5, the group of real grid functions called \texttt{state}, consisting of grid function \texttt{u} and \texttt{rho}, is declared. The \texttt{TYPE=gf} entry indicates that the variables in this group are grid functions (more details on Sec.~\ref{sec:ccl_files}). The \texttt{TAGS} entry is particularly important in this instance. It consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. The \texttt{rhs="rhs"} pair indicates that these grid functions have an associated RHS group, that is, a group of variables with grid functions responsible for storing the PDE system's RHS and this group is called \texttt{"rhs"} which is defined later in lines 7-11. This information is used by \texttt{ODESolvers} while taking a time step and is tightly coupled to \Cactus\space file parsers. In lines 7-11, the \texttt{rhs} group is declared with two real grid functions, \texttt{u\_rhs} and \texttt{rho\_rhs}. These variables will be responsible for holding the RHS data of the PDE, which will in turn be used by \texttt{ODESolvers}.
+
+The next step is to schedule the execution of functions into their correct schedule groups. The most relevant schedule groups provided by \texttt{ODESolvers} are \texttt{ODESolvers\_RHS} and \texttt{ODESolvers\_PostStep}. The former is the group where one evaluates the RHS of the state vector everywhere on the grid and the latter is where boundary conditions are applied to the state vector, and projections are applied if necessary. For example, looking at \texttt{WaveToyX}'s \texttt{schedule.ccl} file, one sees
+
+\begin{lstlisting}[language=bash]
+  SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
+  {
+    LANG: C
+    READS: state(everywhere)
+    WRITES: rhs(interior)
+    SYNC: rhs
+  } "Calculate scalar wave RHS"
+
+SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep
+  {
+    LANG: C
+    READS: state(everywhere)
+    WRITES: energy(interior)
+    SYNC: energy
+  } "Calculate scalar wave energy density"
+\end{lstlisting}
+
+The schedule statement from lines 1-7 schedules the function that computes the RHS of the wave equation. Note that the function reads the state on the whole grid and writes to the RHS grid variables in the interior. With \CarpetX, grid functions read and write statements are enforced: You cannot write to a variable which was declared as read only in the \texttt{schedule.ccl} file. Lines 9-15 exemplify the scheduling of a function in the \texttt{ODESolvers\_PostStep} group, which is executed after \texttt{ODESolvers\_RHS} during the time stepping loop. In this particular example, the scheduled function is computing the energy associated with the scalar wave equation system. These are all the required steps for using \texttt{ODESolvers} to solve a PDE system via the method of lines.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Implementing boundary conditions}
