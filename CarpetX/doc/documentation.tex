@@ -174,7 +174,7 @@ An important concept to grasp with lambda function is \textit{captures}. If a la
 
 When running on GPUs, capture by values are \textit{required}. This is because data must be copied from host (CPU side) memory to device (GPU side) memory in order to be executed.
 
-The API for writting loops in \CarpetX\space is provided by the \texttt{Loop} thorn. To use it, one must add
+The API for writing loops in \CarpetX\space is provided by the \texttt{Loop} thorn. To use it, one must add
 %
 \begin{lstlisting}[language=Bash]
     REQUIRES Loop
@@ -262,7 +262,7 @@ To obtain a GPU equivalent version, one would simply append \texttt{\_device} to
     grid.loop_int_device<...>(...);
 \end{lstlisting}
 
-Let us now look at the required parameter of loop methods.The typical signature is as follows
+Let us now look at the required parameter of loop methods. The typical signature is as follows
 
 \begin{lstlisting}
   template <int CI, int CJ, int CK, ..., typename F>
@@ -297,7 +297,7 @@ To start, let us be reminded of the general syntax of a lambda function in \text
   [capture_parameter] (argument_list) -> return_type { function_body }
 \end{lstlisting}
 
-When running on GPUs, the \texttt{capture\_parameter} field used should always be \texttt{=} , indicating pass by value (copy) rather than \texttt{\&}, indicating pass by reference. The \texttt{argument\_list} of the lambda should receive only one element of type \texttt{PointDesc} (which will be described on Sec.~\ref{sec:point_des}) and the lambda must return no value, which means that \texttt{return\_type} can be omitted altogether.
+When running on GPUs, the \texttt{capture\_parameter} field used should always be \texttt{=}, indicating pass by value (copy) rather than \texttt{\&}, indicating pass by reference. The \texttt{argument\_list} of the lambda should receive only one element of type \texttt{PointDesc} (which will be described on Sec.~\ref{sec:point_des}) and the lambda must return no value, which means that \texttt{return\_type} can be omitted altogether.
 
 This means that a typical lambda passed to a loop method will have the form
 %
@@ -317,7 +317,7 @@ The \texttt{PointDesc} type provides a complete description of the current grid 
   \item \texttt{I}: A 3-element array containing the grid point indices.
   \item \texttt{DI}: A 3-element array containing the direction unit vectors from the current grind point.
   \item \texttt{X}: A 3-element array containing the point's coordinates.
-  \item \text{DX}: A 3-element array containing the point's grid spacings.
+  \item \text{DX}: A 3-element array containing the point's grid spacing.
   \item {iter}: The current loop iteration.
 \end{enumerate}
 
