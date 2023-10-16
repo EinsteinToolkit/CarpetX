@@ -120,7 +120,6 @@
 % Add all definitions used in this documentation here
 \newcommand{\CarpetX}{\texttt{CarpetX}}
 \newcommand{\Cactus}{\texttt{Cactus}}
-\newcommand{\Carpet}{\texttt{Carpet}}
 \newcommand{\AMReX}{\texttt{AMReX}}
 \newcommand{\ETK}{\texttt{Einstein Toolkit}}
 \newcommand{\todo}[1]{\textcolor{red}{TODO: #1}}
@@ -165,7 +164,7 @@
 \section{Loops over grid elements}
 \label{sec:loops}
 
-In \CarpetX loops over grid elements are not written explicitly. Operations that are to be executed for every grid element (cells, edges or points) are specified via \texttt{C++} \href{https://en.cppreference.com/w/cpp/language/lambda}{\textit{lambda functions}}, also known as closures or anonymous functions.
+In \CarpetX\space loops over grid elements are not written explicitly. Operations that are to be executed for every grid element (cells, edges or points) are specified via \texttt{C++} \href{https://en.cppreference.com/w/cpp/language/lambda}{\textit{lambda functions}}, also known as closures or anonymous functions.
 
 These objects behave like regular \texttt{C++} functions, but can be defined \textit{inline}, that is, on the body of a function or as an argument to another function.
 
@@ -484,7 +483,7 @@ The schedule statement from lines 1-7 schedules the function that computes the R
 
 \subsection{Box-in-box AMR}
 \label{sec:box_in_box_amr}
-Like \Carpet\space, \CarpetX\space supports fixed mesh refinement via the so called box-in-box paradigm. This capability is provided by the \texttt{BoxInBox} thorn. Using it is very simple and similar to \Carpet's \texttt{CarpetRegrid2} usage.
+\CarpetX\space supports fixed mesh refinement via the so called box-in-box paradigm. This capability is provided by the \texttt{BoxInBox} thorn. Using it is very simple and similar to \texttt{Carpet}'s \texttt{CarpetRegrid2} usage.
 
 \begin{table}[]
   \resizebox{\columnwidth}{!}{%
@@ -531,7 +530,7 @@ As an example, we present a configuration file excerpt for creating two refineme
 \subsection{Advanced AMR}
 \label{sec:advanced_amr}
 
-Unlike \Carpet\space, \CarpetX\space supports non-fixed (adaptive) mesh refinement. For cell level control of AMR, \CarpetX\space provides user with a cell centered and non-checkpointed grid function called \texttt{regrid\_error}. Users are responsible for filling this grid function with real value however they see fit. Once it is filled, the configuration parameter \texttt{CarpetX::regrid\_error\_threshold} controls regridding: If the values stored in \texttt{regrid\_error} are larger than what is set in \texttt{regrid\_error\_threshold}, the region gets refined. Additionally, the configuration parameter \texttt{CarpetX::regrid\_every} controls how many iterations should pass before checking if the error threshold has been exceeded. The parameter \texttt{CarpetX::max\_num\_levels} controls the maximum number of allowed refinement levels.
+\CarpetX\space supports non-fixed (adaptive) mesh refinement. For cell level control of AMR, \CarpetX\space provides user with a cell centered and non-checkpointed grid function called \texttt{regrid\_error}. Users are responsible for filling this grid function with real value however they see fit. Once it is filled, the configuration parameter \texttt{CarpetX::regrid\_error\_threshold} controls regridding: If the values stored in \texttt{regrid\_error} are larger than what is set in \texttt{regrid\_error\_threshold}, the region gets refined. Additionally, the configuration parameter \texttt{CarpetX::regrid\_every} controls how many iterations should pass before checking if the error threshold has been exceeded. The parameter \texttt{CarpetX::max\_num\_levels} controls the maximum number of allowed refinement levels.
 
 Note that \CarpetX\space \textbf{does not} provide a ``standardized'' regrid error routine. This is because refinement criteria are highly specific to the problem being solved via AMR, and thus there is no one size fits all error criteria. This might seem inconvenient, but ultimately it allows for users to have higher degrees of customization in their AMR codes. For demonstration purposes, we shall now provide a routine that estimates the regrinding error as \todo{what? Provide a good starter example}. This implementation could be used as a starting point for codes that wish to use different error criteria in their AMR grids.
 
