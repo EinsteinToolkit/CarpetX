@@ -68,9 +68,9 @@ RUN apt-get update && \
 # Installing HPCToolkit without rocm since the install fails when this option is enabled.
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/spack/spack/releases/download/v0.20.1/spack-0.20.1.tar.gz && \
-    tar xzf spack-0.20.1.tar.gz && \
-    export SPACK_ROOT="$(pwd)/spack-0.20.1" && \
+    wget https://github.com/spack/spack/archive/refs/tags/v0.20.2.tar.gz && \
+    tar xzf v0.20.2.tar.gz && \
+    export SPACK_ROOT="$(pwd)/spack-0.20.2" && \
     mkdir -p "${HOME}/.spack" && \
     echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
     . ${SPACK_ROOT}/share/spack/setup-env.sh && \
