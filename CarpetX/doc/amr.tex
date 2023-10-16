@@ -1,0 +1,87 @@
+
+\subsection{Box-in-box AMR}
+\label{sec:box_in_box_amr}
+\CarpetX\space supports fixed mesh refinement via the so called box-in-box paradigm. This capability is provided by the \texttt{BoxInBox} thorn. Using it is very simple and similar to \texttt{Carpet}'s \texttt{CarpetRegrid2} usage.
+
+\begin{table}[]
+  \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{ccccc}
+    Name                    & Type                      & Possible Values                                                   & Default Value                   & Description                               \\\hline\hline
+    \texttt{shape\_n}       & String                    & \texttt{"sphere"} or \texttt{"cube"}                              & \texttt{"sphere"}               & Shape of refined region                   \\
+    \texttt{active\_n}      & Boolean                   & \texttt{"yes"} or \texttt{"no"}                                   &  \texttt{"yes"}                 & Is this box active?                       \\
+    \texttt{num\_levels\_n} & Single integer             & $[1,30]$                                                          & $1$                             & Number of refinement levels for this box  \\
+    \texttt{position\_x\_n} & Single real number        & Any real                                                          & $0.0$                           & x-position of this box                    \\
+    \texttt{position\_y\_n} & Single real number        & Any real                                                          & $0.0$                           & y-position of this box                    \\
+    \texttt{position\_z\_n} & Single real number        & Any real                                                          & $0.0$                           & z-position of this box                    \\
+    \texttt{radius\_n}      & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & Radius of refined region for this level   \\
+    \texttt{radius\_x\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & x-radius of refined region for this level \\
+    \texttt{radius\_y\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & y-radius of refined region for this level \\
+    \texttt{radius\_z\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & z-radius of refined region for this level \\\hline\hline
+  \end{tabular}%
+  }
+  \caption{Configuration parameters for a single (1 out of 3) box that can be defined in parameter files using the \texttt{BoxInBox} thorn.}
+  \label{tab:box_config}
+\end{table}
+
+All configuration of boxes and levels are performed within configuration files. \texttt{BoxInBox} supports adding 3 ``boxes'' or ``centers''. Each box can be configured as summarized in Tab.~\ref{tab:box_config}. The \texttt{n} suffix should be replaced by \texttt{1}, \texttt{2} or \texttt{3} for configuring the corresponding boxes. Each box can be shaped differently as either Cartesian-like cubes or spheres and support configuring up to 30 levels. Level's positions and radii can be set independently for each dimension. Note that for each box the \texttt{active}, \texttt{num\_levels} and \texttt{position\_(xyz)} field are stored as grid scalars. Each of the 30 refinement level radii and \texttt{x, y, z} individual radii for each box are also stored as grid arrays. This allows these parameters to be changed during a simulation run, allowing for moving boxes. This is useful, for example, when implementing a puncture tracker. 
+
+These configurations are subjected to (and restricted by) two additional \CarpetX\space configurations, namely \texttt{CarpetX::regrid\_every}, which controls how many iterations should pass before checking if the box grid variables have changed and \texttt{CarpetX::max\_num\_levels} which controls the maximum number of allowed refinement levels.
+
+As an example, we present a configuration file excerpt for creating two refinement boxes with the \texttt{BoxInBox} thorn
+
+\begin{lstlisting}[language=bash]
+  BoxInBox::num_regions = 2
+  
+  BoxInBox::num_levels_1 = 2
+  BoxInBox::position_x_1 = -0.5
+  BoxInBox::radius_x_1[1] = 0.25
+  BoxInBox::radius_y_1[1] = 0.5
+  BoxInBox::radius_z_1[1] = 0.5
+
+  BoxInBox::num_levels_2 = 2
+  BoxInBox::position_x_2 = +0.5
+  BoxInBox::radius_x_2[1] = 0.25
+  BoxInBox::radius_y_2[1] = 0.5
+  BoxInBox::radius_z_2[1] = 0.5
+\end{lstlisting}
+
+\subsection{Advanced AMR}
+\label{sec:advanced_amr}
+
+\CarpetX\space supports non-fixed (adaptive) mesh refinement. For cell level control of AMR, \CarpetX\space provides user with a cell centered and non-checkpointed grid function called \texttt{regrid\_error}. Users are responsible for filling this grid function with real value however they see fit. Once it is filled, the configuration parameter \texttt{CarpetX::regrid\_error\_threshold} controls regridding: If the values stored in \texttt{regrid\_error} are larger than what is set in \texttt{regrid\_error\_threshold}, the region gets refined. Additionally, the configuration parameter \texttt{CarpetX::regrid\_every} controls how many iterations should pass before checking if the error threshold has been exceeded. The parameter \texttt{CarpetX::max\_num\_levels} controls the maximum number of allowed refinement levels.
+
+Note that \CarpetX\space \textbf{does not} provide a ``standardized'' regrid error routine. This is because refinement criteria are highly specific to the problem being solved via AMR, and thus there is no one size fits all error criteria. This might seem inconvenient, but ultimately it allows for users to have higher degrees of customization in their AMR codes. For demonstration purposes, we shall now provide a routine that estimates the regrinding error as \todo{what? Provide a good starter example}. This implementation could be used as a starting point for codes that wish to use different error criteria in their AMR grids.
+
+\begin{lstlisting}
+  extern "C" void EstimateError(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_EstimateError;
+  DECLARE_CCTK_PARAMETERS;
+
+  // The template indices indicate this a loop over cell centers
+  // Remember that regrid_error is a cell centered grid function
+  grid.loop_int_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] (const Loop::PointDesc &p) {
+        // TODO: Give a simple example
+        regrid_error(p.I) = 0.0;
+      });
+}
+\end{lstlisting}
+
+Once defined, \texttt{EstimateError} should be scheduled in both the \texttt{postinitial} and \texttt{poststep} bins. The \texttt{poststep} bin gets called right after a new state vector has been calculated, and is thus the proper place to analyze it. The \texttt{postinitial} scheduling is also necessary for computing the initial refinement after initial conditions have been set up. A thorn making use of the \texttt{regrid\_error} AMR mechanism should then add the following to its \texttt{schedule.ccl} file:
+
+\begin{lstlisting}[language=bash]
+  SCHEDULE EstimateError AT postinitial
+  {
+    LANG: C
+    READS: state(everywhere)
+    WRITES: CarpetX::regrid_error(interior)
+  } "Estimate error for regridding"
+  
+  SCHEDULE EstimateError AT poststep
+  {
+    LANG: C
+    READS: state(everywhere)
+    WRITES: CarpetX::regrid_error(interior)
+  } "Estimate error for regridding"
+\end{lstlisting}
