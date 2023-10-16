@@ -165,13 +165,13 @@
 \section{Loops over grid elements}
 \label{sec:loops}
 
-Contrary to \Carpet, in \CarpetX, loops over grid elements are not written explicitly. Operations that are to be executed for every grid element (cells, edges or points) are specified via \texttt{C++} \href{https://en.cppreference.com/w/cpp/language/lambda}{\textit{lambda functions}}, also known as closures or anonymous functions.
+In \CarpetX loops over grid elements are not written explicitly. Operations that are to be executed for every grid element (cells, edges or points) are specified via \texttt{C++} \href{https://en.cppreference.com/w/cpp/language/lambda}{\textit{lambda functions}}, also known as closures or anonymous functions.
 
 These objects behave like regular \texttt{C++} functions, but can be defined \textit{inline}, that is, on the body of a function or as an argument to another function.
 
-An important concept to grasp with lambda function is \textit{captures}. If a lambda (let us call this the child function) is defined in the body of an outer function (let us call this the parent function), the child can access variables define in the parent function, provided that these variables are \textit{captured}. The two most relevant modes of capture while using \CarpetX\space are \textit{capture by reference} (denoted with the \texttt{\&} sign in the square brackets denoting the start of the lambda) and \textit{capture by value} (denoted by an \texttt{=} sign inside the square brackets of the lambda declaration).
+An important concept to grasp with lambda function is \textit{captures}. If a lambda (let us call this the child function) is defined in the body of an outer function (let us call this the parent function), the child can access variables defined in the parent function, provided that these variables are \textit{captured}. The two most relevant modes of capture while using \CarpetX\space are \textit{capture by reference} (denoted with the \texttt{\&} sign in the square brackets denoting the start of the lambda) and \textit{capture by value} (denoted by an \texttt{=} sign inside the square brackets of the lambda declaration).
 
-When running on GPUs, capture by values are \textit{required}. This is because data must be copied from host (CPU side) memory to device (GPU side) memory in order to be executed.
+When running on GPUs, captures by value are \textit{required} and captures by reference are \textit{forbidden}. This is because data must be copied from host (CPU side) memory to device (GPU side) memory in order to be executed.
 
 The API for writing loops in \CarpetX\space is provided by the \texttt{Loop} thorn. To use it, one must add
 %
@@ -190,10 +190,13 @@ to the thorn's \texttt{configuration.ccl} file and
 to the thorn's \texttt{interface.ccl} file. Furthermore, one must include the \texttt{Loop} API header file in all source files where the API is needed by adding
 %
 \begin{lstlisting}
+    #include <loop.hxx>
     #include <loop_device.hxx>
 \end{lstlisting}
 %
 to the beginning of the source file.
+
+\todo{Figure out whether we need both of these header files}
 
 To understand how to utilize the \texttt{Loop} API within \Cactus\space scheduled functions, let us consider the following excerpt from the \texttt{schedule.ccl} file of the \texttt{WaveToyX} thorn, included in the \CarpetX\space repository:
 %
