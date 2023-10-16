@@ -8,7 +8,9 @@
 
 # FROM ubuntu:22.04
 # jammy is ubuntu:22.04
-FROM ubuntu:jammy-20230816
+# FROM ubuntu:jammy-20230816
+# FROM ubuntu:jammy-20230916
+FROM ubuntu:jammy-20231004
 
 RUN mkdir /cactus
 WORKDIR /cactus
@@ -66,9 +68,9 @@ RUN apt-get update && \
 # Install this first because it is expensive to build
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/spack/spack/releases/download/v0.20.1/spack-0.20.1.tar.gz && \
-    tar xzf spack-0.20.1.tar.gz && \
-    export SPACK_ROOT="$(pwd)/spack-0.20.1" && \
+    wget https://github.com/spack/spack/archive/refs/tags/v0.20.2.tar.gz && \
+    tar xzf v0.20.2.tar.gz && \
+    export SPACK_ROOT="$(pwd)/spack-0.20.2" && \
     mkdir -p "${HOME}/.spack" && \
     echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
     . ${SPACK_ROOT}/share/spack/setup-env.sh && \
