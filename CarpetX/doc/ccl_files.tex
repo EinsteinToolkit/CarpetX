@@ -1,0 +1,28 @@
+
+To understand how to utilize the \texttt{Loop} API within \Cactus\space scheduled functions, let us consider the following excerpt from the \texttt{schedule.ccl} file of the \texttt{WaveToyX} thorn, included in the \CarpetX\space repository:
+%
+\begin{lstlisting}[language=Bash]
+    SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
+    {
+        LANG: C
+        READS: state(everywhere)
+        WRITES: rhs(interior)
+        SYNC: rhs
+    } "Calculate scalar wave RHS"
+\end{lstlisting}
+
+This schedule block declares to \Cactus\space that a \texttt{C++} function (with \texttt{C} linkage) called \texttt{WaveToyX\_RHS} should be executed on the \texttt{ODESolvers\_RHS} schedule bin (for further information on \texttt{ODESolvers}, see Sec.~\ref{sec:odesolvers}).
+
+The first few lines of \texttt{C++} source for \texttt{WaveToyX\_RHS} read
+%
+\begin{lstlisting}
+    extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
+        DECLARE_CCTK_ARGUMENTSX_WaveToyX_RHS;
+        DECLARE_CCTK_PARAMETERS;
+        .
+        .
+        .
+    }
+\end{lstlisting}
+%
+The macros \texttt{DECLARE\_CCTK\_ARGUMENTSX\_WaveToyX\_RHS}, \texttt{CCTK\_ARGUMENTS} and \texttt{DECLARE\_CCTK\_PARAMETERS} allow the thorn writer to access parameters and grid functions declared in the thorn's \texttt{.ccl} files. Note that \Cactus\space now supports the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} macro, where \texttt{FUNC\_NAME} is the name of a grid function declared in the \texttt{schedule.ccl} file. These macros restrict the access of a function to it's schedule-declared grid functions. More importantly, it provides a variable called \texttt{grid} which can be used to access the functionalities of the \texttt{Loop} API.

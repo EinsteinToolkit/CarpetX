@@ -31,39 +31,11 @@ to the beginning of the source file.
 
 \todo{Figure out whether we need both of these header files}
 
-To understand how to utilize the \texttt{Loop} API within \Cactus\space scheduled functions, let us consider the following excerpt from the \texttt{schedule.ccl} file of the \texttt{WaveToyX} thorn, included in the \CarpetX\space repository:
-%
-\begin{lstlisting}[language=Bash]
-    SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
-    {
-        LANG: C
-        READS: state(everywhere)
-        WRITES: rhs(interior)
-        SYNC: rhs
-    } "Calculate scalar wave RHS"
-\end{lstlisting}
-
-This schedule block declares to \Cactus\space that a \texttt{C++} function (with \texttt{C} linkage) called \texttt{WaveToyX\_RHS} should be executed on the \texttt{ODESolvers\_RHS} schedule bin (for further information on \texttt{ODESolvers}, see Sec.~\ref{sec:odesolvers}).
-
-The first few lines of \texttt{C++} source for \texttt{WaveToyX\_RHS} read
-%
-\begin{lstlisting}
-    extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
-        DECLARE_CCTK_ARGUMENTSX_WaveToyX_RHS;
-        DECLARE_CCTK_PARAMETERS;
-        .
-        .
-        .
-    }
-\end{lstlisting}
-%
-The macros \texttt{DECLARE\_CCTK\_ARGUMENTSX\_WaveToyX\_RHS}, \texttt{CCTK\_ARGUMENTS} and \texttt{DECLARE\_CCTK\_PARAMETERS} allow the thorn writer to access parameters and grid functions declared in the thorn's \texttt{.ccl} files. Note that \Cactus\space now supports the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} macro, where \texttt{FUNC\_NAME} is the name of a grid function declared in the \texttt{schedule.ccl} file. These macros restrict the access of a function to it's schedule-declared grid functions. More importantly, it provides a variable called \texttt{grid} which can be used to access the functionalities of the \texttt{Loop} API.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Loop regions}
 \label{sec:loop_regions}
 
-Before actually writing any code that iterates over grid elements, one must choose \textit{which} elements are to be iterated over. We shall refer to the set of points in the grid hierarchy will be iterated over when a loop is executed as a \textit{Loop region}. The following regions are defined in the \texttt{Loop} API:
+Before actually writing any code that iterates over grid elements, one must choose \textit{which} elements are to be iterated over. We shall refer to the set of points in the grid hierarchy that will be iterated over when a loop is executed as a \textit{Loop region}. The following regions are defined in the \texttt{Loop} API:
 
 \begin{enumerate}
     \item All: This region refers to all points contained in the grid. Denoted in code by the \texttt{all} suffix.
@@ -79,7 +51,7 @@ Before actually writing any code that iterates over grid elements, one must choo
 \subsection{Loop methods}
 \label{sec:loop_methods}
 
-Remember that the macro \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} provides a variable called \texttt{grid}, which is an instance of either \texttt{GridDescBase} or \texttt{GridDescBaseDevice} classes which contain functions for looping over grid elements on the CPU or GPU, respectively. The name of each looping method is formed according to
+Loop API functions are methods of the \texttt{GridDescBase} or \texttt{GridDescBaseDevice} classes which contain functions for looping over grid elements on the CPU or GPU, respectively.\todo{Is this correct? Do we need these two classes? Can we make it with on}. The macro \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNCTION\_NAME} provides a variable called \texttt{grid}, which is an instance of either of these classes. The name of each looping method is formed according to
 %
 \begin{center}
     \texttt{loop\_} + \textless loop region\textgreater + [\_\texttt{device}]
