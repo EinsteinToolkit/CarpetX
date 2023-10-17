@@ -187,5 +187,47 @@ If the user's CPU supports SIMD instructions (see \href{https://en.wikipedia.org
 %
 to the top of their \texttt{interface.ccl} files, in addition to the other required headers.
 
+While writing SIMD vectorized code, one has to keep in mind that grid functions are not a collection of \texttt{CCTK\_REAL} values but a collection of \texttt{Arith::simd<CCTK\_REAL>} real values, which is itself a collection of \texttt{CCTK\_REAL} values. This becomes apparent when reading and writing to grid functions at a particular grid point. To see how these differences come about, let us study an example of initializing grid data using the SIMD API
+%
+\begin{lstlisting}
+  extern "C" void SIMDExample_Initial(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_SIMDExample_Initial;
+  DECLARE_CCTK_PARAMETERS;
+
+  using real = CCTK_REAL;
+  using vreal = Arith::simd<real>;
+  
+  // This is the compile time determined vector size supported by the underlying CPU architecture
+  constexpr std::size_t vsize = std::tuple_size_v<vreal>;
+
+  // After passing the centering indices, size of the SIMD vectors is passed as template arguments
+  grid.loop_int_device<0, 0, 0, vsize>(
+    grid.nghostzones,
+    
+    [=] (const Loop::PointDesc &p) {
+      // p.x is a scalar, but must be turned into a vector
+      const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
+      const real y0 = p.y;
+      const real z0 = p.z;
+      
+      // The initialization function takes its inputs as vectors
+      vreal u0, rho0;
+      initial_data(x0, y0, z0, u0, rho0);
+      
+      u.store(p.mask, p.I, u0);
+      rho.store(p.mask, p.I, rho0);
+    }
+  );
+}
+\end{lstlisting}
+
+In lines 5 and 6, we define aliases for the real scalar type \texttt{CCTK\_REAL} and its associated vector type \texttt{Arith::simd<real>}. Values assigned to grid functions need to be of this type. In line 9, the \texttt{vsize} variable stores the size of the SIMD vectors of the target CPU. The \texttt{constexpr} keyword ensures that this expression is evaluated at compile time. In line 12, we call a loop API function with the three centering indices, discussed in Sec.~\ref{sec:loop_methods}, plus the extra \texttt{vreal} parameter which informs the loop method call that the loops will be vectorized.
+
+At this point, it is very important to realize that loops can only be vectorized along the \texttt{x} direction. This is so because in SIMD vectors, entries must be sequential and internally, \CarpetX stores 3D grid data as a flattened array and only the \texttt{x} direction is contiguous. Line 17 is responsible for the vectorization of the \texttt{x} direction. The \texttt{Arith::iota<vreal>()} instruction produces an array of contiguously increasing elements from 0 to \texttt{vsize} (not end inclusive) which then gets multiplied by \texttt{p.dx} and incremented by \texttt{p.dx}. As an illustrative example, let us suppose that $\texttt{vsize} = 4$. In this case, \texttt{Arith::iota<vreal>()} would produce a vector with the entries $[0,1,2,3]$. Multiplying this by \texttt{p.dx} and adding \texttt{p.x} one gets $[\texttt{p.x}, \texttt{p.x} + \texttt{p.dx}, \texttt{p.x} + 2\texttt{p.dx}, \texttt{p.x} + 3\texttt{p.dx}]$
+
+On lines 22 and 23, the \texttt{initial\_data} function gets called and uses the vectorized \texttt{x0} coordinates and scalar coordinates \texttt{y0} and \texttt{z0} to fill the vectorized initial data variables \texttt{u0} and \texttt{rho0} which then finally get assigned to their respective grid functions via the \texttt{assign} member on lines 25 and 26.
+
+\todo{Document how to write a RHS loop}
+
 \todo{See SIMDWaveToyX/src/simdwavetoyx.cxx}
 \todo{Do the fused SIMD operations declared in Arith can be used?}
