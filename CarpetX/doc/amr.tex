@@ -45,7 +45,46 @@ As an example, we present a configuration file excerpt for creating two refineme
   BoxInBox::radius_z_2[1] = 0.5
 \end{lstlisting}
 
-\todo{Add example for changing the boxes during runtime. Where to schedule the function that changes the boxes?}
+\todo{This example is not tested. Test it, maybe add a MovingBoxToy thorn to carpetx. Is this correct? Where to schedule the function that changes the boxes?}
+
+\begin{lstlisting}
+  extern "C" void MoveBoxes(CCTK_ARGUMENTS) {
+    DECLARE_CCTK_ARGUMENTSX_MoveBoxes;
+    DECLARE_CCTK_PARAMETERS;
+
+    using std::sin;
+    using std::cos;
+
+    const CCTK_REAL omega = M_PI / 4;
+    
+    const auto r0 = position_x_1;
+    const auto r1 = position_x_2;
+
+    // Settings for box 1
+    position_x[0] = r0 * cos(omega * cctk_time);
+    position_y[0] = r0 * sin(omega * cctk_time);
+
+    // Settings for box 2
+    position_x[1] = r1 * cos(omega * cctk_time);
+    position_y[1] = r1 * sin(omega * cctk_time);
+  }
+\end{lstlisting}
+
+The \texttt{MoveBoxes} function should then be scheduled in the \texttt{postinitial} and \texttt{poststep} bins before the \texttt{EstimateError} group defined in \texttt{BoxInBox} as
+
+\begin{lstlisting}[language=bash]
+  SCHEDULE MoveBoxes AT postinitial BEFORE EstimateError
+  {
+    LANG: C
+    WRITES: CarpetX::position_x CarpetX::position_y
+  } "Update refinement boxes positions"
+  
+  SCHEDULE MoveBoxes AT poststep BEFORE EstimateError
+  {
+    LANG: C
+    WRITES: CarpetX::position_x CarpetX::position_y
+  } "Update refinement boxes positions"
+\end{lstlisting}
 
 \subsection{Advanced AMR}
 \label{sec:advanced_amr}
