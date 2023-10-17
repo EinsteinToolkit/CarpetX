@@ -178,5 +178,14 @@ extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
 
 \subsection{SIMD Vectorization of loops}
 
+If the user's CPU supports SIMD instructions (see \href{https://en.wikipedia.org/wiki/Single_instruction,_multiple_data}{here} for details), \CarpetX\space is capable of vectorizing loops via the \texttt{Arith} thorn. To use it, users must add
+%
+\begin{lstlisting}[language=bash]
+  USES INCLUDE HEADER: simd.hxx
+  USES INCLUDE HEADER: vect.hxx
+\end{lstlisting}
+%
+to the top of their \texttt{interface.ccl} files, in addition to the other required headers.
+
 \todo{See SIMDWaveToyX/src/simdwavetoyx.cxx}
 \todo{Do the fused SIMD operations declared in Arith can be used?}

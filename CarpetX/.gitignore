@@ -5,3 +5,4 @@ doc/*.fdb_latexmk
 doc/*.fls
 doc/*.out
 doc/*.synctex.gz
+doc/*.pdf
