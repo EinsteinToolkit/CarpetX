@@ -253,7 +253,7 @@ The operation on line 17 becomes then
 
 On lines 22 and 23, the \texttt{initial\_data} function gets called and uses the vectorized \texttt{x0} coordinates and scalar coordinates \texttt{y0} and \texttt{z0} to fill the vectorized initial data variables \texttt{u0} and \texttt{rho0} which then finally get assigned to their respective grid functions via the \texttt{assign} member on lines 25 and 26. The \texttt{initial\_data} is arbitrary and user defined, but note that \texttt{Arith} overloads arithmetic operators and trigonometric functions, so it is straightforward to write code that uses vectorized and scalar variables together. 
 
-Let us now look at an example of writing derivatives and RHS functions with SIMD loops. As previously mentioned, \texttt{Arith} overloads arithmetic operators, which makes writing mathematical expressions in vectorized loops no different from their non-vectorized counterparts.
+Let us now look at an example of writing derivatives and RHS functions with SIMD loops.
 
 \begin{lstlisting}
   extern "C" void SIMDExample_RHS(CCTK_ARGUMENTS) {
@@ -283,6 +283,8 @@ Let us now look at an example of writing derivatives and RHS functions with SIMD
     });
   }
 \end{lstlisting}
+
+As previously mentioned, \texttt{Arith} overloads arithmetic operators, which makes writing mathematical expressions in vectorized loops no different from their non-vectorized counterparts. This is exemplified in lines 14-18 where second derivatives are being taken via finite differences approximations. Note once again in line 8 the presence of an extra template argument indicating the CPU's vector sizes, the extra \texttt{p.mask} argument being passed on all invocations of grid functions and the use of the \texttt{store} method to assign computed values to the RHS grid functions.
 
 \todo{Document fused SIMD operations}
 \todo{See SIMDWaveToyX/src/simdwavetoyx.cxx}
