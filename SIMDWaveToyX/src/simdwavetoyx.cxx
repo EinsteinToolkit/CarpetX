@@ -60,7 +60,6 @@ extern "C" void SIMDWaveToyX_Initial(CCTK_ARGUMENTS) {
 
   using real = CCTK_REAL;
   using vreal = Arith::simd<CCTK_REAL>;
-  using vbool = Arith::simdl<CCTK_REAL>;
   constexpr std::size_t vsize = std::tuple_size_v<vreal>;
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
@@ -68,15 +67,14 @@ extern "C" void SIMDWaveToyX_Initial(CCTK_ARGUMENTS) {
     grid.loop_int_device<0, 0, 0, vsize>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
           const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
           const real y0 = p.y;
           const real z0 = p.z;
           vreal u0, rho0;
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, x0, y0, z0, u0, rho0);
-          u.store(mask, p.I, u0);
-          rho.store(mask, p.I, rho0);
+          u(p.mask, p.I) = u0;
+          rho(p.mask, p.I) = rho0;
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -84,14 +82,13 @@ extern "C" void SIMDWaveToyX_Initial(CCTK_ARGUMENTS) {
     grid.loop_int_device<0, 0, 0, vsize>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
           const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
           const real y0 = p.y;
           const real z0 = p.z;
           vreal u0, rho0;
           gaussian(amplitude, gaussian_width, cctk_time, x0, y0, z0, u0, rho0);
-          u.store(mask, p.I, u0);
-          rho.store(mask, p.I, rho0);
+          u(p.mask, p.I) = u0;
+          rho(p.mask, p.I) = rho0;
         });
 
   } else {
@@ -104,27 +101,24 @@ extern "C" void SIMDWaveToyX_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   using vreal = Arith::simd<CCTK_REAL>;
-  using vbool = Arith::simdl<CCTK_REAL>;
   constexpr std::size_t vsize = std::tuple_size_v<vreal>;
 
   grid.loop_int_device<0, 0, 0, vsize>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
-
         using Arith::pow2;
 
         vreal ddu = 0;
         for (int d = 0; d < dim; ++d)
-          ddu += (u(mask, p.I - p.DI[d]) - 2 * u(mask, p.I) +
-                  u(mask, p.I + p.DI[d])) /
+          ddu += (u(p.mask, p.I - p.DI[d]) - 2 * u(p.mask, p.I) +
+                  u(p.mask, p.I + p.DI[d])) /
                  pow2(p.DX[d]);
 
-        const vreal udot = rho(mask, p.I);
+        const vreal udot = rho(p.mask, p.I);
         const vreal rhodot = ddu;
 
-        u_rhs.store(mask, p.I, udot);
-        rho_rhs.store(mask, p.I, rhodot);
+        u_rhs(p.mask, p.I) = udot;
+        rho_rhs(p.mask, p.I) = rhodot;
       });
 }
 
@@ -132,24 +126,21 @@ extern "C" void SIMDWaveToyX_Energy(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_SIMDWaveToyX_Energy;
 
   using vreal = Arith::simd<CCTK_REAL>;
-  using vbool = Arith::simdl<CCTK_REAL>;
   constexpr std::size_t vsize = std::tuple_size_v<vreal>;
 
   grid.loop_int_device<0, 0, 0, vsize>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
-
         using Arith::pow2;
 
         vreal du2 = 0;
         for (int d = 0; d < dim; ++d)
-          du2 += pow2((u(mask, p.I + p.DI[d]) - u(mask, p.I + p.DI[d])) /
+          du2 += pow2((u(p.mask, p.I + p.DI[d]) - u(p.mask, p.I + p.DI[d])) /
                       (2 * p.DX[d]));
 
-        const vreal eps0 = (pow2(rho(mask, p.I)) + du2) / 2;
+        const vreal eps0 = (pow2(rho(p.mask, p.I)) + du2) / 2;
 
-        eps.store(mask, p.I, eps0);
+        eps(p.mask, p.I) = eps0;
       });
 }
 
@@ -159,7 +150,6 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
 
   using real = CCTK_REAL;
   using vreal = Arith::simd<CCTK_REAL>;
-  using vbool = Arith::simdl<CCTK_REAL>;
   constexpr std::size_t vsize = std::tuple_size_v<vreal>;
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
@@ -167,15 +157,14 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
     grid.loop_int_device<0, 0, 0, vsize>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
           const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
           const real y0 = p.y;
           const real z0 = p.z;
           vreal u0, rho0;
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, x0, y0, z0, u0, rho0);
-          u_err.store(mask, p.I, u(mask, p.I) - u0);
-          rho_err.store(mask, p.I, rho(mask, p.I) - rho0);
+          u_err(p.mask, p.I) = u(p.mask, p.I) - u0;
+          rho_err(p.mask, p.I) = rho(p.mask, p.I) - rho0;
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -183,14 +172,13 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
     grid.loop_int_device<0, 0, 0, vsize>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
           const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
           const real y0 = p.y;
           const real z0 = p.z;
           vreal u0, rho0;
           gaussian(amplitude, gaussian_width, cctk_time, x0, y0, z0, u0, rho0);
-          u_err.store(mask, p.I, u(mask, p.I) - u0);
-          rho_err.store(mask, p.I, rho(mask, p.I) - rho0);
+          u_err(p.mask, p.I) = u(p.mask, p.I) - u0;
+          rho_err(p.mask, p.I) = rho(p.mask, p.I) - rho0;
         });
 
   } else {
