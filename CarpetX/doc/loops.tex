@@ -16,20 +16,16 @@ to the thorn's \texttt{configuration.ccl} file and
 %
 \begin{lstlisting}[language=Bash]
     INHERITS: CarpetX   
-    USES INCLUDE HEADER: loop.hxx        # For using CarpetX on CPUs
-    USES INCLUDE HEADER: loop_device.hxx # For using CarpetX on GPUs
+    USES INCLUDE HEADER: loop_device.hxx
 \end{lstlisting}
 %
 to the thorn's \texttt{interface.ccl} file. Furthermore, one must include the \texttt{Loop} API header file in all source files where the API is needed by adding
 %
 \begin{lstlisting}
-    #include <loop.hxx>
     #include <loop_device.hxx>
 \end{lstlisting}
 %
 to the beginning of the source file.
-
-\todo{Figure out whether we need both of these header files}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Loop regions}
@@ -51,7 +47,7 @@ Before actually writing any code that iterates over grid elements, one must choo
 \subsection{Loop methods}
 \label{sec:loop_methods}
 
-Loop API functions are methods of the \texttt{GridDescBase} or \texttt{GridDescBaseDevice} classes which contain functions for looping over grid elements on the CPU or GPU, respectively.\todo{Is this correct? Do we need these two classes? Can we make it with on}. The macro \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNCTION\_NAME} provides a variable called \texttt{grid}, which is an instance of either of these classes. The name of each looping method is formed according to
+Loop API functions are methods of the \texttt{GridDescBaseDevice} claclass which contain functions for looping over grid elements on the CPU or GPU, respectively. The macro \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNCTION\_NAME} provides a variable called \texttt{grid}, which is an instance of either of these classes. The name of each looping method is formed according to
 %
 \begin{center}
     \texttt{loop\_} + \textless loop region\textgreater + [\_\texttt{device}]
@@ -230,4 +226,4 @@ On lines 22 and 23, the \texttt{initial\_data} function gets called and uses the
 \todo{Document how to write a RHS loop}
 
 \todo{See SIMDWaveToyX/src/simdwavetoyx.cxx}
-\todo{Do the fused SIMD operations declared in Arith can be used?}
+\todo{Document fused SIMD operations}
