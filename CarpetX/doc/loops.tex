@@ -287,4 +287,3 @@ Let us now look at an example of writing derivatives and RHS functions with SIMD
 As previously mentioned, \texttt{Arith} overloads arithmetic operators, which makes writing mathematical expressions in vectorized loops no different from their non-vectorized counterparts. This is exemplified in lines 14-18 where second derivatives are being taken via finite differences approximations. Note once again in line 8 the presence of an extra template argument indicating the CPU's vector sizes, the extra \texttt{p.mask} argument being passed on all invocations of grid functions and the use of the \texttt{store} method to assign computed values to the RHS grid functions.
 
 \todo{Document fused SIMD operations}
-\todo{See SIMDWaveToyX/src/simdwavetoyx.cxx}

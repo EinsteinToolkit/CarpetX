@@ -1,10 +1,29 @@
 \subsection{\texttt{configuration.ccl}}
 
-\todo{talk about requirements for bringing carpetx things in for accessing the APIs}
+\todo{Talk about requirements for bringing carpetx things in for accessing the APIs}
 
 \subsection{\texttt{interface.ccl}}
 
-\todo{talk about new tags}
+\subsubsection{Tags}
+
+Interface files declare a thorn's \Cactus-facing interface by defines grid functions, variables and others (see Sec.~C1.2 of the \Cactus user guide for more details). Drivers, such as \CarpetX, are able to parse the \texttt{TAGS} string in \texttt{interface.ccl} declarations in order to have its behavior customized.
+
+Tags are declared in interface statements with the \texttt{TAGS=<tags>} syntax. The \texttt{<tags>} declaration consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. For example, a tagged interface declaration will be similar to the following
+%
+\begin{lstlisting}[language=bash]
+  CCTK_<type> <group-name> TAGS='key_1="key1" key_2="key2" ...'
+  {
+    ...
+  } "A group of real variables"
+\end{lstlisting}
+
+In this section, we will list the tags supported by \CarpetX\space and describe their usage.
+
+\begin{enumerate}
+  \item \texttt{rhs}:
+  \item \texttt{dependents}:
+  \item \texttt{checkpoint}:
+\end{enumerate}
 
 \subsection{\texttt{schedule.ccl}}
 
