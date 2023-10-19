@@ -4,9 +4,46 @@
 
 \subsection{\texttt{interface.ccl}}
 
-\subsubsection{Tags}
+Interface files declare a thorn's \Cactus-facing interface by defines grid functions, variables and others (see Sec.~C1.2 of the \Cactus user guide for more details). Drivers, such as \CarpetX, are able to parse information in \texttt{interface.ccl} declarations in order to have its behavior customized. 
 
-Interface files declare a thorn's \Cactus-facing interface by defines grid functions, variables and others (see Sec.~C1.2 of the \Cactus user guide for more details). Drivers, such as \CarpetX, are able to parse the \texttt{TAGS} string in \texttt{interface.ccl} declarations in order to have its behavior customized.
+\subsection{Types}
+
+\todo{Are types part of the flesh or are they a carpetx thing?}
+
+\subsection{Centering}
+
+The centering of a grid function is declared via \texttt{CENTERING={<centering-code>}}, where \texttt{<centering-code>} is a three-letter code containing any combination of either \texttt{c} or \texttt{v}, representing cell centering and vertex centering, respectively. For example, to declare a group of variables as being cell centered, one would use
+%
+\begin{lstlisting}
+  CCTK_<type> <group-name> CENTERING={ccc}
+  {
+    ...
+  } "A group of variables"
+\end{lstlisting}
+
+Similarly, for a vertex centered group one would use
+%
+\begin{lstlisting}
+  CCTK_<type> <group-name> CENTERING={vvv}
+  {
+    ...
+  } "A group of variables"
+\end{lstlisting}
+
+Note that it is possible to mix centering indexes. For example, to have a quantity centered at faces in the x direction, one would write
+%
+\begin{lstlisting}
+  CCTK_<type> <group-name> CENTERING={cvv}
+  {
+    ...
+  } "A group of variables"
+\end{lstlisting}
+
+Not also that if no \texttt{CENTERING} is specified, \CarpetX\space assumes that the variable group is vertex centered in all directions.
+
+Finally, it is very important to match the centering description in interface files with the description passed to loop API template arguments. See Sec.~\ref{sec:loops} for details.
+
+\subsubsection{Tags}
 
 Tags are declared in interface statements with the \texttt{TAGS=<tags>} syntax. The \texttt{<tags>} declaration consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. For example, a tagged interface declaration will be similar to the following
 %
