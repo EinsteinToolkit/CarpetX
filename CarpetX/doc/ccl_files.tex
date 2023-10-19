@@ -14,15 +14,61 @@ Tags are declared in interface statements with the \texttt{TAGS=<tags>} syntax. 
   CCTK_<type> <group-name> TAGS='key_1="key1" key_2="key2" ...'
   {
     ...
-  } "A group of real variables"
+  } "A group of variables"
 \end{lstlisting}
 
-In this section, we will list the tags supported by \CarpetX\space and describe their usage.
+We will now list the tags supported by \CarpetX\space and describe their usage.
 
 \begin{enumerate}
-  \item \texttt{rhs}:
-  \item \texttt{dependents}:
-  \item \texttt{checkpoint}:
+  \item \texttt{rhs}: Marks a group of grid variables as the RHS (right-hand side) of a system. \texttt{ODESolvers} uses this information to perform time steps and update a state vector (See Sec.~\ref{sec:odesolvers} for more information). For example, in
+  %
+  \begin{lstlisting}[language=bash]
+    CCTK_<type> state_vector TAGS='rhs="right_hand_side"'
+    {
+      ...
+    } "A group of variables representing the PDE system state"
+
+    CCTK_<type> right_hand_side
+    {
+      ...
+    } "A group of variables representing the PDE RHS"
+  \end{lstlisting}
+  %
+  the \texttt{rhs="right\_hand\_side"} tag indicates that the group named \texttt{state\_vector} has a corresponding RHS group named \texttt{right\_hand\_side}.
+
+  \begin{lstlisting}[language=bash]
+    CCTK_<type> state_vector TAGS='rhs="right_hand_side"'
+    {
+      ...
+    } "A group of variables representing the PDE system state"
+  \end{lstlisting}
+  
+  \item \texttt{dependents}: Indicates that the groups of variables contained on this tag must be marked as invalid if there are any changes to the group being declared. For example, in
+  %
+  \begin{lstlisting}[language=bash]
+    CCTK_<type> parent_group TAGS='dependents="child1 child2"'
+    {
+      ...
+    } "A group of real variables"
+  \end{lstlisting}
+  %
+  the tag \texttt{dependents="child1 child2"} indicates that \texttt{parent\_group} has two dependent groups, \texttt{child1} and \texttt{child2}. Whenever \CarpetX\space writes to variables in \texttt{parent\_group}, variables in \texttt{child1} and \texttt{child2} are marked as invalid and cannot be read from unless written to again.
+  
+  \item \texttt{checkpoint}: Indicates that a variable group must be saved as a simulation checkpoint. \Cactus\space and \CarpetX\space can then later recover the saved checkpoint variables and restore the simulation state to continue evolution from there. Usually, only state vectors are checkpointed (See Chap. A3 of the \Cactus user manual for further details). For example, in
+  %
+  \begin{lstlisting}[language=bash]
+    CCTK_<type> state_vector TAGS='checkpoint="yes"'
+    {
+      ...
+    } "A group of real variables describing the simulation state"
+
+    CCTK_<type> right_hand_side TAGS='checkpoint="no"'
+    {
+      ...
+    } "A group of real variables describing the simulation RHS"
+  \end{lstlisting}
+  %
+  the simulation state, represented by the \texttt{state\_vector} group is checkpointed, while the \texttt{right\_hand\_side} group is not.
 \end{enumerate}
 
 \subsection{\texttt{schedule.ccl}}
