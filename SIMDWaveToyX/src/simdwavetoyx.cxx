@@ -73,8 +73,8 @@ extern "C" void SIMDWaveToyX_Initial(CCTK_ARGUMENTS) {
           vreal u0, rho0;
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, x0, y0, z0, u0, rho0);
-          u(p.mask, p.I) = u0;
-          rho(p.mask, p.I) = rho0;
+          u.store(p.mask, p.I, u0);
+          rho.store(p.mask, p.I, rho0);
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -87,8 +87,8 @@ extern "C" void SIMDWaveToyX_Initial(CCTK_ARGUMENTS) {
           const real z0 = p.z;
           vreal u0, rho0;
           gaussian(amplitude, gaussian_width, cctk_time, x0, y0, z0, u0, rho0);
-          u(p.mask, p.I) = u0;
-          rho(p.mask, p.I) = rho0;
+          u.store(p.mask, p.I, u0);
+          rho.store(p.mask, p.I, rho0);
         });
 
   } else {
@@ -117,8 +117,8 @@ extern "C" void SIMDWaveToyX_RHS(CCTK_ARGUMENTS) {
         const vreal udot = rho(p.mask, p.I);
         const vreal rhodot = ddu;
 
-        u_rhs(p.mask, p.I) = udot;
-        rho_rhs(p.mask, p.I) = rhodot;
+        u_rhs.store(p.mask, p.I, udot);
+        rho_rhs.store(p.mask, p.I, rhodot);
       });
 }
 
@@ -140,7 +140,7 @@ extern "C" void SIMDWaveToyX_Energy(CCTK_ARGUMENTS) {
 
         const vreal eps0 = (pow2(rho(p.mask, p.I)) + du2) / 2;
 
-        eps(p.mask, p.I) = eps0;
+        eps.store(p.mask, p.I, eps0);
       });
 }
 
@@ -163,8 +163,8 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
           vreal u0, rho0;
           standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
                         standing_wave_kz, cctk_time, x0, y0, z0, u0, rho0);
-          u_err(p.mask, p.I) = u(p.mask, p.I) - u0;
-          rho_err(p.mask, p.I) = rho(p.mask, p.I) - rho0;
+          u_err.store(p.mask, p.I, u(p.mask, p.I) - u0);
+          rho_err.store(p.mask, p.I, rho(p.mask, p.I) - rho0);
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -177,8 +177,8 @@ extern "C" void SIMDWaveToyX_Error(CCTK_ARGUMENTS) {
           const real z0 = p.z;
           vreal u0, rho0;
           gaussian(amplitude, gaussian_width, cctk_time, x0, y0, z0, u0, rho0);
-          u_err(p.mask, p.I) = u(p.mask, p.I) - u0;
-          rho_err(p.mask, p.I) = rho(p.mask, p.I) - rho0;
+          u_err.store(p.mask, p.I, u(p.mask, p.I) - u0);
+          rho_err.store(p.mask, p.I, rho(p.mask, p.I) - rho0);
         });
 
   } else {
