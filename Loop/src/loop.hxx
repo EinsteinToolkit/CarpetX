@@ -1088,10 +1088,89 @@ template <typename T> struct GF3D2 {
                                    const T &value) const {
     ptr[linear(I)] = value;
   }
+#if 0
+  struct simd_reference {
+    using element_type = std::remove_cv_t<T>;
+    using value_type = Arith::simd<element_type>;
+    T *const ptr;
+    const Arith::simdl<element_type> mask;
+    template <typename U>
+    CCTK_DEVICE CCTK_HOST simd_reference(T *const ptr,
+                                         const Arith::simdl<U> &mask)
+        : ptr(ptr), mask(mask) {}
+    simd_reference() = delete;
+    simd_reference(const simd_reference &) = default;
+    simd_reference(simd_reference &&) = default;
+    simd_reference &operator=(const simd_reference &) = delete;
+    simd_reference &operator=(simd_reference &&) = delete;
+    CCTK_DEVICE CCTK_HOST operator value_type() const {
+      return Arith::maskz_loadu(mask, ptr);
+    }
+    // CCTK_DEVICE CCTK_HOST value_type operator()() const {
+    //   return Arith::maskz_loadu(mask, ptr);
+    // }
+    template <typename U>
+    CCTK_DEVICE CCTK_HOST simd_reference
+    operator=(const Arith::simd<U> &value) {
+      mask_storeu(mask, ptr, value);
+      return *this;
+    }
+    template <typename U>
+    CCTK_DEVICE CCTK_HOST simd_reference operator=(const U &value) {
+      return *this = value_type(value);
+    }
+    friend CCTK_DEVICE CCTK_HOST auto operator+(const simd_reference &x) {
+      return +value_type(x);
+    };
+    friend CCTK_DEVICE CCTK_HOST auto operator-(const simd_reference &x) {
+      return -value_type(x);
+    };
+    friend CCTK_DEVICE CCTK_HOST auto operator+(const simd_reference &x,
+                                                const simd_reference &y) {
+      return value_type(x) + value_type(y);
+    };
+    friend CCTK_DEVICE CCTK_HOST auto operator-(const simd_reference &x,
+                                                const simd_reference &y) {
+      return value_type(x) - value_type(y);
+    };
+    friend CCTK_DEVICE CCTK_HOST auto operator*(const simd_reference &x,
+                                                const simd_reference &y) {
+      return value_type(x) * value_type(y);
+    };
+    friend CCTK_DEVICE CCTK_HOST auto operator/(const simd_reference &x,
+                                                const simd_reference &y) {
+      return value_type(x) / value_type(y);
+    };
+    friend CCTK_DEVICE CCTK_HOST auto operator%(const simd_reference &x,
+                                                const simd_reference &y) {
+      return value_type(x) % value_type(y);
+    };
+    template <typename X>
+    friend CCTK_DEVICE CCTK_HOST auto operator*(const X &x,
+                                                const simd_reference &y) {
+      return x * value_type(y);
+    };
+  };
+  CCTK_DEVICE CCTK_HOST simd_reference
+  operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
+             const GF3D2index &index) const {
+    return simd_reference(&(*this)(index), mask);
+  }
+  CCTK_DEVICE CCTK_HOST simd_reference
+  operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
+             const vect<int, dim> &I) const {
+    return (*this)(mask, GF3D2index(layout, I));
+  }
+#endif
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D2index &index) const {
     return Arith::maskz_loadu(mask, &(*this)(index));
+  }
+  CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
+  operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
+             const vect<int, dim> &I) const {
+    return (*this)(mask, GF3D2index(layout, I));
   }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
@@ -1105,11 +1184,6 @@ template <typename T> struct GF3D2 {
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D2index &index, const U &other) const {
     return Arith::masko_loadu(mask, &(*this)(index), other);
-  }
-  CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
-  operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
-             const vect<int, dim> &I) const {
-    return Arith::maskz_loadu(mask, &(*this)(I));
   }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
@@ -1378,41 +1452,47 @@ template <typename T> struct GF3D5 {
                                    const T &value) const {
     operator()(layout, I) = value;
   }
-  // CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
-  // operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
-  //            const GF3D5index &index) const {
-  //   return Arith::maskz_loadu(mask, &(*this)(index));
-  // }
-  // CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
-  // operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
-  //            const GF3D5layout &layout, const vect<int, dim> &I) const {
-  //   return (*this)(mask, GF3D5index(layout, I));
-  // }
+  CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
+  operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
+             const GF3D5index &index) const {
+    return Arith::maskz_loadu(mask, &(*this)(index));
+  }
+  CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
+  operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
+             const GF3D5layout &layout, const vect<int, dim> &I) const {
+    return (*this)(mask, GF3D5index(layout, I));
+  }
+#if 0
   struct simd_reference {
     using element_type = std::remove_cv_t<T>;
     using value_type = Arith::simd<element_type>;
-    T *ptr;
-    Arith::simdl<element_type> mask;
+    T *const ptr;
+    const Arith::simdl<element_type> mask;
     template <typename U>
     CCTK_DEVICE CCTK_HOST simd_reference(T *const ptr,
-                                         const Arith::simdl<U> mask)
+                                         const Arith::simdl<U> &mask)
         : ptr(ptr), mask(mask) {}
     simd_reference() = delete;
-    simd_reference(const simd_reference &) = default;
-    simd_reference(simd_reference &&) = default;
+    // simd_reference(const simd_reference &) = default;
+    // simd_reference(simd_reference &&) = default;
+    simd_reference(const simd_reference &) = delete;
+    simd_reference(simd_reference &&) = delete;
+    simd_reference &operator=(const simd_reference &) = delete;
+    simd_reference &operator=(simd_reference &&) = delete;
     CCTK_DEVICE CCTK_HOST operator value_type() const {
       return Arith::maskz_loadu(mask, ptr);
     }
-    CCTK_DEVICE CCTK_HOST value_type operator()() const {
-      return Arith::maskz_loadu(mask, ptr);
-    }
+    // CCTK_DEVICE CCTK_HOST value_type operator()() const {
+    //   return Arith::maskz_loadu(mask, ptr);
+    // }
     template <typename U>
-    CCTK_DEVICE CCTK_HOST simd_reference operator=(const Arith::simd<U> value) {
+    CCTK_DEVICE CCTK_HOST simd_reference
+    operator=(const Arith::simd<U> &value) {
       mask_storeu(mask, ptr, value);
       return *this;
     }
     template <typename U>
-    CCTK_DEVICE CCTK_HOST simd_reference operator=(const U value) {
+    CCTK_DEVICE CCTK_HOST simd_reference operator=(const U &value) {
       return *this = value_type(value);
     }
   };
@@ -1426,6 +1506,7 @@ template <typename T> struct GF3D5 {
              const GF3D5layout &layout, const vect<int, dim> &I) const {
     return (*this)(mask, GF3D5index(layout, I));
   }
+#endif
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D5index &index,
