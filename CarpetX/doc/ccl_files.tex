@@ -1,16 +1,16 @@
-\subsection{\texttt{configuration.ccl}}
+CCL files are used to define cactus thorns and customize its behavior. In this section, we shall discuss the additions that \CarpetX\space brigs to these files, but we shall not teach users how to write them from scratch. In order to learn more, refer to Sec.~C of the \Cactus\space user guide provided in the \texttt{doc} folder of all distributions.
 
-\todo{Talk about requirements for bringing carpetx things in for accessing the APIs}
+\subsection{\texttt{configuration.ccl} and \texttt{schedule.ccl}}
+
+\CarpetX\space does not modify these files radically. Users may need to require certain thorns explicitly in \texttt{configuration.ccl} files when using \CarpetX\space APIs or schedule functions at specific bins provided by thorns in the \CarpetX\space arrangement. These thorn-specific additions are documented in the thorn's section of this text.
+
+An important point to note is that \CarpetX\space strongly enforces read, write and location statement correctness at runtime and compile time. This means that one is not able to write to a variable declared as \texttt{READ} or read past region. \CarpetX\space also marks points in regions as valid or invalid and impedes user of reading from invalid data points. These extra measures help users prevent common memory and region access bugs. In their \texttt{C++} code, users should always use the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_<scheduled function name>} macro to ensure that only the objects declared in the function's schedule block in \texttt{schedule.ccl} are brought into scope, as well as other objects necessary for working with \CarpetX.
 
 \subsection{\texttt{interface.ccl}}
 
-Interface files declare a thorn's \Cactus-facing interface by defines grid functions, variables and others (see Sec.~C1.2 of the \Cactus user guide for more details). Drivers, such as \CarpetX, are able to parse information in \texttt{interface.ccl} declarations in order to have its behavior customized. 
+The most significant additions were made to interface files. In these files, users declare a thorn's \Cactus-facing interface by defines grid functions, variables and others (see Sec.~C1.2 of the \Cactus user guide for more details). Drivers, such as \CarpetX, are able to parse information in \texttt{interface.ccl} declarations in order to have its behavior customized. 
 
-\subsection{Types}
-
-\todo{Are types part of the flesh or are they a carpetx thing?}
-
-\subsection{Centering}
+\subsubsection{Centering}
 
 The centering of a grid function is declared via \texttt{CENTERING={<centering-code>}}, where \texttt{<centering-code>} is a three-letter code containing any combination of either \texttt{c} or \texttt{v}, representing cell centering and vertex centering, respectively. For example, to declare a group of variables as being cell centered, one would use
 %
@@ -107,13 +107,3 @@ We will now list the tags supported by \CarpetX\space and describe their usage.
   %
   the simulation state, represented by the \texttt{state\_vector} group is checkpointed, while the \texttt{right\_hand\_side} group is not.
 \end{enumerate}
-
-\subsection{\texttt{schedule.ccl}}
-
-\todo{Talk about important new schedule bins and the read/write safeguards on schedules.}
-
-\subsection{Preprocessor macros}
-
-\todo{Talk about new macros and new macro features. The text below is mostly ok, but needs to be adapted}
-
-The macros \texttt{DECLARE\_CCTK\_ARGUMENTSX\_WaveToyX\_RHS}, \texttt{CCTK\_ARGUMENTS} and \texttt{DECLARE\_CCTK\_PARAMETERS} allow the thorn writer to access parameters and grid functions declared in the thorn's \texttt{.ccl} files. Note that \Cactus\space now supports the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_FUNC\_NAME} macro, where \texttt{FUNC\_NAME} is the name of a grid function declared in the \texttt{schedule.ccl} file. These macros restrict the access of a function to it's schedule-declared grid functions. More importantly, it provides a variable called \texttt{grid} which can be used to access the functionalities of the \texttt{Loop} API.
