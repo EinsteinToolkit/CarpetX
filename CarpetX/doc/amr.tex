@@ -31,60 +31,100 @@ As an example, we present a configuration file excerpt for creating two refineme
 
 \begin{lstlisting}[language=bash]
   BoxInBox::num_regions = 2
-  
+
   BoxInBox::num_levels_1 = 2
   BoxInBox::position_x_1 = -0.5
   BoxInBox::radius_x_1[1] = 0.25
-  BoxInBox::radius_y_1[1] = 0.5
-  BoxInBox::radius_z_1[1] = 0.5
+  BoxInBox::radius_y_1[1] = 0.25
+  BoxInBox::radius_z_1[1] = 0.25
 
   BoxInBox::num_levels_2 = 2
   BoxInBox::position_x_2 = +0.5
   BoxInBox::radius_x_2[1] = 0.25
-  BoxInBox::radius_y_2[1] = 0.5
-  BoxInBox::radius_z_2[1] = 0.5
+  BoxInBox::radius_y_2[1] = 0.25
+  BoxInBox::radius_z_2[1] = 0.25
 \end{lstlisting}
 
-\todo{This example is not tested. Test it, maybe add a MovingBoxToy thorn to carpetx.}
+Let us now suppose that one wishes to make the boxes set up in the above parameter file to move in a circle around the origin. This is not very useful in practice, but it illustrates important concepts that can be later applied to more complex tools, such as puncture trackers. The \texttt{MovingBoxToy} thorn bundled in \CarpetX\space provides an example of how to achieve this. We shall now examine this implementation closely. Let us start by the examining the thorn's \texttt{interface.ccl} file:
+%
+\begin{lstlisting}[language=bash]
+  # Interface definition for thorn MovingBoxToy
 
+  IMPLEMENTS: MovingBoxToy
+
+  INHERITS: BoxInBox
+\end{lstlisting}
+
+The \texttt{INHERITS} statement in line 5 states that this thorn will write to grid functions provided in \texttt{BoxInBox} which control the refinement boxes parameters. Next, in the thorn's \texttt{param.ccl} file we have
+%
 \begin{lstlisting}
-  extern "C" void MoveBoxes(CCTK_ARGUMENTS) {
-    DECLARE_CCTK_ARGUMENTSX_MoveBoxes;
+  # Parameter definitions for thorn MovingBoxToy
+
+  shares: BoxInBox
+  USES CCTK_REAL position_x_1
+  USES CCTK_REAL position_x_2
+\end{lstlisting}
+
+Lines 3-5 declare that \texttt{MovingBoxToy} uses parameters \texttt{position\_x\_1} and \texttt{position\_x\_2} from \texttt{BoxInBox}. These declarations are required in order to access the initial positions of the boxes. Note that similar statements would be used if other parameters from \texttt{BoxInBox} were required.
+
+Finally, in the \texttt{schedule.ccl} file we schedule the routine that will actually update the box positions, called \texttt{MovingBoxToy\_MoveBoxes}:
+%
+\begin{lstlisting}
+  # Schedule definitions for thorn MovingBoxToy
+
+  SCHEDULE MovingBoxToy_MoveBoxes AT postinitial BEFORE EstimateError
+  {
+    LANG: C
+    READS: BoxInBox::positions
+    WRITES: BoxInBox::positions
+  } "Update box positions"
+
+  SCHEDULE MovingBoxToy_MoveBoxes AT poststep BEFORE EstimateError
+  {
+    LANG: C
+    READS: BoxInBox::positions
+    WRITES: BoxInBox::positions
+  } "Update box positions"
+\end{lstlisting}
+
+Note that the routine is scheduled with \texttt{AT poststep BEFORE EstimateError}. This is important, since it is in the \texttt{EstimateError} bin that \CarpetX's AMR error grid function (see Sec.~\ref{sec:advanced_amr}) will be updated thus any changes to box data should be scheduled before that.
+
+Finally, the \texttt{C++} routine \texttt{MovingBoxToy\_MoveBoxes} that will actually update the boxes positions reads
+%
+\begin{lstlisting}
+  extern "C" void MovingBoxToy_MoveBoxes(CCTK_ARGUMENTS) {
+    DECLARE_CCTK_ARGUMENTSX_MovingBoxToy_MoveBoxes;
     DECLARE_CCTK_PARAMETERS;
 
-    using std::sin;
     using std::cos;
 
-    const CCTK_REAL omega = M_PI / 4;
-    
-    const auto r0 = position_x_1;
-    const auto r1 = position_x_2;
+    const CCTK_REAL omega{M_PI/4};
 
-    // Settings for box 1
-    position_x[0] = r0 * cos(omega * cctk_time);
-    position_y[0] = r0 * sin(omega * cctk_time);
+    // Initial positions of box 1
+    const auto x0_1{position_x_1};
 
-    // Settings for box 2
-    position_x[1] = r1 * cos(omega * cctk_time);
-    position_y[1] = r1 * sin(omega * cctk_time);
+    // Initial positions of box 2
+    const auto x0_2{position_x_2};
+
+    // Trajectory of box 1
+    position_x[0] = x0_1 * cos(omega * cctk_time);
+    position_y[0] = x0_1 * sin(omega * cctk_time);
+
+    // Trajectory of box 2
+    position_x[1] = x0_2 * cos(omega * cctk_time);
+    position_y[1] = x0_2 * sin(omega * cctk_time);
   }
 \end{lstlisting}
 
-The \texttt{MoveBoxes} function should then be scheduled in the \texttt{postinitial} and \texttt{poststep} bins before the \texttt{EstimateError} group defined in \texttt{BoxInBox} as
+In lines 10 and 13, we read \texttt{BoxInBox} parameters for the initial positions of the boxes. In line 16-21 those positions are updated in a way that the boxes centers describe a circle around the origin. At each time, the boxes move $\pi/4$ radians around the origin in a counterclockwise fashion. Figure~\ref{fig:boxes_circle} shows 6 still frames of the boxes motions around the origin. All panels are $z=0$ slices of the grid hierarchy and time and iteration values are provided for each panel. These plots were produced with the \texttt{VisIt} visualization software with \CarpetX\space producing \texttt{silo} data files as output (see Sec.~\ref{sec:data} for more details on how to visualize and post-process \CarpetX\space data). The data can be reproduced by running the \texttt{circle.par} parameter file, provided in the \texttt{par} folder of the \texttt{MovingBoxToy} thorn. An animated version of Fig.~\ref{fig:boxes_circle} can be found in the \texttt{doc} folder of the \CarpetX\space thorn.
 
-\begin{lstlisting}[language=bash]
-  SCHEDULE MoveBoxes AT postinitial BEFORE EstimateError
-  {
-    LANG: C
-    WRITES: CarpetX::position_x CarpetX::position_y
-  } "Update refinement boxes positions"
-  
-  SCHEDULE MoveBoxes AT poststep BEFORE EstimateError
-  {
-    LANG: C
-    WRITES: CarpetX::position_x CarpetX::position_y
-  } "Update refinement boxes positions"
-\end{lstlisting}
+\begin{figure*}[ht]
+  \begin{center}
+      \includegraphics[width=\linewidth]{boxes_frames.png}
+  \end{center}
+  \caption{AMR boxes moving around a circle, as implemented in the \texttt{MovingBoxToy} thorn.}
+  \label{fig:boxes_circle}
+\end{figure*}
 
 \subsection{Advanced AMR}
 \label{sec:advanced_amr}
