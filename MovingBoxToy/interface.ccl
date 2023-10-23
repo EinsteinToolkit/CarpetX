@@ -1,0 +1,5 @@
+# Interface definition for thorn MovingBoxToy
+
+IMPLEMENTS: MovingBoxToy
+
+INHERITS: BoxInBox

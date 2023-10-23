@@ -1,0 +1,5 @@
+# Parameter definitions for thorn MovingBoxToy
+
+shares: BoxInBox
+USES CCTK_REAL position_x_1
+USES CCTK_REAL position_x_2

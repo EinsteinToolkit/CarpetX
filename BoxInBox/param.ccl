@@ -1,5 +1,7 @@
 # Parameter definitions for thorn BoxInBox
 
+RESTRICTED: 
+
 CCTK_INT num_regions "Number of refined regions"
 {
   0:3 :: ""
