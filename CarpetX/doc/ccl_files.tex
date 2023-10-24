@@ -106,4 +106,18 @@ We will now list the tags supported by \CarpetX\space and describe their usage.
   \end{lstlisting}
   %
   the simulation state, represented by the \texttt{state\_vector} group is checkpointed, while the \texttt{right\_hand\_side} group is not.
+  
+  The parameters \texttt{CarpetX::checkpoint\_method} and \texttt{CarpetX::recover\_method} control \CarpetX's behavior during variable checkpointing and recovery, respectively. Both parameters accept the same keyword values, described in Tab.~\ref{tab:checkpoint_recovery}
+
+  \begin{table}[hb]
+    \centering
+    \begin{tabular}{cc}
+    Setting value    & Effect                                                         \\ \hline\hline
+    \texttt{error}   & Abort with error instead of checkpointing/recovering (default) \\
+    \texttt{openpmd} & Uses \texttt{openpmd} formatted files for writing checkpoints  \\
+    \texttt{silo}    & Uses \texttt{silo} files for writing checkpoints               \\ \hline\hline
+    \end{tabular}
+    \caption{Possible values for \texttt{CarpetX::checkpoint\_method} and \texttt{CarpetX::recover\_method} and their effects on checkpointing and recovery.}
+    \label{tab:checkpoint_recovery}
+    \end{table}
 \end{enumerate}
