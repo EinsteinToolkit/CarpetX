@@ -122,6 +122,7 @@ The \texttt{PointDesc} type provides a complete description of the current grid 
   \item \texttt{X}: A 3-element array containing the point's coordinates.
   \item \text{DX}: A 3-element array containing the point's grid spacing.
   \item {iter}: The current loop iteration.
+  \item {BI}: A 3-element array containing the outward boundary normal if the current point is the outermost interior point or zero otherwise.
 \end{enumerate}
 
 In the body of a loop lambda, grid functions declared in the thorn's \texttt{interface.ccl} file are available as \texttt{GF3D2} objects, which are \texttt{C++} wrappers around native \Cactus\space grid functions. These objects are accessible by directly calling them as functions taking arrays of grid indices as input. Such indices, in turn can be obtained by directly accessing \texttt{PointDesc} members.

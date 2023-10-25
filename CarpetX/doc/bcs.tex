@@ -1,14 +1,86 @@
-\CarpetX\space provides a way of setting up standard boundary conditions and symmetry conditions (to be applied on grid boundaries) via parameter files. In this section, we will describe the available options.
+\CarpetX\space provides a way of setting up standard boundary conditions and symmetry conditions (to be applied on grid boundaries) via parameter files and grid function tags. More complex boundary conditions can be implemented by users but doing so is not an easy task due to how \texttt{AMReX} works internally.
 
-\subsection{Boundary conditions}
+\subsection{Boundary conditions via parameter files}
 
-Users can choose between the following boundary condition types:
+The following boundary condition types can be specified:
 
 \begin{enumerate}
-    \texttt{"none"}\: Don't apply any boundary condition to the grid. This is the default value in all directions"
-    \texttt{"dirichlet"}\: Dirichlet boundary conditions.
-    \texttt{"linear extrapolation"}: Linearly extrapolate interior values to boundary values.
-    \texttt{"neumann"}: Neumann boundary conditions.
-    \texttt{"robin"}: Robin boundary conditions.
+    \item \texttt{"none"}\: Don't apply any boundary condition to the grid. This is the default setting for all boundaries.
+    \item \texttt{"dirichlet"}\: Dirichlet boundary conditions.
+    \item \texttt{"linear extrapolation"}: Linearly extrapolate interior values to boundary values.
+    \item \texttt{"neumann"}: Neumann boundary conditions.
+    \item \texttt{"robin"}: Robin boundary conditions.
 \end{enumerate}
 
+The type of boundary condition in all 6 grid faces can be configured independently via the parameters described in Tab.~\ref{tab:boundary_settings}.
+
+\begin{table}[ht]
+    \centering
+    \begin{tabular}{cc}
+    Parameter                   & Description                             \\\hline\hline
+    \texttt{boundary\_x}        & Boundary condition at lower $x$ boundary\\
+    \texttt{boundary\_upper\_x} & Boundary condition at upper $x$ boundary\\
+    \texttt{boundary\_y}        & Boundary condition at lower $y$ boundary\\
+    \texttt{boundary\_upper\_y} & Boundary condition at upper $y$ boundary\\
+    \texttt{boundary\_z}        & Boundary condition at lower $z$ boundary\\
+    \texttt{boundary\_upper\_z} & Boundary condition at upper $z$ boundary\\\hline\hline
+    \end{tabular}
+    \caption{Parameters controlling boundary condition types in \CarpetX.}
+    \label{tab:boundary_settings}
+  \end{table}
+
+  Once boundary types are chosen, users must set which variables (grid function) boundary conditions should be applied to. This is done by passing a list of space (or new line) separated strings to the appropriate parameter, depending on which boundary condition(s) was(were) chosen. These parameters are
+
+\begin{table}[ht]
+    \centering
+    \begin{tabular}{cc}
+    Parameter                  & Description                              \\\hline\hline
+    \texttt{dirichlet\_x\_vars} & Boundary condition at lower $x$ boundary \\\hline\hline
+    \end{tabular}
+    \caption{Parameters controlling grid extents in \CarpetX.}
+    \label{tab:boundary_settings}
+\end{table}
+
+\subsection{Custom boundary conditions}
+
+The recommended way o applying custom boundary conditions is to write them to the RHS of the evolution system. Let us once again consider the function that computes the RHS of Eqs.~\eqref{eq:toy_loop_0}-\eqref{eq:toy_loop_1} presented in Sec.~\ref{sec:loops} modified to compute boundary conditions:
+
+\begin{lstlisting}
+extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_LoopExample_RHS;
+  DECLARE_CCTK_PARAMETERS;
+
+  // The grid variable is implicitly defined via the CCTK macros
+  // A 0/1 in template parameters indicate that a grid is vertex/cell centered
+  grid.loop_int<0, 0, 0>(
+    grid.nghostzones,
+
+    // The loop lambda
+    [=] (const Loop::PointDesc &p) {
+      using std::pow;
+
+      if (p.BI[0] < 0) {
+        // Lower x
+        // TODO
+      }
+
+      const CCTK_REAL hx = p.DX[0] * p.dX[0];
+      const CCTK_REAL hy = p.DX[1] * p.dX[1];
+      const CCTK_REAL hz = p.DX[2] * p.dX[2];
+      
+      const CCTK_REAL dudx = u(p.I - p.DI[0]) - 2 * u(p.I) 
+        + u(p.I + p.DI[0])/hx;
+
+      const CCTK_REAL dudy = u(p.I - p.DI[1]) - 2 * u(p.I) 
+        + u(p.I + p.DI[1])/hy;
+
+      const CCTK_REAL dudz = u(p.I - p.DI[2]) - 2 * u(p.I) 
+        + u(p.I + p.DI[2])/hz;
+
+      u_rhs(p.I) = rho(p.I);
+      rho_rhs(p.I) = ddu;
+
+    } // Ending of the loop lambda
+  ); // Ending of the loop_int call
+}
+\end{lstlisting}
