@@ -5,12 +5,33 @@
 The following boundary condition types can be specified:
 
 \begin{enumerate}
-    \item \texttt{"none"}\: Don't apply any boundary condition to the grid. This is the default setting for all boundaries.
-    \item \texttt{"dirichlet"}\: Dirichlet boundary conditions.
+    \item \texttt{"none"}: Don't apply any boundary condition to the grid. This is the default setting for all boundaries.
+    \item \texttt{"dirichlet"}: Dirichlet boundary conditions.
     \item \texttt{"linear extrapolation"}: Linearly extrapolate interior values to boundary values.
     \item \texttt{"neumann"}: Neumann boundary conditions.
     \item \texttt{"robin"}: Robin boundary conditions.
 \end{enumerate}
+
+Remember that, given a function $f(x,y,z)$ that satisfies a given PDE in a domain $\Omega \subset \mathbb{R}^n$ whose boundary is denoted by $\partial\Omega$, a Dirichlet boundary condition imposes that
+%
+\begin{equation}
+  f(x,y,z) = g \quad \forall (x,y,z) \in \partial \Omega,
+  \label{eq:dirichlet}
+\end{equation}
+%
+a Neumann boundary condition imposes that
+%
+\begin{equation}
+  \frac{\partial f}{\partial \mathbf{n}} = g \quad \forall (x,y,z) \in \partial \Omega,
+  \label{eq:neumann}
+\end{equation}
+%
+where $\mathbf{n}$ is the normal to the boundary $\partial \Omega$ and a Robin boundary condition imposes that
+%
+\begin{equation}
+  a f + b \frac{\partial f}{\partial \mathbf{n}} = g \quad \forall (x,y,z) \in \partial \Omega.
+  \label{eq:robin}
+\end{equation}
 
 The type of boundary condition in all 6 grid faces can be configured independently via the parameters described in Tab.~\ref{tab:boundary_settings}.
 
@@ -27,7 +48,7 @@ The type of boundary condition in all 6 grid faces can be configured independent
     \end{tabular}
     \caption{Parameters controlling boundary condition types in \CarpetX.}
     \label{tab:boundary_settings}
-  \end{table}
+\end{table}
 
   Once boundary types are chosen, they are applied to all grid functions. Users may override the global configuration for a specific set of grid function in which different boundary conditions should be applied to. This is done by passing a list of space (or new line) separated strings to the appropriate parameter, depending on which boundary condition(s) should be overridden. These parameters are of the form
 %
@@ -54,9 +75,68 @@ and \texttt{<direction>} is one of
   \item \texttt{upper\_z}
 \end{itemize}
 
-\todo{Set bc values via tags}
+In order to set the actual values of Dirichlet, Neumann and Robin boundary conditions, users can specify values via the \texttt{TAGS} mechanism in \texttt{interface.ccl}, detailed in Sec.~\ref{sec:tags}. Note that it is only possible to set the quantity $g$ in Eqs~\eqref{eq:dirichlet}-\eqref{eq:robin}. The syntax is as follows
 
+\begin{lstlisting}[language=bash]
+  # For Dirichlet BCs
+  CCTK_<type> <group-name> TAGS='dirichlet_values={1.0}'
+  {
+    ...
+  } "A group of variables"
+
+  # For Neumman BCs
+  CCTK_<type> <group-name> TAGS='neumann_values={1.0}'
+  {
+    ...
+  } "A group of variables"
+
+  # For Robin BCs
+  CCTK_<type> <group-name> TAGS='robin_values={1.0}'
+  {
+    ...
+  } "A group of variables"
+\end{lstlisting}
+
+If a variable group contains multiple variables or multiple boundary conditions, simply append the boundary values to the brace enclose list of boundary values and add another boundary condition as a tag. For example, consider the 3-metric variable group declared in the \texttt{ADMBaseX} thorn bundled with \CarpetX, which consists of 6 grid functions each with their own Dirichlet and Robin boundary condition values:
+
+\begin{lstlisting}[language=bash]
+  CCTK_REAL metric TYPE=gf TAGS='dirichlet_values={1.0 0.0 0.0   1.0 0.0   1.0} robin_values={1.0 0.0 0.0   1.0 0.0   1.0} ...'
+  {
+    gxx gxy gxz gyy gyz gzz
+  } "ADM 3-metric g_ij"
+\end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Symmetry boundary conditions}
+
+\CarpetX\space supports two types of symmetry boundary conditions: Reflections and periodicity. Each of these conditions can be set individually for each grid face as with boundary conditions. To Set reflective symmetry conditions, the parameters in Tab.~\ref{tab:reflection_params} are available. To set periodicity, the parameters in Tab.~\ref{tab:periodic_params} are provided.
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{cc}
+  Parameter                     & Description                             \\\hline\hline
+  \texttt{reflection\_x}        & Reflection symmetry at lower $x$ boundary\\
+  \texttt{reflection\_upper\_x} & Reflection symmetry at upper $x$ boundary\\
+  \texttt{reflection\_y}        & Reflection symmetry at lower $y$ boundary\\
+  \texttt{reflection\_upper\_y} & Reflection symmetry at upper $y$ boundary\\
+  \texttt{reflection\_z}        & Reflection symmetry at lower $z$ boundary\\
+  \texttt{reflection\_upper\_z} & Reflection symmetry at upper $z$ boundary\\\hline\hline
+  \end{tabular}
+  \caption{Parameters controlling reflection symmetry in \CarpetX.}
+  \label{tab:reflection_params}
+\end{table}
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{cc}
+  Parameter            & Description          \\\hline\hline
+  \texttt{periodic\_x} & Periodic $x$ boundary\\
+  \texttt{periodic\_x} & periodic $y$ boundary\\
+  \texttt{periodic\_y} & Periodic $z$ boundary\\\hline\hline
+  \end{tabular}
+  \caption{Parameters controlling periodicity in \CarpetX.}
+  \label{tab:periodic_params}
+\end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Custom boundary conditions}

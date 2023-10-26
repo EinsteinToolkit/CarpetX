@@ -1,18 +1,16 @@
 CCL files are used to define cactus thorns and customize its behavior. In this section, we shall discuss the additions that \CarpetX\space brigs to these files, but we shall not teach users how to write them from scratch. In order to learn more, refer to Sec.~C of the \Cactus\space user guide provided in the \texttt{doc} folder of all distributions.
 
-\subsection{\texttt{configuration.ccl} and \texttt{schedule.ccl}}
+Users may need to require certain thorns explicitly in \texttt{configuration.ccl} files when using \CarpetX\space APIs or schedule functions at specific bins provided by thorns in the \CarpetX\space arrangement. These thorn-specific additions are documented in the thorn's section of this text.
 
-\CarpetX\space does not modify these files radically. Users may need to require certain thorns explicitly in \texttt{configuration.ccl} files when using \CarpetX\space APIs or schedule functions at specific bins provided by thorns in the \CarpetX\space arrangement. These thorn-specific additions are documented in the thorn's section of this text.
+An important point to note is that \CarpetX\space strongly enforces read, write and location statement correctness at runtime and compile time as declared in \texttt{schedule.ccl} files. This means that one is not able to write to a variable declared as \texttt{READ}. \CarpetX\space also marks points in regions as valid or invalid and impedes user of reading from invalid data points. These extra measures help users prevent common memory and region access bugs. 
 
-An important point to note is that \CarpetX\space strongly enforces read, write and location statement correctness at runtime and compile time. This means that one is not able to write to a variable declared as \texttt{READ} or read past region. \CarpetX\space also marks points in regions as valid or invalid and impedes user of reading from invalid data points. These extra measures help users prevent common memory and region access bugs. In their \texttt{C++} code, users should always use the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_<scheduled function name>} macro to ensure that only the objects declared in the function's schedule block in \texttt{schedule.ccl} are brought into scope, as well as other objects necessary for working with \CarpetX.
+\subsection{Macros}
 
-\subsection{\texttt{interface.ccl}}
+In their \texttt{C++} code, users should always use the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_<scheduled function name>} macro to ensure that only the objects declared in the function's schedule block in \texttt{schedule.ccl} are brought into scope, as well as other objects necessary for working with \CarpetX.
 
-The most significant additions were made to interface files. In these files, users declare a thorn's \Cactus-facing interface by defines grid functions, variables and others (see Sec.~C1.2 of the \Cactus user guide for more details). Drivers, such as \CarpetX, are able to parse information in \texttt{interface.ccl} declarations in order to have its behavior customized. 
+ \subsection{Centering}
 
-\subsubsection{Centering}
-
-The centering of a grid function is declared via \texttt{CENTERING={<centering-code>}}, where \texttt{<centering-code>} is a three-letter code containing any combination of either \texttt{c} or \texttt{v}, representing cell centering and vertex centering, respectively. For example, to declare a group of variables as being cell centered, one would use
+The centering of a grid function is declared via \texttt{CENTERING={<centering-code>}}, where \texttt{<centering-code>} is a three-letter code containing any combination of either \texttt{c} or \texttt{v}, representing cell centering and vertex centering, respectively in \texttt{interface.ccl} files. For example, to declare a group of variables as being cell centered, one would use
 %
 \begin{lstlisting}
   CCTK_<type> <group-name> CENTERING={ccc}
@@ -43,9 +41,10 @@ Not also that if no \texttt{CENTERING} is specified, \CarpetX\space assumes that
 
 Finally, it is very important to match the centering description in interface files with the description passed to loop API template arguments. See Sec.~\ref{sec:loops} for details.
 
-\subsubsection{Tags}
+\subsection{Tags}
+\label{sec:tags}
 
-Tags are declared in interface statements with the \texttt{TAGS=<tags>} syntax. The \texttt{<tags>} declaration consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. For example, a tagged interface declaration will be similar to the following
+Tags are declared in interface statements (in \texttt{interface.ccl}) with the \texttt{TAGS=<tags>} syntax. The \texttt{<tags>} declaration consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. For example, a tagged interface declaration will be similar to the following
 %
 \begin{lstlisting}[language=bash]
   CCTK_<type> <group-name> TAGS='key_1="key1" key_2="key2" ...'
