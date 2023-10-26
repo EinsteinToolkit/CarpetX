@@ -707,6 +707,7 @@ CarpetX/ErrorEstimator
 CarpetX/FluxWaveToyX
 CarpetX/HydroBaseX
 CarpetX/Loop
+CarpetX/MovingBoxToy
 CarpetX/ODESolvers
 CarpetX/PDESolvers
 CarpetX/PoissonX
