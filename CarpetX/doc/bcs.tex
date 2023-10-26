@@ -1,6 +1,6 @@
-\CarpetX\space provides a way of setting up standard boundary conditions and symmetry conditions (to be applied on grid boundaries) via parameter files and grid function tags. More complex boundary conditions can be implemented by users but doing so is not an easy task due to how \texttt{AMReX} works internally.
+\CarpetX\space provides a way of setting up standard boundary conditions and symmetry conditions (to be applied on grid boundaries) via parameter files and grid function tags. More complex boundary conditions can be implemented by users but doing so is not often an easy task due to how \texttt{AMReX} works internally.
 
-\subsection{Boundary conditions via parameter files}
+\subsection{Boundary conditions via parameters}
 
 The following boundary condition types can be specified:
 
@@ -29,18 +29,36 @@ The type of boundary condition in all 6 grid faces can be configured independent
     \label{tab:boundary_settings}
   \end{table}
 
-  Once boundary types are chosen, users must set which variables (grid function) boundary conditions should be applied to. This is done by passing a list of space (or new line) separated strings to the appropriate parameter, depending on which boundary condition(s) was(were) chosen. These parameters are
+  Once boundary types are chosen, they are applied to all grid functions. Users may override the global configuration for a specific set of grid function in which different boundary conditions should be applied to. This is done by passing a list of space (or new line) separated strings to the appropriate parameter, depending on which boundary condition(s) should be overridden. These parameters are of the form
+%
+  \begin{center}
+    \texttt{CarpetX::<boundary condition name>\_<direction>\_vars = "..."}
+  \end{center}
+%
+where \texttt{<boundary condition name>} is one of
+%
+\begin{itemize}
+  \item \texttt{dirichlet}
+  \item \texttt{linear\_extrapolation}
+  \item \texttt{neumann}
+  \item \texttt{robin}
+\end{itemize}
+%
+and \texttt{<direction>} is one of
+\begin{itemize}
+  \item \texttt{x}
+  \item \texttt{y}
+  \item \texttt{z}
+  \item \texttt{upper\_x}
+  \item \texttt{upper\_y}
+  \item \texttt{upper\_z}
+\end{itemize}
 
-\begin{table}[ht]
-    \centering
-    \begin{tabular}{cc}
-    Parameter                  & Description                              \\\hline\hline
-    \texttt{dirichlet\_x\_vars} & Boundary condition at lower $x$ boundary \\\hline\hline
-    \end{tabular}
-    \caption{Parameters controlling grid extents in \CarpetX.}
-    \label{tab:boundary_settings}
-\end{table}
+\todo{Set bc values via tags}
 
+\subsection{Symmetry boundary conditions}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Custom boundary conditions}
 
 The recommended way o applying custom boundary conditions is to write them to the RHS of the evolution system. Let us once again consider the function that computes the RHS of Eqs.~\eqref{eq:toy_loop_0}-\eqref{eq:toy_loop_1} presented in Sec.~\ref{sec:loops} modified to compute boundary conditions:
@@ -59,28 +77,35 @@ extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
     [=] (const Loop::PointDesc &p) {
       using std::pow;
 
-      if (p.BI[0] < 0) {
-        // Lower x
-        // TODO
+      // Instead of computing values for each direction expression
+      // explicitly we will use a loop to save us from some typing
+      // ddu will store the partial results for each direction
+      Arith::vect<CCTK_REAL, dim> ddu;
+      
+      // Loop over directions
+      for (int d = 0; d < dim; ++d) {
+        
+        // Boundary associated with xmin ymin and zmin
+        if (p.BI[d] < 0) {
+          ddu[d] = 0;
+        }
+        // Boundary associated with xmax ymax and zmax
+        else if (p.BI[d] > 0) {
+          ddu[d] = 0;
+        }
+        // interior
+        else {
+          ddu[d] = (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
+                    pow(p.DX[d], 2);
+        }
       }
 
-      const CCTK_REAL hx = p.DX[0] * p.dX[0];
-      const CCTK_REAL hy = p.DX[1] * p.dX[1];
-      const CCTK_REAL hz = p.DX[2] * p.dX[2];
-      
-      const CCTK_REAL dudx = u(p.I - p.DI[0]) - 2 * u(p.I) 
-        + u(p.I + p.DI[0])/hx;
-
-      const CCTK_REAL dudy = u(p.I - p.DI[1]) - 2 * u(p.I) 
-        + u(p.I + p.DI[1])/hy;
-
-      const CCTK_REAL dudz = u(p.I - p.DI[2]) - 2 * u(p.I) 
-        + u(p.I + p.DI[2])/hz;
-
       u_rhs(p.I) = rho(p.I);
-      rho_rhs(p.I) = ddu;
+      rho_rhs(p.I) = ddu[0] + ddu[1] + ddu[2];
 
     } // Ending of the loop lambda
   ); // Ending of the loop_int call
 }
 \end{lstlisting}
+
+Instead of computing derivatives and boundaries for each direction explicitly, we use a loop over each direction, written on line 20. The \texttt{if} branches on lines 23-25 and 27-29 set the values of the RHS of the system in the boundaries associated with the \texttt{xyz\_min} values and \texttt{xyz\_max} values, respectively. In these case, we are setting boundary values to $0$, but users would use whatever boundary condition they require. The takeaway message of this example is to note how one can \textit{access} boundary points, instead of what to write to those points.
