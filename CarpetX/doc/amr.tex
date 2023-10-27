@@ -4,8 +4,7 @@
 \CarpetX\space supports fixed mesh refinement via the so called box-in-box paradigm. This capability is provided by the \texttt{BoxInBox} thorn. Using it is very simple and similar to \texttt{Carpet}'s \texttt{CarpetRegrid2} usage.
 
 \begin{table}[ht]
-  \resizebox{\columnwidth}{!}{%
-    \begin{tabular}{ccccc}
+  \begin{tabularx}{\textwidth}{ccccX}
     Name                    & Type                      & Possible Values                                                   & Default Value                   & Description                               \\\hline\hline
     \texttt{shape\_n}       & String                    & \texttt{"sphere"} or \texttt{"cube"}                              & \texttt{"sphere"}               & Shape of refined region                   \\
     \texttt{active\_n}      & Boolean                   & \texttt{"yes"} or \texttt{"no"}                                   &  \texttt{"yes"}                 & Is this box active?                       \\
@@ -17,8 +16,7 @@
     \texttt{radius\_x\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & x-radius of refined region for this level \\
     \texttt{radius\_y\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & y-radius of refined region for this level \\
     \texttt{radius\_z\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & z-radius of refined region for this level \\\hline\hline
-  \end{tabular}%
-  }
+  \end{tabularx}
   \caption{Configuration parameters for a single (1 out of 3) box that can be defined in parameter files using the \texttt{BoxInBox} thorn.}
   \label{tab:box_config}
 \end{table}
@@ -169,32 +167,33 @@ Once defined, \texttt{EstimateError} should be scheduled in both the \texttt{pos
 
 \subsection{Controlling prolongation}
 
-\todo{Document the parameters controlling prolongation (bellow)}
+Prolongation refers to the interpolation of data on coarse grid into a finer grid. \CarpetX\space allows users to control how this propagation of data will be executed via the parameter \texttt{CarpetX::prolongation\_type}, whose possible values are detailed in Tab.~\ref{tab:prolongation_methods}. Additionally, other aspects of the prolongation operator can be controlled with the parameters detailed in Tab.~\ref{tab:other_prolongation_params}
 
-\begin{lstlisting}[language=bash]
-  KEYWORD prolongation_type "Prolongation type"
-{
-  "interpolate" :: "interpolate between data points"
-  "conservative" :: "interpolate cell averages, ensuring conservation"
-  "ddf" :: "interpolate in vertex centred and conserve in cell centred directions"
-  "ddf-eno" :: "interpolate in vertex centred and ENO-conserve in cell centred directions"
-  "ddf-hermite" :: "Hermite-interpolate in vertex centred and conserve in cell centred directions"
-  "natural" :: "interpolate in vertex centred and conserve in cell centred directions, using the same order"
-  "poly-cons3lfb" :: "interpolate polynomially in vertex centred directions and conserve with 3rd order accuracy and a linear fallback in cell centred directions"
-} "ddf"
+\begin{table}[ht]
+  \centering
+  \begin{tabularx}{\textwidth}{lX}
+    Method                   & Description                                                                                                                                   \\\hline\hline
+    \texttt{"interpolate"}   & Interpolate between data points                                                                                                               \\
+    \texttt{"conservative"}  & Interpolate cell averages, ensuring conservation                                                                                              \\
+    \texttt{"ddf"}           & Interpolate in vertex centered and conserve in cell centered directions                                                                       \\
+    \texttt{"ddf-eno"}       & Interpolate in vertex centered and ENO-conserve in cell centered directions                                                                   \\
+    \texttt{"ddf-hermite"}   & Hermite-interpolate in vertex centered and conserve in cell centered directions                                                               \\
+    \texttt{"natural"}       & Interpolate in vertex centered and conserve in cell centered directions, using the same order                                                 \\
+    \texttt{"poly-cons3lfb"} & Interpolate polynomially in vertex centered directions and conserve with 3rd order accuracy and a linear fallback in cell centered directions \\\hline\hline
+  \end{tabularx}
+  \caption{Prolongation methods available in \CarpetX.}
+  \label{tab:prolongation_methods}
+\end{table}
 
-CCTK_INT prolongation_order "Prolongation order"
-{
-  0:* :: ""
-} 1
+\begin{table}[ht]
+  \centering
+  \begin{tabularx}{\textwidth}{lccX}
+    Parameter                       & Type                  & Default value & Description                                             \\\hline\hline
+    \texttt{prolongation\_order}    & Integer larger than 0 & 1             & Controls the order of the interpolation in prolongation \\
+    \texttt{do\_restrict}           & Boolean               & yes           & Automatically restrict fine to coarse grid functions    \\
+    \texttt{restrict\_during\_sync} & Boolean               & yes           & Restrict fine to coarse grid functions when syncing     \\
+  \end{tabularx}
+  \caption{Parameters controlling prolongation in \CarpetX.}
+  \label{tab:other_prolongation_params}
+\end{table}
 
-BOOLEAN do_restrict "Automatically restrict fine to coarse grid functions"
-{
-} yes
-
-
-
-BOOLEAN restrict_during_sync "Restrict fine to coarse grid functions when syncing"
-{
-} yes
-\end{lstlisting}
