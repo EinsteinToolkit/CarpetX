@@ -123,4 +123,30 @@ The parameters \texttt{CarpetX::checkpoint\_method} and \texttt{CarpetX::recover
   \end{tabular}
   \caption{Possible values for \texttt{CarpetX::checkpoint\_method} and \texttt{CarpetX::recover\_method} and their effects on checkpointing and recovery.}
   \label{tab:checkpoint_recovery}
-  \end{table}
+\end{table}
+
+\todo{Using \texttt{TerminationTrigger} to control checkpointing does not work yet. Furthermore, there seems to be a bug when recovering from a checkpoint file. The instructions on the next paragraph work to produce a checkpoint that is readable by \CarpetX, but it has invalid boundaries and ghost points so \CarpetX\space cannot continue iteration}
+
+To control when a checkpoint is to be produced, users first need to set the flash parameter \texttt{Cactus::terminate}, which controls under which conditions a simulation is to be terminated (see Sec.~D5.2 of the \Cactus\space user guide for further details on possible values for this parameter). After that, they can control various aspects of the checkpoint files produced, such as name and checkpoint file production on termination by setting parameters in the \texttt{IO} thorn. This is an infrastructure thorn that is always active and communicates its settings to \CarpetX, which is effectively responsible for writing data to disk. To see all available parameters that can be set in \texttt{IO}, read the file \texttt{Cactus/repos/cactusbase/IOUtil/param.ccl} lines 137-205. These parameters are well documented in this file.
+
+As an example, we present an excerpt of a parameter file for a simulation that ends after simulation time reaches $t=100$, but we allow \Cactus\space running for only 1 minute of wall time. For the physical system being simulated, such execution time is not enough for the system to reach $t=100$, thus the execution of \Cactus\space will be terminated before the system is completely evolved. We would like to be able to recover from the last iteration performed by the system in subsequent executions of \Cactus. To do that, we will configure the \texttt{IO} thorn to produce checkpoint files upon \Cactus\space termination.
+
+\begin{lstlisting}[language=bash]
+  # The type of checkpoint and recovery files that should be used by CarpetX
+  CarpetX::checkpoint_method = "openpmd"
+  CarpetX::recover_method    = "openpmd"
+
+  # Schedule termination of the simulation for 1 minute of wall time
+  Cactus::terminate       = "runtime"
+  Cactus::cctk_final_time = 100.0
+  Cactus::max_runtime     = 1.0
+
+  # Configure IO to produce checkpoint files before terminating
+  IO::checkpoint_ID           = no
+  IO::recover                 = "autoprobe"
+  IO::out_proc_every          = 2
+  IO::checkpoint_on_terminate = yes
+  IO::checkpoint_dir          = "../checkpoints"
+  IO::recover_dir             = "../checkpoints"
+  IO::abort_on_io_errors      = yes
+\end{lstlisting}
