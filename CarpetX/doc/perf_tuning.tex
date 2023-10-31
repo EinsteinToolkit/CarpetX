@@ -1,6 +1,6 @@
 \subsection{Parallelism model}
 
-When running on CPUs, \AMReX\space will divide the grid in boxes whose sizes are controlled by \texttt{blocking\_factor} and \texttt{max\_grid\_size} parameter families. These will be distributed over MPI ranks and each rank will subdivide the boxes on \textit{tiles}. This subdivision into tiles is only logical (not in memory). Threads may then process tiles in any random order. When running on GPU's, tiling is disabled and \AMReX\space tries to assign one GPU per MPI process. \todo{If there are more MPI processes than grids to distribute, some MPI process may become idle. To prevent this from happening, the FLAG flag can be passed to \AMReX\space via PARAMETER to ensure that each MPI rank processes at least one grid.}
+When running on CPUs, \AMReX\space will divide the grid in boxes whose sizes are controlled by \texttt{blocking\_factor} and \texttt{max\_grid\_size} parameter families. These will be distributed over MPI ranks and each rank will subdivide the boxes on \textit{tiles}. This subdivision into tiles is only logical (not in memory). Threads may then process tiles in any random order. When running on GPU's, tiling is disabled and \AMReX\space tries to assign one GPU per MPI process. If there are more MPI processes than grids to distribute, some MPI process may become idle. To prevent this from happening, the \texttt{CarpetX::refine\_grid\_layout} (see bellow) can be used to ensure that each MPI rank processes at least one grid.
 
 \subsection{Parallelism control parameters}
 
@@ -24,7 +24,7 @@ Because mesh refinement in \AMReX is done per-cell (see sec.~\ref{sec:advanced_a
 
 \subsubsection{\texttt{CarpetX::max\_tile\_size\_\{xyz\}}}
 
-Controls tile sizes. In order to be cache efficient, tiling is disabled in the \texttt{x} direction because these elements are not stored contiguously in memory. The default values for \texttt{max\_tile\_size} are given in Tab.~\ref{tab:tile_sizes}
+Controls tile sizes. In order to be cache efficient, tiling is disabled in the \texttt{x} direction because these elements are not stored contiguously in memory. The default values for \texttt{max\_tile\_size} are given in Tab.~\ref{tab:tile_sizes}. These default values were found trough experimentation. Users are encouraged to change them in order to achieve optimal performance in their machines and use cases.
 
 \begin{table}[h]
   \centering
