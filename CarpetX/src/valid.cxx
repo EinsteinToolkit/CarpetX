@@ -569,8 +569,9 @@ checksums_t calculate_checksums(
 
           checksum_t checksum(to_check);
           checksum.add(tiletag);
-          const auto add_point{
-              [&](const Loop::PointDesc &p) { checksum.add(gf(p.I)); }};
+          const auto add_point = [&](const Loop::PointDesc &p) {
+            checksum.add(gf(p.I));
+          };
 
           if (to_check.valid_int)
             grid.loop_idx(where_t::interior, groupdata.indextype,
@@ -638,8 +639,9 @@ void check_checksums(const checksums_t &checksums,
 
           checksum_t checksum(did_check);
           checksum.add(tiletag);
-          const auto add_point{
-              [&](const Loop::PointDesc &p) { checksum.add(gf(p.I)); }};
+          const auto add_point = [&](const Loop::PointDesc &p) {
+            checksum.add(gf(p.I));
+          };
 
           if (did_check.valid_int)
             grid.loop_idx(where_t::interior, groupdata.indextype,
