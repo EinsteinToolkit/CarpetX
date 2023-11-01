@@ -7,3 +7,5 @@ doc/*.out
 doc/*.synctex.gz
 doc/*.toc
 doc/*.pdf
+
+doc/openpmd-demos/venv*

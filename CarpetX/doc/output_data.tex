@@ -1,8 +1,23 @@
+\CarpetX\space outputs data in 3 formats: \texttt{Silo}, \texttt{Adios2} backed \texttt{openPMD} and \texttt{TSV}. For each output format, users can choose what and how frequently variables will be written to disk. In the following sections we will provide details to each format.
+
+\subsection{TSV}
+\label{sec:tsv}
+
+The \texttt{TSV} acronym stands for Tab Separated Values. This is a plain text format in which data is written to files in rows (lines) and columns, each column separated by a tab character. These formats are very easy to hand parse and manipulate or post-process. Many open source tools are also available for reading this format out of the box (see for instance the \texttt{Python} framework \texttt{Pandas}). There are however two important disadvantages in using plain text formats: The first is a loss of precision when converting floating point numbers from binary to string representation and converting from string back into binary form, due to the way floating point numbers work. The second is compactness. While a 16 digit double precision floating point number takes 8 bytes to be represented in binary form, it requires at least 17 bytes (1 byte per digit plus the floating point dot) to be represented as a string.
+
+For these reasons, these format is not recommended to production runs or to complex data analysis. It is useful however, for quick and easy visualizations or diagnostics of data.
+
+\todo{Document the output parameters.}
+
 \subsection{SILO}
 \label{sec:silo}
+
+The \texttt{Silo} format (see \href{https://visit-sphinx-github-user-manual.readthedocs.io/en/develop/data_into_visit/SiloFormat.html}{here} for more information) is the native file format of the \href{https://sd.llnl.gov/simulation/computer-codes/visit}{VisIt} data visualization tool. Given its native support in \texttt{VisIt}, \texttt{silo} files are good for direct visualization of simulation data and grids (Fig.~\ref{fig:boxes_circle} of this document as well as the \texttt{animated\_boxes.gif} file in the documentation folder were both created with \texttt{VisIt}).
+
+\todo{Document the output parameters.}
+
 
 \subsection{OpenPMD}
 \label{sec:openpmd}
 
-\subsection{TSV}
-\label{sec:tsv}
+\todo{Document the output parameters.}

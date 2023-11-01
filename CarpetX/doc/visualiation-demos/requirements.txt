@@ -1,0 +1,5 @@
+adios2
+openpmd-api
+openpmd-viewer
+jupyter
+matplotlib
