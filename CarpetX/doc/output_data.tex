@@ -3,21 +3,143 @@
 \subsection{TSV}
 \label{sec:tsv}
 
-The \texttt{TSV} acronym stands for Tab Separated Values. This is a plain text format in which data is written to files in rows (lines) and columns, each column separated by a tab character. These formats are very easy to hand parse and manipulate or post-process. Many open source tools are also available for reading this format out of the box (see for instance the \texttt{Python} framework \texttt{Pandas}). There are however two important disadvantages in using plain text formats: The first is a loss of precision when converting floating point numbers from binary to string representation and converting from string back into binary form, due to the way floating point numbers work. The second is compactness. While a 16 digit double precision floating point number takes 8 bytes to be represented in binary form, it requires at least 17 bytes (1 byte per digit plus the floating point dot) to be represented as a string.
+The \texttt{TSV} acronym stands for Tab Separated Values. This is a plain text format in which data is written to files in rows (lines) and columns, each column separated by a tab character. These formats are very easy to hand parse and manipulate or post-process. Many open source tools are also available for reading this format out of the box (see for instance the \texttt{Python} framework \texttt{Pandas}). There are however two important disadvantages in using plain text formats: The first is a loss of precision when converting floating point numbers from binary to string representation and converting from string back into binary form, due to the way floating point numbers work. The second is compactness. While a 16 digit double precision floating point number takes 8 bytes to be represented in binary form, it requires at least 17 bytes (1 byte per digit plus the floating point dot) to be represented as a string. For these reasons, this format is not recommended to production runs or to complex data analysis. It is useful however, for quick and easy visualizations or diagnostics of data. It is also useful when other, more sophisticated formats are not available.
 
-For these reasons, these format is not recommended to production runs or to complex data analysis. It is useful however, for quick and easy visualizations or diagnostics of data.
+To control \texttt{TSV} output, \CarpetX\space provides the parameters described in Tab.~\ref{tab:tsv_params}
 
-\todo{Document the output parameters.}
+\begin{table}[ht]
+  \centering
+  \begin{tabularx}{\textwidth}{cccX}
+    Parameter                & Type    & Default Value  & Description \\\hline\hline
+    \texttt{out\_tsv}        & Boolean & \texttt{"yes"} & Whether to produce \texttt{TSV} output \\
+    \texttt{out\_tsv\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
+    \texttt{out\_tsv\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
+  \end{tabularx}
+  \label{tab:tsv_params}
+  \caption{\CarpetX\space parameters for \texttt{TSV} output.}
+\end{table}
+
+As an example, to output the grid functions of \texttt{WaveToyX} as \texttt{TSV} files every 2 iterations, one would write in their parameter file the following excerpt
+
+\begin{lstlisting}[language=bash]
+  CarpetX::out_tsv = yes
+  CarpetX::out_tsv_every = 2
+  CarpetX::out_tsv_vars = "
+    WaveToyX::state
+    WaveToyX::rhs
+    WaveToyX::energy
+    WaveToyX::error
+"
+\end{lstlisting}
 
 \subsection{SILO}
 \label{sec:silo}
 
 The \texttt{Silo} format (see \href{https://visit-sphinx-github-user-manual.readthedocs.io/en/develop/data_into_visit/SiloFormat.html}{here} for more information) is the native file format of the \href{https://sd.llnl.gov/simulation/computer-codes/visit}{VisIt} data visualization tool. Given its native support in \texttt{VisIt}, \texttt{silo} files are good for direct visualization of simulation data and grids (Fig.~\ref{fig:boxes_circle} of this document as well as the \texttt{animated\_boxes.gif} file in the documentation folder were both created with \texttt{VisIt}).
 
-\todo{Document the output parameters.}
+To control \texttt{SILO} output, \CarpetX\space provides the parameters described in Tab.~\ref{tab:silo_params}
 
+\begin{table}[ht]
+  \centering
+  \begin{tabularx}{\textwidth}{cccX}
+    Parameter                 & Type    & Default Value  & Description \\\hline\hline
+    \texttt{out\_silo\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
+    \texttt{out\_silo\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
+  \end{tabularx}
+  \label{tab:silo_params}
+  \caption{\CarpetX\space parameters for \texttt{SILO} output.}
+\end{table}
 
-\subsection{OpenPMD}
+As an example, to output the grid functions of \texttt{WaveToyX} as \texttt{SILO} files every 2 iterations, one would write in their parameter file the following excerpt
+
+\begin{lstlisting}[language=bash]
+  CarpetX::out_silo_every = 2
+  CarpetX::out_silo_vars = "
+    WaveToyX::state
+    WaveToyX::rhs
+    WaveToyX::energy
+    WaveToyX::error
+"
+\end{lstlisting}
+
+\subsection{openPMD}
 \label{sec:openpmd}
 
-\todo{Document the output parameters.}
+\texttt{openPMD} stands for ``open standard for particle-mesh data files''. Strictly speaking, it is not a file format, but a standard for meta-data, naming schemes and file organization. \texttt{openPMD} is thus ``backed'' by usual hierarchical binary data formats, such as \texttt{HDF5} and \texttt{Adios2}, both supported by \CarpetX. Put simply, \texttt{openPMD} specifies a standardized and interchangeable way of organizing data within \texttt{HDF5} and \texttt{Adios2} files.
+
+To control \texttt{openPMD} output, \CarpetX\space provides the parameters described in Tab.~\ref{tab:openpmd_params}
+
+\begin{table}[ht]
+  \centering
+  \begin{tabularx}{\textwidth}{cccX}
+    Parameter                 & Type    & Default Value  & Description \\\hline\hline
+    \texttt{out\_openpmd\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
+    \texttt{out\_openpmd\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
+  \end{tabularx}
+  \label{tab:openpmd_params}
+  \caption{\CarpetX\space parameters for \texttt{SILO} output.}
+\end{table}
+
+Additionally, it is possible to control which ``backing'' format to use with \texttt{openPMD} via the \texttt{CarpetX::openpmd\_format} parameter, whose possible string values are listed in Tab~\ref{tab:openpmd_formats}
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{cc}
+    Value         & Description                                                                                                                                                                 \\ \hline\hline
+    \texttt{"HDF5"}        & The Hierarchical Data Format, version 5 (see \href{https://www.hdfgroup.org/solutions/hdf5/}{here})                                                                \\
+    \texttt{"ADIOS1"}      & The Adaptable I/O System version 1 (see \href{https://csmd.ornl.gov/software/adios-1x}{here})                                                                      \\
+    \texttt{"ADIOS2"}      & The Adaptable I/O System version 2 (see \href{https://adios2.readthedocs.io/en/v2.9.2/}{here}). Requires \texttt{openPMD\_api} $< 0.15$                            \\
+    \texttt{"ADIOS2\_BP"}  & ADIOS2 native binary-pack. Requires \texttt{openPMD\_api} $\geq0.15$                                                                                                   \\
+    \texttt{"ADIOS2\_BP4"} & ADIOS2 native binary-pack version 4 (see \href{https://adios2.readthedocs.io/en/latest/engines/engines.html#bp5}{here}). Requires \texttt{openPMD\_api} $\geq0.15$ \\
+    \texttt{"ADIOS2\_BP5"} & ADIOS2 native binary-pack version 5 (see \href{https://adios2.readthedocs.io/en/latest/engines/engines.html#bp5}{here}). Requires \texttt{openPMD\_api} $\geq0.15$ \\
+    \texttt{"ADIOS2\_SST"} & ADIOS2 Sustainable Staging Transport (see \href{n ADIOS2, the Sustainable Staging Transport (SST)}{hee})                                                           \\
+    \texttt{"ADIOS2\_SSC"} & ADIOS2 Strong Staging Coupler (see \href{Strong Staging Coupler}{here})                                                                                            \\
+    \texttt{"JSON"}        & JavaScript Object Notation (see \href{https://www.json.org/json-en.html}{here})                                                                                    \\ \hline\hline
+  \end{tabular}
+  \label{tab:openpmd_formats}
+  \caption{Possible values for \texttt{CarpetX::openpmd\_format} controlling \texttt{openPMD}'s storage format.}
+\end{table}
+
+When using \texttt{openPMD} output, \CarpetX can produce files that can be visualized with \texttt{VisIt}. To do that for \texttt{WaveToyX}, for example, the following excerpt would be added to a parameter file
+
+\begin{lstlisting}[language=bash]
+  # It is very important to produce BP4 files, as BP5
+  # cannot be imported into VisIt at the time of writing
+  CarpetX::openpmd_format = "ADIOS2_BP4"
+  
+  CarpetX::out_openpmd_vars = "
+      WaveToyX::state
+      WaveToyX::rhs
+      WaveToyX::energy
+      WaveToyX::error
+  "
+\end{lstlisting}
+
+When loading data into \texttt{VisIt}, users must open the \texttt{*.pmd.visit} file produced together with the simulation output. It is also \textit{imperative} to select the file format as \texttt{ADIOS2} in \texttt{VisIt}'s file selector window, otherwise the files will not be loaded correctly.
+
+\subsection{Pure \texttt{ADIOS2} files}
+
+To output pure \texttt{ADIOS2 BP5} files, (without \texttt{openPMD} formatting), users can use the parameters described in Tab.~\ref{tab:adios2_params}. Note that this output mode produces \texttt{BP5} files, which cannot be read by \texttt{VisIt} (at the time of writing). Users may have to rely on their own tools and scripts for data processing and visualization.
+
+\begin{table}[ht]
+  \centering
+  \begin{tabularx}{\textwidth}{cccX}
+    Parameter                 & Type    & Default Value  & Description \\\hline\hline
+    \texttt{out\_adios2\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
+    \texttt{out\_adios2\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
+  \end{tabularx}
+  \label{tab:adios2_params}
+  \caption{\CarpetX\space parameters for \texttt{ADIOS2} output.}
+\end{table}
+
+As an example, to produce \texttt{ADIOS2} files at every $2$ time steps in \texttt{WaveToyX}, users would use the following excerpt
+
+\begin{lstlisting}[language=bash]
+  CarpetX::out_adios2_every = 2
+  CarpetX::out_adios2_vars = "
+    WaveToyX::state
+    WaveToyX::rhs
+    WaveToyX::energy
+    WaveToyX::error
+"
+\end{lstlisting}
