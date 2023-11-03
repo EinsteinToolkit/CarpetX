@@ -8,4 +8,4 @@ doc/*.synctex.gz
 doc/*.toc
 doc/*.pdf
 
-doc/visualization-demos/venv/*
+doc/coco/venv/*
