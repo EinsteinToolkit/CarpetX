@@ -1,0 +1,3 @@
+[console_scripts]
+openpmd-ls = openpmd_api.ls.__main__:main
+openpmd-pipe = openpmd_api.pipe.__main__:main
