@@ -100,7 +100,7 @@ Additionally, it is possible to control which ``backing'' format to use with \te
   \caption{Possible values for \texttt{CarpetX::openpmd\_format} controlling \texttt{openPMD}'s storage format.}
 \end{table}
 
-When using \texttt{openPMD} output, \CarpetX can produce files that can be visualized with \texttt{VisIt}. To do that for \texttt{WaveToyX}, for example, the following excerpt would be added to a parameter file
+When using \texttt{openPMD} output, \CarpetX\space can produce files that can be visualized with \texttt{VisIt}. To do that for \texttt{WaveToyX}, for example, the following excerpt would be added to a parameter file
 
 \begin{lstlisting}[language=bash]
   # It is very important to produce BP4 files, as BP5
@@ -142,4 +142,63 @@ As an example, to produce \texttt{ADIOS2} files at every $2$ time steps in \text
     WaveToyX::energy
     WaveToyX::error
 "
+\end{lstlisting}
+
+\subsection{Norms files}
+
+\CarpetX can output various norms of grid functions, such as min., max., L2 and others. This output works similarly to the previously described methods. To control norm output, the parameters in Tab.~\ref{tab:norms_output} are provided.
+
+\begin{table}[hb]
+  \centering
+  \begin{tabularx}{\textwidth}{cccX}
+    Parameter                 & Type    & Default Value  & Description \\\hline\hline
+    \texttt{out\_norm\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
+    \texttt{out\_norm\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
+  \end{tabularx}
+  \label{tab:norms_output}
+  \caption{\CarpetX\space parameters for norms output.}
+\end{table}
+
+For example, to output \texttt{openPMD} and norms for the \texttt{WaveToyX} thorn grid functions, the following excerpt could be added to a parameter file
+
+\begin{lstlisting}[language=bash]
+  CarpetX::out_norm_every = 2
+  
+  # Here we choose to output only norms of the error grid function    
+  CarpetX::out_norm_vars = "
+      WaveToyX::error
+  "
+
+  # It is very important to produce BP4 files, as BP5
+  # cannot be imported into VisIt at the time of writing
+  CarpetX::openpmd_format = "ADIOS2_BP4"
+  
+  CarpetX::out_openpmd_vars = "
+      WaveToyX::state
+      WaveToyX::rhs
+      WaveToyX::energy
+      WaveToyX::error
+  "
+\end{lstlisting}
+
+\subsection{Performance file}
+
+\CarpetX\space can produce a file called \texttt{performance.yaml} with various performance timers for certain iterations of a simulation. This output mirrors that of \texttt{stdout} and may be useful for thorn developers while benchmarking their codes. Controlling performance output is done similarly as to other types of output. The parameters for controlling it are detailed in Tab~\ref{tab:perf_output}
+
+\begin{table}[ht]
+  \centering
+  \begin{tabularx}{\textwidth}{cccX}
+    Parameter                       & Type     & Default Value  & Description \\\hline\hline
+    \texttt{out\_performance}        & Boolean & \texttt{"yes"} & Whether to produce performance data in YAML format. \\
+    \texttt{out\_performance\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations. \\\hline\hline
+  \end{tabularx}
+  \label{tab:perf_output}
+  \caption{\CarpetX\space parameters for performance output.}
+\end{table}
+
+As an example, to  have performance measurements output for a simulation every 2 iterations, the following parameters may be added to a parameter file
+
+\begin{lstlisting}[language=bash]
+  CarpetX::out_performance = yes  
+  CarpetX::out_performance_every = 2
 \end{lstlisting}
