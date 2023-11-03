@@ -1,0 +1,21 @@
+There are a few standard images for CarpetX.
+
+There are a set of them in the \texttt{docker} directory of \texttt{https://github.com/eschnett/CarpetX}. These build the various packages that CarpetX depends on mostly by hand. This is probably the more official set of images.
+
+Another is build from the \texttt{Dockerfile} at \texttt{https://github.com/stevenrbrandt/carpetx-install}. This image is based on Spack (\texttt{https://github.com/spack/spack}), a flexible, python-based system for installing packages. This image contains optionlist files for Cactus in \texttt{/usr/cactus/local-cpu.cfg} and \texttt{/usr/local-gpu.cfg}. This image also contains two versions of the hpctoolkit tool, one that is cuda-enabled and one that is not. This rather beefy image is nearly 40GB in size, but it provides you with a complete set of tools for building and running CarpetX, Cactus, and the various development projects taking place within that framework. The image is maintained at \texttt{docker.io/stevenrbrandt/etworkshop}.
+
+If you are running on a cluster with Singularity installed, you can compile the image as follows:
+
+\begin{lstlisting}
+singularity build -F /work/sbrandt/images/etworkshop.simg docker://stevenrbrandt/etworkshop
+\end{lstlisting}
+
+You can run the image using something like the following:
+\begin{lstlisting}
+srun singularity exec --nv \
+     --bind /var/spool --bind /work \
+     --bind /etc/ssh/ssh_known_hosts \
+     exec /work/sbrandt/images/etworkshop.simg cactus_sim my_parfile.par
+\end{lstlisting}
+
+Whether you choose to use one of the above images, or create an installation based on what you find in the dockerfiles for the above images, we wish you luck in your compiling and running efforts.
