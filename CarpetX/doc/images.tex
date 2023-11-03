@@ -7,7 +7,8 @@ Another is build from the \texttt{Dockerfile} at \texttt{https://github.com/stev
 If you are running on a cluster with Singularity installed, you can compile the image as follows:
 
 \begin{lstlisting}
-singularity build -F /work/sbrandt/images/etworkshop.simg docker://stevenrbrandt/etworkshop
+singularity build -F /work/sbrandt/images/etworkshop.simg \
+    docker://stevenrbrandt/etworkshop
 \end{lstlisting}
 
 You can run the image using something like the following:
