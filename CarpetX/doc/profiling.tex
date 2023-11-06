@@ -1,7 +1,5 @@
 Profiling refers to the act of collecting runtime and other performance data on the execution of an application in order to improve its performance characteristics. The recommended way of profiling \CarpetX\space applications is using \href{http://hpctoolkit.org/}{\texttt{HPCToolkit}}. We recommend that user first read the software's \href{http://hpctoolkit.org/manual/HPCToolkit-users-manual.pdf}{documentation} thoroughly. 
 
-\subsection{Collecting performance measurements}
-
 Installing \texttt{HPCToolkit} on an HPC system will probably require the help of the system's administrators. Once installed, the application should be launched with the \texttt{hpcrun} command, which will automatically collect performance data from the launched application. To profile \CarpetX\space while using an HPC system, the recommended steps are:
 %
 \begin{enumerate}
@@ -38,6 +36,4 @@ Installing \texttt{HPCToolkit} on an HPC system will probably require the help o
   \end{lstlisting}
 \end{enumerate}
 
-\subsection{Visualizing performance measurements}
-
-\texttt{HPCToolkit} provides a standard visualization tool for the profile information that it gathers called \href{http://hpctoolkit.org/download.html}{\texttt{hpcviewer}}.
+This will generate the \texttt{hpctoolkit-cactus\_config-name-database} folder, which can be used with \texttt{HPCToolkit}'s provided profile visualization tool called \href{http://hpctoolkit.org/download.html}{\texttt{hpcviewer}}. See chapter 10 of the \texttt{HPCToolkit} \href{http://hpctoolkit.org/manual/HPCToolkit-users-manual.pdf}{manual} for usage details.
