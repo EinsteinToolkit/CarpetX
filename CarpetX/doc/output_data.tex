@@ -117,6 +117,16 @@ When using \texttt{openPMD} output, \CarpetX\space can produce files that can be
 
 When loading data into \texttt{VisIt}, users must open the \texttt{*.pmd.visit} file produced together with the simulation output. It is also \textit{imperative} to select the file format as \texttt{ADIOS2} in \texttt{VisIt}'s file selector window, otherwise the files will not be loaded correctly.
 
+In addition to \texttt{VisIt}, users can find in the \texttt{CarpetX/doc/openpmd-plot} folder a sample \texttt{Python} script for extracting and plotting data from \CarpetX\space produced \texttt{openPMD} files. The best way to interact with the script is using a \texttt{Python} virtual environment. First, navigate to the \texttt{CarpetX/doc/openpmd-plot} and issue the following commands:
+
+\begin{lstlisting}[language=bash]
+python -m venv venv             # Creates the virtual environment.
+source venv/bin/activate        # Activates the virtual environment.
+pip install -r requirements.txy # Installs required packages.
+python plot-zslice.py -h        # See the options available.
+deactivate                      # Exits the environment when done.
+\end{lstlisting}
+
 \subsection{Pure \texttt{ADIOS2} files}
 
 To output pure \texttt{ADIOS2 BP5} files, (without \texttt{openPMD} formatting), users can use the parameters described in Tab.~\ref{tab:adios2_params}. Note that this output mode produces \texttt{BP5} files, which cannot be read by \texttt{VisIt} (at the time of writing). Users may have to rely on their own tools and scripts for data processing and visualization.

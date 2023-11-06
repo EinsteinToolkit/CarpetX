@@ -8,4 +8,4 @@ doc/*.synctex.gz
 doc/*.toc
 doc/*.pdf
 
-doc/coco/venv/*
+doc/openpmd-plot/venv/*

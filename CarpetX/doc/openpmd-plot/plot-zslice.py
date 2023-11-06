@@ -4,13 +4,9 @@ import numpy as np
 import matplotlib
 import os
 import re
-#import sys
 import argparse
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-#home = os.environ["HOME"]
-#out_dir = sys.argv[1]
-from inspect import isfunction
 
 parser = argparse.ArgumentParser(prog='plot-zslice', description='Python-Based Plotting Program for Carpet/CarpetX')
 parser.add_argument('--out-dir', type=str, default='.', help='Directory to write files to')
@@ -34,13 +30,22 @@ data_index = args.data_index
 
 is_carpet = False
 is_carpetx = False
+ext = ""
 for f in os.listdir(data_dir):
     if f.endswith(".xy.asc"):
         is_carpet = True
     elif f.endswith(".bp"):
         is_carpetx = True
+        ext = ".bp"
+    elif f.endswith(".bp3"):
+        is_carpetx = True
+        ext = ".bp3"
+    elif f.endswith(".bp4"):
+        is_carpetx = True
+        ext = ".bp4"
     elif f.endswith(".bp5"):
         is_carpetx = True
+        ext = ".bp5"
 
 assert is_carpet ^ is_carpetx, data_dir
 
@@ -50,14 +55,14 @@ def carpetx() -> None:
     thorn = thorn.lower()
     basename = None
     for f in os.listdir(data_dir):
-        g = re.match(r'(.*)\.it\d+\.bp5?$', f)
+        g = re.match(r'(.*)\.it\d+\.bp[345]?$', f)
         if g:
             basename = g.group(1)
             break
     assert basename is not None, "Could not find any appropriate .bp files in data-dir."
 
     import openpmd_api as io
-    fname = f"{data_dir}/{basename}.it%08T.bp5"
+    fname = f"{data_dir}/{basename}.it%08T" + ext
     print("reading:",fname)
     series = io.Series(fname, io.Access.read_only)
     print("openPMD version: ", series.openPMD)
