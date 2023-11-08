@@ -307,6 +307,25 @@ template <typename T, int order, int centering> struct interpolator {
 
 } // namespace
 
+int InterpLocalUniform(int /*N_dims*/, int /*param_table_handle*/,
+                       /***** coordinate system *****/
+                       const CCTK_REAL /*coord_origin*/[],
+                       const CCTK_REAL /*coord_delta*/[],
+                       /***** interpolation points *****/
+                       int /*N_interp_points*/, int /*interp_coords_type_code*/,
+                       const void *const /*interp_coords*/[],
+                       /***** input arrays *****/
+                       int /*N_input_arrays*/,
+                       const CCTK_INT /*input_array_dims*/[],
+                       const CCTK_INT /*input_array_type_codes*/[],
+                       const void *const /*input_arrays*/[],
+                       /***** output arrays *****/
+                       int /*N_output_arrays*/,
+                       const CCTK_INT /*output_array_type_codes*/[],
+                       void *const /*output_arrays*/[]) {
+  CCTK_ERROR("Dummy InterpLocalUniform function called");
+}
+
 extern "C" CCTK_INT CarpetX_InterpGridArrays(
     cGH const *const cctkGH, int const N_dims, int const local_interp_handle,
     int const param_table_handle, int const coord_system_handle,
@@ -341,6 +360,15 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
     CCTK_INT const N_output_arrays, CCTK_INT const output_array_type_codes[],
     CCTK_POINTER const output_arrays[]) {
   DECLARE_CCTK_PARAMETERS;
+
+  // We do not support local interpolators yet
+  const int carpetx_interp_handle = CCTK_InterpHandle("CarpetX");
+  assert(carpetx_interp_handle >= 0);
+  if (carpetx_interp_handle != local_interp_handle) {
+    CCTK_VERROR("Incorrect local interpolator handle provided, only 'CarpetX' "
+                "is allowed: %d != %d",
+                local_interp_handle, carpetx_interp_handle);
+  }
 
   // This verifies that the order in param_table_handle matches the order of the
   // runtime parameter from CarpetX

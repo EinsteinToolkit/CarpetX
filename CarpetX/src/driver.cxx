@@ -2301,6 +2301,11 @@ extern "C" int CarpetX_Startup() {
   CCTK_OverloadInterpGridArrays(CarpetX_InterpGridArrays);
   CCTK_OverloadArrayGroupSizeB(ArrayGroupSizeB);
   CCTK_OverloadGroupDynamicData(GroupDynamicData);
+
+  iret = CCTK_InterpRegisterOpLocalUniform(InterpLocalUniform, "CarpetX",
+                                           CCTK_THORNSTRING);
+  assert(!iret && "CCTK_InterpRegisterOpLocalUniform failed");
+
   return 0;
 }
 
