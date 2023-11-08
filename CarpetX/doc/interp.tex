@@ -20,54 +20,21 @@ Internally, this functionality is implemented by the \texttt{DriverInterpolate} 
   REQUIRES FUNCTION DriverInterpolate
 \end{lstlisting}
 
-Not that \texttt{DriverInterpolate} and \texttt{CCTK\_InterpGridArrays()} receive exactly the same parameters. Again, a complete description of these is given in Sec.~A149 of the \Cactus\space reference manual. Additionally, \CarpetX\space provides a method called \texttt{Interpolate}, with the following signature
-%
+Note that \texttt{DriverInterpolate} and \texttt{CCTK\_InterpGridArrays()} receive exactly the same arguments (again, a complete description of these is given in Sec.~A149 of the \Cactus\space reference manual) but some arguments are unused by \CarpetX. These are \texttt{coord\_system\_handle}, \texttt{interp\_coords\_type\_code}, \texttt{output\_array\_type\_codes} and \texttt{interp\_handle}. Here's and example of a \texttt{DriverInterpolate} call where these ignored parameters are set to zero:
+
 \begin{lstlisting}
-  void Interpolate(
-    const CCTK_POINTER_TO_CONST cctkGH_,
-    const CCTK_INT npoints,
-    const CCTK_REAL *restrict const globalsx,
-    const CCTK_REAL *restrict const globalsy,
-    const CCTK_REAL *restrict const globalsz,
-    const CCTK_INT nvars,
-    const CCTK_INT *restrict const varinds,
-    const CCTK_INT *restrict const operations
-    const CCTK_INT allow_boundaries,
-    const CCTK_POINTER resultptrs_
-  )
+  // DriverInterpolate arguments that aren't currently used
+  CCTK_INT const coord_system_handle = 0;
+  CCTK_INT const interp_coords_type_code = 0;
+  CCTK_INT const output_array_type_codes[1] = {0};
+  int interp_handle = 0;
+
+  // We assume that the other (non-ignored) parameters exist
+  // within the scope but are ommited from this snippet for clarity
+  DriverInterpolate(
+      cctkGH, N_dims, interp_handle, param_table_handle, coord_system_handle,
+      npoints, interp_coords_type_code, interp_coords, nvars, (int const*const)varinds,
+      nvars, output_array_type_codes, output_array);
 \end{lstlisting}
-%
-The parameters are \todo{(parameters need to be actually filled)}
-%
-\begin{itemize}
-  \item \texttt{const CCTK\_POINTER\_TO\_CONST cctkGH\_}: Pointer to the \Cactus\space \textit{grid hierarchy}. This is implicitly provided to all functions using the \texttt{DECLARE\_CCTK\_ARGUMENTS\_*} family of macros via the \texttt{cctkGH} variable.
-
-  \item \texttt{const CCTK\_INT npoints}:
-  \item \texttt{const CCTK\_REAL *restrict const globalsx}:
-  \item \texttt{const CCTK\_REAL *restrict const globalsy}:
-  \item \texttt{const CCTK\_REAL *restrict const globalsz}:
-  \item \texttt{const CCTK\_INT nvars}:
-  \item \texttt{const CCTK\_INT *restrict const varinds}:
-  \item \texttt{const CCTK\_INT *restrict const operations}:
-  \item \texttt{const CCTK\_INT allow\_boundaries}:
-  \item \texttt{const CCTK\_POINTER resultptrs\_}:
-\end{itemize}
-
-In order to call it, users should add the following to their \texttt{interface.ccl} files
-%
-\begin{lstlisting}
-  void FUNCTION Interpolate(
-    CCTK_POINTER_TO_CONST IN cctkGH,
-    CCTK_INT IN npoints,
-    CCTK_REAL ARRAY IN coordsx,
-    CCTK_REAL ARRAY IN coordsy,
-    CCTK_REAL ARRAY IN coordsz,
-    CCTK_INT IN nvars,
-    CCTK_INT ARRAY IN varinds,
-    CCTK_INT ARRAY IN operations,
-    CCTK_INT IN allow_boundaries,
-    CCTK_POINTER IN resultptrs)
-  REQUIRES FUNCTION Interpolate
-\end{lstlisting} 
 
 Lastly, to control the order of the interpolation operators, users can set the \texttt{CarpetX::interpolation\_order} parameter, which defaults to 1 and must be greater than 0.
