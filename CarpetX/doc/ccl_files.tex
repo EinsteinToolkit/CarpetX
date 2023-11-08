@@ -125,14 +125,19 @@ The parameters \texttt{CarpetX::checkpoint\_method} and \texttt{CarpetX::recover
   \label{tab:checkpoint_recovery}
 \end{table}
 
-\todo{Using \texttt{TerminationTrigger} to control checkpointing does not work yet. Furthermore, there seems to be a bug when recovering from a checkpoint file. The instructions on the next paragraph work to produce a checkpoint that is readable by \CarpetX, but it has invalid boundaries and ghost points so \CarpetX\space cannot continue iteration}
+\todo{Using \texttt{TerminationTrigger} to control checkpointing does not work yet.}
 
-To control when a checkpoint is to be produced, users first need to set the flash parameter \texttt{Cactus::terminate}, which controls under which conditions a simulation is to be terminated (see Sec.~D5.2 of the \Cactus\space user guide for further details on possible values for this parameter). After that, they can control various aspects of the checkpoint files produced, such as name and checkpoint file production on termination by setting parameters in the \texttt{IO} thorn. This is an infrastructure thorn that is always active and communicates its settings to \CarpetX, which is effectively responsible for writing data to disk. To see all available parameters that can be set in \texttt{IO}, read the file \texttt{Cactus/repos/cactusbase/IOUtil/param.ccl} lines 137-205. These parameters are well documented in this file.
+To control when a checkpoint is to be produced, users first need to set the flash parameter \texttt{Cactus::terminate}, which controls under which conditions a simulation is to be terminated (see Sec.~D5.2 of the \Cactus\space user guide for further details on possible values for this parameter). After that, they can control various aspects of the checkpoint files produced, such as name and checkpoint file production on termination by setting parameters in the \texttt{IO} thorn. This is an infrastructure thorn that is always active and communicates its settings to \CarpetX, which is effectively responsible for writing data to disk. To see all available parameters that can be set in \texttt{IO}, read the file \texttt{Cactus/repos/cactusbase/IOUtil/param.ccl} lines 137-205. These parameters are well documented in this file. 
+
+Additionally, it is \textit{imperative} to set the flash's presync mode to \texttt{"presync-only"} by adding \texttt{Cactus::presync\_mode = "presync-only"} to the simulation's parameter file. Failure to do so will cause the recovered checkpoints to be valid only on the interior and not on ghosts and boundaries (See Sec.~D5.2 of the \Cactus\space user guide for more information on presync modes).
 
 As an example, we present an excerpt of a parameter file for a simulation that ends after simulation time reaches $t=100$, but we allow \Cactus\space running for only 1 minute of wall time. For the physical system being simulated, such execution time is not enough for the system to reach $t=100$, thus the execution of \Cactus\space will be terminated before the system is completely evolved. We would like to be able to recover from the last iteration performed by the system in subsequent executions of \Cactus. To do that, we will configure the \texttt{IO} thorn to produce checkpoint files upon \Cactus\space termination.
 
 \begin{lstlisting}[language=bash]
-  # The type of checkpoint and recovery files that should be used by CarpetX
+  # Required in order to recover successfully
+  Cactus::presync_mode = "presync-only"
+
+  # The type of checkpoint and recovery files that should be used
   CarpetX::checkpoint_method = "openpmd"
   CarpetX::recover_method    = "openpmd"
 
