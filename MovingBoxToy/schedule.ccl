@@ -1,0 +1,15 @@
+# Schedule definitions for thorn MovingBoxToy
+
+SCHEDULE MovingBoxToy_MoveBoxes AT postinitial BEFORE EstimateError
+{
+  LANG: C
+  READS: BoxInBox::positions
+  WRITES: BoxInBox::positions
+} "Update box positions"
+
+SCHEDULE MovingBoxToy_MoveBoxes AT poststep BEFORE EstimateError
+{
+  LANG: C
+  READS: BoxInBox::positions
+  WRITES: BoxInBox::positions
+} "Update box positions"
