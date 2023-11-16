@@ -1,0 +1,7 @@
+To debug \CarpetX\space applications, users have access to the following parameters: 
+%
+\begin{itemize}
+    \item \texttt{verbose}: A boolean parameter that controls weather or not \CarpetX\space produces verbose output. This output details more of what the driver is doing internally, aiding users in finding bugs. Its default value is \texttt{no}.
+
+    \item \texttt{poison\_undefined\_values}: Sets undefined grid point values to \texttt{NaN} (not a number). By visualizing locations where grid functions contain \texttt{NaN}s, users can determine which grid points are not being filled correctly. Its default value is \texttt{yes}.
+\end{itemize}

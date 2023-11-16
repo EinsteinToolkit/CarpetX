@@ -1,0 +1,232 @@
+% *======================================================================*
+%  Cactus Thorn template for ThornGuide documentation
+%  Author: Ian Kelley
+%  Date: Sun Jun 02, 2002
+%  $Header$
+%
+%  Thorn documentation in the latex file doc/documentation.tex
+%  will be included in ThornGuides built with the Cactus make system.
+%  The scripts employed by the make system automatically include
+%  pages about variables, parameters and scheduling parsed from the
+%  relevant thorn CCL files.
+%
+%  This template contains guidelines which help to assure that your
+%  documentation will be correctly added to ThornGuides. More
+%  information is available in the Cactus UsersGuide.
+%
+%  Guidelines:
+%   - Do not change anything before the line
+%       % START CACTUS THORNGUIDE",
+%     except for filling in the title, author, date, etc. fields.
+%        - Each of these fields should only be on ONE line.
+%        - Author names should be separated with a \\ or a comma.
+%   - You can define your own macros, but they must appear after
+%     the START CACTUS THORNGUIDE line, and must not redefine standard
+%     latex commands.
+%   - To avoid name clashes with other thorns, 'labels', 'citations',
+%     'references', and 'image' names should conform to the following
+%     convention:
+%       ARRANGEMENT_THORN_LABEL
+%     For example, an image wave.eps in the arrangement CactusWave and
+%     thorn WaveToyC should be renamed to CactusWave_WaveToyC_wave.eps
+%   - Graphics should only be included using the graphicx package.
+%     More specifically, with the "\includegraphics" command.  Do
+%     not specify any graphic file extensions in your .tex file. This
+%     will allow us to create a PDF version of the ThornGuide
+%     via pdflatex.
+%   - References should be included with the latex "\bibitem" command.
+%   - Use \begin{abstract}...\end{abstract} instead of \abstract{...}
+%   - Do not use \appendix, instead include any appendices you need as
+%     standard sections.
+%   - For the benefit of our Perl scripts, and for future extensions,
+%     please use simple latex.
+%
+% *======================================================================*
+%
+% Example of including a graphic image:
+%    \begin{figure}[ht]
+% 	\begin{center}
+%    	   \includegraphics[width=6cm]{MyArrangement_MyThorn_MyFigure}
+% 	\end{center}
+% 	\caption{Illustration of this and that}
+% 	\label{MyArrangement_MyThorn_MyLabel}
+%    \end{figure}
+%
+% Example of using a label:
+%   \label{MyArrangement_MyThorn_MyLabel}
+%
+% Example of a citation:
+%    \cite{MyArrangement_MyThorn_Author99}
+%
+% Example of including a reference
+%   \bibitem{MyArrangement_MyThorn_Author99}
+%   {J. Author, {\em The Title of the Book, Journal, or periodical}, 1 (1999),
+%   1--16. {\tt http://www.nowhere.com/}}
+%
+% *======================================================================*
+
+% If you are using CVS use this line to give version information
+% $Header$
+
+\documentclass{article}
+
+% Use the Cactus ThornGuide style file
+% (Automatically used from Cactus distribution, if you have a
+%  thorn without the Cactus Flesh download this from the Cactus
+%  homepage at www.cactuscode.org)
+\usepackage{../../../../doc/latex/cactus}
+\usepackage{listings}
+\usepackage{graphics}
+\usepackage{amsmath}
+
+\usepackage[svgnames]{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,urlcolor=Blue,linkcolor=Blue,citecolor=CornflowerBlue,naturalnames=true,hypertexnames=true}
+
+\usepackage{tabularx}
+
+% Code listing boxes
+\lstset{
+    language=C++,
+    breaklines=true,
+    basicstyle=\tt,
+    keywordstyle=\color{blue},
+    identifierstyle=\color{magenta},
+    frame=single,
+    numbers=left,
+    stepnumber=1,
+    showstringspaces=false,
+}
+
+\begin{document}
+
+% The author of the documentation
+\author{
+    Erik Schnetter \textless eriks@email.com\textgreater \\
+    Lucas Timotheo Sanches \textless lucas.t.s.carneiro@gmail.com\textgreater \\
+    Steven R. Brandt \textless sbrandt@cct.lsu.edu\textgreater\\
+}
+
+% The title of the document (not necessarily the name of the Thorn)
+\title{\texttt{CarpetX} User Manual}
+
+% the date your document was last changed, if your document is in CVS,
+% please use:
+%    \date{$ $Date$ $}
+% when using git instead record the commit ID:
+%    \date{$ $Id$ $}
+% and add this line to your repos' .gitattributes file:
+% **.tex ident
+\date{\today} % TODO: This should be replaced with the final date once we are done
+
+\maketitle
+
+% Do not delete next line
+% START CACTUS THORNGUIDE
+
+% Add all definitions used in this documentation here
+\newcommand{\CarpetX}{\texttt{CarpetX}}
+\newcommand{\Cactus}{\texttt{Cactus}}
+\newcommand{\AMReX}{\texttt{AMReX}}
+\newcommand{\ETK}{\texttt{Einstein Toolkit}}
+\newcommand{\todo}[1]{\textcolor{red}{TODO: #1}}
+
+\begin{figure*}[ht]
+    \begin{center}
+        \includegraphics[width=6cm]{logo.png}
+    \end{center}
+    \label{fig:logo}
+\end{figure*}
+
+\newpage
+
+% Add an abstract for this thorn's documentation
+\begin{abstract}
+
+\CarpetX\space is a \href{https://www.cactuscode.org/index.html}{\Cactus} driver thorn based on \href{https://amrex-codes.github.io/}{\AMReX}, a software framework for block-structured AMR (adaptive mesh refinement). \CarpetX\space is intended for the \href{https://einsteintoolkit.org/}{\ETK}.
+
+Driver thorns are special modules that provide distributed data structures, refine meshes, perform memory allocation, and interfaces to parallel computing hardware and software. In short, they provide all the low-level basic infrastructure needed for any scientific simulation.
+
+\end{abstract}
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\label{sec:intro}
+\input{intro.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Building and using standard images}
+\label{sec:std_imgs}
+\input{images.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{CCL file settings and macros}
+\label{sec:ccl_files}
+\input{ccl_files.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Creating grids}
+\label{sec:grids}
+\input{grids.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Loops over grid elements}
+\label{sec:loops}
+\input{loops.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Time integration using \texttt{ODESolvers}}
+\label{sec:odesolvers}
+\input{ode_solvers.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Adding and controlling AMR}
+\label{sec:amr}
+\input{amr.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Boundary conditions and symmetries}
+\label{sec:bcs}
+\include{bcs.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Interpolation}
+\label{sec:interpolation}
+\include{interp.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Performance tuning}
+\label{sec:perf_tuning}
+\input{perf_tuning.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Profiling}
+\label{sec:profiling}
+\input{profiling.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Outputting data}
+\label{sec:data}
+\input{output_data.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Debugging}
+\label{sec:debugging}
+\input{debugging.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Acknowledgements}
+
+\begin{thebibliography}{9}
+\end{thebibliography}
+
+% Do not delete next line
+% END CACTUS THORNGUIDE
+
+\end{document}

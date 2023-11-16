@@ -1,0 +1,42 @@
+In this section, we will describe \CarpetX's parameters used for describing the simulation domain. Currently, \CarpetX\space supports only Cartesian grids. To control the grid's extents, users must utilize parameters described in Tab.~\ref{tab:grid_sizes}. To control the number of cells in each direction, users must set the parameters described in Tab.~\ref{tab:num_cells}. Finally, to control the number of ghost zones in the grid, users must set the parameters described in Tab.~\ref{tab:ghost_sizes}. It is important to note that the size of all ghost zones can be set at once via \texttt{ghost\_size} parameter or via the \texttt{ghost\_size\_xyz} family of parameters if \texttt{ghost\_size} is set to $-1$
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{ccc}
+  Parameter     & Description                                    & Default value \\\hline\hline
+  \texttt{xmin} & Minimum value of the grid in the $x$ direction & $-1.0$        \\
+  \texttt{xmax} & Maximum value of the grid in the $x$ direction & $1.0$         \\
+  \texttt{ymin} & Minimum value of the grid in the $y$ direction & $-1.0$        \\
+  \texttt{ymax} & Maximum value of the grid in the $y$ direction & $1.0$         \\
+  \texttt{zmin} & Minimum value of the grid in the $z$ direction & $-1.0$        \\
+  \texttt{zmax} & Maximum value of the grid in the $z$ direction & $1.0$         \\\hline\hline
+  \end{tabular}
+  \caption{Parameters controlling grid extents in \CarpetX.}
+  \label{tab:grid_sizes}
+\end{table}
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{ccc}
+  Parameter          & Description                               & Default value \\\hline\hline
+  \texttt{ncells\_x} & Number of grid cells in the $x$ direction & $128$         \\
+  \texttt{ncells\_y} & Number of grid cells in the $y$ direction & $128$         \\
+  \texttt{ncells\_z} & Number of grid cells in the $z$ direction & $128$         \\\hline\hline
+  \end{tabular}
+  \caption{Parameters controlling grid resolutions in \CarpetX.}
+  \label{tab:num_cells}
+\end{table}
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{ccc}
+  Parameter             & Description                                & Default value \\\hline\hline
+  \texttt{ghost\_size}    & Number of grid cells in all directions.    & $-1$          \\
+  \texttt{ghost\_size\_x} & Number of ghost zones in the $x$ direction & $1$           \\
+  \texttt{ghost\_size\_y} & Number of ghost zones in the $y$ direction & $1$           \\
+  \texttt{ghost\_size\_z} & Number of ghost zones in the $z$ direction & $1$           \\\hline\hline
+  \end{tabular}
+  \caption{Parameters controlling the number of grid ghost zones in \CarpetX.}
+  \label{tab:ghost_sizes}
+\end{table}
+

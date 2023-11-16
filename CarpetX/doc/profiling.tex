@@ -1,0 +1,39 @@
+Profiling refers to the act of collecting runtime and other performance data on the execution of an application in order to improve its performance characteristics. The recommended way of profiling \CarpetX\space applications is using \href{http://hpctoolkit.org/}{\texttt{HPCToolkit}}. We recommend that user first read the software's \href{http://hpctoolkit.org/manual/HPCToolkit-users-manual.pdf}{documentation} thoroughly. 
+
+Installing \texttt{HPCToolkit} on an HPC system will probably require the help of the system's administrators. Once installed, the application should be launched with the \texttt{hpcrun} command, which will automatically collect performance data from the launched application. To profile \CarpetX\space while using an HPC system, the recommended steps are:
+%
+\begin{enumerate}
+  \item Launch an interactive section with the cluster's job system. In this session, the \texttt{mpirun} and \texttt{hpcrun} commands should be available.
+  
+  \item Navigate to the directory where the \Cactus\space executable is located. Given a configuration named \texttt{config-name}, the executable is located in \texttt{Cactus/exe/cactus\_config-name}.
+  
+  \item Select a parameter file to execute and gather performance information on. Let us call it \texttt{perf.par} and suppose that it is located in \texttt{Cactus/exe/}.
+  
+  \item Assuming that the system's \texttt{MPI} launcher is called \texttt{mpirun}, to profile a CPU application, issue
+  %
+  \begin{lstlisting}[language=bash]
+    mpirun hpcrun ./cactus_config-name perf.par
+  \end{lstlisting}
+  %
+  To profile a GPU application, issue
+  %
+  \begin{lstlisting}[language=bash]
+    mpirun hpcrun -e gpu=<vendor> ./cactus_config-name perf.par
+  \end{lstlisting}
+  %
+  where \texttt{<vendor>} is either \texttt{nvidia} or \texttt{amd}, depending on which GPU chips are available in the system.
+
+  \item After \Cactus\space completes the evolution, a new folder called \texttt{hpctoolkit-cactus\_config-name-measurements} will be created on the same directory where \texttt{hpcrun} was executed. \texttt{HPCToolkit} needs to recover program structure in order to create better profiling information. To do that, issue
+  %
+  \begin{lstlisting}[language=bash]
+    hpcstruct hpctoolkit-cactus_config-name-measurements
+  \end{lstlisting}
+
+  \item Finally, to have \texttt{HPCToolkit} analyze measurements and attribute it to source code, issue
+  %
+  \begin{lstlisting}[language=bash]
+    hpcprof hpctoolkit-cactus_config-name-measurements
+  \end{lstlisting}
+\end{enumerate}
+
+This will generate the \texttt{hpctoolkit-cactus\_config-name-database} folder, which can be used with \texttt{HPCToolkit}'s provided profile visualization tool called \href{http://hpctoolkit.org/download.html}{\texttt{hpcviewer}}. See chapter 10 of the \texttt{HPCToolkit} \href{http://hpctoolkit.org/manual/HPCToolkit-users-manual.pdf}{manual} for usage details.

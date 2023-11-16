@@ -1,0 +1,157 @@
+CCL files are used to define cactus thorns and customize its behavior. In this section, we shall discuss the additions that \CarpetX\space brigs to these files, but we shall not teach users how to write them from scratch. In order to learn more, refer to Sec.~C of the \Cactus\space user guide provided in the \texttt{doc} folder of all distributions.
+
+Users may need to require certain thorns explicitly in \texttt{configuration.ccl} files when using \CarpetX\space APIs or schedule functions at specific bins provided by thorns in the \CarpetX\space arrangement. These thorn-specific additions are documented in the thorn's section of this text.
+
+An important point to note is that \CarpetX\space strongly enforces read, write and location statement correctness at runtime and compile time as declared in \texttt{schedule.ccl} files. This means that one is not able to write to a variable declared as \texttt{READ}. \CarpetX\space also marks points in regions as valid or invalid and impedes user of reading from invalid data points. These extra measures help users prevent common memory and region access bugs. 
+
+\subsection{Macros}
+
+In their \texttt{C++} code, users should always use the \texttt{DECLARE\_CCTK\_ARGUMENTSX\_<scheduled function name>} macro to ensure that only the objects declared in the function's schedule block in \texttt{schedule.ccl} are brought into scope, as well as other objects necessary for working with \CarpetX.
+
+ \subsection{Centering}
+
+The centering of a grid function is declared via \texttt{CENTERING={<centering-code>}}, where \texttt{<centering-code>} is a three-letter code containing any combination of either \texttt{c} or \texttt{v}, representing cell centering and vertex centering, respectively in \texttt{interface.ccl} files. For example, to declare a group of variables as being cell centered, one would use
+%
+\begin{lstlisting}
+  CCTK_<type> <group-name> CENTERING={ccc}
+  {
+    ...
+  } "A group of variables"
+\end{lstlisting}
+
+Similarly, for a vertex centered group one would use
+%
+\begin{lstlisting}
+  CCTK_<type> <group-name> CENTERING={vvv}
+  {
+    ...
+  } "A group of variables"
+\end{lstlisting}
+
+Note that it is possible to mix centering indexes. For example, to have a quantity centered at faces in the x direction, one would write
+%
+\begin{lstlisting}
+  CCTK_<type> <group-name> CENTERING={cvv}
+  {
+    ...
+  } "A group of variables"
+\end{lstlisting}
+
+Not also that if no \texttt{CENTERING} is specified, \CarpetX\space assumes that the variable group is vertex centered in all directions.
+
+Finally, it is very important to match the centering description in interface files with the description passed to loop API template arguments. See Sec.~\ref{sec:loops} for details.
+
+\subsection{Tags}
+\label{sec:tags}
+
+Tags are declared in interface statements (in \texttt{interface.ccl}) with the \texttt{TAGS=<tags>} syntax. The \texttt{<tags>} declaration consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. For example, a tagged interface declaration will be similar to the following
+%
+\begin{lstlisting}[language=bash]
+  CCTK_<type> <group-name> TAGS='key_1="key1" key_2="key2" ...'
+  {
+    ...
+  } "A group of variables"
+\end{lstlisting}
+
+We will now list the tags supported by \CarpetX\space and describe their usage.
+
+\subsubsection{\texttt{rhs}}
+
+Marks a group of grid variables as the RHS (right-hand side) of a system. \texttt{ODESolvers} uses this information to perform time steps and update a state vector (See Sec.~\ref{sec:odesolvers} for more information). For example, in
+%
+\begin{lstlisting}[language=bash]
+  CCTK_<type> state_vector TAGS='rhs="right_hand_side"'
+  {
+    ...
+  } "A group of variables representing the PDE system state"
+
+  CCTK_<type> right_hand_side
+  {
+    ...
+  } "A group of variables representing the PDE RHS"
+\end{lstlisting}
+%
+the \texttt{rhs="right\_hand\_side"} tag indicates that the group named \texttt{state\_vector} has a corresponding RHS group named \texttt{right\_hand\_side}.
+
+\begin{lstlisting}[language=bash]
+  CCTK_<type> state_vector TAGS='rhs="right_hand_side"'
+  {
+    ...
+  } "A group of variables representing the PDE system state"
+\end{lstlisting}
+
+\subsubsection{\texttt{dependents}}
+
+Indicates that the groups of variables contained on this tag must be marked as invalid if there are any changes to the group being declared. For example, in
+%
+\begin{lstlisting}[language=bash]
+  CCTK_<type> parent_group TAGS='dependents="child1 child2"'
+  {
+    ...
+  } "A group of real variables"
+\end{lstlisting}
+%
+the tag \texttt{dependents="child1 child2"} indicates that \texttt{parent\_group} has two dependent groups, \texttt{child1} and \texttt{child2}. Whenever \CarpetX\space writes to variables in \texttt{parent\_group}, variables in \texttt{child1} and \texttt{child2} are marked as invalid and cannot be read from unless written to again.
+
+\subsubsection{\texttt{checkpoint}}
+
+Indicates that a variable group must be saved as a simulation checkpoint. \Cactus\space and \CarpetX\space can then later recover the saved checkpoint variables and restore the simulation state to continue evolution from there. Usually, only state vectors are checkpointed (See Chap. A3 of the \Cactus user manual for further details). For example, in
+%
+\begin{lstlisting}[language=bash]
+  CCTK_<type> state_vector TAGS='checkpoint="yes"'
+  {
+    ...
+  } "A group of real variables describing the simulation state"
+
+  CCTK_<type> right_hand_side TAGS='checkpoint="no"'
+  {
+    ...
+  } "A group of real variables describing the simulation RHS"
+\end{lstlisting}
+%
+the simulation state, represented by the \texttt{state\_vector} group is checkpointed, while the \texttt{right\_hand\_side} group is not.
+
+The parameters \texttt{CarpetX::checkpoint\_method} and \texttt{CarpetX::recover\_method} control \CarpetX's behavior during variable checkpointing and recovery, respectively. Both parameters accept the same keyword values, described in Tab.~\ref{tab:checkpoint_recovery}
+
+\begin{table}[hb]
+  \centering
+  \begin{tabular}{cc}
+  Setting value    & Effect                                                         \\ \hline\hline
+  \texttt{error}   & Abort with error instead of checkpointing/recovering (default) \\
+  \texttt{openpmd} & Uses \texttt{openpmd} formatted files for writing checkpoints  \\
+  \texttt{silo}    & Uses \texttt{silo} files for writing checkpoints               \\ \hline\hline
+  \end{tabular}
+  \caption{Possible values for \texttt{CarpetX::checkpoint\_method} and \texttt{CarpetX::recover\_method} and their effects on checkpointing and recovery.}
+  \label{tab:checkpoint_recovery}
+\end{table}
+
+\todo{Using \texttt{TerminationTrigger} to control checkpointing does not work yet.}
+
+To control when a checkpoint is to be produced, users first need to set the flash parameter \texttt{Cactus::terminate}, which controls under which conditions a simulation is to be terminated (see Sec.~D5.2 of the \Cactus\space user guide for further details on possible values for this parameter). After that, they can control various aspects of the checkpoint files produced, such as name and checkpoint file production on termination by setting parameters in the \texttt{IO} thorn. This is an infrastructure thorn that is always active and communicates its settings to \CarpetX, which is effectively responsible for writing data to disk. To see all available parameters that can be set in \texttt{IO}, read the file \texttt{Cactus/repos/cactusbase/IOUtil/param.ccl} lines 137-205. These parameters are well documented in this file. 
+
+Additionally, it is \textit{imperative} to set the flash's presync mode to \texttt{"presync-only"} by adding \texttt{Cactus::presync\_mode = "presync-only"} to the simulation's parameter file. Failure to do so will cause the recovered checkpoints to be valid only on the interior and not on ghosts and boundaries (See Sec.~D5.2 of the \Cactus\space user guide for more information on presync modes).
+
+As an example, we present an excerpt of a parameter file for a simulation that ends after simulation time reaches $t=100$, but we allow \Cactus\space running for only 1 minute of wall time. For the physical system being simulated, such execution time is not enough for the system to reach $t=100$, thus the execution of \Cactus\space will be terminated before the system is completely evolved. We would like to be able to recover from the last iteration performed by the system in subsequent executions of \Cactus. To do that, we will configure the \texttt{IO} thorn to produce checkpoint files upon \Cactus\space termination.
+
+\begin{lstlisting}[language=bash]
+  # Required in order to recover successfully
+  Cactus::presync_mode = "presync-only"
+
+  # The type of checkpoint and recovery files that should be used
+  CarpetX::checkpoint_method = "openpmd"
+  CarpetX::recover_method    = "openpmd"
+
+  # Schedule termination of the simulation for 1 minute of wall time
+  Cactus::terminate       = "runtime"
+  Cactus::cctk_final_time = 100.0
+  Cactus::max_runtime     = 1.0
+
+  # Configure IO to produce checkpoint files before terminating
+  IO::checkpoint_ID           = no
+  IO::recover                 = "autoprobe"
+  IO::out_proc_every          = 2
+  IO::checkpoint_on_terminate = yes
+  IO::checkpoint_dir          = "../checkpoints"
+  IO::recover_dir             = "../checkpoints"
+  IO::abort_on_io_errors      = yes
+\end{lstlisting}
