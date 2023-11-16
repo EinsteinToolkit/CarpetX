@@ -22,4 +22,24 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
     CCTK_INT const N_output_arrays, CCTK_INT const output_array_type_codes[],
     CCTK_POINTER const output_arrays[]);
 
+namespace CarpetX {
+// a dummy routine for now
+// TODO: implement this for actual local interpolation
+int InterpLocalUniform(int N_dims, int param_table_handle,
+                       /***** coordinate system *****/
+                       const CCTK_REAL coord_origin[],
+                       const CCTK_REAL coord_delta[],
+                       /***** interpolation points *****/
+                       int N_interp_points, int interp_coords_type_code,
+                       const void *const interp_coords[],
+                       /***** input arrays *****/
+                       int N_input_arrays, const CCTK_INT input_array_dims[],
+                       const CCTK_INT input_array_type_codes[],
+                       const void *const input_arrays[],
+                       /***** output arrays *****/
+                       int N_output_arrays,
+                       const CCTK_INT output_array_type_codes[],
+                       void *const output_arrays[]);
+} // namespace CarpetX
+
 #endif // #ifndef CARPETX_CARPETX_INTERP_HXX

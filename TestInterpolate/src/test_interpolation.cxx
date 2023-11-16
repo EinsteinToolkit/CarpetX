@@ -99,7 +99,10 @@ extern "C" void TestInterpolate_test_interpolation(CCTK_ARGUMENTS) {
   CCTK_INT const coord_system_handle = 0;
   CCTK_INT const interp_coords_type_code = 0;
   CCTK_INT const output_array_type_codes[1] = {0};
-  int interp_handle = 0;
+  int interp_handle = CCTK_InterpHandle("CarpetX");
+
+  if(interp_handle < 0)
+    CCTK_VERROR("Could not obtain inteprolator handle for built-in 'CarpetX' interpolator: %d", interp_handle);
 
   /* Table generation */
   int operands[DIM(all_operations)][DIM(all_varinds)];
