@@ -1,6 +1,6 @@
 # Schedule definitions for thorn BoxInBox
 
-SCHEDULE BoxInBox_Init AT initial
+SCHEDULE BoxInBox_Init AT basegrid
 {
   LANG: C
   OPTIONS: global
