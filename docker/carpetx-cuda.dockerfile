@@ -6,8 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-cuda.dockerfile --tag einsteintoolkit/carpetx:cuda-real32 .
 #     docker push einsteintoolkit/carpetx:cuda-real32
 
-# FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
-FROM nvidia/cuda:12.3.0-devel-ubuntu22.04
+# FROM nvidia/cuda:12.3.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.3.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.UTF-8 \
@@ -19,19 +19,21 @@ WORKDIR /cactus
 
 # Install system packages
 # - Boost on Ubuntu requires OpenMPI
+#        elfutils
+#        python2
 RUN apt-get update && \
     apt-get --yes --no-install-recommends install \
-        build-essential \
         ca-certificates \
         cmake \
         cvs \
         diffutils \
-        elfutils \
         g++ \
+        gcc \
         gdb \
         gfortran \
         git \
         hdf5-tools \
+        language-pack-en \
         less \
         libblosc-dev \
         libboost-all-dev \
@@ -47,13 +49,13 @@ RUN apt-get update && \
         libtool \
         libudev-dev \
         libyaml-cpp-dev \
+        locales \
         m4 \
         meson \
         ninja-build \
         numactl \
         perl \
         pkgconf \
-        python2 \
         python3 \
         python3-pip \
         python3-requests \
@@ -65,45 +67,45 @@ RUN apt-get update && \
         && \
     rm -rf /var/lib/apt/lists/*
 
-# Install HPCToolkit
-# Install this first because it is expensive to build
-RUN mkdir src && \
-    (cd src && \
-    wget https://github.com/spack/spack/archive/refs/tags/v0.21.0.tar.gz && \
-    tar xzf v0.21.0.tar.gz && \
-    export SPACK_ROOT="$(pwd)/spack-0.21.0" && \
-    mkdir -p "${HOME}/.spack" && \
-    echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
-    . ${SPACK_ROOT}/share/spack/setup-env.sh && \
-    spack external find \
-        autoconf \
-        automake \
-        cmake \
-        cuda \
-        diffutils \
-        elfutils \
-        gmake \
-        libtool \
-        m4 \
-        meson \
-        ninja \
-        numactl \
-        perl \
-        pkgconf \
-        python \
-    && \
-    spack install --fail-fast hpctoolkit +cuda ~viewer && \
-    spack view --dependencies no hardlink /hpctoolkit hpctoolkit && \
-    true) && \
-    rm -rf src "${HOME}/.spack"
+# # Install HPCToolkit
+# # Install this first because it is expensive to build
+# RUN mkdir src && \
+#     (cd src && \
+#     wget https://github.com/spack/spack/archive/refs/tags/v0.21.0.tar.gz && \
+#     tar xzf v0.21.0.tar.gz && \
+#     export SPACK_ROOT="$(pwd)/spack-0.21.0" && \
+#     mkdir -p "${HOME}/.spack" && \
+#     echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
+#     . ${SPACK_ROOT}/share/spack/setup-env.sh && \
+#     spack external find \
+#         autoconf \
+#         automake \
+#         cmake \
+#         cuda \
+#         diffutils \
+#         elfutils \
+#         gmake \
+#         libtool \
+#         m4 \
+#         meson \
+#         ninja \
+#         numactl \
+#         perl \
+#         pkgconf \
+#         python \
+#     && \
+#     spack install --fail-fast hpctoolkit +cuda ~viewer && \
+#     spack view --dependencies no hardlink /hpctoolkit hpctoolkit && \
+#     true) && \
+#     rm -rf src "${HOME}/.spack"
 
 # Install blosc2
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.11.2.tar.gz && \
-    tar xzf v2.11.2.tar.gz && \
-    cd c-blosc2-2.11.2 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.11.3.tar.gz && \
+    tar xzf v2.11.3.tar.gz && \
+    cd c-blosc2-2.11.3 && \
     cmake -B build -G Ninja -S . \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -205,9 +207,9 @@ RUN mkdir src && \
 # Silo defines a standard for laying out AMR data in a file
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/LLNL/Silo/releases/download/v4.11/silo-4.11.tar.gz && \
-    tar xzf silo-4.11.tar.gz && \
-    cd silo-4.11 && \
+    wget https://github.com/LLNL/Silo/releases/download/4.11.1/silo-4.11.1.tar.xz && \
+    tar xJf silo-4.11.1.tar.xz && \
+    cd silo-4.11.1 && \
     mkdir build && \
     cd build && \
     ../configure \
@@ -259,9 +261,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/23.11.tar.gz && \
-    tar xzf 23.11.tar.gz && \
-    cd amrex-23.11 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/23.12.tar.gz && \
+    tar xzf 23.12.tar.gz && \
+    cd amrex-23.12 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
