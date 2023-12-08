@@ -320,13 +320,16 @@ struct carpetx_openpmd_t {
   ////////////////////////////////////////////////////////////////////////////////
 
   // Allowed characters are only [A-Za-z_]
-  static std::string make_meshname(const int gi, const int level) {
+  static std::string make_meshname(const int gi, const int patch,
+                                   const int level) {
     std::string groupname = CCTK_FullGroupName(gi);
     groupname = std::regex_replace(groupname, std::regex("::"), "_");
     for (auto &ch : groupname)
       ch = std::tolower(ch);
     std::ostringstream buf;
     buf << groupname;
+    if (patch != -1)
+      buf << "_patch" << setw(2) << setfill('0') << patch;
     if (level != -1)
       // The suffix should be `_lvl<N>`. No `setfill`?
       buf << "_lev" << setw(2) << setfill('0') << level;
@@ -841,7 +844,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
           // Read mesh
 
-          const std::string meshname = make_meshname(gi, leveldata.level);
+          const std::string meshname =
+              make_meshname(gi, leveldata.patch, leveldata.level);
           if (io_verbose)
             CCTK_VINFO("Reading mesh %s...", meshname.c_str());
           assert(read_iter->meshes.count(meshname));
@@ -1049,7 +1053,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
         // Read mesh
 
-        const std::string meshname = make_meshname(gi, -1);
+        const std::string meshname = make_meshname(gi, -1, -1);
         assert(read_iter->meshes.count(meshname));
         const openPMD::Mesh &mesh = read_iter->meshes.at(meshname);
         // TODO: The openPMD standard says to add an attribute
@@ -1455,9 +1459,11 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
           // Create mesh
 
-          const std::string meshname = make_meshname(gi, leveldata.level);
+          const std::string meshname =
+              make_meshname(gi, leveldata.patch, leveldata.level);
           if (io_verbose)
             CCTK_VINFO("Defining mesh %s...", meshname.c_str());
+          assert(!iter.meshes.contains(meshname));
           openPMD::Mesh mesh = iter.meshes[meshname];
 
           mesh.setGeometry(openPMD::Mesh::Geometry::cartesian);
@@ -1657,7 +1663,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
         // Create mesh
 
-        const std::string meshname = make_meshname(gi, -1);
+        const std::string meshname = make_meshname(gi, -1, -1);
         openPMD::Mesh mesh = iter.meshes[meshname];
 
         // mesh.setGeometry(openPMD::Mesh::Geometry::cartesian);
