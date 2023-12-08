@@ -1,0 +1,3 @@
+[
+{ "rank":0, "start":"Thu_Dec_07_14:31:30_2023", "bytes":0, "AWD":{"mus":827, "nCalls":1}, "close_ts":{"mus":221, "nCalls":1}, "meta_lvl1":{"mus":19, "nCalls":1}, "meta_lvl2":{"mus":435, "nCalls":1}, "endstep":{"mus":1505, "nCalls":1}, "transport_0":{"type":"File_POSIX", "close":{"mus":146, "nCalls":1}, "write":{"mus":799, "nCalls":1}, "open":{"mus":1368, "nCalls":1}}, "transport_1":{"type":"File_POSIX", "close":{"mus":99, "nCalls":1}, "write":{"mus":110, "nCalls":5}, "open":{"mus":660, "nCalls":1}} }
+]
