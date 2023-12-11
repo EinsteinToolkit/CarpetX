@@ -67,6 +67,12 @@ openPMD::Format get_format() {
     return openPMD::Format::HDF5;
   if (CCTK_EQUALS(openpmd_format, "ADIOS1"))
     return openPMD::Format::ADIOS1;
+  if (CCTK_EQUALS(openpmd_format, "ADIOS2_auto"))
+#if OPENPMDAPI_VERSION_GE(0, 15, 0)
+    return openPMD::Format::ADIOS2_BP5;
+#else
+    return openPMD::Format::ADIOS2;
+#endif
 #if OPENPMDAPI_VERSION_GE(0, 15, 0)
   if (CCTK_EQUALS(openpmd_format, "ADIOS2_BP"))
     return openPMD::Format::ADIOS2_BP;
