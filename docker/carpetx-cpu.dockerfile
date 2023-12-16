@@ -7,8 +7,8 @@
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
 # jammy is ubuntu:22.04
-# FROM ubuntu:jammy-20231004
-FROM ubuntu:jammy-20231128
+# [GOOD] FROM ubuntu:jammy-20231128
+FROM ubuntu:jammy-20231211.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \

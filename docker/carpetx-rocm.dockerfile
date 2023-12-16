@@ -6,7 +6,9 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real32 .
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
-FROM rocm/dev-ubuntu-22.04:5.7
+# [GOOD] FROM rocm/dev-ubuntu-22.04:5.7
+FROM rocm/dev-ubuntu-22.04:5.7.1
+# [BROKEN] FROM rocm/dev-ubuntu-22.04:6.0
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.UTF-8 \
