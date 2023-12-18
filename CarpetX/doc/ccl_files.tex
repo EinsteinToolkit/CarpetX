@@ -159,11 +159,11 @@ As an example, we present an excerpt of a parameter file for a simulation that e
 \subsection{\texttt{parity}}
 The \texttt{parity} tag controls a tensor's reflection symmetries about the \texttt{x}, \texttt{y} and \texttt{z} axes. There are 3 parities for each tensor component, representing the symmetries about the 3 spatial axes.
 
-For example, a scalar, has \texttt{parities=\{+1\hspace{15pt}+1\hspace{15pt}+1\}}, which indicates that no sign changes take place when the quantity is reflected around the axes. If no \texttt{parities} tag is present in a variable group declaration, it is assumed to be a scalar and \texttt{parities=\{+1\hspace{15pt}+1\hspace{15pt}+1\}} is implicitly assumed. For a vector, the \texttt{parities=\{-1 +1 +1\hspace{15pt}+1 -1 +1\hspace{15pt}+1 +1 -1\}} tag indicates in the first triad of numbers that the vector's \texttt{x} component changes sign while being reflected in the \texttt{x} direction, the second triad indicates that the \texttt{y} component changes sign while reflected in the \texttt{y} direction and the third triad indicates that the \texttt{z} component changes sign while being reflected in the \texttt{z} direction. As an example, let us look at the parities of the energy momentum tensor in general relativity as declared in the \texttt{interface.ccl} file of the \texttt{TmunuBaseX} thorn included in \CarpetX\space: 
+For example, a scalar, has \texttt{parities=\{+1 +1 +1\}}, which indicates that no sign changes take place when the quantity is reflected around the axes. If no \texttt{parities} tag is present in a variable group declaration, it is assumed to be a scalar and \texttt{parities=\{+1 +1 +1\}} is implicitly assumed. For a vector, the \texttt{parities=\{-1 +1 +1\hspace{15pt}+1 -1 +1\hspace{15pt}+1 +1 -1\}} tag indicates in the first triad of numbers that the vector's \texttt{x} component changes sign while being reflected in the \texttt{x} direction, the second triad indicates that the \texttt{y} component changes sign while reflected in the \texttt{y} direction and the third triad indicates that the \texttt{z} component changes sign while being reflected in the \texttt{z} direction. As an example, let us look at the parities of the energy momentum tensor in general relativity as declared in the \texttt{interface.ccl} file of the \texttt{TmunuBaseX} thorn included in \CarpetX\space: 
 %
 \begin{lstlisting}[language=bash]
 # The T_{tt} component represents the energy density and
-# is stored as a scalar. The parities={+1    +1    +1} tag is implicit.
+# is stored as a scalar. The parities={+1 +1 +1} tag is implicit.
 CCTK_REAL eTtt TAGS='checkpoint="no"' TYPE=gf "T_00"
 
 # The T_{ti} components of the tensor are a vector of three entries.
