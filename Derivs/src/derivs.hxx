@@ -409,8 +409,8 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   constexpr T c3 = 1;
   return (c3 * (maskz_loadu(mask, &var[3 * di]) +
                 maskz_loadu(mask, &var[-3 * di])) //
-          + c2 * *(maskz_loadu(mask, &var[2 * di]) +
-                   maskz_loadu(mask, &var[-2 * di]))                          //
+          + c2 * (maskz_loadu(mask, &var[2 * di]) +
+                  maskz_loadu(mask, &var[-2 * di]))                           //
           + c1 * (maskz_loadu(mask, &var[di]) + maskz_loadu(mask, &var[-di])) //
           + c0 * maskz_loadu(mask, &var[0])) /
          dx;
