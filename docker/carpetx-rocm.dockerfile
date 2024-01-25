@@ -270,6 +270,7 @@ RUN mkdir src && \
         real64) precision=DOUBLE;; \
         *) exit 1;; \
     esac && \
+    env LDFLAGS=-Wl,-rpath,/opt/rocm/lib \
     cmake -B build -G Ninja -S . \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_CXX_COMPILER=/opt/rocm/llvm/bin/clang++ \
