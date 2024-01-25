@@ -7,8 +7,7 @@
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
 # jammy is ubuntu:22.04
-# [GOOD] FROM ubuntu:jammy-20231128
-FROM ubuntu:jammy-20231211.1
+FROM ubuntu:jammy-20240111
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -103,9 +102,9 @@ RUN apt-get update && \
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.11.3.tar.gz && \
-    tar xzf v2.11.3.tar.gz && \
-    cd c-blosc2-2.11.3 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.13.1.tar.gz && \
+    tar xzf v2.13.1.tar.gz && \
+    cd c-blosc2-2.13.1 && \
     cmake -B build -G Ninja -S . \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
