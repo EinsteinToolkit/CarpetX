@@ -6,9 +6,7 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real32 .
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
-# [GOOD] FROM rocm/dev-ubuntu-22.04:5.7
-FROM rocm/dev-ubuntu-22.04:5.7.1
-# [BROKEN] FROM rocm/dev-ubuntu-22.04:6.0
+FROM rocm/dev-ubuntu-22.04:6.0
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.UTF-8 \
@@ -34,6 +32,7 @@ RUN apt-get update && \
         gfortran \
         git \
         hdf5-tools \
+        hiprand-dev \
         language-pack-en \
         less \
         libblosc-dev \
@@ -106,9 +105,9 @@ RUN apt-get update && \
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.11.3.tar.gz && \
-    tar xzf v2.11.3.tar.gz && \
-    cd c-blosc2-2.11.3 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.13.1.tar.gz && \
+    tar xzf v2.13.1.tar.gz && \
+    cd c-blosc2-2.13.1 && \
     cmake -B build -G Ninja -S . \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -271,6 +270,7 @@ RUN mkdir src && \
         real64) precision=DOUBLE;; \
         *) exit 1;; \
     esac && \
+    env LDFLAGS=-Wl,-rpath,/opt/rocm/lib \
     cmake -B build -G Ninja -S . \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_CXX_COMPILER=/opt/rocm/llvm/bin/clang++ \
