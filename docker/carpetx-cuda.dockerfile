@@ -102,9 +102,9 @@ RUN apt-get update && \
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.11.3.tar.gz && \
-    tar xzf v2.11.3.tar.gz && \
-    cd c-blosc2-2.11.3 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.13.1.tar.gz && \
+    tar xzf v2.13.1.tar.gz && \
+    cd c-blosc2-2.13.1 && \
     cmake -B build -G Ninja -S . \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
