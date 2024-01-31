@@ -873,7 +873,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
                            make_valid_int());
     }
-    calcupdate(2, dt / 2, 0.0, reals2<2>{1.0, dt / 2}, states<2>{&old, &rhs});
+    calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
 
     calcrhs(3);
     {
