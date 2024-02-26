@@ -1742,7 +1742,8 @@ int Evolve(tFleshConfig *config) {
       total_evolution_output_time += output_finish_time - output_start_time;
 
       active_levels = optional<active_levels_t>();
-    } // for min_level
+      min_level = max_level; // advances to next batch
+    } // while min_level
 
     const double finish_time = gettime();
     double num_cells = 0;
