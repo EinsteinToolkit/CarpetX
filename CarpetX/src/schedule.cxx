@@ -1699,6 +1699,8 @@ int Evolve(tFleshConfig *config) {
         if (min_level < int(patchdata.leveldata.size()))
           level_iteration = patchdata.leveldata.at(min_level).iteration;
       assert(level_iteration != -1);
+      // TODO: if a break is always ok (eg if subcycling factors are strange
+      // or if a for() loop with a continue is required.
       if (level_iteration > iteration)
         break;
 
