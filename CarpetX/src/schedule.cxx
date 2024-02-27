@@ -1676,11 +1676,10 @@ int Evolve(tFleshConfig *config) {
 
     // Loop over all levels, in batches that combine levels that don't
     // subcycle. The level range is [min_level, max_level).
-    int min_level = 0;
-    while (min_level < ghext->num_levels()) {
+    for (int min_level = 0, max_level = min_level + 1 ;
+           min_level < ghext->num_levels() ;
+           min_level = max_level, max_level = min_level + 1) {
       // Find end of batch
-      int max_level = min_level + 1;
-
       while (max_level < ghext->num_levels()) {
         bool level_is_subcycling_level = false;
         for (const auto &patchdata : ghext->patchdata)
@@ -1695,15 +1694,20 @@ int Evolve(tFleshConfig *config) {
       // Skip this batch of levels if it is not active at the current
       // iteration
       rat64 level_iteration = -1;
-      for (const auto &patchdata : ghext->patchdata)
-        if (min_level < int(patchdata.leveldata.size()))
+      for (const auto &patchdata : ghext->patchdata) {
+        if (min_level < int(patchdata.leveldata.size())) {
           level_iteration = patchdata.leveldata.at(min_level).iteration;
+          break;
+        }
+      }
       assert(level_iteration != -1);
       // TODO: if a break is always ok (eg if subcycling factors are strange
       // or if a for() loop with a continue is required.
       if (level_iteration > iteration)
-        break;
+        continue;
 
+      // must not terminate loop iteration due to active_levels being reset at
+      // bootom of loop body
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
       // Advance iteration number on this batch of levels
@@ -1744,7 +1748,6 @@ int Evolve(tFleshConfig *config) {
       total_evolution_output_time += output_finish_time - output_start_time;
 
       active_levels = optional<active_levels_t>();
-      min_level = max_level; // advances to next batch
     } // while min_level
 
     const double finish_time = gettime();
