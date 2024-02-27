@@ -48,8 +48,6 @@ using namespace std;
 
 namespace {
 
-constexpr bool io_verbose = true;
-
 // // Compile-time if-then-else expression
 // template <bool cond, typename T, typename F>
 // constexpr std::enable_if_t<cond, T> ifelse(T &&t, F &&f) {
@@ -210,7 +208,7 @@ int InputSiloParameters(const std::string &input_dir,
 
   if (input_iteration < 0) {
     // Did not find a checkpoint file
-    if (io_verbose) {
+    if (verbose) {
       CCTK_VINFO("Not recovering parameters:");
       CCTK_VINFO("  Could not find a Silo checkpoint file \"%s/%s.*.silo\"",
                  input_dir.c_str(), input_file.c_str());
@@ -502,7 +500,7 @@ void InputSilo(const cGH *restrict const cctkGH,
 
     // Loop over levels
     for (const auto &leveldata : patchdata.leveldata) {
-      if (io_verbose)
+      if (verbose)
         CCTK_VINFO("Reading patch %d level %d", patchdata.patch,
                    leveldata.level);
 
@@ -514,7 +512,7 @@ void InputSilo(const cGH *restrict const cctkGH,
 #warning "TODO: read grid arrays"
         if (CCTK_GroupTypeI(gi) != CCTK_GF)
           continue;
-        if (io_verbose)
+        if (verbose)
           CCTK_VINFO("  Reading group %s", CCTK_FullGroupName(gi));
 
         auto &groupdata = *leveldata.groupdata.at(gi);
@@ -531,7 +529,7 @@ void InputSilo(const cGH *restrict const cctkGH,
         // Loop over components (AMReX boxes)
         const int nfabs = dm.size();
         for (int component = 0; component < nfabs; ++component) {
-          if (io_verbose)
+          if (verbose)
             CCTK_VINFO("    Reading component %d", component);
 
           const int proc = dm[component];
@@ -611,7 +609,7 @@ void InputSilo(const cGH *restrict const cctkGH,
             for (int vi = 0; vi < numvars; ++vi) {
               const std::string varname =
                   make_varname(gi, vi, leveldata.level, component);
-              if (io_verbose)
+              if (verbose)
                 CCTK_VINFO("      Reading variable %s", varname.c_str());
 
               const DB::ptr<DBquadvar> quadvar =
@@ -682,7 +680,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
   if (std::count(output_group.begin(), output_group.end(), true) == 0)
     return;
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("OutputSilo...");
 
   static Timer timer_setup("OutputSilo.setup");
@@ -1673,7 +1671,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
   interval_meta = nullptr;
 
-  if (io_verbose)
+  if (verbose)
     timer.print();
 }
 

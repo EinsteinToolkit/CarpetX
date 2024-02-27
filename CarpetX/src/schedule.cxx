@@ -1758,33 +1758,35 @@ int Evolve(tFleshConfig *config) {
     total_evolution_time += iteration_time;
     const double iterations_per_second = 1 / iteration_time;
     const double cell_updates_per_second = num_cells * iterations_per_second;
-    CCTK_VINFO("Simulation time: %g   "
-               "Iterations per second: %g   "
-               "Simulation time per second: %g",
-               double(cctkGH->cctk_time), iterations_per_second,
-               double(cctkGH->cctk_delta_time * iterations_per_second)
-
-    );
-    // This is the same as H-AMR's "cell updates per second":
-    CCTK_VINFO("Grid cells: %g   "
-               "Grid cell updates per second: %g",
-               num_cells, cell_updates_per_second);
-
     const double total_evolution_compute_time =
         total_evolution_time - total_evolution_output_time;
-    CCTK_VINFO("Performance:");
-    CCTK_VINFO("  total evolution time:            %g sec",
-               total_evolution_time);
-    CCTK_VINFO("  total evolution compute time:    %g sec",
-               total_evolution_compute_time);
-    CCTK_VINFO("  total evolution output time:     %g sec",
-               total_evolution_output_time);
-    CCTK_VINFO("  total iterations:                %d", total_iterations);
-    CCTK_VINFO("  total cells updated:             %g", total_cell_updates);
-    CCTK_VINFO("  average iterations per second: %g",
-               total_iterations / total_evolution_time);
-    CCTK_VINFO("  average cell updates per second: %g",
-               total_cell_updates / total_evolution_time);
+    if (verbose) {
+      CCTK_VINFO("Simulation time: %g   "
+                 "Iterations per second: %g   "
+                 "Simulation time per second: %g",
+                 double(cctkGH->cctk_time), iterations_per_second,
+                 double(cctkGH->cctk_delta_time * iterations_per_second)
+
+      );
+      // This is the same as H-AMR's "cell updates per second":
+      CCTK_VINFO("Grid cells: %g   "
+                 "Grid cell updates per second: %g",
+                 num_cells, cell_updates_per_second);
+
+      CCTK_VINFO("Performance:");
+      CCTK_VINFO("  total evolution time:            %g sec",
+                 total_evolution_time);
+      CCTK_VINFO("  total evolution compute time:    %g sec",
+                 total_evolution_compute_time);
+      CCTK_VINFO("  total evolution output time:     %g sec",
+                 total_evolution_output_time);
+      CCTK_VINFO("  total iterations:                %d", total_iterations);
+      CCTK_VINFO("  total cells updated:             %g", total_cell_updates);
+      CCTK_VINFO("  average iterations per second: %g",
+                 total_iterations / total_evolution_time);
+      CCTK_VINFO("  average cell updates per second: %g",
+                 total_cell_updates / total_evolution_time);
+    }
     // TODO: Output this in a proper I/O method
     if (out_performance && CCTK_MyProc(NULL) == 0) {
       const int every =

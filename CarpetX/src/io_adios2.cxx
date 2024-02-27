@@ -59,8 +59,6 @@ struct carpetx_adios2_t {
 
   ////////////////////////////////////////////////////////////////////////////////
 
-  static constexpr bool io_verbose = true;
-
   static constexpr bool combine_components = true;
   static constexpr bool combine_via_span = true;
 
@@ -198,7 +196,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
   static Timer timer("OutputADIOS2");
   Interval interval(timer);
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("OutputADIOS2...");
 
   if (std::count(output_group.begin(), output_group.end(), true) == 0)
@@ -212,12 +210,12 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
 
     if (!io) {
 
-      if (io_verbose)
+      if (verbose)
         CCTK_VINFO("  Creating ADIOS object...");
       // "Fortran" enables column-major mode
       adios = adios2::ADIOS("", MPI_COMM_WORLD, "Fortran");
 
-      if (io_verbose)
+      if (verbose)
         CCTK_VINFO("  Creating IO object...");
       // The name "IO" must be unique in the ADIOS object
       io = adios.DeclareIO("IO");
@@ -236,7 +234,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
           // {"Threads", std::to_string(omp_get_max_threads())},
       });
 
-      if (io_verbose)
+      if (verbose)
         CCTK_VINFO("  Creating engine...");
       // Create output engine
       std::ostringstream buf;
@@ -252,7 +250,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
       // io.SetEngine("BP5");
       engine = io.Open(filename, adios2::Mode::Write);
 
-      if (io_verbose)
+      if (verbose)
         CCTK_VINFO("  Defining variables...");
 
       // Loop over patches
@@ -297,7 +295,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
                     const int component = mfab.IndexArray().at(local_component);
                     const std::string varname = make_varname(
                         gi, vi, patchdata.patch, leveldata.level, component);
-                    if (io_verbose)
+                    if (verbose)
                       CCTK_VINFO("      Defining variable %s...",
                                  varname.c_str());
                     // const adios2::Variable<CCTK_REAL> var =
@@ -308,7 +306,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
 
                   const std::string varname =
                       make_varname(gi, vi, patchdata.patch, leveldata.level);
-                  if (io_verbose)
+                  if (verbose)
                     CCTK_VINFO("      Defining variable %s...",
                                varname.c_str());
                   // const adios2::Variable<CCTK_REAL> var =
@@ -325,7 +323,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
 
     } // if !adios2_state
 
-    if (io_verbose)
+    if (verbose)
       CCTK_VINFO("  Beginning step...");
     engine.BeginStep();
 
@@ -337,14 +335,14 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
       std::vector<level_t<CCTK_REAL, int, 3> > levels(
           patchdata.leveldata.size());
       for (const auto &leveldata : patchdata.leveldata) {
-        if (io_verbose)
+        if (verbose)
           CCTK_VINFO("  Writing patch %d level %d...", patchdata.patch,
                      leveldata.level);
 
         const int numgroups = CCTK_NumGroups();
         for (int gi = 0; gi < numgroups; ++gi) {
           if (output_group.at(gi)) {
-            if (io_verbose)
+            if (verbose)
               CCTK_VINFO("    Writing group %s...", CCTK_FullGroupName(gi));
 
             cGroup cgroup;
@@ -424,7 +422,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
 
                   const std::string varname = make_varname(
                       gi, vi, patchdata.patch, leveldata.level, component);
-                  if (io_verbose)
+                  if (verbose)
                     CCTK_VINFO("      Writing variable %s...", varname.c_str());
                   adios2::Variable<CCTK_REAL> var =
                       io.InquireVariable<CCTK_REAL>(varname);
@@ -439,7 +437,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
 
                 const std::string varname =
                     make_varname(gi, vi, patchdata.patch, leveldata.level);
-                if (io_verbose)
+                if (verbose)
                   CCTK_VINFO("      Writing variable %s...", varname.c_str());
 
                 const size_t total_np = offsets.back();
@@ -505,11 +503,11 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
     const grid_structure_t<CCTK_REAL, int, 3> grid_structure{
         .patches = std::move(patches)};
 
-    if (io_verbose)
+    if (verbose)
       CCTK_VINFO("  Performing puts...");
     engine.PerformPuts();
 
-    if (io_verbose)
+    if (verbose)
       CCTK_VINFO("  Ending step...");
     engine.EndStep();
 
@@ -524,16 +522,18 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
     CCTK_Abort(nullptr, 1);
   }
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("OutputADIOS2 done.");
 
-  if (io_verbose)
+  if (verbose)
     timer.print();
 }
 
 carpetx_adios2_t::~carpetx_adios2_t() {
+  DECLARE_CCTK_PARAMETERS;
+
   if (engine) {
-    if (io_verbose)
+    if (verbose)
       CCTK_VINFO("ADIOS2: Closing engine...");
     engine.Close();
   }

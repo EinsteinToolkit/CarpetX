@@ -59,8 +59,6 @@ static inline int omp_in_parallel() { return 0; }
 
 namespace CarpetX {
 
-constexpr bool io_verbose = true;
-
 openPMD::Format get_format() {
   DECLARE_CCTK_PARAMETERS;
   if (CCTK_EQUALS(openpmd_format, "HDF5"))
@@ -444,7 +442,7 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
   static Timer timer("InputOpenPMDParameters");
   Interval interval(timer);
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("InputOpenPMDParameters...");
 
   const openPMD::Format format = get_format();
@@ -453,7 +451,7 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
 
   assert(!series);
   if (!series) {
-    if (io_verbose)
+    if (verbose)
       CCTK_VINFO("Creating openPMD object...");
     std::ostringstream buf;
     switch (iterationEncoding) {
@@ -473,7 +471,7 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
           *filename, openPMD::Access::READ_ONLY, MPI_COMM_WORLD, options);
     } catch (const openPMD::no_such_file_error &) {
       // Did not find a checkpoint file
-      if (io_verbose) {
+      if (verbose) {
         CCTK_VINFO("Not recovering parameters:");
         CCTK_VINFO("  Could not find an openPMD checkpoint file \"%s\"",
                    filename->c_str());
@@ -488,7 +486,7 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
 
     if (input_iteration < 0) {
       // Did not find a checkpoint file
-      if (io_verbose) {
+      if (verbose) {
         CCTK_VINFO("Not recovering parameters:");
         CCTK_VINFO("  Could not find an openPMD checkpoint file \"%s\"",
                    filename->c_str());
@@ -535,7 +533,7 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
   static Timer timer("InputOpenPMDGridStructure");
   Interval interval(timer);
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("InputOpenPMDGridStructure...");
 
   assert(filename);
@@ -649,7 +647,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
   if (std::count(input_group.begin(), input_group.end(), true) == 0)
     return;
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("InputOpenPMD...");
 
   const bool is_root = CCTK_MyProc(nullptr) == 0;
@@ -661,7 +659,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
   }
 
   if (!series) {
-    if (io_verbose)
+    if (verbose)
       CCTK_VINFO("Creating openPMD object...");
     const openPMD::Format format = get_format();
     std::ostringstream buf;
@@ -700,7 +698,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
   openPMD::Container<openPMD::Mesh> &meshes = read_iter->meshes;
   CCTK_VINFO("  found %d meshes", int(meshes.size()));
 
-  if (io_verbose) {
+  if (verbose) {
     for (auto mesh_iter = meshes.begin(); mesh_iter != meshes.end();
          ++mesh_iter) {
       const std::string &mesh_name = mesh_iter->first;
@@ -772,7 +770,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
   for (const auto &patchdata : ghext->patchdata) {
     // Loop over levels
     for (const auto &leveldata : patchdata.leveldata) {
-      if (io_verbose)
+      if (verbose)
         CCTK_VINFO("Reading patch %d level %d", patchdata.patch,
                    leveldata.level);
 
@@ -802,7 +800,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
           .hi = {ihi[0] + input_ghosts * nghosts[0] + 1 + 1,
                  ihi[1] + input_ghosts * nghosts[1] + 1 + 1,
                  ihi[2] + input_ghosts * nghosts[2] + 1 + 1}};
-      if (io_verbose) {
+      if (verbose) {
         CCTK_VINFO("Level: %d", leveldata.level);
         CCTK_VINFO("  xmin: [%f,%f,%f]", double(rdomain.lo[0]),
                    double(rdomain.lo[1]), double(rdomain.lo[2]));
@@ -833,7 +831,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
           // TODO: Check whether group has storage
           // TODO: Check whether data are valid
 
-          if (io_verbose)
+          if (verbose)
             CCTK_VINFO("Reading group %s...", CCTK_FullGroupName(gi));
 
           auto &groupdata = *leveldata.groupdata.at(gi);
@@ -852,7 +850,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
           const std::string meshname =
               make_meshname(gi, leveldata.patch, leveldata.level);
-          if (io_verbose)
+          if (verbose)
             CCTK_VINFO("Reading mesh %s...", meshname.c_str());
           assert(read_iter->meshes.count(meshname));
           const openPMD::Mesh &mesh = read_iter->meshes.at(meshname);
@@ -880,7 +878,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
           // Read data
 
-          if (io_verbose)
+          if (verbose)
             CCTK_VINFO("Reading %d variables with %d components...", numvars,
                        num_local_components);
 
@@ -1042,7 +1040,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
         assert(cgroup.dim >= 0);
         assert(cgroup.dim <= 3);
 
-        if (io_verbose)
+        if (verbose)
           CCTK_VINFO("Reading group %d %s...", gi, CCTK_FullGroupName(gi));
 
         auto &groupdata = *ghext->globaldata.arraygroupdata.at(gi);
@@ -1086,7 +1084,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 
         // Read data
 
-        if (io_verbose)
+        if (verbose)
           CCTK_VINFO("Reading %d variables...", numvars);
 
         const bool group_has_no_ghosts = groupdata.nghostzones[0] == 0 &&
@@ -1201,24 +1199,24 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
     } // for gi
   }
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("InputOpenPMD: Performing all reads...");
   series->flush();
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("InputOpenPMD: Closing iteration...");
   read_iter->close();
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("InputOpenPMD: Deallocating objects...");
   read_iter.reset();
   series.reset();
   filename.reset();
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("InputOpenPMD done.");
 
-  if (io_verbose)
+  if (verbose)
     timer.print();
 }
 
@@ -1238,14 +1236,14 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   if (std::count(output_group.begin(), output_group.end(), true) == 0)
     return;
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("OutputOpenPMD...");
 
   const openPMD::Format format = get_format();
 
   if (!series) {
 
-    if (io_verbose)
+    if (verbose)
       CCTK_VINFO("Creating openPMD object...");
     const int mode = 0755;
     static once_flag create_directory;
@@ -1307,7 +1305,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   assert(series);
   assert(write_iters);
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("Creating iteration %d...", cctk_iteration);
   openPMD::Iteration iter = (*write_iters)[cctk_iteration];
   iter.setTime(cctk_time);
@@ -1380,7 +1378,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   for (const auto &patchdata : ghext->patchdata) {
     // Loop over levels
     for (const auto &leveldata : patchdata.leveldata) {
-      if (io_verbose)
+      if (verbose)
         CCTK_VINFO("Writing patch %d level %d mesh...", patchdata.patch,
                    leveldata.level);
 
@@ -1410,7 +1408,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
           .hi = {ihi[0] + output_ghosts * nghosts[0] + 1 + 1,
                  ihi[1] + output_ghosts * nghosts[1] + 1 + 1,
                  ihi[2] + output_ghosts * nghosts[2] + 1 + 1}};
-      if (io_verbose) {
+      if (verbose) {
         CCTK_VINFO("Patch: %d, Level: %d", patchdata.patch, leveldata.level);
         CCTK_VINFO("  xmin: [%f,%f,%f]", double(rdomain.lo[0]),
                    double(rdomain.lo[1]), double(rdomain.lo[2]));
@@ -1448,7 +1446,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
           // TODO: Check whether group has storage
           // TODO: Check whether data are valid
 
-          if (io_verbose)
+          if (verbose)
             CCTK_VINFO("Writing group %d %s...", gi, CCTK_FullGroupName(gi));
 
           const auto &groupdata = *leveldata.groupdata.at(gi);
@@ -1467,7 +1465,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
           const std::string meshname =
               make_meshname(gi, leveldata.patch, leveldata.level);
-          if (io_verbose)
+          if (verbose)
             CCTK_VINFO("Defining mesh %s...", meshname.c_str());
           assert(!iter.meshes.contains(meshname));
           openPMD::Mesh mesh = iter.meshes[meshname];
@@ -1533,7 +1531,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
           // Write data
 
-          if (io_verbose)
+          if (verbose)
             CCTK_VINFO("Writing %d variables with %d components...", numvars,
                        num_local_components);
 
@@ -1645,7 +1643,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         assert(cgroup.dim >= 0);
         assert(cgroup.dim <= 3);
 
-        if (io_verbose)
+        if (verbose)
           CCTK_VINFO("Writing group %d %s...", gi, CCTK_FullGroupName(gi));
 
         const auto &groupdata = *ghext->globaldata.arraygroupdata.at(gi);
@@ -1703,7 +1701,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
         // Write data
 
-        if (io_verbose)
+        if (verbose)
           CCTK_VINFO("Writing %d variables...", numvars);
 
         for (int vi = 0; vi < numvars; ++vi)
@@ -1783,7 +1781,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     }
   }
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("Closing iteration...");
   iter.close();
 
@@ -1819,10 +1817,10 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     abort();
   }
 
-  if (io_verbose)
+  if (verbose)
     CCTK_VINFO("OutputOpenPMD done.");
 
-  if (io_verbose)
+  if (verbose)
     timer.print();
 }
 
