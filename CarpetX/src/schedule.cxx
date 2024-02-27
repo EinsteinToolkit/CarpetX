@@ -776,7 +776,7 @@ active_levels_t::active_levels_t(const int min_level, const int max_level,
 }
 active_levels_t::active_levels_t(const int min_level, const int max_level)
     : active_levels_t(min_level, max_level, 0, ghext->num_patches()) {}
-active_levels_t::active_levels_t() : active_levels_t(0, ghext->num_levels()) {}
+active_levels_t::active_levels_t() : active_levels_t(0, 0) {}
 
 void active_levels_t::assert_consistent_iterations() const {
   rat64 good_iteration = -1;
