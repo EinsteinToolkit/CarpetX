@@ -1403,62 +1403,121 @@ void prolongate_3d_rf2<
               // the stencil
 
               if constexpr (INTPI == CONS || INTPI == ENO) {
-                bool need_fallback_i = false;
-                for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
-                  for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
-                    const CCTK_REAL s0 =
-                        crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk) -
-                        crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk);
-                    for (int di = sradi[0] + 2; di <= sradi[1]; ++di) {
-                      const CCTK_REAL s =
-                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                          crse(icrse[0] + (di - 1), icrse[1] + dj,
-                               icrse[2] + dk);
-                      need_fallback_i |= s * s0 < 0;
+                if constexpr (false) {
+                  // Check whether slopes change sign
+                  for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                    for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                      const CCTK_REAL s0 =
+                          crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk) -
+                          crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk);
+                      for (int di = sradi[0] + 2; di <= sradi[1]; ++di) {
+                        const CCTK_REAL s = crse(icrse[0] + di - 0,
+                                                 icrse[1] + dj, icrse[2] + dk) -
+                                            crse(icrse[0] + di - 1,
+                                                 icrse[1] + dj, icrse[2] + dk);
+                        need_fallback |= s * s0 < 0;
+                      }
                     }
                   }
                 }
-                need_fallback |= need_fallback_i;
+                // Check whether curvatures change sign
+                for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                  for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                    const CCTK_REAL c0 =
+                        crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk) -
+                        2 * crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk) +
+                        crse(icrse[0] + 2, icrse[1] + dj, icrse[2] + dk);
+                    for (int di = sradi[0] + 3; di <= sradi[1]; ++di) {
+                      const CCTK_REAL c =
+                          crse(icrse[0] + di - 2, icrse[1] + dj,
+                               icrse[2] + dk) -
+                          2 * crse(icrse[0] + di - 1, icrse[1] + dj,
+                                   icrse[2] + dk) +
+                          crse(icrse[0] + di - 0, icrse[1] + dj, icrse[2] + dk);
+                      need_fallback |= c * c0 < 0;
+                    }
+                  }
+                }
               }
 
               if constexpr (INTPJ == CONS || INTPJ == ENO) {
-                bool need_fallback_j = false;
-                for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
-                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
-                    const CCTK_REAL s0 =
-                        crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk) -
-                        crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk);
-                    for (int dj = sradj[0] + 2; dj <= sradj[1]; ++dj) {
-                      const CCTK_REAL s =
-                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                          crse(icrse[0] + di, icrse[1] + (dj - 1),
-                               icrse[2] + dk);
-                      need_fallback_j |= s * s0 < 0;
+                if constexpr (false) {
+                  // Check whether slopes change sign
+                  for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                    for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                      const CCTK_REAL s0 =
+                          crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk) -
+                          crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk);
+                      for (int dj = sradj[0] + 2; dj <= sradj[1]; ++dj) {
+                        const CCTK_REAL s =
+                            crse(icrse[0] + di, icrse[1] + dj - 0,
+                                 icrse[2] + dk) -
+                            crse(icrse[0] + di, icrse[1] + dj - 1,
+                                 icrse[2] + dk);
+                        need_fallback |= s * s0 < 0;
+                      }
                     }
                   }
                 }
-                need_fallback |= need_fallback_j;
+                // Check whether curvatures change sign
+                for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                    const CCTK_REAL c0 =
+                        crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk) -
+                        2 * crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk) +
+                        crse(icrse[0] + di, icrse[1] + 2, icrse[2] + dk);
+                    for (int dj = sradj[0] + 3; dj <= sradj[1]; ++dj) {
+                      const CCTK_REAL c =
+                          crse(icrse[0] + di, icrse[1] + dj - 2,
+                               icrse[2] + dk) -
+                          2 * crse(icrse[0] + di, icrse[1] + dj - 1,
+                                   icrse[2] + dk) +
+                          crse(icrse[0] + di, icrse[1] + dj - 0, icrse[2] + dk);
+                      need_fallback |= c * c0 < 0;
+                    }
+                  }
+                }
               }
 
               if constexpr (INTPK == CONS || INTPK == ENO) {
-                bool need_fallback_k = false;
-                for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
-                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
-                    const CCTK_REAL s0 =
-                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1) -
-                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0);
-                    for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
-                      const CCTK_REAL s =
-                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                          crse(icrse[0] + di, icrse[1] + dj,
-                               icrse[2] + (dk - 1));
-                      need_fallback_k |= s * s0 < 0;
+                if constexpr (false) {
+                  // Check whether slopes change sign
+                  for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                    for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                      const CCTK_REAL s0 =
+                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1) -
+                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0);
+                      for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
+                        const CCTK_REAL s = crse(icrse[0] + di, icrse[1] + dj,
+                                                 icrse[2] + dk - 0) -
+                                            crse(icrse[0] + di, icrse[1] + dj,
+                                                 icrse[2] + dk - 1);
+                        need_fallback |= s * s0 < 0;
+                      }
                     }
                   }
                 }
-                need_fallback |= need_fallback_k;
+                // Check whether curvatures change sign
+                for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                    const CCTK_REAL c0 =
+                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0) -
+                        2 * crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1) +
+                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 2);
+                    for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
+                      const CCTK_REAL c =
+                          crse(icrse[0] + di, icrse[1] + dj,
+                               icrse[2] + dk - 2) -
+                          2 * crse(icrse[0] + di, icrse[1] + dj,
+                                   icrse[2] + dk - 1) +
+                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk - 0);
+                      need_fallback |= c * c0 < 0;
+                    }
+                  }
+                }
               }
             }
+
             res = need_fallback ? val_lin : val;
           } // if FB != FB_NONE
 
