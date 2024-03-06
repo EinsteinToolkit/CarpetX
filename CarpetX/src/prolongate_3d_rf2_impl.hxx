@@ -1298,7 +1298,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                 }
               }
             }
-          }
+          } // if any_use_shift
 
           const CCTK_REAL val = call_stencil_3d(
               [&](const int di, const int dj, const int dk) {
@@ -1316,17 +1316,24 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
 
           CCTK_REAL res;
 
-          if constexpr (FB == FB_NONE || ((INTPI != CONS || ORDERI <= 1) &&
-                                          (INTPJ != CONS || ORDERJ <= 1) &&
-                                          (INTPK != CONS || ORDERK <= 1))) {
+          if constexpr (FB == FB_NONE ||
+                        (((INTPI != CONS && INTPI != ENO) || ORDERI <= 1) &&
+                         ((INTPJ != CONS && INTPJ != ENO) || ORDERJ <= 1) &&
+                         ((INTPK != CONS && INTPK != ENO) || ORDERK <= 1))) {
+            // We are not falling back to linear interpolation
 
             res = val;
 
           } else {
+            // We might want to fall back to linear interpolation
 
-            constexpr int LINORDERI = INTPI == CONS ? 1 : ORDERI;
-            constexpr int LINORDERJ = INTPJ == CONS ? 1 : ORDERJ;
-            constexpr int LINORDERK = INTPK == CONS ? 1 : ORDERK;
+            // Calculate the linearly interpolated value
+            constexpr int LINORDERI =
+                INTPI == CONS || INTPI == ENO ? 1 : ORDERI;
+            constexpr int LINORDERJ =
+                INTPJ == CONS || INTPJ == ENO ? 1 : ORDERJ;
+            constexpr int LINORDERK =
+                INTPK == CONS || INTPK == ENO ? 1 : ORDERK;
             const CCTK_REAL val_lin = call_stencil_3d(
                 [&](const int di, const int dj, const int dk) {
                   return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
@@ -1341,6 +1348,7 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                   return interp1d<CENTK, INTPK, LINORDERK>()(crse, 0, off[2]);
                 });
 
+            // Check whether we need to fall back
             bool need_fallback = false;
             {
               const std::array<int, 2> sradi =
@@ -1352,6 +1360,8 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
               const std::array<int, 2> sradk =
                   interp1d<CENTK, INTPK, ORDERK>().stencil_radius(shift[2],
                                                                   off[2]);
+              // Fallback condition 1: The interpolated value introduces a new
+              // extremum
               CCTK_REAL minval = +1 / CCTK_REAL(0), maxval = -1 / CCTK_REAL(0);
               for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                 for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
@@ -1366,23 +1376,19 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
               }
               need_fallback |= val < minval || val > maxval;
 
-              if constexpr (INTPI == CONS) {
+              // Fallback condition 2 (checked for every direction in
+              // which the operator is conservative): The slope of the
+              // values at the stencil points changes sign anywhere in
+              // the stencil
+
+              if constexpr (INTPI == CONS || INTPI == ENO) {
                 bool need_fallback_i = false;
                 for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                   for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
-                    // using std::signbit;
-                    // const bool s0 = signbit(
-                    //     crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk) -
-                    //     crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk));
                     const CCTK_REAL s0 =
                         crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk) -
                         crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk);
                     for (int di = sradi[0] + 2; di <= sradi[1]; ++di) {
-                      // const bool s = signbit(
-                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                      //     crse(icrse[0] + (di - 1), icrse[1] + dj,
-                      //          icrse[2] + dk));
-                      // need_fallback_i |= s != s0;
                       const CCTK_REAL s =
                           crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
                           crse(icrse[0] + (di - 1), icrse[1] + dj,
@@ -1394,23 +1400,14 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                 need_fallback |= need_fallback_i;
               }
 
-              if constexpr (INTPJ == CONS) {
+              if constexpr (INTPJ == CONS || INTPJ == ENO) {
                 bool need_fallback_j = false;
                 for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                   for (int di = sradi[0]; di <= sradi[1]; ++di) {
-                    // using std::signbit;
-                    // const bool s0 = signbit(
-                    //     crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk) -
-                    //     crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk));
                     const CCTK_REAL s0 =
                         crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk) -
                         crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk);
                     for (int dj = sradj[0] + 2; dj <= sradj[1]; ++dj) {
-                      // const bool s = signbit(
-                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                      //     crse(icrse[0] + di, icrse[1] + (dj - 1),
-                      //          icrse[2] + dk));
-                      // need_fallback_j |= s != s0;
                       const CCTK_REAL s =
                           crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
                           crse(icrse[0] + di, icrse[1] + (dj - 1),
@@ -1422,23 +1419,14 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                 need_fallback |= need_fallback_j;
               }
 
-              if constexpr (INTPK == CONS) {
+              if constexpr (INTPK == CONS || INTPK == ENO) {
                 bool need_fallback_k = false;
                 for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
                   for (int di = sradi[0]; di <= sradi[1]; ++di) {
-                    // using std::signbit;
-                    // const bool s0 = signbit(
-                    //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1) -
-                    //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0));
                     const CCTK_REAL s0 =
                         crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1) -
                         crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0);
                     for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
-                      // const bool s = signbit(
-                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                      //     crse(icrse[0] + di, icrse[1] + dj,
-                      //          icrse[2] + (dk - 1)));
-                      // need_fallback_k |= s != s0;
                       const CCTK_REAL s =
                           crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
                           crse(icrse[0] + di, icrse[1] + dj,
@@ -1450,7 +1438,6 @@ void prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
                 need_fallback |= need_fallback_k;
               }
             }
-
             res = need_fallback ? val_lin : val;
           }
 
