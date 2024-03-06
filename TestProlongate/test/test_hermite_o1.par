@@ -1,0 +1,92 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    TestProlongate
+"
+
+$nlevels = 2
+$ncells = 30
+$blocking_factor = 2
+
+Cactus::cctk_show_schedule = no
+
+Cactus::presync_mode = "mixed-error"
+
+Cactus::cctk_itlast = 2
+
+CarpetX::ghost_size = 1
+CarpetX::prolongation_type = "hermite"
+CarpetX::prolongation_order = 1
+CarpetX::verbose = yes
+CarpetX::poison_undefined_values = yes
+
+CarpetX::xmin = -1.+0.1234567
+CarpetX::ymin = -1.+0.2345678
+CarpetX::zmin = -1.+0.3456789
+CarpetX::xmax = +1.+0.1234567
+CarpetX::ymax = +1.+0.2345678
+CarpetX::zmax = +1.+0.3456789
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::blocking_factor_x = $blocking_factor
+CarpetX::blocking_factor_y = $blocking_factor
+CarpetX::blocking_factor_z = $blocking_factor
+
+CarpetX::boundary_x = "dirichlet"
+CarpetX::boundary_y = "dirichlet"
+CarpetX::boundary_z = "dirichlet"
+CarpetX::boundary_upper_x = "dirichlet"
+CarpetX::boundary_upper_y = "dirichlet"
+CarpetX::boundary_upper_z = "dirichlet"
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 1
+CarpetX::regrid_error_threshold = 0.01
+
+CarpetX::dtfac = 0.5
+
+IO::out_dir = $parfile
+IO::out_every = 1
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+CarpetX::out_tsv_vars = "
+    TestProlongate::gf000_error
+    TestProlongate::gf001_error
+    TestProlongate::gf010_error
+    TestProlongate::gf011_error
+    TestProlongate::gf100_error
+    TestProlongate::gf101_error
+    TestProlongate::gf110_error
+    TestProlongate::gf111_error
+
+    TestProlongate::gf000_count
+    TestProlongate::gf001_count
+    TestProlongate::gf010_count
+    TestProlongate::gf011_count
+    TestProlongate::gf100_count
+    TestProlongate::gf101_count
+    TestProlongate::gf110_count
+    TestProlongate::gf111_count
+
+    TestProlongate::gf000_max_error
+    TestProlongate::gf001_max_error
+    TestProlongate::gf010_max_error
+    TestProlongate::gf011_max_error
+    TestProlongate::gf100_max_error
+    TestProlongate::gf101_max_error
+    TestProlongate::gf110_max_error
+    TestProlongate::gf111_max_error
+
+    TestProlongate::gf000_sum_count
+    TestProlongate::gf001_sum_count
+    TestProlongate::gf010_sum_count
+    TestProlongate::gf011_sum_count
+    TestProlongate::gf100_sum_count
+    TestProlongate::gf101_sum_count
+    TestProlongate::gf110_sum_count
+    TestProlongate::gf111_sum_count
+"
