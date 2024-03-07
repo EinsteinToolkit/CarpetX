@@ -1320,9 +1320,6 @@ void prolongate_3d_rf2<
           } // if any_use_shift
 
           const CCTK_REAL val = call_stencil_3d(
-              // [&](const int di, const int dj, const int dk) {
-              //   return pcrse(di, dj, dk);
-              // },
               pcrse,
               [&](const auto &crse) {
                 return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0], off[0]);
@@ -1355,9 +1352,6 @@ void prolongate_3d_rf2<
             constexpr int LINORDERK =
                 INTPK == CONS || INTPK == ENO ? 1 : ORDERK;
             const CCTK_REAL val_lin = call_stencil_3d(
-                // [&](const int di, const int dj, const int dk) {
-                //   return pcrse(di, dj, dk);
-                // },
                 pcrse,
                 [&](const auto &crse) {
                   return interp1d<CENTI, INTPI, LINORDERI>()(crse, 0, off[0]);
@@ -1401,7 +1395,7 @@ void prolongate_3d_rf2<
               // sign anywhere in the stencil
 
               if constexpr (INTPI == CONS || INTPI == ENO) {
-                if (false && sradi[1] - sradi[0] > 2) {
+                if (false && sradi[1] - sradi[0] >= 2) {
                   // Check whether slopes change sign
                   for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                     for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
@@ -1416,7 +1410,7 @@ void prolongate_3d_rf2<
                     }
                   }
                 }
-                if (sradi[1] - sradi[0] > 3) {
+                if (sradi[1] - sradi[0] >= 3) {
                   // Check whether curvatures change sign
                   for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                     for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
@@ -1436,7 +1430,7 @@ void prolongate_3d_rf2<
               }
 
               if constexpr (INTPJ == CONS || INTPJ == ENO) {
-                if (false && sradj[1] - sradj[0] > 2) {
+                if (false && sradj[1] - sradj[0] >= 2) {
                   // Check whether slopes change sign
                   for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                     for (int di = sradi[0]; di <= sradi[1]; ++di) {
@@ -1451,7 +1445,7 @@ void prolongate_3d_rf2<
                     }
                   }
                 }
-                if (sradj[1] - sradj[0] > 3) {
+                if (sradj[1] - sradj[0] >= 3) {
                   // Check whether curvatures change sign
                   for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                     for (int di = sradi[0]; di <= sradi[1]; ++di) {
@@ -1471,7 +1465,7 @@ void prolongate_3d_rf2<
               }
 
               if constexpr (INTPK == CONS || INTPK == ENO) {
-                if (false && sradk[1] - sradk[0] > 2) {
+                if (false && sradk[1] - sradk[0] >= 2) {
                   // Check whether slopes change sign
                   for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
                     for (int di = sradi[0]; di <= sradi[1]; ++di) {
@@ -1486,7 +1480,7 @@ void prolongate_3d_rf2<
                     }
                   }
                 }
-                if (sradk[1] - sradk[0] > 3) {
+                if (sradk[1] - sradk[0] >= 3) {
                   // Check whether curvatures change sign
                   for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
                     for (int di = sradi[0]; di <= sradi[1]; ++di) {
@@ -1847,8 +1841,8 @@ void prolongate_3d_rf2<
                                                                 off[2]);
             // Fallback condition 1: The interpolated value introduces a new
             // extremum
-            CCTK_REAL minval = +1 / CCTK_REAL(0), maxval = -1 / CCTK_REAL(0);
             for (int comp = 0; comp < ncomps; ++comp) {
+              CCTK_REAL minval = +1 / CCTK_REAL(0), maxval = -1 / CCTK_REAL(0);
               for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                 for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
                   for (int di = sradi[0]; di <= sradi[1]; ++di) {
@@ -1867,7 +1861,7 @@ void prolongate_3d_rf2<
             // sign anywhere in the stencil
 
             if constexpr (INTPI == CONS || INTPI == ENO) {
-              if (false && sradi[1] - sradi[0] > 2) {
+              if (false && sradi[1] - sradi[0] >= 2) {
                 // Check whether slopes change sign
                 for (int comp = 0; comp < ncomps; ++comp) {
                   for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
@@ -1884,7 +1878,7 @@ void prolongate_3d_rf2<
                   }
                 }
               }
-              if (sradi[1] - sradi[0] > 3) {
+              if (sradi[1] - sradi[0] >= 3) {
                 // Check whether curvatures change sign
                 for (int comp = 0; comp < ncomps; ++comp) {
                   for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
@@ -1906,7 +1900,7 @@ void prolongate_3d_rf2<
             }
 
             if constexpr (INTPJ == CONS || INTPJ == ENO) {
-              if (false && sradj[1] - sradj[0] > 2) {
+              if (false && sradj[1] - sradj[0] >= 2) {
                 // Check whether slopes change sign
                 for (int comp = 0; comp < ncomps; ++comp) {
                   for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
@@ -1923,7 +1917,7 @@ void prolongate_3d_rf2<
                   }
                 }
               }
-              if (sradj[1] - sradj[0] > 3) {
+              if (sradj[1] - sradj[0] >= 3) {
                 // Check whether curvatures change sign
                 for (int comp = 0; comp < ncomps; ++comp) {
                   for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
@@ -1945,7 +1939,7 @@ void prolongate_3d_rf2<
             }
 
             if constexpr (INTPK == CONS || INTPK == ENO) {
-              if (false && sradk[1] - sradk[0] > 2) {
+              if (false && sradk[1] - sradk[0] >= 2) {
                 // Check whether slopes change sign
                 for (int comp = 0; comp < ncomps; ++comp) {
                   for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
@@ -1962,7 +1956,7 @@ void prolongate_3d_rf2<
                   }
                 }
               }
-              if (sradk[1] - sradk[0] > 3) {
+              if (sradk[1] - sradk[0] >= 3) {
                 // Check whether curvatures change sign
                 for (int comp = 0; comp < ncomps; ++comp) {
                   for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
