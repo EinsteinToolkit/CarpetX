@@ -1504,7 +1504,7 @@ void prolongate_3d_rf2<
                         crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0) -
                         2 * crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1) +
                         crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 2);
-                    for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
+                    for (int dk = sradk[0] + 3; dk <= sradk[1]; ++dk) {
                       const CCTK_REAL c =
                           crse(icrse[0] + di, icrse[1] + dj,
                                icrse[2] + dk - 2) -
@@ -1893,9 +1893,9 @@ void prolongate_3d_rf2<
                                                 icrse[2] + dk, comp);
                       for (int di = sradi[0] + 2; di <= sradi[1]; ++di) {
                         const CCTK_REAL s =
-                            crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
-                                 comp) -
-                            crse(icrse[0] + (di - 1), icrse[1] + dj,
+                            crse(icrse[0] + di - 0, icrse[1] + dj,
+                                 icrse[2] + dk, comp) -
+                            crse(icrse[0] + di - 1, icrse[1] + dj,
                                  icrse[2] + dk, comp);
                         need_fallback |= s * s0 < 0;
                       }
@@ -1939,9 +1939,9 @@ void prolongate_3d_rf2<
                                                 icrse[2] + dk, comp);
                       for (int dj = sradj[0] + 2; dj <= sradj[1]; ++dj) {
                         const CCTK_REAL s =
-                            crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
-                                 comp) -
-                            crse(icrse[0] + di, icrse[1] + (dj - 1),
+                            crse(icrse[0] + di, icrse[1] + dj - 0,
+                                 icrse[2] + dk, comp) -
+                            crse(icrse[0] + di, icrse[1] + dj - 1,
                                  icrse[2] + dk, comp);
                         need_fallback |= s * s0 < 0;
                       }
@@ -1985,9 +1985,9 @@ void prolongate_3d_rf2<
                                                 icrse[2] + 0, comp);
                       for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
                         const CCTK_REAL s = crse(icrse[0] + di, icrse[1] + dj,
-                                                 icrse[2] + dk, comp) -
+                                                 icrse[2] + dk - 0, comp) -
                                             crse(icrse[0] + di, icrse[1] + dj,
-                                                 icrse[2] + (dk - 1), comp);
+                                                 icrse[2] + dk - 1, comp);
                         need_fallback |= s * s0 < 0;
                       }
                     }
@@ -2003,7 +2003,7 @@ void prolongate_3d_rf2<
                         2 * crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1,
                                  comp) +
                         crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 2, comp);
-                    for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
+                    for (int dk = sradk[0] + 3; dk <= sradk[1]; ++dk) {
                       const CCTK_REAL c = crse(icrse[0] + di, icrse[1] + dj,
                                                icrse[2] + dk - 2, comp) -
                                           2 * crse(icrse[0] + di, icrse[1] + dj,
