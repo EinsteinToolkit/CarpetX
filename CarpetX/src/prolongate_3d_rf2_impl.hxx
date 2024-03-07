@@ -1398,9 +1398,9 @@ void prolongate_3d_rf2<
               need_fallback |= val < minval || val > maxval;
 
               // Fallback condition 2 (checked for every direction in
-              // which the operator is conservative): The slope of the
-              // values at the stencil points changes sign anywhere in
-              // the stencil
+              // which the operator is conservative): The slope or
+              // curvature of the values at the stencil points changes
+              // sign anywhere in the stencil
 
               if constexpr (INTPI == CONS || INTPI == ENO) {
                 if constexpr (false) {
@@ -1834,15 +1834,19 @@ void prolongate_3d_rf2<
 
         std::array<CCTK_REAL, maxncomps> ress;
 
-        if constexpr (FB == FB_NONE || ((INTPI != CONS || ORDERI <= 1) &&
-                                        (INTPJ != CONS || ORDERJ <= 1) &&
-                                        (INTPK != CONS || ORDERK <= 1))) {
+        if constexpr (FB == FB_NONE ||
+                      (((INTPI != CONS && INTPI != ENO) || ORDERI <= 1) &&
+                       ((INTPJ != CONS && INTPJ != ENO) || ORDERJ <= 1) &&
+                       ((INTPK != CONS && INTPK != ENO) || ORDERK <= 1))) {
+          // We are not falling back to linear interpolation
 
           for (int comp = 0; comp < ncomps; ++comp)
             ress[comp] = vals[comp];
 
         } else {
+          // We might want to fall back to linear interpolation
 
+          // Check whether we need to fall back
           bool need_fallback = false;
           {
             const std::array<int, 2> sradi =
@@ -1854,6 +1858,8 @@ void prolongate_3d_rf2<
             const std::array<int, 2> sradk =
                 interp1d<CENTK, INTPK, ORDERK>().stencil_radius(shift[2],
                                                                 off[2]);
+            // Fallback condition 1: The interpolated value introduces a new
+            // extremum
             CCTK_REAL minval = +1 / CCTK_REAL(0), maxval = -1 / CCTK_REAL(0);
             for (int comp = 0; comp < ncomps; ++comp) {
               for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
@@ -1870,102 +1876,151 @@ void prolongate_3d_rf2<
               need_fallback |= vals[comp] < minval || vals[comp] > maxval;
             }
 
-            if constexpr (INTPI == CONS) {
-              bool need_fallback_i = false;
+            // Fallback condition 2 (checked for every direction in
+            // which the operator is conservative): The slope or
+            // curvature of the values at the stencil points changes
+            // sign anywhere in the stencil
+
+            if constexpr (INTPI == CONS || INTPI == ENO) {
+              if constexpr (false) {
+                // Check whether slopes change sign
+                for (int comp = 0; comp < ncomps; ++comp) {
+                  for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                    for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                      const CCTK_REAL s0 = crse(icrse[0] + 1, icrse[1] + dj,
+                                                icrse[2] + dk, comp) -
+                                           crse(icrse[0] + 0, icrse[1] + dj,
+                                                icrse[2] + dk, comp);
+                      for (int di = sradi[0] + 2; di <= sradi[1]; ++di) {
+                        const CCTK_REAL s =
+                            crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                                 comp) -
+                            crse(icrse[0] + (di - 1), icrse[1] + dj,
+                                 icrse[2] + dk, comp);
+                        need_fallback |= s * s0 < 0;
+                      }
+                    }
+                  }
+                }
+              }
+              // Check whether curvatures change sign
               for (int comp = 0; comp < ncomps; ++comp) {
                 for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                   for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
-                    // using std::signbit;
-                    // const bool s0 = signbit(
-                    //     crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk) -
-                    //     crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk));
-                    const CCTK_REAL s0 =
-                        crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk, comp) -
-                        crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk, comp);
-                    for (int di = sradi[0] + 2; di <= sradi[1]; ++di) {
-                      // const bool s = signbit(
-                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                      //     crse(icrse[0] + (di - 1), icrse[1] + dj,
-                      //          icrse[2] + dk));
-                      // need_fallback_i |= s != s0;
-                      const CCTK_REAL s =
-                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                    const CCTK_REAL c0 =
+                        crse(icrse[0] + 0, icrse[1] + dj, icrse[2] + dk, comp) -
+                        2 * crse(icrse[0] + 1, icrse[1] + dj, icrse[2] + dk,
+                                 comp) +
+                        crse(icrse[0] + 2, icrse[1] + dj, icrse[2] + dk, comp);
+                    for (int di = sradi[0] + 3; di <= sradi[1]; ++di) {
+                      const CCTK_REAL c =
+                          crse(icrse[0] + di - 2, icrse[1] + dj, icrse[2] + dk,
                                comp) -
-                          crse(icrse[0] + (di - 1), icrse[1] + dj,
-                               icrse[2] + dk, comp);
-                      need_fallback_i |= s * s0 < 0;
+                          2 * crse(icrse[0] + di - 1, icrse[1] + dj,
+                                   icrse[2] + dk, comp) +
+                          crse(icrse[0] + di - 0, icrse[1] + dj, icrse[2] + dk,
+                               comp);
+                      need_fallback |= c * c0 < 0;
                     }
                   }
                 }
-                need_fallback |= need_fallback_i;
               }
             }
 
-            if constexpr (INTPJ == CONS) {
-              bool need_fallback_j = false;
+            if constexpr (INTPJ == CONS || INTPJ == ENO) {
+              if constexpr (false) {
+                // Check whether slopes change sign
+                for (int comp = 0; comp < ncomps; ++comp) {
+                  for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
+                    for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                      const CCTK_REAL s0 = crse(icrse[0] + di, icrse[1] + 1,
+                                                icrse[2] + dk, comp) -
+                                           crse(icrse[0] + di, icrse[1] + 0,
+                                                icrse[2] + dk, comp);
+                      for (int dj = sradj[0] + 2; dj <= sradj[1]; ++dj) {
+                        const CCTK_REAL s =
+                            crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                                 comp) -
+                            crse(icrse[0] + di, icrse[1] + (dj - 1),
+                                 icrse[2] + dk, comp);
+                        need_fallback |= s * s0 < 0;
+                      }
+                    }
+                  }
+                }
+              }
+              // Check whether curvatures change sign
               for (int comp = 0; comp < ncomps; ++comp) {
                 for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                   for (int di = sradi[0]; di <= sradi[1]; ++di) {
-                    // using std::signbit;
-                    // const bool s0 = signbit(
-                    //     crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk) -
-                    //     crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk));
-                    const CCTK_REAL s0 =
-                        crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk, comp) -
-                        crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk, comp);
-                    for (int dj = sradj[0] + 2; dj <= sradj[1]; ++dj) {
-                      // const bool s = signbit(
-                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                      //     crse(icrse[0] + di, icrse[1] + (dj - 1),
-                      //          icrse[2] + dk));
-                      // need_fallback_j |= s != s0;
-                      const CCTK_REAL s =
-                          crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                    const CCTK_REAL c0 =
+                        crse(icrse[0] + di, icrse[1] + 0, icrse[2] + dk, comp) -
+                        2 * crse(icrse[0] + di, icrse[1] + 1, icrse[2] + dk,
+                                 comp) +
+                        crse(icrse[0] + di, icrse[1] + 2, icrse[2] + dk, comp);
+                    for (int dj = sradj[0] + 3; dj <= sradj[1]; ++dj) {
+                      const CCTK_REAL c =
+                          crse(icrse[0] + di, icrse[1] + dj - 2, icrse[2] + dk,
                                comp) -
-                          crse(icrse[0] + di, icrse[1] + (dj - 1),
-                               icrse[2] + dk, comp);
-                      need_fallback_j |= s * s0 < 0;
+                          2 * crse(icrse[0] + di, icrse[1] + dj - 1,
+                                   icrse[2] + dk, comp) +
+                          crse(icrse[0] + di, icrse[1] + dj - 0, icrse[2] + dk,
+                               comp);
+                      need_fallback |= c * c0 < 0;
                     }
                   }
                 }
-                need_fallback |= need_fallback_j;
               }
             }
 
-            if constexpr (INTPK == CONS) {
-              bool need_fallback_k = false;
-              for (int comp = 0; comp < ncomps; ++comp) {
-                for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
-                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
-                    // using std::signbit;
-                    // const bool s0 = signbit(
-                    //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1) -
-                    //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0));
-                    const CCTK_REAL s0 =
-                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1, comp) -
-                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0, comp);
-                    for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
-                      // const bool s = signbit(
-                      //     crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk) -
-                      //     crse(icrse[0] + di, icrse[1] + dj,
-                      //          icrse[2] + (dk - 1)));
-                      // need_fallback_k |= s != s0;
-                      const CCTK_REAL s = crse(icrse[0] + di, icrse[1] + dj,
-                                               icrse[2] + dk, comp) -
-                                          crse(icrse[0] + di, icrse[1] + dj,
-                                               icrse[2] + (dk - 1), comp);
-                      need_fallback_k |= s * s0 < 0;
+            if constexpr (INTPK == CONS || INTPK == ENO) {
+              if constexpr (false) {
+                // Check whether slopes change sign
+                for (int comp = 0; comp < ncomps; ++comp) {
+                  for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                    for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                      const CCTK_REAL s0 = crse(icrse[0] + di, icrse[1] + dj,
+                                                icrse[2] + 1, comp) -
+                                           crse(icrse[0] + di, icrse[1] + dj,
+                                                icrse[2] + 0, comp);
+                      for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
+                        const CCTK_REAL s = crse(icrse[0] + di, icrse[1] + dj,
+                                                 icrse[2] + dk, comp) -
+                                            crse(icrse[0] + di, icrse[1] + dj,
+                                                 icrse[2] + (dk - 1), comp);
+                        need_fallback |= s * s0 < 0;
+                      }
                     }
                   }
                 }
-                need_fallback |= need_fallback_k;
+              }
+              // Check whether curvatures change sign
+              for (int comp = 0; comp < ncomps; ++comp) {
+                for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
+                  for (int di = sradi[0]; di <= sradi[1]; ++di) {
+                    const CCTK_REAL c0 =
+                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 0, comp) -
+                        2 * crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 1,
+                                 comp) +
+                        crse(icrse[0] + di, icrse[1] + dj, icrse[2] + 2, comp);
+                    for (int dk = sradk[0] + 2; dk <= sradk[1]; ++dk) {
+                      const CCTK_REAL c = crse(icrse[0] + di, icrse[1] + dj,
+                                               icrse[2] + dk - 2, comp) -
+                                          2 * crse(icrse[0] + di, icrse[1] + dj,
+                                                   icrse[2] + dk - 1, comp) +
+                                          crse(icrse[0] + di, icrse[1] + dj,
+                                               icrse[2] + dk - 0, comp);
+                      need_fallback |= c * c0 < 0;
+                    }
+                  }
+                }
               }
             }
           }
 
-          constexpr int LINORDERI = INTPI == CONS ? 1 : ORDERI;
-          constexpr int LINORDERJ = INTPJ == CONS ? 1 : ORDERJ;
-          constexpr int LINORDERK = INTPK == CONS ? 1 : ORDERK;
+          constexpr int LINORDERI = INTPI == CONS || INTPI == ENO ? 1 : ORDERI;
+          constexpr int LINORDERJ = INTPJ == CONS || INTPJ == ENO ? 1 : ORDERJ;
+          constexpr int LINORDERK = INTPK == CONS || INTPK == ENO ? 1 : ORDERK;
           std::array<CCTK_REAL, maxncomps> val_lins;
           for (int comp = 0; comp < ncomps; ++comp) {
             val_lins[comp] = call_stencil_3d(
