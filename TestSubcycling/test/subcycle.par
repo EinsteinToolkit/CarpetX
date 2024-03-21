@@ -1,0 +1,54 @@
+ActiveThorns = "
+  CarpetX
+  ErrorEstimator
+  IOUtil
+  TestSubcycling
+"
+
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::poison_undefined_values = yes
+
+CarpetX::ncells_x = 32
+CarpetX::ncells_y = 32
+CarpetX::ncells_z = 32
+
+CarpetX::periodic_x = yes
+CarpetX::periodic_y = yes
+CarpetX::periodic_z = yes
+
+CarpetX::max_grid_size_x = 10000000
+CarpetX::max_grid_size_y = 10000000
+CarpetX::max_grid_size_z = 10000000
+
+CarpetX::max_tile_size_x = 10000000
+CarpetX::max_tile_size_y = 10000000
+CarpetX::max_tile_size_z = 10000000
+
+CarpetX::dtfac = 16.0
+
+Cactus::cctk_itlast = 8
+
+CarpetX::use_subcycling_wip = yes
+CarpetX::restrict_during_sync = no
+
+ErrorEstimator::region_shape = "cube"
+ErrorEstimator::scale_by_resolution = "yes"
+CarpetX::regrid_error_threshold = 4.
+CarpetX::max_num_levels = 2
+
+IO::out_dir = $parfile
+IO::out_every = 1
+IO::parfile_write = no
+
+CarpetX::out_adios2_every = 0
+CarpetX::out_silo_every = 0
+CarpetX::out_openpmd_every = 0
+
+CarpetX::verbose = no
+CarpetX::out_performance = no
+CarpetX::out_metadata = no
+CarpetX::out_tsv_vars = "
+  TestSubcycling::iteration
+  CarpetX::regrid_error
+"
