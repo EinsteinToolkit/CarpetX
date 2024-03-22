@@ -1,0 +1,17 @@
+# Interface definition for thorn GridX
+implements: Grid
+inherits: CoordBase
+
+USES INCLUDE HEADER: loop_device.hxx
+
+public:
+
+REAL gridspacings type=SCALAR tags='Checkpoint="no"'
+{
+  coarse_dx, coarse_dy, coarse_dz
+} "3D Cartesian grid spacings"
+
+REAL coordinates type=GF tags='Prolongation="None" Checkpoint="no"'
+{
+  x, y, z, r
+} "3D Cartesian grid coordinates"

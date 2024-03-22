@@ -1,0 +1,17 @@
+# Schedule definitions for thorn GridX
+
+STORAGE: coordinates gridspacings
+
+schedule GridX_SetRanges at CCTK_BASEGRID as SpatialSpacings before SpatialCoordinates
+{
+  LANG:C
+  WRITES: GRID::gridspacings(everywhere)
+} "Set up ranges for spatial 3D Cartesian coordinates (on all grids)"
+
+# TODO: schedule in postregrid, don't rely on CarpetX scheduling BaseGrid on
+# its own
+schedule GridX_SetCoordinates as SpatialCoordinates at CCTK_BASEGRID
+{
+  LANG:C
+  WRITES: GRID::coordinates(everywhere)
+} "Set up spatial 3D Cartesian coordinates on the GH"
