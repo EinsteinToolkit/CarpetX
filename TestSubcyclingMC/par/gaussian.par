@@ -1,0 +1,71 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    TestSubcyclingMC
+    TimerReport
+"
+
+$out_every = 8
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::poison_undefined_values = no
+
+CarpetX::xmin = -1.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+
+CarpetX::xmax = +1.0
+CarpetX::ymax = +1.0
+CarpetX::zmax = +1.0
+
+CarpetX::periodic_x = yes
+CarpetX::periodic_y = yes
+CarpetX::periodic_z = yes
+
+CarpetX::ncells_x = 128
+CarpetX::ncells_y = 64
+CarpetX::ncells_z = 64
+
+Cactus::terminate = "iteration"
+#Cactus::cctk_final_time = 1.0
+Cactus::cctk_itlast = 64
+
+TestSubcyclingMC::initial_condition = "Gaussian"
+TestSubcyclingMC::gaussian_width = 0.125
+
+IO::out_dir = $parfile
+IO::out_every = $out_every
+
+CarpetX::out_norm_vars = "all"
+
+CarpetX::out_tsv_vars = "
+    TestSubcyclingMC::ustate
+    TestSubcyclingMC::ftstate
+    TestSubcyclingMC::fxstate
+    TestSubcyclingMC::fystate
+    TestSubcyclingMC::fzstate
+    TestSubcyclingMC::curlfx
+    TestSubcyclingMC::curlfy
+    TestSubcyclingMC::curlfz
+    TestSubcyclingMC::energy
+    TestSubcyclingMC::uerror
+    TestSubcyclingMC::fterror
+    TestSubcyclingMC::fxerror
+    TestSubcyclingMC::fyerror
+    TestSubcyclingMC::fzerror
+"
+
+CarpetX::out_silo_vars = "
+    TestSubcyclingMC::ustate
+    TestSubcyclingMC::ftstate
+    TestSubcyclingMC::energy
+    TestSubcyclingMC::uerror
+    TestSubcyclingMC::fterror
+"
+
+TimerReport::out_every = $out_every
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 100
