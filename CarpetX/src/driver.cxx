@@ -2363,10 +2363,6 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   // we get core files.
   pp.add("amrex.throw_exception", 1);
 
-  // Enable managed memory (i.e. copy data automatically between accelerator and
-  // host)
-  pp.add("amrex.the_arena_is_managed", 1);
-
   // Set blocking factors via parameter table since AmrMesh needs to
   // know them when its constructor is running, but there are no
   // constructor arguments for them
