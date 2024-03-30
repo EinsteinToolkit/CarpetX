@@ -2365,7 +2365,14 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
 
   // Enable managed memory (i.e. copy data automatically between accelerator and
   // host)
-  pp.add("amrex.the_arena_is_managed", 1);
+  #ifndef AMREX_USE_HIP
+    // This option would render the code inefficient on AMD GPUs.
+    // However, it is required to enable some thorns (TOVSolverX, TwoPuncturesX,
+    // ...) to work on NVIDIA GPUs.
+    // We might need to update those thorns to git rid of this option completely
+    // at some point.
+    pp.add("amrex.the_arena_is_managed", 1);
+  #endif
 
   // Set blocking factors via parameter table since AmrMesh needs to
   // know them when its constructor is running, but there are no
