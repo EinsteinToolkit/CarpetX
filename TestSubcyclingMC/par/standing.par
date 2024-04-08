@@ -32,9 +32,6 @@ CarpetX::out_tsv_vars = "
     TestSubcyclingMC::fxstate
     TestSubcyclingMC::fystate
     TestSubcyclingMC::fzstate
-    TestSubcyclingMC::curlfx
-    TestSubcyclingMC::curlfy
-    TestSubcyclingMC::curlfz
     TestSubcyclingMC::energy
     TestSubcyclingMC::uerror
     TestSubcyclingMC::fterror

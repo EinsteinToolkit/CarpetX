@@ -50,20 +50,6 @@ SCHEDULE TestSubcyclingMC_Evol2 AT evol AFTER TestSubcyclingMC_Evol1
   SYNC: ftstate
 } "Evolve scalar wave, part 2"
 
-SCHEDULE TestSubcyclingMC_Constraints AT analysis
-{
-  LANG: C
-  READS: fxstate(interior)
-  READS: fystate(interior)
-  READS: fzstate(interior)
-  WRITES: curlfx(interior)
-  WRITES: curlfy(interior)
-  WRITES: curlfz(interior)
-  SYNC: curlfx
-  SYNC: curlfy
-  SYNC: curlfz
-} "Calculate scalar wave constraints"
- 
 SCHEDULE TestSubcyclingMC_Energy AT analysis
 {
   LANG: C

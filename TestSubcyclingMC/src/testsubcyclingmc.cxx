@@ -234,31 +234,6 @@ extern "C" void TestSubcyclingMC_Evol2(CCTK_ARGUMENTS) {
       });
 }
 
-extern "C" void TestSubcyclingMC_Constraints(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Constraints;
-
-  grid.loop_int_device<0, 1, 1>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        curlfx(p.I) = (fz(p.I + p.DI[1]) - fz(p.I)) / p.DX[1] -
-                      (fy(p.I + p.DI[2]) - fy(p.I)) / p.DX[2];
-      });
-
-  grid.loop_int_device<1, 0, 1>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        curlfy(p.I) = (fx(p.I + p.DI[2]) - fx(p.I)) / p.DX[2] -
-                      (fz(p.I + p.DI[0]) - fz(p.I)) / p.DX[0];
-      });
-
-  grid.loop_int_device<1, 1, 0>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        curlfz(p.I) = (fy(p.I + p.DI[0]) - fy(p.I)) / p.DX[0] -
-                      (fx(p.I + p.DI[1]) - fx(p.I)) / p.DX[1];
-      });
-}
-
 extern "C" void TestSubcyclingMC_Energy(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Energy;
 

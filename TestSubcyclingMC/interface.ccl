@@ -34,23 +34,6 @@ CCTK_REAL fzstate TYPE=gf CENTERING={vvc} TAGS='parities={+1 +1 -1} dependents="
 
 
 
-CCTK_REAL curlfx TYPE=gf CENTERING={vcc} TAGS='parities={+1 -1 -1} checkpoint="no"'
-{
-  curlfx
-} "Constraints, staggered in x direction"
-
-CCTK_REAL curlfy TYPE=gf CENTERING={cvc} TAGS='parities={-1 +1 -1} checkpoint="no"'
-{
-  curlfy
-} "Constraints, staggered in y direction"
-
-CCTK_REAL curlfz TYPE=gf CENTERING={ccv} TAGS='parities={-1 -1 +1} checkpoint="no"'
-{
-  curlfz
-} "Constraints, staggered in z direction"
-
-
-
 CCTK_REAL energy CENTERING={CCC} TYPE=gf TAGS='checkpoint="no"'
 {
   eps
