@@ -86,7 +86,7 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
 }
 
 void calcRHS(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY2;
   grid.loop_int_device<0, 0, 0>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -102,7 +102,7 @@ void calcRHS(CCTK_ARGUMENTS) {
 }
 
 void updateU(CCTK_ARGUMENTS, CCTK_REAL dt) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY2;
   grid.loop_int_device<0, 0, 0>(grid.nghostzones,
                                 [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -112,64 +112,54 @@ void updateU(CCTK_ARGUMENTS, CCTK_REAL dt) {
 }
 
 void calcYs(CCTK_ARGUMENTS, CCTK_REAL dt) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
-  if (dt != 0) {
-    grid.loop_int_device<0, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          u_w(p.I) = u_p(p.I) + u_rhs(p.I) * dt;
-          rho_w(p.I) = rho_p(p.I) + rho_rhs(p.I) * dt;
-        });
-  } else {
-    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
-                                  [=] CCTK_DEVICE(const Loop::PointDesc &p)
-                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                        u_w(p.I) = u_p(p.I);
-                                        rho_w(p.I) = rho_p(p.I);
-                                      });
-  }
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY2;
+  grid.loop_int_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        u_w(p.I) = u_p(p.I) + u_rhs(p.I) * dt;
+        rho_w(p.I) = rho_p(p.I) + rho_rhs(p.I) * dt;
+      });
 }
 
-void setUp(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
+extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY1;
   grid.loop_int_device<0, 0, 0>(grid.nghostzones,
                                 [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
                                       u_p(p.I) = u(p.I);
                                       rho_p(p.I) = rho(p.I);
-                                      if (isnan(u_p(p.I)) || isnan(rho_p(p.I)))
-                                        printf("pstate is nan\n");
+                                      u_w(p.I) = u(p.I);
+                                      rho_w(p.I) = rho(p.I);
                                     });
 }
 
-extern "C" void TestSubcyclingMC_Evol(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
+extern "C" void TestSubcyclingMC_CalcY2(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY2;
   CCTK_REAL dt = CCTK_DELTA_TIME;
-  // set u_p;
-  setUp(CCTK_PASS_CTOC);
-  // CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::pstate");
-
-  // RK4 stage 1
-  calcYs(CCTK_PASS_CTOC, 0); // Y1
-  CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::wstate");
   calcRHS(CCTK_PASS_CTOC); // k1
   updateU(CCTK_PASS_CTOC, dt / CCTK_REAL(6.));
-
-  // RK4 stage 2
   calcYs(CCTK_PASS_CTOC, dt * CCTK_REAL(0.5)); // Y2
-  CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::wstate");
+}
+
+extern "C" void TestSubcyclingMC_CalcY3(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY3;
+  CCTK_REAL dt = CCTK_DELTA_TIME;
   calcRHS(CCTK_PASS_CTOC); // k2
   updateU(CCTK_PASS_CTOC, dt / CCTK_REAL(3.));
-
-  // RK4 stage 3
   calcYs(CCTK_PASS_CTOC, dt * CCTK_REAL(0.5)); // Y3
-  CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::wstate");
+}
+
+extern "C" void TestSubcyclingMC_CalcY4(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY4;
+  CCTK_REAL dt = CCTK_DELTA_TIME;
   calcRHS(CCTK_PASS_CTOC); // k3
   updateU(CCTK_PASS_CTOC, dt / CCTK_REAL(3.));
-
-  // RK4 stage 4
   calcYs(CCTK_PASS_CTOC, dt); // Y4
-  CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::wstate");
+}
+
+extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_UpdateU;
+  CCTK_REAL dt = CCTK_DELTA_TIME;
   calcRHS(CCTK_PASS_CTOC); // k4
   updateU(CCTK_PASS_CTOC, dt / CCTK_REAL(6.));
 }
