@@ -2,9 +2,6 @@
 
 STORAGE: ustate pstate wstate rstate
 
-SCHEDULE GROUP TestSubcyclingMC_RK4Group AT evol
-{
-} "RK4"
 
 SCHEDULE TestSubcyclingMC_Initial AT initial
 {
@@ -12,6 +9,11 @@ SCHEDULE TestSubcyclingMC_Initial AT initial
   WRITES: ustate(interior)
   SYNC: ustate
 } "Initialize scalar wave state"
+
+
+SCHEDULE GROUP TestSubcyclingMC_RK4Group AT evol
+{
+} "RK4"
 
 SCHEDULE TestSubcyclingMC_CalcY1 IN TestSubcyclingMC_RK4Group
 {
