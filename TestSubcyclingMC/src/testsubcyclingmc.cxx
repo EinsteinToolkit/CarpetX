@@ -13,6 +13,7 @@
 #include <limits>
 
 namespace TestSubcyclingMC {
+using namespace Arith;
 
 constexpr int dim = 3;
 
@@ -65,70 +66,7 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
                         {standing_wave_kx, standing_wave_ky, standing_wave_kz},
                         cctk_time, p.X, u0);
           u(p.I) = u0;
-        });
-
-    grid.loop_int_device<0, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto tm = cctk_time - CCTK_DELTA_TIME / 2;
-          CCTK_REAL um;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        tm, p.X, um);
-          const auto tp = cctk_time + CCTK_DELTA_TIME / 2;
-          CCTK_REAL up;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        tp, p.X, up);
-          ft(p.I) = (up - um) / CCTK_DELTA_TIME;
-        });
-
-    grid.loop_int_device<1, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[0] * p.DX / 2;
-          CCTK_REAL um;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[0] * p.DX / 2;
-          CCTK_REAL up;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xp, up);
-          fx(p.I) = (up - um) / p.DX[0];
-        });
-
-    grid.loop_int_device<0, 1, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[1] * p.DX / 2;
-          CCTK_REAL um;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[1] * p.DX / 2;
-          CCTK_REAL up;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xp, up);
-          fy(p.I) = (up - um) / p.DX[1];
-        });
-
-    grid.loop_int_device<0, 0, 1>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[2] * p.DX / 2;
-          CCTK_REAL um;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[2] * p.DX / 2;
-          CCTK_REAL up;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xp, up);
-          fz(p.I) = (up - um) / p.DX[2];
+          rho(p.I) = 0;
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -139,54 +77,7 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
           CCTK_REAL u0;
           gaussian(amplitude, gaussian_width, cctk_time, p.X, u0);
           u(p.I) = u0;
-        });
-
-    grid.loop_int_device<0, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto tm = cctk_time - CCTK_DELTA_TIME / 2;
-          CCTK_REAL um;
-          gaussian(amplitude, gaussian_width, tm, p.X, um);
-          const auto tp = cctk_time + CCTK_DELTA_TIME / 2;
-          CCTK_REAL up;
-          gaussian(amplitude, gaussian_width, tp, p.X, up);
-          ft(p.I) = (up - um) / CCTK_DELTA_TIME;
-        });
-
-    grid.loop_int_device<1, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[0] * p.DX / 2;
-          CCTK_REAL um;
-          gaussian(amplitude, gaussian_width, cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[0] * p.DX / 2;
-          CCTK_REAL up;
-          gaussian(amplitude, gaussian_width, cctk_time, Xp, up);
-          fx(p.I) = (up - um) / p.DX[0];
-        });
-
-    grid.loop_int_device<0, 1, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[1] * p.DX / 2;
-          CCTK_REAL um;
-          gaussian(amplitude, gaussian_width, cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[1] * p.DX / 2;
-          CCTK_REAL up;
-          gaussian(amplitude, gaussian_width, cctk_time, Xp, up);
-          fy(p.I) = (up - um) / p.DX[1];
-        });
-
-    grid.loop_int_device<0, 0, 1>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[2] * p.DX / 2;
-          CCTK_REAL um;
-          gaussian(amplitude, gaussian_width, cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[2] * p.DX / 2;
-          CCTK_REAL up;
-          gaussian(amplitude, gaussian_width, cctk_time, Xp, up);
-          fz(p.I) = (up - um) / p.DX[2];
+          rho(p.I) = 0;
         });
 
   } else {
@@ -194,203 +85,93 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
   }
 }
 
-extern "C" void TestSubcyclingMC_Evol1(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol1;
-
-  grid.loop_int_device<0, 0, 0>(grid.nghostzones,
-                                [=] CCTK_DEVICE(const Loop::PointDesc &p)
-                                    CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                      u(p.I) += CCTK_DELTA_TIME * ft(p.I);
-                                    });
-
-  grid.loop_int_device<1, 0, 0>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        fx(p.I) += CCTK_DELTA_TIME * (ft(p.I + p.DI[0]) - ft(p.I)) / p.DX[0];
-      });
-
-  grid.loop_int_device<0, 1, 0>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        fy(p.I) += CCTK_DELTA_TIME * (ft(p.I + p.DI[1]) - ft(p.I)) / p.DX[1];
-      });
-
-  grid.loop_int_device<0, 0, 1>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        fz(p.I) += CCTK_DELTA_TIME * (ft(p.I + p.DI[2]) - ft(p.I)) / p.DX[2];
-      });
-}
-
-extern "C" void TestSubcyclingMC_Evol2(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol2;
-
+void calcRHS(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
   grid.loop_int_device<0, 0, 0>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        ft(p.I) += CCTK_DELTA_TIME * ((fx(p.I) - fx(p.I - p.DI[0])) / p.DX[0] +
-                                      (fy(p.I) - fy(p.I - p.DI[1])) / p.DX[1] +
-                                      (fz(p.I) - fz(p.I - p.DI[2])) / p.DX[2]);
+        using std::pow;
+        Arith::vect<CCTK_REAL, dim> ddu;
+        for (int d = 0; d < dim; ++d) {
+          ddu[d] = (u_w(p.I - p.DI[d]) - 2 * u_w(p.I) + u_w(p.I + p.DI[d])) /
+                   pow(p.DX[d], 2);
+        }
+        u_rhs(p.I) = rho_w(p.I);
+        rho_rhs(p.I) = ddu[0] + ddu[1] + ddu[2];
       });
 }
 
-extern "C" void TestSubcyclingMC_Energy(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Energy;
-
-  using std::pow;
-
-  grid.loop_int_device<1, 1, 1>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        eps(p.I) =
-            (pow(ft(p.I), 2) + pow((fx(p.I) + fx(p.I + p.DI[0])) / 2, 2) +
-             pow((fy(p.I) + fy(p.I + p.DI[1])) / 2, 2) +
-             pow((fz(p.I) + fz(p.I + p.DI[2])) / 2, 2)) /
-            2;
-      });
+void updateU(CCTK_ARGUMENTS, CCTK_REAL dt) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
+  grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+                                [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                    CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                      u(p.I) += u_rhs(p.I) * dt;
+                                      rho(p.I) += rho_rhs(p.I) * dt;
+                                    });
 }
 
-extern "C" void TestSubcyclingMC_Error(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Error;
-  DECLARE_CCTK_PARAMETERS;
-
-  if (CCTK_EQUALS(initial_condition, "standing wave")) {
-
+void calcYs(CCTK_ARGUMENTS, CCTK_REAL dt) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
+  if (dt != 0) {
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          CCTK_REAL u0;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, p.X, u0);
-          u_err(p.I) = u(p.I) - u0;
+          u_w(p.I) = u_p(p.I) + u_rhs(p.I) * dt;
+          rho_w(p.I) = rho_p(p.I) + rho_rhs(p.I) * dt;
         });
-
-    grid.loop_int_device<0, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto tm = cctk_time - CCTK_DELTA_TIME / 2;
-          CCTK_REAL um;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        tm, p.X, um);
-          const auto tp = cctk_time + CCTK_DELTA_TIME / 2;
-          CCTK_REAL up;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        tp, p.X, up);
-          ft_err(p.I) = ft(p.I) - (up - um) / CCTK_DELTA_TIME;
-        });
-
-    grid.loop_int_device<1, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[0] * p.DX / 2;
-          CCTK_REAL um;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[0] * p.DX / 2;
-          CCTK_REAL up;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xp, up);
-          fx_err(p.I) = fx(p.I) - (up - um) / p.DX[0];
-        });
-
-    grid.loop_int_device<0, 1, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[1] * p.DX / 2;
-          CCTK_REAL um;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[1] * p.DX / 2;
-          CCTK_REAL up;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xp, up);
-          fy_err(p.I) = fy(p.I) - (up - um) / p.DX[1];
-        });
-
-    grid.loop_int_device<0, 0, 1>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[2] * p.DX / 2;
-          CCTK_REAL um;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[2] * p.DX / 2;
-          CCTK_REAL up;
-          standing_wave(amplitude,
-                        {standing_wave_kx, standing_wave_ky, standing_wave_kz},
-                        cctk_time, Xp, up);
-          fz_err(p.I) = fz(p.I) - (up - um) / p.DX[2];
-        });
-
-  } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
-
-    grid.loop_int_device<0, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          CCTK_REAL u0;
-          gaussian(amplitude, gaussian_width, cctk_time, p.X, u0);
-          u_err(p.I) = u(p.I) - u0;
-        });
-
-    grid.loop_int_device<0, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto tm = cctk_time - CCTK_DELTA_TIME / 2;
-          CCTK_REAL um;
-          gaussian(amplitude, gaussian_width, tm, p.X, um);
-          const auto tp = cctk_time + CCTK_DELTA_TIME / 2;
-          CCTK_REAL up;
-          gaussian(amplitude, gaussian_width, tp, p.X, up);
-          ft_err(p.I) = ft(p.I) - (up - um) / CCTK_DELTA_TIME;
-        });
-
-    grid.loop_int_device<1, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[0] * p.DX / 2;
-          CCTK_REAL um;
-          gaussian(amplitude, gaussian_width, cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[0] * p.DX / 2;
-          CCTK_REAL up;
-          gaussian(amplitude, gaussian_width, cctk_time, Xp, up);
-          fx_err(p.I) = fx(p.I) - (up - um) / p.DX[0];
-        });
-
-    grid.loop_int_device<0, 1, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[1] * p.DX / 2;
-          CCTK_REAL um;
-          gaussian(amplitude, gaussian_width, cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[1] * p.DX / 2;
-          CCTK_REAL up;
-          gaussian(amplitude, gaussian_width, cctk_time, Xp, up);
-          fy_err(p.I) = fy(p.I) - (up - um) / p.DX[1];
-        });
-
-    grid.loop_int_device<0, 0, 1>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const auto Xm = p.X - p.DI[2] * p.DX / 2;
-          CCTK_REAL um;
-          gaussian(amplitude, gaussian_width, cctk_time, Xm, um);
-          const auto Xp = p.X + p.DI[2] * p.DX / 2;
-          CCTK_REAL up;
-          gaussian(amplitude, gaussian_width, cctk_time, Xp, up);
-          fz_err(p.I) = fz(p.I) - (up - um) / p.DX[2];
-        });
-
   } else {
-    CCTK_ERROR("Unknown initial condition");
+    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+                                  [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                        u_w(p.I) = u_p(p.I);
+                                        rho_w(p.I) = rho_p(p.I);
+                                      });
   }
+}
+
+void setUp(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
+  grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+                                [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                    CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                      u_p(p.I) = u(p.I);
+                                      rho_p(p.I) = rho(p.I);
+                                      if (isnan(u_p(p.I)) || isnan(rho_p(p.I)))
+                                        printf("pstate is nan\n");
+                                    });
+}
+
+extern "C" void TestSubcyclingMC_Evol(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Evol;
+  CCTK_REAL dt = CCTK_DELTA_TIME;
+  // set u_p;
+  setUp(CCTK_PASS_CTOC);
+  // CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::pstate");
+
+  // RK4 stage 1
+  calcYs(CCTK_PASS_CTOC, 0); // Y1
+  CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::wstate");
+  calcRHS(CCTK_PASS_CTOC); // k1
+  updateU(CCTK_PASS_CTOC, dt / CCTK_REAL(6.));
+
+  // RK4 stage 2
+  calcYs(CCTK_PASS_CTOC, dt * CCTK_REAL(0.5)); // Y2
+  CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::wstate");
+  calcRHS(CCTK_PASS_CTOC); // k2
+  updateU(CCTK_PASS_CTOC, dt / CCTK_REAL(3.));
+
+  // RK4 stage 3
+  calcYs(CCTK_PASS_CTOC, dt * CCTK_REAL(0.5)); // Y3
+  CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::wstate");
+  calcRHS(CCTK_PASS_CTOC); // k3
+  updateU(CCTK_PASS_CTOC, dt / CCTK_REAL(3.));
+
+  // RK4 stage 4
+  calcYs(CCTK_PASS_CTOC, dt); // Y4
+  CCTK_SyncGroup(cctkGH, "TestSubcyclingMC::wstate");
+  calcRHS(CCTK_PASS_CTOC); // k4
+  updateU(CCTK_PASS_CTOC, dt / CCTK_REAL(6.));
 }
 
 } // namespace TestSubcyclingMC
