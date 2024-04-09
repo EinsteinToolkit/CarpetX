@@ -1,16 +1,20 @@
 ActiveThorns = "
     CarpetX
+    BoxInBox
     IOUtil
     TestSubcyclingMC
     TimerReport
 "
 
 $out_every = 8
+$nlevels = 2
+$ncells = 64
 
-Cactus::cctk_show_schedule = no
+Cactus::cctk_show_schedule = yes
 Cactus::presync_mode = "mixed-error"
 
 CarpetX::poison_undefined_values = no
+CarpetX::verbose = no
 
 CarpetX::xmin = -1.0
 CarpetX::ymin = -1.0
@@ -20,13 +24,39 @@ CarpetX::xmax = +1.0
 CarpetX::ymax = +1.0
 CarpetX::zmax = +1.0
 
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
 CarpetX::periodic_x = yes
 CarpetX::periodic_y = yes
 CarpetX::periodic_z = yes
 
-CarpetX::ncells_x = 128
-CarpetX::ncells_y = 64
-CarpetX::ncells_z = 64
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 128
+CarpetX::regrid_error_threshold = 0.9
+
+CarpetX::prolongation_type = "ddf"
+#CarpetX::prolongation_order = 3
+CarpetX::ghost_size = 3
+CarpetX::dtfac = 0.5
+
+CarpetX::blocking_factor_x = 2
+CarpetX::blocking_factor_y = 2
+CarpetX::blocking_factor_z = 2
+CarpetX::max_grid_size_x = 10000000
+CarpetX::max_grid_size_y = 10000000
+CarpetX::max_grid_size_z = 10000000
+CarpetX::max_tile_size_x = 10000000
+CarpetX::max_tile_size_y = 10000000
+CarpetX::max_tile_size_z = 10000000
+
+BoxInBox::num_regions = 1
+# Region 1
+BoxInBox::shape_1 = "cube"
+BoxInBox::num_levels_1 = $nlevels
+BoxInBox::radius_1 = [ -1.0, 0.25, 0.125 ]
+
 
 Cactus::terminate = "iteration"
 #Cactus::cctk_final_time = 1.0
@@ -42,27 +72,17 @@ CarpetX::out_norm_vars = "all"
 
 CarpetX::out_tsv_vars = "
     TestSubcyclingMC::ustate
-    TestSubcyclingMC::ftstate
-    TestSubcyclingMC::fxstate
-    TestSubcyclingMC::fystate
-    TestSubcyclingMC::fzstate
-    TestSubcyclingMC::energy
-    TestSubcyclingMC::uerror
-    TestSubcyclingMC::fterror
-    TestSubcyclingMC::fxerror
-    TestSubcyclingMC::fyerror
-    TestSubcyclingMC::fzerror
+    #TestSubcyclingMC::energy
+    #TestSubcyclingMC::uerror
 "
 
 CarpetX::out_silo_vars = "
     TestSubcyclingMC::ustate
-    TestSubcyclingMC::ftstate
-    TestSubcyclingMC::energy
-    TestSubcyclingMC::uerror
-    TestSubcyclingMC::fterror
+    #TestSubcyclingMC::energy
+    #TestSubcyclingMC::uerror
 "
 
-TimerReport::out_every = $out_every
+TimerReport::out_every = 1024 # $out_every
 TimerReport::out_filename = "TimerReport"
 TimerReport::output_schedule_timers = no
 TimerReport::n_top_timers = 100
