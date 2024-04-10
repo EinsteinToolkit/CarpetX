@@ -148,31 +148,31 @@ extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
 
 extern "C" void TestSubcyclingMC_CalcY2(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY2;
-  CalcRhsAndUpdateU(CCTK_DELTA_TIME / CCTK_REAL(6.), grid, u, rho, u_rhs,
-                    rho_rhs, u_w, rho_w); // k1
-  CalcYs(CCTK_DELTA_TIME * CCTK_REAL(0.5), grid, u_w, rho_w, u_rhs, rho_rhs,
+  CalcRhsAndUpdateU(CCTK_DELTA_TIME / CCTK_REAL(6.), grid, u, rho, u_k1,
+                    rho_k1, u_w, rho_w); // k1
+  CalcYs(CCTK_DELTA_TIME * CCTK_REAL(0.5), grid, u_w, rho_w, u_k1, rho_k1,
          u_p, rho_p); // Y2
 }
 
 extern "C" void TestSubcyclingMC_CalcY3(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY3;
-  CalcRhsAndUpdateU(CCTK_DELTA_TIME / CCTK_REAL(3.), grid, u, rho, u_rhs,
-                    rho_rhs, u_w, rho_w); // k2
-  CalcYs(CCTK_DELTA_TIME * CCTK_REAL(0.5), grid, u_w, rho_w, u_rhs, rho_rhs,
+  CalcRhsAndUpdateU(CCTK_DELTA_TIME / CCTK_REAL(3.), grid, u, rho, u_k2,
+                    rho_k2, u_w, rho_w); // k2
+  CalcYs(CCTK_DELTA_TIME * CCTK_REAL(0.5), grid, u_w, rho_w, u_k2, rho_k2,
          u_p, rho_p); // Y3
 }
 
 extern "C" void TestSubcyclingMC_CalcY4(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY4;
-  CalcRhsAndUpdateU(CCTK_DELTA_TIME / CCTK_REAL(3.), grid, u, rho, u_rhs,
-                    rho_rhs, u_w, rho_w);                                // k3
-  CalcYs(CCTK_DELTA_TIME, grid, u_w, rho_w, u_rhs, rho_rhs, u_p, rho_p); // Y4
+  CalcRhsAndUpdateU(CCTK_DELTA_TIME / CCTK_REAL(3.), grid, u, rho, u_k3,
+                    rho_k3, u_w, rho_w);                                // k3
+  CalcYs(CCTK_DELTA_TIME, grid, u_w, rho_w, u_k3, rho_k3, u_p, rho_p); // Y4
 }
 
 extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_UpdateU;
-  CalcRhsAndUpdateU(CCTK_DELTA_TIME / CCTK_REAL(6.), grid, u, rho, u_rhs,
-                    rho_rhs, u_w, rho_w); // k4
+  CalcRhsAndUpdateU(CCTK_DELTA_TIME / CCTK_REAL(6.), grid, u, rho, u_k4,
+                    rho_k4, u_w, rho_w); // k4
 }
 
 } // namespace TestSubcyclingMC

@@ -1,6 +1,6 @@
 # Schedule definitions for thorn TestSubcyclingMC
 
-STORAGE: ustate pstate wstate rstate
+STORAGE: ustate pstate wstate k1 k2 k3 k4
 
 
 SCHEDULE TestSubcyclingMC_Initial AT initial
@@ -31,7 +31,7 @@ SCHEDULE TestSubcyclingMC_CalcY2 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   LANG: C
   # calculate k1
   READS: wstate(everywhere)
-  WRITES: rstate(interior)
+  WRITES: k1(interior)
   # update ustate
   READS: ustate(interior)
   WRITES: ustate(interior)
@@ -47,7 +47,7 @@ SCHEDULE TestSubcyclingMC_CalcY3 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   LANG: C
   # calculate k2
   READS: wstate(everywhere)
-  WRITES: rstate(interior)
+  WRITES: k2(interior)
   # update ustate
   READS: ustate(interior)
   WRITES: ustate(interior)
@@ -63,7 +63,7 @@ SCHEDULE TestSubcyclingMC_CalcY4 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   LANG: C
   # calculate k3
   READS: wstate(everywhere)
-  WRITES: rstate(interior)
+  WRITES: k3(interior)
   # update ustate
   READS: ustate(interior)
   WRITES: ustate(interior)
@@ -80,7 +80,7 @@ SCHEDULE TestSubcyclingMC_UpdateU IN TestSubcyclingMC_RK4Group AFTER TestSubcycl
   # calculate k4
   READS: wstate(everywhere)
   WRITES: wstate(interior) # fake
-  WRITES: rstate(interior)
+  WRITES: k4(interior)
   # update ustate
   READS: ustate(interior)
   WRITES: ustate(interior)
