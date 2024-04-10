@@ -136,6 +136,67 @@ void CalcYs(const Loop::GridDescBaseDevice &grid,
       });
 }
 
+void CalcYfsFromKcs(
+    // output
+    CCTK_REAL Yf,
+    // input
+    CCTK_REAL kc1, CCTK_REAL kc2, CCTK_REAL kc3, CCTK_REAL kc4, CCTK_REAL u0,
+    CCTK_INT stage) {
+  assert(stage > 0 && stage <= 4);
+
+  // CCTK_REAL dtc = m_dt_coarse;
+  // CCTK_REAL r = CCTK_REAL(1) / CCTK_REAL(ncycle);
+  // CCTK_REAL xsi = CCTK_REAL(iteration-1) / CCTK_REAL(ncycle);
+  CCTK_REAL dtc = 0;
+  CCTK_REAL r = 0;
+  CCTK_REAL xsi = 0;
+
+  CCTK_REAL xsi2 = xsi * xsi;
+  CCTK_REAL xsi3 = xsi2 * xsi;
+  // coefficients for U
+  CCTK_REAL b1 = xsi - CCTK_REAL(1.5) * xsi2 + CCTK_REAL(2. / 3.) * xsi3;
+  CCTK_REAL b2 = xsi2 - CCTK_REAL(2. / 3.) * xsi3;
+  CCTK_REAL b3 = b2;
+  CCTK_REAL b4 = CCTK_REAL(-0.5) * xsi2 + CCTK_REAL(2. / 3.) * xsi3;
+  // coefficients for Ut
+  CCTK_REAL c1 = CCTK_REAL(1.) - CCTK_REAL(3.) * xsi + CCTK_REAL(2.) * xsi2;
+  CCTK_REAL c2 = CCTK_REAL(2.) * xsi - CCTK_REAL(2.) * xsi2;
+  CCTK_REAL c3 = c2;
+  CCTK_REAL c4 = -xsi + CCTK_REAL(2.) * xsi2;
+  // coefficients for Utt
+  CCTK_REAL d1 = CCTK_REAL(-3.) + CCTK_REAL(4.) * xsi;
+  CCTK_REAL d2 = CCTK_REAL(2.) - CCTK_REAL(4.) * xsi;
+  CCTK_REAL d3 = d2;
+  CCTK_REAL d4 = CCTK_REAL(-1.) + CCTK_REAL(4.) * xsi;
+  // coefficients for Uttt
+  constexpr CCTK_REAL e1 = CCTK_REAL(4.);
+  constexpr CCTK_REAL e2 = CCTK_REAL(-4.);
+  constexpr CCTK_REAL e3 = CCTK_REAL(-4.);
+  constexpr CCTK_REAL e4 = CCTK_REAL(4.);
+  if (stage == 1) {
+    CCTK_REAL uu = b1 * kc1 + b2 * kc2 + b3 * kc3 + b4 * kc4;
+    Yf = u0 + dtc * uu;
+  } else if (stage == 2) {
+    CCTK_REAL uu = b1 * kc1 + b2 * kc2 + b3 * kc3 + b4 * kc4;
+    CCTK_REAL ut = c1 * kc1 + c2 * kc2 + c3 * kc3 + c4 * kc4;
+    Yf = u0 + dtc * (uu + CCTK_REAL(0.5) * r * ut);
+  } else if (stage == 3 || stage == 4) {
+    CCTK_REAL r2 = r * r;
+    CCTK_REAL r3 = r2 * r;
+    CCTK_REAL at = (stage == 3) ? CCTK_REAL(0.5) * r : r;
+    CCTK_REAL att = (stage == 3) ? CCTK_REAL(0.25) * r2 : CCTK_REAL(0.5) * r2;
+    CCTK_REAL attt =
+        (stage == 3) ? CCTK_REAL(0.0625) * r3 : CCTK_REAL(0.125) * r3;
+    CCTK_REAL akc = (stage == 3) ? CCTK_REAL(-4.) : CCTK_REAL(4.);
+    CCTK_REAL uu = b1 * kc1 + b2 * kc2 + b3 * kc3 + b4 * kc4;
+    CCTK_REAL ut = c1 * kc1 + c2 * kc2 + c3 * kc3 + c4 * kc4;
+    CCTK_REAL utt = d1 * kc1 + d2 * kc2 + d3 * kc3 + d4 * kc4;
+    CCTK_REAL uttt = e1 * kc1 + e2 * kc2 + e3 * kc3 + e4 * kc4;
+    Yf = u0 +
+         dtc * (uu + at * ut + att * utt + attt * (uttt + akc * (kc3 - kc2)));
+  }
+}
+
 extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY1;
   grid.loop_int_device<0, 0, 0>(grid.nghostzones,
