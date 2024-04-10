@@ -124,8 +124,8 @@ void CalcYs(CCTK_REAL dt, const Loop::GridDescBaseDevice &grid,
             // input
             const Loop::GF3D2<CCTK_REAL> &u_rhs,
             const Loop::GF3D2<CCTK_REAL> &rho_rhs,
-            const Loop::GF3D2<CCTK_REAL> &u_p,
-            const Loop::GF3D2<CCTK_REAL> &rho_p) {
+            const Loop::GF3D2<const CCTK_REAL> &u_p,
+            const Loop::GF3D2<const CCTK_REAL> &rho_p) {
   grid.loop_int_device<0, 0, 0>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
