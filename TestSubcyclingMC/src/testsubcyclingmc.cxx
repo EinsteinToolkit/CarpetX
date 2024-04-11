@@ -139,22 +139,26 @@ void CalcYs(const Loop::GridDescBaseDevice &grid,
 /**
  * \brief Calculate Ys ghost points for fine grid using Ks on coarse grid
  *
+ * \param Yf        RK substage Ys on the fine side to be interperated into
+ *                  the ghost zones
+ * \param kcs       RK ks on the coarset side
+ * \param u0        u at t0
+ * \param dtc       Time step size on coarse side
+ * \param xsi       which substep on fine level during a coarse time
+ *                  step.  For an AMR simulation with subcycling and a
+ *                  refinement ratio of 2, the number is either 0 or 0.5,
+ *                  denoting the first and second substep, respectively.
  * \param stage     RK stage number starting from 1
- * \param ncycle    number of subcyling steps.  It's usually 2 or 4.
- *                  Without subcycling, this will be 1.
  */
 void CalcYfsFromKcs(
     // output
     CCTK_REAL Yf,
     // input
-    CCTK_REAL kc1, CCTK_REAL kc2, CCTK_REAL kc3, CCTK_REAL kc4, CCTK_REAL u0,
-    CCTK_REAL dtc, CCTK_REAL xsi, CCTK_INT stage) {
+    array<CCTK_REAL, 4> kcs, CCTK_REAL u0, CCTK_REAL dtc, CCTK_REAL xsi,
+    CCTK_INT stage) {
   assert(stage > 0 && stage <= 4);
 
-  // CCTK_REAL dtc = m_dt_coarse;
-  const CCTK_REAL ncycle = 2; // 2 to 1 mesh refinement
-  CCTK_REAL r = CCTK_REAL(1) / CCTK_REAL(ncycle);
-
+  CCTK_REAL r = 0.5; // ratio between coarse and fine cell size (2 to 1 MR case)
   CCTK_REAL xsi2 = xsi * xsi;
   CCTK_REAL xsi3 = xsi2 * xsi;
   // coefficients for U
@@ -177,12 +181,17 @@ void CalcYfsFromKcs(
   constexpr CCTK_REAL e2 = CCTK_REAL(-4.);
   constexpr CCTK_REAL e3 = CCTK_REAL(-4.);
   constexpr CCTK_REAL e4 = CCTK_REAL(4.);
+  // ks on the coarse side
+  const CCTK_REAL k1 = kcs[0];
+  const CCTK_REAL k2 = kcs[1];
+  const CCTK_REAL k3 = kcs[2];
+  const CCTK_REAL k4 = kcs[3];
+
+  CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
   if (stage == 1) {
-    CCTK_REAL uu = b1 * kc1 + b2 * kc2 + b3 * kc3 + b4 * kc4;
     Yf = u0 + dtc * uu;
   } else if (stage == 2) {
-    CCTK_REAL uu = b1 * kc1 + b2 * kc2 + b3 * kc3 + b4 * kc4;
-    CCTK_REAL ut = c1 * kc1 + c2 * kc2 + c3 * kc3 + c4 * kc4;
+    CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
     Yf = u0 + dtc * (uu + CCTK_REAL(0.5) * r * ut);
   } else if (stage == 3 || stage == 4) {
     CCTK_REAL r2 = r * r;
@@ -191,13 +200,11 @@ void CalcYfsFromKcs(
     CCTK_REAL att = (stage == 3) ? CCTK_REAL(0.25) * r2 : CCTK_REAL(0.5) * r2;
     CCTK_REAL attt =
         (stage == 3) ? CCTK_REAL(0.0625) * r3 : CCTK_REAL(0.125) * r3;
-    CCTK_REAL akc = (stage == 3) ? CCTK_REAL(-4.) : CCTK_REAL(4.);
-    CCTK_REAL uu = b1 * kc1 + b2 * kc2 + b3 * kc3 + b4 * kc4;
-    CCTK_REAL ut = c1 * kc1 + c2 * kc2 + c3 * kc3 + c4 * kc4;
-    CCTK_REAL utt = d1 * kc1 + d2 * kc2 + d3 * kc3 + d4 * kc4;
-    CCTK_REAL uttt = e1 * kc1 + e2 * kc2 + e3 * kc3 + e4 * kc4;
-    Yf = u0 +
-         dtc * (uu + at * ut + att * utt + attt * (uttt + akc * (kc3 - kc2)));
+    CCTK_REAL ak = (stage == 3) ? CCTK_REAL(-4.) : CCTK_REAL(4.);
+    CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
+    CCTK_REAL utt = d1 * k1 + d2 * k2 + d3 * k3 + d4 * k4;
+    CCTK_REAL uttt = e1 * k1 + e2 * k2 + e3 * k3 + e4 * k4;
+    Yf = u0 + dtc * (uu + at * ut + att * utt + attt * (uttt + ak * (k3 - k2)));
   }
 }
 
