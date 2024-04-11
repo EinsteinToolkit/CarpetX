@@ -154,8 +154,9 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
                    // output
                    const Loop::GF3D2<CCTK_REAL> &Yf,
                    // input
-                   const array<const Loop::GF3D2<CCTK_REAL>, 4> &kcs,
-                   CCTK_REAL u0, CCTK_REAL dtc, CCTK_REAL xsi, CCTK_INT stage) {
+                   const Loop::GF3D2<const CCTK_REAL> &u0,
+                   const array<const Loop::GF3D2<const CCTK_REAL>, 4> &kcs,
+                   CCTK_REAL dtc, CCTK_REAL xsi, CCTK_INT stage) {
   assert(stage > 0 && stage <= 4);
 
   CCTK_REAL r = 0.5; // ratio between coarse and fine cell size (2 to 1 MR case)
@@ -192,7 +193,7 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
           CCTK_REAL k3 = kcs[2](p.I);
           CCTK_REAL k4 = kcs[3](p.I);
           CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
-          Yf(p.I) = u0 + dtc * uu;
+          Yf(p.I) = u0(p.I) + dtc * uu;
         });
   } else if (stage == 2) {
 
@@ -205,7 +206,7 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
           CCTK_REAL k4 = kcs[3](p.I);
           CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
           CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
-          Yf(p.I) = u0 + dtc * (uu + CCTK_REAL(0.5) * r * ut);
+          Yf(p.I) = u0(p.I) + dtc * (uu + CCTK_REAL(0.5) * r * ut);
         });
   } else if (stage == 3 || stage == 4) {
     CCTK_REAL r2 = r * r;
@@ -227,8 +228,8 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
           CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
           CCTK_REAL utt = d1 * k1 + d2 * k2 + d3 * k3 + d4 * k4;
           CCTK_REAL uttt = e1 * k1 + e2 * k2 + e3 * k3 + e4 * k4;
-          Yf(p.I) = u0 + dtc * (uu + at * ut + att * utt +
-                                attt * (uttt + ak * (k3 - k2)));
+          Yf(p.I) = u0(p.I) + dtc * (uu + at * ut + att * utt +
+                                     attt * (uttt + ak * (k3 - k2)));
         });
   }
 }
@@ -273,6 +274,22 @@ extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_UpdateU;
   CalcRhsAndUpdateU(grid, u_k4, rho_k4, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k4
+}
+
+extern "C" void TestSubcyclingMC_CalcYfs(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcYfs;
+  const array<const Loop::GF3D2<const CCTK_REAL>, 4> u_kcs{u_k1, u_k2, u_k3,
+                                                           u_k4};
+  const array<const Loop::GF3D2<const CCTK_REAL>, 4> rho_kcs{rho_k1, rho_k2,
+                                                             rho_k3, rho_k4};
+  CalcYfFromKcs(grid, u_Y1, u_p, u_kcs, 0, 0, 1);
+  CalcYfFromKcs(grid, u_Y2, u_p, u_kcs, 0, 0, 2);
+  CalcYfFromKcs(grid, u_Y3, u_p, u_kcs, 0, 0, 3);
+  CalcYfFromKcs(grid, u_Y4, u_p, u_kcs, 0, 0, 4);
+  CalcYfFromKcs(grid, rho_Y1, rho_p, rho_kcs, 0, 0, 1);
+  CalcYfFromKcs(grid, rho_Y2, rho_p, rho_kcs, 0, 0, 2);
+  CalcYfFromKcs(grid, rho_Y3, rho_p, rho_kcs, 0, 0, 3);
+  CalcYfFromKcs(grid, rho_Y4, rho_p, rho_kcs, 0, 0, 4);
 }
 
 } // namespace TestSubcyclingMC
