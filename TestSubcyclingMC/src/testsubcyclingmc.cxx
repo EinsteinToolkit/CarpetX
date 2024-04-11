@@ -282,14 +282,15 @@ extern "C" void TestSubcyclingMC_CalcYfs(CCTK_ARGUMENTS) {
                                                            u_k4};
   const array<const Loop::GF3D2<const CCTK_REAL>, 4> rho_kcs{rho_k1, rho_k2,
                                                              rho_k3, rho_k4};
-  CalcYfFromKcs(grid, u_Y1, u_p, u_kcs, 0, 0, 1);
-  CalcYfFromKcs(grid, u_Y2, u_p, u_kcs, 0, 0, 2);
-  CalcYfFromKcs(grid, u_Y3, u_p, u_kcs, 0, 0, 3);
-  CalcYfFromKcs(grid, u_Y4, u_p, u_kcs, 0, 0, 4);
-  CalcYfFromKcs(grid, rho_Y1, rho_p, rho_kcs, 0, 0, 1);
-  CalcYfFromKcs(grid, rho_Y2, rho_p, rho_kcs, 0, 0, 2);
-  CalcYfFromKcs(grid, rho_Y3, rho_p, rho_kcs, 0, 0, 3);
-  CalcYfFromKcs(grid, rho_Y4, rho_p, rho_kcs, 0, 0, 4);
+  const CCTK_REAL xsi = (cctk_iteration % 2) ? 0.0 : 0.5;
+  CalcYfFromKcs(grid, u_Y1, u_p, u_kcs, CCTK_DELTA_TIME, xsi, 1);
+  CalcYfFromKcs(grid, u_Y2, u_p, u_kcs, CCTK_DELTA_TIME, xsi, 2);
+  CalcYfFromKcs(grid, u_Y3, u_p, u_kcs, CCTK_DELTA_TIME, xsi, 3);
+  CalcYfFromKcs(grid, u_Y4, u_p, u_kcs, CCTK_DELTA_TIME, xsi, 4);
+  CalcYfFromKcs(grid, rho_Y1, rho_p, rho_kcs, CCTK_DELTA_TIME, xsi, 1);
+  CalcYfFromKcs(grid, rho_Y2, rho_p, rho_kcs, CCTK_DELTA_TIME, xsi, 2);
+  CalcYfFromKcs(grid, rho_Y3, rho_p, rho_kcs, CCTK_DELTA_TIME, xsi, 3);
+  CalcYfFromKcs(grid, rho_Y4, rho_p, rho_kcs, CCTK_DELTA_TIME, xsi, 4);
 }
 
 } // namespace TestSubcyclingMC
