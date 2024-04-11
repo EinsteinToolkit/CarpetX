@@ -30,3 +30,8 @@ CCTK_REAL gaussian_width "width of Gaussian"
 {
   (0:* :: ""
 } 1.0
+
+
+SHARES: CarpetX
+
+USES BOOLEAN use_subcycling_wip

@@ -273,38 +273,46 @@ extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
                                       u_w(p.I) = u(p.I);
                                       rho_w(p.I) = rho(p.I);
                                     });
-  CopyWsFromYs(grid, u_w, rho_w, u_Y1, rho_Y1);
 }
 
 extern "C" void TestSubcyclingMC_CalcY2(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY2;
+  DECLARE_CCTK_PARAMETERS;
+  if (use_subcycling_wip)
+    CopyWsFromYs(grid, u_w, rho_w, u_Y1, rho_Y1);
   CalcRhsAndUpdateU(grid, u_k1, rho_k1, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k1
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k1, rho_k1,
          CCTK_DELTA_TIME * CCTK_REAL(0.5)); // Y2
-  CopyWsFromYs(grid, u_w, rho_w, u_Y2, rho_Y2);
 }
 
 extern "C" void TestSubcyclingMC_CalcY3(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY3;
+  DECLARE_CCTK_PARAMETERS;
+  if (use_subcycling_wip)
+    CopyWsFromYs(grid, u_w, rho_w, u_Y2, rho_Y2);
   CalcRhsAndUpdateU(grid, u_k2, rho_k2, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(3.)); // k2
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k2, rho_k2,
          CCTK_DELTA_TIME * CCTK_REAL(0.5)); // Y3
-  CopyWsFromYs(grid, u_w, rho_w, u_Y3, rho_Y3);
 }
 
 extern "C" void TestSubcyclingMC_CalcY4(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY4;
+  DECLARE_CCTK_PARAMETERS;
+  if (use_subcycling_wip)
+    CopyWsFromYs(grid, u_w, rho_w, u_Y3, rho_Y3);
   CalcRhsAndUpdateU(grid, u_k3, rho_k3, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(3.)); // k3
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k3, rho_k3,
          CCTK_DELTA_TIME); // Y4
-  CopyWsFromYs(grid, u_w, rho_w, u_Y4, rho_Y4);
 }
 
 extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_UpdateU;
+  DECLARE_CCTK_PARAMETERS;
+  if (use_subcycling_wip)
+    CopyWsFromYs(grid, u_w, rho_w, u_Y4, rho_Y4);
   CalcRhsAndUpdateU(grid, u_k4, rho_k4, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k4
 }

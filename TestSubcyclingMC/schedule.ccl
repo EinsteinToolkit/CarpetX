@@ -24,14 +24,14 @@ SCHEDULE TestSubcyclingMC_CalcY1 IN TestSubcyclingMC_RK4Group
   READS: ustate(interior)
   WRITES: pstate(interior)
   # calculate Y1
-  READS: Y1(everywhere)
-  WRITES: wstate(everywhere)
-  #SYNC: wstate
+  WRITES: wstate(interior)
+  SYNC: wstate
 } "calc Y1"
 
 SCHEDULE TestSubcyclingMC_CalcY2 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY1
 {
   LANG: C
+  READS: Y1(everywhere)
   # calculate k1
   READS: wstate(everywhere)
   WRITES: k1(interior)
@@ -40,14 +40,14 @@ SCHEDULE TestSubcyclingMC_CalcY2 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y2
   READS: pstate(interior)
-  READS: Y2(everywhere)
-  WRITES: wstate(everywhere)
-  #SYNC: wstate
+  WRITES: wstate(interior)
+  SYNC: wstate
 } "calc Y2"
 
 SCHEDULE TestSubcyclingMC_CalcY3 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY2
 {
   LANG: C
+  READS: Y2(everywhere)
   # calculate k2
   READS: wstate(everywhere)
   WRITES: k2(interior)
@@ -56,14 +56,14 @@ SCHEDULE TestSubcyclingMC_CalcY3 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y3
   READS: pstate(interior)
-  READS: Y3(everywhere)
-  WRITES: wstate(everywhere)
-  #SYNC: wstate
+  WRITES: wstate(interior)
+  SYNC: wstate
 } "calc Y3"
 
 SCHEDULE TestSubcyclingMC_CalcY4 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY3
 {
   LANG: C
+  READS: Y3(everywhere)
   # calculate k3
   READS: wstate(everywhere)
   WRITES: k3(interior)
@@ -72,14 +72,14 @@ SCHEDULE TestSubcyclingMC_CalcY4 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y4
   READS: pstate(interior)
-  READS: Y4(everywhere)
-  WRITES: wstate(everywhere)
-  #SYNC: wstate
+  WRITES: wstate(interior)
+  SYNC: wstate
 } "calc Y4"
 
 SCHEDULE TestSubcyclingMC_UpdateU IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY4
 {
   LANG: C
+  READS: Y4(everywhere)
   # calculate k4
   READS: wstate(everywhere)
   WRITES: wstate(interior) # fake
@@ -90,6 +90,7 @@ SCHEDULE TestSubcyclingMC_UpdateU IN TestSubcyclingMC_RK4Group AFTER TestSubcycl
   SYNC: ustate
 } "update ustate"
 
+if (use_subcycling_wip) {
 SCHEDULE TestSubcyclingMC_CalcYfs IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_UpdateU
 {
   LANG: C
@@ -98,3 +99,4 @@ SCHEDULE TestSubcyclingMC_CalcYfs IN TestSubcyclingMC_RK4Group AFTER TestSubcycl
   WRITES: Y1(interior) Y2(interior) Y3(interior) Y4(interior)
   #SYNC: Y1 Y2 Y3 Y4
 } "calc fine Ys from coarse ks"
+}
