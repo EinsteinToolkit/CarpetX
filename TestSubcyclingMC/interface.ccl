@@ -55,6 +55,30 @@ CCTK_REAL k4 TYPE=gf TAGS='checkpoint="no"'
     rho_k4
 } "The Runge-Kutta k_4 variables"
 
+CCTK_REAL Y1 TYPE=gf TAGS='checkpoint="no"'
+{
+    u_Y1
+    rho_Y1
+} "The Runge-Kutta Y_1 variables"
+
+CCTK_REAL Y2 TYPE=gf TAGS='checkpoint="no"'
+{
+    u_Y2
+    rho_Y2
+} "The Runge-Kutta Y_2 variables"
+
+CCTK_REAL Y3 TYPE=gf TAGS='checkpoint="no"'
+{
+    u_Y3
+    rho_Y3
+} "The Runge-Kutta Y_3 variables"
+
+CCTK_REAL Y4 TYPE=gf TAGS='checkpoint="no"'
+{
+    u_Y4
+    rho_Y4
+} "The Runge-Kutta Y_4 variables"
+
 
 
 CCTK_REAL energy CENTERING={CCC} TYPE=gf TAGS='checkpoint="no"'

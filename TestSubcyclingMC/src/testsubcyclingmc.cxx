@@ -150,12 +150,12 @@ void CalcYs(const Loop::GridDescBaseDevice &grid,
  *                  denoting the first and second substep, respectively.
  * \param stage     RK stage number starting from 1
  */
-void CalcYfsFromKcs(
-    // output
-    CCTK_REAL Yf,
-    // input
-    array<CCTK_REAL, 4> kcs, CCTK_REAL u0, CCTK_REAL dtc, CCTK_REAL xsi,
-    CCTK_INT stage) {
+void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
+                   // output
+                   const Loop::GF3D2<CCTK_REAL> &Yf,
+                   // input
+                   const array<const Loop::GF3D2<CCTK_REAL>, 4> &kcs,
+                   CCTK_REAL u0, CCTK_REAL dtc, CCTK_REAL xsi, CCTK_INT stage) {
   assert(stage > 0 && stage <= 4);
 
   CCTK_REAL r = 0.5; // ratio between coarse and fine cell size (2 to 1 MR case)
@@ -181,18 +181,32 @@ void CalcYfsFromKcs(
   constexpr CCTK_REAL e2 = CCTK_REAL(-4.);
   constexpr CCTK_REAL e3 = CCTK_REAL(-4.);
   constexpr CCTK_REAL e4 = CCTK_REAL(4.);
-  // ks on the coarse side
-  const CCTK_REAL k1 = kcs[0];
-  const CCTK_REAL k2 = kcs[1];
-  const CCTK_REAL k3 = kcs[2];
-  const CCTK_REAL k4 = kcs[3];
 
-  CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
   if (stage == 1) {
-    Yf = u0 + dtc * uu;
+
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          CCTK_REAL k1 = kcs[0](p.I);
+          CCTK_REAL k2 = kcs[1](p.I);
+          CCTK_REAL k3 = kcs[2](p.I);
+          CCTK_REAL k4 = kcs[3](p.I);
+          CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
+          Yf(p.I) = u0 + dtc * uu;
+        });
   } else if (stage == 2) {
-    CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
-    Yf = u0 + dtc * (uu + CCTK_REAL(0.5) * r * ut);
+
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          CCTK_REAL k1 = kcs[0](p.I);
+          CCTK_REAL k2 = kcs[1](p.I);
+          CCTK_REAL k3 = kcs[2](p.I);
+          CCTK_REAL k4 = kcs[3](p.I);
+          CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
+          CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
+          Yf(p.I) = u0 + dtc * (uu + CCTK_REAL(0.5) * r * ut);
+        });
   } else if (stage == 3 || stage == 4) {
     CCTK_REAL r2 = r * r;
     CCTK_REAL r3 = r2 * r;
@@ -201,10 +215,21 @@ void CalcYfsFromKcs(
     CCTK_REAL attt =
         (stage == 3) ? CCTK_REAL(0.0625) * r3 : CCTK_REAL(0.125) * r3;
     CCTK_REAL ak = (stage == 3) ? CCTK_REAL(-4.) : CCTK_REAL(4.);
-    CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
-    CCTK_REAL utt = d1 * k1 + d2 * k2 + d3 * k3 + d4 * k4;
-    CCTK_REAL uttt = e1 * k1 + e2 * k2 + e3 * k3 + e4 * k4;
-    Yf = u0 + dtc * (uu + at * ut + att * utt + attt * (uttt + ak * (k3 - k2)));
+
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          CCTK_REAL k1 = kcs[0](p.I);
+          CCTK_REAL k2 = kcs[1](p.I);
+          CCTK_REAL k3 = kcs[2](p.I);
+          CCTK_REAL k4 = kcs[3](p.I);
+          CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
+          CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
+          CCTK_REAL utt = d1 * k1 + d2 * k2 + d3 * k3 + d4 * k4;
+          CCTK_REAL uttt = e1 * k1 + e2 * k2 + e3 * k3 + e4 * k4;
+          Yf(p.I) = u0 + dtc * (uu + at * ut + att * utt +
+                                attt * (uttt + ak * (k3 - k2)));
+        });
   }
 }
 
