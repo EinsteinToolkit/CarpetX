@@ -22,8 +22,9 @@ SCHEDULE TestSubcyclingMC_CalcY1 IN TestSubcyclingMC_RK4Group
   READS: ustate(interior)
   WRITES: pstate(interior)
   # calculate Y1
-  WRITES: wstate(interior)
-  SYNC: wstate
+  READS: Y1(everywhere)
+  WRITES: wstate(everywhere)
+  #SYNC: wstate
 } "calc Y1"
 
 SCHEDULE TestSubcyclingMC_CalcY2 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY1
@@ -37,8 +38,9 @@ SCHEDULE TestSubcyclingMC_CalcY2 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y2
   READS: pstate(interior)
-  WRITES: wstate(interior)
-  SYNC: wstate
+  READS: Y2(everywhere)
+  WRITES: wstate(everywhere)
+  #SYNC: wstate
 } "calc Y2"
 
 SCHEDULE TestSubcyclingMC_CalcY3 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY2
@@ -52,8 +54,9 @@ SCHEDULE TestSubcyclingMC_CalcY3 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y3
   READS: pstate(interior)
-  WRITES: wstate(interior)
-  SYNC: wstate
+  READS: Y3(everywhere)
+  WRITES: wstate(everywhere)
+  #SYNC: wstate
 } "calc Y3"
 
 SCHEDULE TestSubcyclingMC_CalcY4 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY3
@@ -67,8 +70,9 @@ SCHEDULE TestSubcyclingMC_CalcY4 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y4
   READS: pstate(interior)
-  WRITES: wstate(interior)
-  SYNC: wstate
+  READS: Y4(everywhere)
+  WRITES: wstate(everywhere)
+  #SYNC: wstate
 } "calc Y4"
 
 SCHEDULE TestSubcyclingMC_UpdateU IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY4

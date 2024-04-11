@@ -234,6 +234,21 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
   }
 }
 
+void CopyWsFromYs(const Loop::GridDescBaseDevice &grid,
+                  // output
+                  const Loop::GF3D2<CCTK_REAL> &u_w,
+                  const Loop::GF3D2<CCTK_REAL> &rho_w,
+                  // input
+                  const Loop::GF3D2<const CCTK_REAL> &u_Y,
+                  const Loop::GF3D2<const CCTK_REAL> &rho_Y) {
+  grid.loop_ghosts_device<0, 0, 0>(grid.nghostzones,
+                                   [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                       CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                         u_w(p.I) = u_Y(p.I);
+                                         rho_w(p.I) = rho_Y(p.I);
+                                       });
+}
+
 extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY1;
   grid.loop_int_device<0, 0, 0>(grid.nghostzones,
@@ -244,6 +259,7 @@ extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
                                       u_w(p.I) = u(p.I);
                                       rho_w(p.I) = rho(p.I);
                                     });
+  CopyWsFromYs(grid, u_w, rho_w, u_Y1, rho_Y1);
 }
 
 extern "C" void TestSubcyclingMC_CalcY2(CCTK_ARGUMENTS) {
@@ -252,6 +268,7 @@ extern "C" void TestSubcyclingMC_CalcY2(CCTK_ARGUMENTS) {
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k1
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k1, rho_k1,
          CCTK_DELTA_TIME * CCTK_REAL(0.5)); // Y2
+  CopyWsFromYs(grid, u_w, rho_w, u_Y2, rho_Y2);
 }
 
 extern "C" void TestSubcyclingMC_CalcY3(CCTK_ARGUMENTS) {
@@ -260,6 +277,7 @@ extern "C" void TestSubcyclingMC_CalcY3(CCTK_ARGUMENTS) {
                     CCTK_DELTA_TIME / CCTK_REAL(3.)); // k2
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k2, rho_k2,
          CCTK_DELTA_TIME * CCTK_REAL(0.5)); // Y3
+  CopyWsFromYs(grid, u_w, rho_w, u_Y3, rho_Y3);
 }
 
 extern "C" void TestSubcyclingMC_CalcY4(CCTK_ARGUMENTS) {
@@ -268,6 +286,7 @@ extern "C" void TestSubcyclingMC_CalcY4(CCTK_ARGUMENTS) {
                     CCTK_DELTA_TIME / CCTK_REAL(3.)); // k3
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k3, rho_k3,
          CCTK_DELTA_TIME); // Y4
+  CopyWsFromYs(grid, u_w, rho_w, u_Y4, rho_Y4);
 }
 
 extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
