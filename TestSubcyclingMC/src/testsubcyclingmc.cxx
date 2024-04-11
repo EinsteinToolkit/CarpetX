@@ -265,6 +265,9 @@ void CopyWsFromYs(const Loop::GridDescBaseDevice &grid,
 
 extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY1;
+
+  CCTK_VINFO("Updating grid function at iteration %d level %d time %g",
+             cctk_iteration, cctk_level, cctk_time);
   grid.loop_int_device<0, 0, 0>(grid.nghostzones,
                                 [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
