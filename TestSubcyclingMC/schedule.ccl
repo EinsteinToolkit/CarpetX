@@ -7,7 +7,9 @@ SCHEDULE TestSubcyclingMC_Initial AT initial
 {
   LANG: C
   WRITES: ustate(interior)
+  WRITES: Y1(interior) Y2(interior) Y3(interior) Y4(interior)
   SYNC: ustate
+  SYNC: Y1 Y2 Y3 Y4
 } "Initialize scalar wave state"
 
 
