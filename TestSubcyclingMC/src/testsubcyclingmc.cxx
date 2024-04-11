@@ -136,20 +136,24 @@ void CalcYs(const Loop::GridDescBaseDevice &grid,
       });
 }
 
+/**
+ * \brief Calculate Ys ghost points for fine grid using Ks on coarse grid
+ *
+ * \param stage     RK stage number starting from 1
+ * \param ncycle    number of subcyling steps.  It's usually 2 or 4.
+ *                  Without subcycling, this will be 1.
+ */
 void CalcYfsFromKcs(
     // output
     CCTK_REAL Yf,
     // input
     CCTK_REAL kc1, CCTK_REAL kc2, CCTK_REAL kc3, CCTK_REAL kc4, CCTK_REAL u0,
-    CCTK_INT stage) {
+    CCTK_REAL dtc, CCTK_REAL xsi, CCTK_INT stage) {
   assert(stage > 0 && stage <= 4);
 
   // CCTK_REAL dtc = m_dt_coarse;
-  // CCTK_REAL r = CCTK_REAL(1) / CCTK_REAL(ncycle);
-  // CCTK_REAL xsi = CCTK_REAL(iteration-1) / CCTK_REAL(ncycle);
-  CCTK_REAL dtc = 0;
-  CCTK_REAL r = 0;
-  CCTK_REAL xsi = 0;
+  const CCTK_REAL ncycle = 2; // 2 to 1 mesh refinement
+  CCTK_REAL r = CCTK_REAL(1) / CCTK_REAL(ncycle);
 
   CCTK_REAL xsi2 = xsi * xsi;
   CCTK_REAL xsi3 = xsi2 * xsi;
