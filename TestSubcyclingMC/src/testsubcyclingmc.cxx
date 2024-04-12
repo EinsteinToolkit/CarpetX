@@ -107,6 +107,16 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
                                     });
 }
 
+/**
+ * \brief Calculate Ks from Ys, Update state vector Us from Ks and old Us
+ *          rhs = RHS(w),
+ *          u   += rhs * dt.
+ *
+ * \param rhs       RK Ks
+ * \param w         RK substage Ys
+ * \param u         state vector Us
+ * \param dt        time factor of each RK substep
+ */
 void CalcRhsAndUpdateU(const Loop::GridDescBaseDevice &grid,
                        // output 1
                        const Loop::GF3D2<CCTK_REAL> &u_rhs,
@@ -141,6 +151,15 @@ void CalcRhsAndUpdateU(const Loop::GridDescBaseDevice &grid,
                                     });
 }
 
+/**
+ * \brief Calculate Ys from U0 and rhs
+ *          w = u_p + rhs * dt
+ *
+ * \param w         RK substage Ys
+ * \param p         state vector U0
+ * \param rhs       RK Ks
+ * \param dt        time factor of each RK substage
+ */
 void CalcYs(const Loop::GridDescBaseDevice &grid,
             // output
             const Loop::GF3D2<CCTK_REAL> &u_w,
