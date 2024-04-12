@@ -199,7 +199,7 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
 
   if (stage == 1) {
 
-    grid.loop_int_device<0, 0, 0>(
+    grid.loop_ghosts_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           CCTK_REAL k1 = kcs[0](p.I);
@@ -211,7 +211,7 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
         });
   } else if (stage == 2) {
 
-    grid.loop_int_device<0, 0, 0>(
+    grid.loop_ghosts_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           CCTK_REAL k1 = kcs[0](p.I);
@@ -231,7 +231,7 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
         (stage == 3) ? CCTK_REAL(0.0625) * r3 : CCTK_REAL(0.125) * r3;
     CCTK_REAL ak = (stage == 3) ? CCTK_REAL(-4.) : CCTK_REAL(4.);
 
-    grid.loop_int_device<0, 0, 0>(
+    grid.loop_ghosts_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           CCTK_REAL k1 = kcs[0](p.I);
