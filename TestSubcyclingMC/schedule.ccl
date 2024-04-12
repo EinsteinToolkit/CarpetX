@@ -42,7 +42,7 @@ SCHEDULE TestSubcyclingMC_CalcY2 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y2
   READS: pstate(interior)
-  WRITES: wstate(interior)
+  WRITES: wstate(everywhere)
   SYNC: wstate k1
 } "calc Y2"
 
@@ -58,7 +58,7 @@ SCHEDULE TestSubcyclingMC_CalcY3 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y3
   READS: pstate(interior)
-  WRITES: wstate(interior)
+  WRITES: wstate(everywhere)
   SYNC: wstate k2
 } "calc Y3"
 
@@ -74,7 +74,7 @@ SCHEDULE TestSubcyclingMC_CalcY4 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: ustate(interior)
   # calculate Y4
   READS: pstate(interior)
-  WRITES: wstate(interior)
+  WRITES: wstate(everywhere)
   SYNC: wstate k3
 } "calc Y4"
 
@@ -84,12 +84,12 @@ SCHEDULE TestSubcyclingMC_UpdateU IN TestSubcyclingMC_RK4Group AFTER TestSubcycl
   READS: Y4(everywhere)
   # calculate k4
   READS: wstate(everywhere)
-  WRITES: wstate(interior) # fake
+  WRITES: wstate(everywhere) # write ghost points only here
   WRITES: k4(interior)
   # update ustate
   READS: ustate(interior)
   WRITES: ustate(interior)
-  SYNC: ustate k4
+  SYNC: k4 ustate
 } "update ustate"
 
 if (use_subcycling_wip) {

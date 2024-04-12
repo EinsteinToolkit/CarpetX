@@ -205,6 +205,11 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
   constexpr CCTK_REAL e3 = CCTK_REAL(-4.);
   constexpr CCTK_REAL e4 = CCTK_REAL(4.);
 
+  // initialize all grid value to zero
+  grid.loop_all_device<0, 0, 0>(
+      grid.nghostzones, [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Yf(p.I) = 0.0; });
+
   if (stage == 1) {
 
     grid.loop_ghosts_device<0, 0, 0>(
