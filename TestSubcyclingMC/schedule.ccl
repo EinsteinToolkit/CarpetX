@@ -8,8 +8,10 @@ SCHEDULE TestSubcyclingMC_Initial AT initial
   LANG: C
   WRITES: ustate(interior)
   WRITES: Y1(interior) Y2(interior) Y3(interior) Y4(interior)
+  WRITES: k1(interior) k2(interior) k3(interior) k4(interior)
   SYNC: ustate
   SYNC: Y1 Y2 Y3 Y4
+  SYNC: k1 k2 k3 k4
 } "Initialize scalar wave state"
 
 
@@ -91,7 +93,7 @@ SCHEDULE TestSubcyclingMC_UpdateU IN TestSubcyclingMC_RK4Group AFTER TestSubcycl
 } "update ustate"
 
 if (use_subcycling_wip) {
-SCHEDULE TestSubcyclingMC_CalcYfs IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_UpdateU
+SCHEDULE TestSubcyclingMC_CalcYfs IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcY1 BEFORE TestSubcyclingMC_CalcY2
 {
   LANG: C
   READS: pstate(everywhere)
