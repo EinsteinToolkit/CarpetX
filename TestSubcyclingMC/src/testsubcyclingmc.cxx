@@ -132,8 +132,12 @@ void CalcRhsAndUpdateU(const Loop::GridDescBaseDevice &grid,
         using std::pow;
         Arith::vect<CCTK_REAL, dim> ddu;
         for (int d = 0; d < dim; ++d) {
-          ddu[d] = (u_w(p.I - p.DI[d]) - 2 * u_w(p.I) + u_w(p.I + p.DI[d])) /
-                   pow(p.DX[d], 2);
+          // ddu[d] = (u_w(p.I - p.DI[d]) - 2 * u_w(p.I) + u_w(p.I + p.DI[d])) /
+          //          pow(p.DX[d], 2);
+          ddu[d] =
+              (-(u_w(p.I - 2 * p.DI[d]) + u_w(p.I + 2 * p.DI[d])) +
+               16 * (u_w(p.I - p.DI[d]) + u_w(p.I + p.DI[d])) - 30 * u_w(p.I)) /
+              (12 * pow(p.DX[d], 2));
         }
         u_rhs(p.I) = rho_w(p.I);
         rho_rhs(p.I) = ddu[0] + ddu[1] + ddu[2];
