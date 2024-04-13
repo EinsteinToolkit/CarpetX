@@ -14,6 +14,12 @@ SCHEDULE TestSubcyclingMC_Initial AT initial
   SYNC: k1 k2 k3 k4
 } "Initialize scalar wave state"
 
+SCHEDULE TestSubcyclingMC_Sync AT postregrid
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: ustate
+} "Synchronize"
 
 SCHEDULE GROUP TestSubcyclingMC_RK4Group AT evol
 {

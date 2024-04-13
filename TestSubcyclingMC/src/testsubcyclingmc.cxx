@@ -372,4 +372,8 @@ extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k4
 }
 
+extern "C" void TestSubcyclingMC_Sync(CCTK_ARGUMENTS) {
+  // do nothing
+}
+
 } // namespace TestSubcyclingMC
