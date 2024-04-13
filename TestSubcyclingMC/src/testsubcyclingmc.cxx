@@ -318,7 +318,7 @@ extern "C" void TestSubcyclingMC_CalcYfs(CCTK_ARGUMENTS) {
   const array<const Loop::GF3D2<const CCTK_REAL>, 4> rho_kcs{rho_k1, rho_k2,
                                                              rho_k3, rho_k4};
   const CCTK_REAL xsi = (cctk_iteration % 2) ? 0.0 : 0.5;
-  const CCTK_REAL dtc = CCTK_DELTA_TIME * 2;
+  const CCTK_REAL dtc = CCTK_DELTA_TIME * pow(2, -cctk_level) * 2;
   CCTK_VINFO("  xsi = %g, dtc = %g", xsi, dtc);
   CalcYfFromKcs(grid, u_Y1, u_p, u_kcs, dtc, xsi, 1);
   CalcYfFromKcs(grid, u_Y2, u_p, u_kcs, dtc, xsi, 2);
