@@ -42,7 +42,6 @@ constexpr void gaussian(const T A, const T W, const T t, const T x, const T y,
   using std::exp, std::pow, std::sqrt;
 
   const T r = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
-
   const auto f = [&](const T v) {
     return A * exp(-pow(v, 2) / (2 * pow(W, 2)));
   };
@@ -62,7 +61,6 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
-
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -72,7 +70,6 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
-
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -84,7 +81,6 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
     CCTK_ERROR("Unknown initial condition");
   }
 
-  // initialize Ys
   grid.loop_int_device<0, 0, 0>(grid.nghostzones,
                                 [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -230,7 +226,6 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
                             CCTK_ATTRIBUTE_ALWAYS_INLINE { Yf(p.I) = 0.0; });
 
   if (stage == 1) {
-
     grid.loop_ghosts_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -242,7 +237,6 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
           Yf(p.I) = u0(p.I) + dtc * uu;
         });
   } else if (stage == 2) {
-
     grid.loop_ghosts_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -317,6 +311,25 @@ extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
                                     });
 }
 
+extern "C" void TestSubcyclingMC_CalcYfs(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcYfs;
+  const array<const Loop::GF3D2<const CCTK_REAL>, 4> u_kcs{u_k1, u_k2, u_k3,
+                                                           u_k4};
+  const array<const Loop::GF3D2<const CCTK_REAL>, 4> rho_kcs{rho_k1, rho_k2,
+                                                             rho_k3, rho_k4};
+  const CCTK_REAL xsi = (cctk_iteration % 2) ? 0.0 : 0.5;
+  const CCTK_REAL dtc = CCTK_DELTA_TIME * 2;
+  CCTK_VINFO("  xsi = %g, dtc = %g", xsi, dtc);
+  CalcYfFromKcs(grid, u_Y1, u_p, u_kcs, dtc, xsi, 1);
+  CalcYfFromKcs(grid, u_Y2, u_p, u_kcs, dtc, xsi, 2);
+  CalcYfFromKcs(grid, u_Y3, u_p, u_kcs, dtc, xsi, 3);
+  CalcYfFromKcs(grid, u_Y4, u_p, u_kcs, dtc, xsi, 4);
+  CalcYfFromKcs(grid, rho_Y1, rho_p, rho_kcs, dtc, xsi, 1);
+  CalcYfFromKcs(grid, rho_Y2, rho_p, rho_kcs, dtc, xsi, 2);
+  CalcYfFromKcs(grid, rho_Y3, rho_p, rho_kcs, dtc, xsi, 3);
+  CalcYfFromKcs(grid, rho_Y4, rho_p, rho_kcs, dtc, xsi, 4);
+}
+
 extern "C" void TestSubcyclingMC_CalcY2(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY2;
   DECLARE_CCTK_PARAMETERS;
@@ -357,25 +370,6 @@ extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
     FillBndry(grid, u_w, rho_w, u_Y4, rho_Y4);
   CalcRhsAndUpdateU(grid, u_k4, rho_k4, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k4
-}
-
-extern "C" void TestSubcyclingMC_CalcYfs(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcYfs;
-  const array<const Loop::GF3D2<const CCTK_REAL>, 4> u_kcs{u_k1, u_k2, u_k3,
-                                                           u_k4};
-  const array<const Loop::GF3D2<const CCTK_REAL>, 4> rho_kcs{rho_k1, rho_k2,
-                                                             rho_k3, rho_k4};
-  const CCTK_REAL xsi = (cctk_iteration % 2) ? 0.0 : 0.5;
-  const CCTK_REAL dtc = CCTK_DELTA_TIME * 2;
-  CCTK_VINFO("  xsi = %g, dtc = %g", xsi, dtc);
-  CalcYfFromKcs(grid, u_Y1, u_p, u_kcs, dtc, xsi, 1);
-  CalcYfFromKcs(grid, u_Y2, u_p, u_kcs, dtc, xsi, 2);
-  CalcYfFromKcs(grid, u_Y3, u_p, u_kcs, dtc, xsi, 3);
-  CalcYfFromKcs(grid, u_Y4, u_p, u_kcs, dtc, xsi, 4);
-  CalcYfFromKcs(grid, rho_Y1, rho_p, rho_kcs, dtc, xsi, 1);
-  CalcYfFromKcs(grid, rho_Y2, rho_p, rho_kcs, dtc, xsi, 2);
-  CalcYfFromKcs(grid, rho_Y3, rho_p, rho_kcs, dtc, xsi, 3);
-  CalcYfFromKcs(grid, rho_Y4, rho_p, rho_kcs, dtc, xsi, 4);
 }
 
 } // namespace TestSubcyclingMC
