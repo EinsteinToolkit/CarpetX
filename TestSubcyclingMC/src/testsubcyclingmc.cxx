@@ -300,8 +300,8 @@ void FillBndry(const Loop::GridDescBaseDevice &grid,
                                        });
 }
 
-extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY1;
+extern "C" void TestSubcyclingMC_SetP(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_SetP;
 
   CCTK_VINFO("Updating grid function at iteration %d level %d time %g",
              cctk_iteration, cctk_level, cctk_time);
@@ -310,8 +310,6 @@ extern "C" void TestSubcyclingMC_CalcY1(CCTK_ARGUMENTS) {
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
                                       u_p(p.I) = u(p.I);
                                       rho_p(p.I) = rho(p.I);
-                                      u_w(p.I) = u(p.I);
-                                      rho_w(p.I) = rho(p.I);
                                     });
 }
 
@@ -334,19 +332,19 @@ extern "C" void TestSubcyclingMC_CalcYfs(CCTK_ARGUMENTS) {
   CalcYfFromKcs(grid, rho_Y4, rho_p, rho_kcs, dtc, xsi, 4);
 }
 
-extern "C" void TestSubcyclingMC_CalcY2(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY2;
+extern "C" void TestSubcyclingMC_CalcK1(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK1;
   DECLARE_CCTK_PARAMETERS;
   if (use_subcycling_wip)
-    FillBndry(grid, u_w, rho_w, u_Y1, rho_Y1);
-  CalcRhsAndUpdateU(grid, u_k1, rho_k1, u_w, rho_w, u, rho,
+    FillBndry(grid, u, rho, u_Y1, rho_Y1);
+  CalcRhsAndUpdateU(grid, u_k1, rho_k1, u, rho, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k1
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k1, rho_k1,
          CCTK_DELTA_TIME * CCTK_REAL(0.5)); // Y2
 }
 
-extern "C" void TestSubcyclingMC_CalcY3(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY3;
+extern "C" void TestSubcyclingMC_CalcK2(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK2;
   DECLARE_CCTK_PARAMETERS;
   if (use_subcycling_wip)
     FillBndry(grid, u_w, rho_w, u_Y2, rho_Y2);
@@ -356,8 +354,8 @@ extern "C" void TestSubcyclingMC_CalcY3(CCTK_ARGUMENTS) {
          CCTK_DELTA_TIME * CCTK_REAL(0.5)); // Y3
 }
 
-extern "C" void TestSubcyclingMC_CalcY4(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcY4;
+extern "C" void TestSubcyclingMC_CalcK3(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK3;
   DECLARE_CCTK_PARAMETERS;
   if (use_subcycling_wip)
     FillBndry(grid, u_w, rho_w, u_Y3, rho_Y3);
@@ -367,8 +365,8 @@ extern "C" void TestSubcyclingMC_CalcY4(CCTK_ARGUMENTS) {
          CCTK_DELTA_TIME); // Y4
 }
 
-extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_UpdateU;
+extern "C" void TestSubcyclingMC_CalcK4(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK4;
   DECLARE_CCTK_PARAMETERS;
   if (use_subcycling_wip)
     FillBndry(grid, u_w, rho_w, u_Y4, rho_Y4);
