@@ -1,0 +1,78 @@
+ActiveThorns = "
+    CarpetX
+    BoxInBox
+    IOUtil
+    TestSubcyclingMC
+"
+
+$out_every = 32 #16
+$nlevels = 2
+$ncells = 32
+
+TestSubcyclingMC::initial_condition = "Gaussian"
+TestSubcyclingMC::gaussian_width = 0.17677669529 # sqrt(2)*W = 0.25
+
+CarpetX::use_subcycling_wip = yes
+CarpetX::restrict_during_sync = no
+
+CarpetX::poison_undefined_values = no
+CarpetX::verbose = no
+
+Cactus::cctk_show_schedule = yes
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::xmin = -4.0
+CarpetX::ymin = -4.0
+CarpetX::zmin = -4.0
+
+CarpetX::xmax = +4.0
+CarpetX::ymax = +4.0
+CarpetX::zmax = +4.0
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::periodic_x = yes
+CarpetX::periodic_y = yes
+CarpetX::periodic_z = yes
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 128
+CarpetX::regrid_error_threshold = 0.9
+
+CarpetX::prolongation_type = "ddf"
+#CarpetX::prolongation_order = 3
+CarpetX::ghost_size = 3
+CarpetX::dtfac = 0.25
+
+CarpetX::blocking_factor_x = 2
+CarpetX::blocking_factor_y = 2
+CarpetX::blocking_factor_z = 2
+CarpetX::max_grid_size_x = 10000000
+CarpetX::max_grid_size_y = 10000000
+CarpetX::max_grid_size_z = 10000000
+CarpetX::max_tile_size_x = 10000000
+CarpetX::max_tile_size_y = 10000000
+CarpetX::max_tile_size_z = 10000000
+
+BoxInBox::num_regions = 1
+# Region 1
+BoxInBox::shape_1 = "cube"
+BoxInBox::num_levels_1 = $nlevels
+BoxInBox::radius_1 = [ -1.0, 1.0, 0.5 ]
+
+
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 2.0
+#Cactus::cctk_itlast = $itlast
+
+IO::out_dir = $parfile
+IO::out_every = $out_every
+
+#CarpetX::out_norm_vars = "all"
+
+CarpetX::out_tsv_vars = "
+    TestSubcyclingMC::ustate
+    TestSubcyclingMC::error
+"
