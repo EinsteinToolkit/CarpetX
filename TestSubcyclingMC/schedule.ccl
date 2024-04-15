@@ -94,7 +94,16 @@ SCHEDULE TestSubcyclingMC_CalcK4 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   SYNC: ustate
 } "Calculate k4"
 
-SCHEDULE TestSybcyclingMC_Error AT poststep
+
+SCHEDULE GROUP TestSubcyclingMC_PostStepGroup AT postinitial
+{
+} "Apply boundary conditions to state vector, and project if necessary"
+
+SCHEDULE GROUP TestSubcyclingMC_PostStepGroup AT poststep
+{
+} "Apply boundary conditions to state vector, and project if necessary"
+
+SCHEDULE TestSubcyclingMC_Error IN TestSubcyclingMC_PostStepGroup
 {
   LANG: C
   READS: ustate(interior)

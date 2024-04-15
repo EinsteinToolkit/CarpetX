@@ -377,8 +377,8 @@ extern "C" void TestSubcyclingMC_Sync(CCTK_ARGUMENTS) {
   // do nothing
 }
 
-extern "C" void TestSybcyclingMC_Error(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_TestSybcyclingMC_Error;
+extern "C" void TestSubcyclingMC_Error(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Error;
   DECLARE_CCTK_PARAMETERS;
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
