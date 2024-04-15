@@ -93,3 +93,11 @@ SCHEDULE TestSubcyclingMC_CalcK4 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
   WRITES: k4(interior) ustate(interior)
   SYNC: ustate
 } "Calculate k4"
+
+SCHEDULE TestSybcyclingMC_Error AT poststep
+{
+  LANG: C
+  READS: ustate(interior)
+  WRITES: error(interior)
+  SYNC: error
+} "Calculate error in scalar wave state"

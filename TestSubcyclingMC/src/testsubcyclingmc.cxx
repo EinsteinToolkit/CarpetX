@@ -398,4 +398,39 @@ extern "C" void TestSubcyclingMC_Sync(CCTK_ARGUMENTS) {
   // do nothing
 }
 
+extern "C" void TestSybcyclingMC_Error(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSybcyclingMC_Error;
+  DECLARE_CCTK_PARAMETERS;
+
+  CCTK_VINFO("  at time %g", cctk_time);
+
+  if (CCTK_EQUALS(initial_condition, "standing wave")) {
+
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          CCTK_REAL u0, rho0;
+          standing_wave(amplitude, standing_wave_kx, standing_wave_ky,
+                        standing_wave_kz, cctk_time, p.x, p.y, p.z, u0, rho0);
+          u_err(p.I) = u(p.I) - u0;
+          rho_err(p.I) = rho(p.I) - rho0;
+        });
+
+  } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
+
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          CCTK_REAL u0, rho0;
+          gaussian(amplitude, gaussian_width, cctk_time, p.x, p.y, p.z, u0,
+                   rho0);
+          u_err(p.I) = u(p.I) - u0;
+          rho_err(p.I) = rho(p.I) - rho0;
+        });
+
+  } else {
+    CCTK_ERROR("Unknown initial condition");
+  }
+}
+
 } // namespace TestSubcyclingMC

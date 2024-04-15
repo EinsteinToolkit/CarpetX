@@ -88,7 +88,8 @@ CCTK_REAL energy CENTERING={CCC} TYPE=gf TAGS='checkpoint="no"'
 
 
 
-CCTK_REAL uerror TYPE=gf CENTERING={vvv} TAGS='checkpoint="no"'
+CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
 {
   u_err
-} "Scalar wave error"
+  rho_err
+} "Error in scalar wave state vector"
