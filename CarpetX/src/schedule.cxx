@@ -494,6 +494,7 @@ void update_cctkGH(cGH *const cctkGH, const cGH *const sourceGH) {
   if (cctkGH == sourceGH)
     return;
   cctkGH->cctk_iteration = sourceGH->cctk_iteration;
+  cctkGH->cctk_timefac = sourceGH->cctk_timefac;
   cctkGH->cctk_time = sourceGH->cctk_time;
   cctkGH->cctk_delta_time = sourceGH->cctk_delta_time;
   // for (int d = 0; d < dim; ++d)
@@ -1735,6 +1736,7 @@ int Evolve(tFleshConfig *config) {
 
       CycleTimelevels(cctkGH);
 
+      cctkGH->cctk_timefac = (use_subcycling_wip) ? std::pow(2, min_level) : 1;
       cctkGH->cctk_time =
           (use_subcycling_wip)
               ? cctkGH->cctk_delta_time * double(level_iteration)
