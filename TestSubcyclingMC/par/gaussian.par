@@ -6,23 +6,29 @@ ActiveThorns = "
     TimerReport
 "
 
-$out_every = 8
+$out_every = 32 #16
 $nlevels = 2
 $ncells = 64
 
-Cactus::cctk_show_schedule = yes
-Cactus::presync_mode = "mixed-error"
+TestSubcyclingMC::initial_condition = "Gaussian"
+TestSubcyclingMC::gaussian_width = 0.17677669529 # sqrt(2)*W = 0.25
+
+CarpetX::use_subcycling_wip = yes
+CarpetX::restrict_during_sync = no
 
 CarpetX::poison_undefined_values = no
 CarpetX::verbose = no
 
-CarpetX::xmin = -1.0
-CarpetX::ymin = -1.0
-CarpetX::zmin = -1.0
+Cactus::cctk_show_schedule = yes
+Cactus::presync_mode = "mixed-error"
 
-CarpetX::xmax = +1.0
-CarpetX::ymax = +1.0
-CarpetX::zmax = +1.0
+CarpetX::xmin = -4.0
+CarpetX::ymin = -4.0
+CarpetX::zmin = -4.0
+
+CarpetX::xmax = +4.0
+CarpetX::ymax = +4.0
+CarpetX::zmax = +4.0
 
 CarpetX::ncells_x = $ncells
 CarpetX::ncells_y = $ncells
@@ -39,7 +45,7 @@ CarpetX::regrid_error_threshold = 0.9
 CarpetX::prolongation_type = "ddf"
 #CarpetX::prolongation_order = 3
 CarpetX::ghost_size = 3
-CarpetX::dtfac = 0.5
+CarpetX::dtfac = 0.25
 
 CarpetX::blocking_factor_x = 2
 CarpetX::blocking_factor_y = 2
@@ -55,34 +61,33 @@ BoxInBox::num_regions = 1
 # Region 1
 BoxInBox::shape_1 = "cube"
 BoxInBox::num_levels_1 = $nlevels
-BoxInBox::radius_1 = [ -1.0, 0.25, 0.125 ]
+BoxInBox::radius_1 = [ -1.0, 1.0, 0.5 ]
 
 
-Cactus::terminate = "iteration"
-#Cactus::cctk_final_time = 1.0
-Cactus::cctk_itlast = 64
-
-TestSubcyclingMC::initial_condition = "Gaussian"
-TestSubcyclingMC::gaussian_width = 0.125
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 2.0
+#Cactus::cctk_itlast = $itlast
 
 IO::out_dir = $parfile
 IO::out_every = $out_every
 
-CarpetX::out_norm_vars = "all"
+#CarpetX::out_norm_vars = "all"
 
 CarpetX::out_tsv_vars = "
     TestSubcyclingMC::ustate
     #TestSubcyclingMC::energy
-    #TestSubcyclingMC::uerror
+    TestSubcyclingMC::error
 "
 
 CarpetX::out_silo_vars = "
     TestSubcyclingMC::ustate
     #TestSubcyclingMC::energy
-    #TestSubcyclingMC::uerror
+    TestSubcyclingMC::error
 "
 
-TimerReport::out_every = 1024 # $out_every
+TimerReport::out_every = 128 # $out_every
 TimerReport::out_filename = "TimerReport"
-TimerReport::output_schedule_timers = no
-TimerReport::n_top_timers = 100
+TimerReport::output_all_timers_together = yes
+TimerReport::output_all_timers_readable = yes
+#TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 50
