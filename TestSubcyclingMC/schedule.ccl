@@ -21,6 +21,30 @@ SCHEDULE TestSubcyclingMC_Sync AT postregrid
   SYNC: ustate
 } "Synchronize"
 
+
+SCHEDULE GROUP TestSubcyclingMC_RMBndryGroup AT initial BEFORE TestSubcyclingMC_Initial
+{
+} "Check if the ghost points are at refinement boundary"
+
+SCHEDULE GROUP TestSubcyclingMC_RMBndryGroup AT postregrid BEFORE TestSubcyclingMC_Sync
+{
+} "Check if the ghost points are at refinement boundary"
+
+SCHEDULE TestSubcyclingMC_SetLevelNeighbor IN TestSubcyclingMC_RMBndryGroup
+{
+  LANG: C
+  WRITES: level_neighbor(interior)
+  SYNC: level_neighbor
+} "Set level_neighbor"
+
+SCHEDULE TestSubcyclingMC_SetIsRMBndry IN TestSubcyclingMC_RMBndryGroup AFTER TestSubcyclingMC_SetLevelNeighbor
+{
+  LANG: C
+  READS: level_neighbor(everywhere)
+  WRITES: isrmbndry(everywhere)
+} "Set isrmbndry"
+
+
 SCHEDULE GROUP TestSubcyclingMC_RK4Group AT evol
 {
 } "RK4"

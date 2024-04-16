@@ -93,3 +93,9 @@ CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
   u_err
   rho_err
 } "Error in scalar wave state vector"
+
+
+
+CCTK_REAL level_neighbor TYPE=gf TAGS='checkpoint="no"' "Level of its neighbor which will fill in this ghost point"
+
+CCTK_REAL isrmbndry TYPE=gf TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not"

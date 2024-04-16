@@ -377,6 +377,28 @@ extern "C" void TestSubcyclingMC_Sync(CCTK_ARGUMENTS) {
   // do nothing
 }
 
+extern "C" void TestSubcyclingMC_SetLevelNeighbor(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_SetLevelNeighbor;
+  grid.loop_int_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { level_neighbor(p.I) = cctk_level; });
+}
+
+extern "C" void TestSubcyclingMC_SetIsRMBndry(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_SetIsRMBndry;
+  grid.loop_all_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        isrmbndry(p.I) = 0;
+      });
+  grid.loop_ghosts_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        isrmbndry(p.I) = (level_neighbor(p.I) == cctk_level) ? 0 : 1;
+      });
+}
+
 extern "C" void TestSubcyclingMC_Error(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_Error;
   DECLARE_CCTK_PARAMETERS;
