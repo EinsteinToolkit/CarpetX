@@ -63,6 +63,7 @@ if (use_subcycling_wip) {
     LANG: C
     READS: pstate(everywhere)
     READS: k1(everywhere) k2(everywhere) k3(everywhere) k4(everywhere)
+    READS: isrmbndry(everywhere)
     WRITES: Y1(everywhere) Y2(everywhere) Y3(everywhere) Y4(everywhere)
     #SYNC: Y1 Y2 Y3 Y4
   } "Calculate fine Ys from coarse ks"
@@ -71,7 +72,7 @@ if (use_subcycling_wip) {
 SCHEDULE TestSubcyclingMC_CalcK1 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_SetP
 {
   LANG: C
-  READS: Y1(everywhere)
+  READS: Y1(everywhere) isrmbndry(everywhere)
   # calculate k1 and update ustate
   READS: ustate(everywhere)
   WRITES: k1(interior) ustate(everywhere)
@@ -84,7 +85,7 @@ SCHEDULE TestSubcyclingMC_CalcK1 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
 SCHEDULE TestSubcyclingMC_CalcK2 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcK1
 {
   LANG: C
-  READS: Y2(everywhere)
+  READS: Y2(everywhere) isrmbndry(everywhere)
   # calculate k2 and update ustate
   READS: wstate(everywhere) ustate(interior)
   WRITES: k2(interior) ustate(interior)
@@ -97,7 +98,7 @@ SCHEDULE TestSubcyclingMC_CalcK2 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
 SCHEDULE TestSubcyclingMC_CalcK3 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcK2
 {
   LANG: C
-  READS: Y3(everywhere)
+  READS: Y3(everywhere) isrmbndry(everywhere)
   # calculate k3 and update ustate
   READS: wstate(everywhere) ustate(interior)
   WRITES: k3(interior) ustate(interior)
@@ -110,7 +111,7 @@ SCHEDULE TestSubcyclingMC_CalcK3 IN TestSubcyclingMC_RK4Group AFTER TestSubcycli
 SCHEDULE TestSubcyclingMC_CalcK4 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_CalcK3
 {
   LANG: C
-  READS: Y4(everywhere)
+  READS: Y4(everywhere) isrmbndry(everywhere)
   WRITES: wstate(everywhere) # write ghost points only here
   # calculate k4 and update ustate
   READS: wstate(everywhere) ustate(interior)

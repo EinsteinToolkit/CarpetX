@@ -197,7 +197,8 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
                    // input
                    const Loop::GF3D2<const CCTK_REAL> &u0,
                    const array<const Loop::GF3D2<const CCTK_REAL>, 4> &kcs,
-                   CCTK_REAL dtc, CCTK_REAL xsi, CCTK_INT stage) {
+                   const Loop::GF3D2<const CCTK_REAL> &isrmbndry, CCTK_REAL dtc,
+                   CCTK_REAL xsi, CCTK_INT stage) {
   assert(stage > 0 && stage <= 4);
 
   CCTK_REAL r = 0.5; // ratio between coarse and fine cell size (2 to 1 MR case)
@@ -233,24 +234,28 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
     grid.loop_ghosts_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          CCTK_REAL k1 = kcs[0](p.I);
-          CCTK_REAL k2 = kcs[1](p.I);
-          CCTK_REAL k3 = kcs[2](p.I);
-          CCTK_REAL k4 = kcs[3](p.I);
-          CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
-          Yf(p.I) = u0(p.I) + dtc * uu;
+          if (isrmbndry(p.I)) {
+            CCTK_REAL k1 = kcs[0](p.I);
+            CCTK_REAL k2 = kcs[1](p.I);
+            CCTK_REAL k3 = kcs[2](p.I);
+            CCTK_REAL k4 = kcs[3](p.I);
+            CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
+            Yf(p.I) = u0(p.I) + dtc * uu;
+          }
         });
   } else if (stage == 2) {
     grid.loop_ghosts_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          CCTK_REAL k1 = kcs[0](p.I);
-          CCTK_REAL k2 = kcs[1](p.I);
-          CCTK_REAL k3 = kcs[2](p.I);
-          CCTK_REAL k4 = kcs[3](p.I);
-          CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
-          CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
-          Yf(p.I) = u0(p.I) + dtc * (uu + CCTK_REAL(0.5) * r * ut);
+          if (isrmbndry(p.I)) {
+            CCTK_REAL k1 = kcs[0](p.I);
+            CCTK_REAL k2 = kcs[1](p.I);
+            CCTK_REAL k3 = kcs[2](p.I);
+            CCTK_REAL k4 = kcs[3](p.I);
+            CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
+            CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
+            Yf(p.I) = u0(p.I) + dtc * (uu + CCTK_REAL(0.5) * r * ut);
+          }
         });
   } else if (stage == 3 || stage == 4) {
     CCTK_REAL r2 = r * r;
@@ -264,16 +269,18 @@ void CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
     grid.loop_ghosts_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          CCTK_REAL k1 = kcs[0](p.I);
-          CCTK_REAL k2 = kcs[1](p.I);
-          CCTK_REAL k3 = kcs[2](p.I);
-          CCTK_REAL k4 = kcs[3](p.I);
-          CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
-          CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
-          CCTK_REAL utt = d1 * k1 + d2 * k2 + d3 * k3 + d4 * k4;
-          CCTK_REAL uttt = e1 * k1 + e2 * k2 + e3 * k3 + e4 * k4;
-          Yf(p.I) = u0(p.I) + dtc * (uu + at * ut + att * utt +
-                                     attt * (uttt + ak * (k3 - k2)));
+          if (isrmbndry(p.I)) {
+            CCTK_REAL k1 = kcs[0](p.I);
+            CCTK_REAL k2 = kcs[1](p.I);
+            CCTK_REAL k3 = kcs[2](p.I);
+            CCTK_REAL k4 = kcs[3](p.I);
+            CCTK_REAL uu = b1 * k1 + b2 * k2 + b3 * k3 + b4 * k4;
+            CCTK_REAL ut = c1 * k1 + c2 * k2 + c3 * k3 + c4 * k4;
+            CCTK_REAL utt = d1 * k1 + d2 * k2 + d3 * k3 + d4 * k4;
+            CCTK_REAL uttt = e1 * k1 + e2 * k2 + e3 * k3 + e4 * k4;
+            Yf(p.I) = u0(p.I) + dtc * (uu + at * ut + att * utt +
+                                       attt * (uttt + ak * (k3 - k2)));
+          }
         });
   }
 }
@@ -291,12 +298,15 @@ void FillBndry(const Loop::GridDescBaseDevice &grid,
                const Loop::GF3D2<CCTK_REAL> &rho_w,
                // input
                const Loop::GF3D2<const CCTK_REAL> &u_Y,
-               const Loop::GF3D2<const CCTK_REAL> &rho_Y) {
+               const Loop::GF3D2<const CCTK_REAL> &rho_Y,
+               const Loop::GF3D2<const CCTK_REAL> &isrmbndry) {
   grid.loop_ghosts_device<0, 0, 0>(grid.nghostzones,
                                    [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                        CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                         u_w(p.I) = u_Y(p.I);
-                                         rho_w(p.I) = rho_Y(p.I);
+                                         if (isrmbndry(p.I)) {
+                                           u_w(p.I) = u_Y(p.I);
+                                           rho_w(p.I) = rho_Y(p.I);
+                                         }
                                        });
 }
 
@@ -321,21 +331,21 @@ extern "C" void TestSubcyclingMC_CalcYfs(CCTK_ARGUMENTS) {
                                                              rho_k3, rho_k4};
   const CCTK_REAL xsi = (cctk_iteration % 2) ? 0.0 : 0.5;
   const CCTK_REAL dtc = CCTK_DELTA_TIME * 2;
-  CalcYfFromKcs(grid, u_Y1, u_p, u_kcs, dtc, xsi, 1);
-  CalcYfFromKcs(grid, u_Y2, u_p, u_kcs, dtc, xsi, 2);
-  CalcYfFromKcs(grid, u_Y3, u_p, u_kcs, dtc, xsi, 3);
-  CalcYfFromKcs(grid, u_Y4, u_p, u_kcs, dtc, xsi, 4);
-  CalcYfFromKcs(grid, rho_Y1, rho_p, rho_kcs, dtc, xsi, 1);
-  CalcYfFromKcs(grid, rho_Y2, rho_p, rho_kcs, dtc, xsi, 2);
-  CalcYfFromKcs(grid, rho_Y3, rho_p, rho_kcs, dtc, xsi, 3);
-  CalcYfFromKcs(grid, rho_Y4, rho_p, rho_kcs, dtc, xsi, 4);
+  CalcYfFromKcs(grid, u_Y1, u_p, u_kcs, isrmbndry, dtc, xsi, 1);
+  CalcYfFromKcs(grid, u_Y2, u_p, u_kcs, isrmbndry, dtc, xsi, 2);
+  CalcYfFromKcs(grid, u_Y3, u_p, u_kcs, isrmbndry, dtc, xsi, 3);
+  CalcYfFromKcs(grid, u_Y4, u_p, u_kcs, isrmbndry, dtc, xsi, 4);
+  CalcYfFromKcs(grid, rho_Y1, rho_p, rho_kcs, isrmbndry, dtc, xsi, 1);
+  CalcYfFromKcs(grid, rho_Y2, rho_p, rho_kcs, isrmbndry, dtc, xsi, 2);
+  CalcYfFromKcs(grid, rho_Y3, rho_p, rho_kcs, isrmbndry, dtc, xsi, 3);
+  CalcYfFromKcs(grid, rho_Y4, rho_p, rho_kcs, isrmbndry, dtc, xsi, 4);
 }
 
 extern "C" void TestSubcyclingMC_CalcK1(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK1;
   DECLARE_CCTK_PARAMETERS;
   if (use_subcycling_wip)
-    FillBndry(grid, u, rho, u_Y1, rho_Y1);
+    FillBndry(grid, u, rho, u_Y1, rho_Y1, isrmbndry);
   CalcRhsAndUpdateU(grid, u_k1, rho_k1, u, rho, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k1
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k1, rho_k1,
@@ -346,7 +356,7 @@ extern "C" void TestSubcyclingMC_CalcK2(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK2;
   DECLARE_CCTK_PARAMETERS;
   if (use_subcycling_wip)
-    FillBndry(grid, u_w, rho_w, u_Y2, rho_Y2);
+    FillBndry(grid, u_w, rho_w, u_Y2, rho_Y2, isrmbndry);
   CalcRhsAndUpdateU(grid, u_k2, rho_k2, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(3.)); // k2
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k2, rho_k2,
@@ -357,7 +367,7 @@ extern "C" void TestSubcyclingMC_CalcK3(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK3;
   DECLARE_CCTK_PARAMETERS;
   if (use_subcycling_wip)
-    FillBndry(grid, u_w, rho_w, u_Y3, rho_Y3);
+    FillBndry(grid, u_w, rho_w, u_Y3, rho_Y3, isrmbndry);
   CalcRhsAndUpdateU(grid, u_k3, rho_k3, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(3.)); // k3
   CalcYs(grid, u_w, rho_w, u_p, rho_p, u_k3, rho_k3,
@@ -368,7 +378,7 @@ extern "C" void TestSubcyclingMC_CalcK4(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK4;
   DECLARE_CCTK_PARAMETERS;
   if (use_subcycling_wip)
-    FillBndry(grid, u_w, rho_w, u_Y4, rho_Y4);
+    FillBndry(grid, u_w, rho_w, u_Y4, rho_Y4, isrmbndry);
   CalcRhsAndUpdateU(grid, u_k4, rho_k4, u_w, rho_w, u, rho,
                     CCTK_DELTA_TIME / CCTK_REAL(6.)); // k4
 }
@@ -389,9 +399,8 @@ extern "C" void TestSubcyclingMC_SetIsRMBndry(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_SetIsRMBndry;
   grid.loop_all_device<0, 0, 0>(
       grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        isrmbndry(p.I) = 0;
-      });
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE { isrmbndry(p.I) = 0; });
   grid.loop_ghosts_device<0, 0, 0>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
