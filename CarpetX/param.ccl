@@ -317,18 +317,18 @@ CCTK_REAL grid_efficiency "Minimum AMR grid efficiency" STEERABLE=recover
   0.0:* :: ""
 } 0.7
 
-
-CCTK_INT max_grid_size_x "Maximum grid size" STEERABLE=recover
+#The values of max_grid_size_x[n] correspond to max_grid_size_x for level n. Currently, maximum 10 levels can be set. If number of levels is greater than 10, then max_grid_size for 10th level is used for higher levels as well. 
+CCTK_INT max_grid_size_x[10] "Maximum grid size" STEERABLE=always
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
-CCTK_INT max_grid_size_y "Maximum grid size" STEERABLE=recover
+CCTK_INT max_grid_size_y[10] "Maximum grid size" STEERABLE=always
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
-CCTK_INT max_grid_size_z "Maximum grid size" STEERABLE=recover
+CCTK_INT max_grid_size_z[10] "Maximum grid size" STEERABLE=always
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32

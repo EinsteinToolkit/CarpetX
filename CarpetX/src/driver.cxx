@@ -2377,9 +2377,28 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   // Set blocking factors via parameter table since AmrMesh needs to
   // know them when its constructor is running, but there are no
   // constructor arguments for them
-  pp.add("amr.max_grid_size_x", max_grid_size_x);
-  pp.add("amr.max_grid_size_y", max_grid_size_y);
-  pp.add("amr.max_grid_size_z", max_grid_size_z);
+  //pp.add("amr.max_grid_size_x", max_grid_size_x);
+  //pp.add("amr.max_grid_size_y", max_grid_size_y);
+  //pp.add("amr.max_grid_size_z", max_grid_size_z);
+  
+  //Set max_grid_size for each level 
+  amrex::Vector<int> max_grid_size_x_vec = 
+            {max_grid_size_x[0], max_grid_size_x[1], max_grid_size_x[2], max_grid_size_x[3],
+             max_grid_size_x[4], max_grid_size_x[5], max_grid_size_x[6], max_grid_size_x[7],
+             max_grid_size_x[8], max_grid_size_x[9]};
+  amrex::Vector<int> max_grid_size_y_vec = 
+            {max_grid_size_y[0], max_grid_size_y[1], max_grid_size_y[2], max_grid_size_y[3],
+             max_grid_size_y[4], max_grid_size_y[5], max_grid_size_y[6], max_grid_size_y[7],
+             max_grid_size_y[8], max_grid_size_y[9]};
+  amrex::Vector<int> max_grid_size_z_vec = 
+            {max_grid_size_z[0], max_grid_size_z[1], max_grid_size_z[2], max_grid_size_z[3],
+             max_grid_size_z[4], max_grid_size_z[5], max_grid_size_z[6], max_grid_size_z[7],
+             max_grid_size_z[8], max_grid_size_z[9]};
+  
+  pp.addarr("amr.max_grid_size_x", max_grid_size_x_vec);
+  pp.addarr("amr.max_grid_size_y", max_grid_size_y_vec);
+  pp.addarr("amr.max_grid_size_z", max_grid_size_z_vec);
+   
   pp.add("amr.refine_grid_layout", refine_grid_layout);
   pp.add("amr.blocking_factor_x", blocking_factor_x);
   pp.add("amr.blocking_factor_y", blocking_factor_y);
