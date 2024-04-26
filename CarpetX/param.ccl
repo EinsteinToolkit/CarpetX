@@ -19,6 +19,7 @@ STRING amrex_parameters[100] "Additional AMReX parameters"
 } ""
 
 
+RESTRICTED:
 
 CCTK_REAL xmin "Domain size (location of vertices)"
 {
@@ -69,7 +70,6 @@ CCTK_INT ncells_z "Number of grid cells"
 
 
 
-RESTRICTED:
 
 BOOLEAN periodic_x "Periodic"
 {
@@ -295,7 +295,7 @@ STRING robin_upper_z_vars "Override boundary condition at upper z boundary"
   ".*" :: ""
 } ""
 
-
+RESTRICTED:
 
 CCTK_INT blocking_factor_x "Blocking factor" STEERABLE=recover
 {
@@ -317,6 +317,7 @@ CCTK_REAL grid_efficiency "Minimum AMR grid efficiency" STEERABLE=recover
   0.0:* :: ""
 } 0.7
 
+
 CCTK_INT max_grid_size_x "Maximum grid size" STEERABLE=recover
 {
   1:* :: "must be a multiple of the blocking factor"
@@ -331,6 +332,8 @@ CCTK_INT max_grid_size_z "Maximum grid size" STEERABLE=recover
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
+
+PRIVATE:
 
 BOOLEAN refine_grid_layout "Ensure that each MPI process has at least one grid" STEERABLE=recover
 {
@@ -358,11 +361,16 @@ CCTK_INT max_num_levels "Maximum number of refinement levels"
   1:* :: ""
 } 1
 
+RESTRICTED:
+
 CCTK_INT regrid_every "Regridding interval" STEERABLE=always
 {
   0 :: "never"
   1:* :: "every that many iterations"
 } 0
+
+
+PRIVATE:
 
 CCTK_REAL regrid_error_threshold "Regridding error threshold" STEERABLE=always
 {
