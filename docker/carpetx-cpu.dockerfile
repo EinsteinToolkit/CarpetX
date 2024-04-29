@@ -7,8 +7,9 @@
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
 # jammy is ubuntu:22.04
-# FROM ubuntu:jammy-20240212
-FROM ubuntu:jammy-20240227
+# FROM ubuntu:jammy-20240227
+# noble is ubuntu:24.04
+FROM ubuntu:noble-20240423
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -52,6 +53,7 @@ RUN apt-get update && \
         libyaml-cpp-dev \
         locales \
         m4 \
+        make \
         meson \
         ninja-build \
         numactl \
@@ -64,6 +66,7 @@ RUN apt-get update && \
         subversion \
         vim \
         wget \
+        xz-utils \
         zlib1g-dev \
         && \
     rm -rf /var/lib/apt/lists/*
@@ -106,7 +109,7 @@ RUN mkdir src && \
     wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.14.4.tar.gz && \
     tar xzf v2.14.4.tar.gz && \
     cd c-blosc2-2.14.4 && \
-    cmake -B build -G Ninja -S . \
+    cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DBUILD_BENCHMARKS=OFF \
@@ -124,10 +127,10 @@ RUN mkdir src && \
 # - depends on blosc2
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.9.2.tar.gz && \
-    tar xzf v2.9.2.tar.gz && \
-    cd ADIOS2-2.9.2 && \
-    cmake -B build -G Ninja -S . \
+    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.10.0.tar.gz && \
+    tar xzf v2.10.0.tar.gz && \
+    cd ADIOS2-2.10.0 && \
+    cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DBUILD_TESTING=OFF \
@@ -147,7 +150,7 @@ RUN mkdir src && \
     wget https://github.com/eschnett/asdf-cxx/archive/refs/tags/version/7.3.2.tar.gz && \
     tar xzf 7.3.2.tar.gz && \
     cd asdf-cxx-version-7.3.2 && \
-    cmake -B build -G Ninja -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
     cmake --build build && \
     cmake --install build && \
     true) && \
@@ -161,7 +164,7 @@ RUN mkdir src && \
     wget https://github.com/agenium-scale/nsimd/archive/refs/tags/v3.0.1.tar.gz && \
     tar xzf v3.0.1.tar.gz && \
     cd nsimd-3.0.1 && \
-    cmake -B build -G Ninja -S . \
+    cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -Dsimd=AVX2 \
@@ -179,7 +182,7 @@ RUN mkdir src && \
     wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.2.tar.gz && \
     tar xzf 0.15.2.tar.gz && \
     cd openPMD-api-0.15.2 && \
-    cmake -B build -G Ninja -S . \
+    cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DBUILD_TESTING=OFF \
@@ -233,7 +236,7 @@ RUN mkdir src && \
     wget https://github.com/eschnett/SimulationIO/archive/refs/tags/version/9.0.3.tar.gz && \
     tar xzf 9.0.3.tar.gz && \
     cd SimulationIO-version-9.0.3 && \
-    cmake -B build -G Ninja -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local -DENABLE_ASDF_CXX=OFF && \
+    cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local -DENABLE_ASDF_CXX=OFF && \
     cmake --build build && \
     cmake --install build && \
     true) && \
@@ -246,7 +249,7 @@ RUN mkdir src && \
     wget https://github.com/astro-informatics/ssht/archive/v1.5.2.tar.gz && \
     tar xzf v1.5.2.tar.gz && \
     cd ssht-1.5.2 && \
-    cmake -B build -G Ninja -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
     cmake --build build && \
     cmake --install build && \
     true) && \
@@ -269,7 +272,7 @@ RUN mkdir src && \
         real64) precision=DOUBLE;; \
         *) exit 1;; \
     esac && \
-    cmake -B build -G Ninja -S . \
+    cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DBUILD_SHARED_LIBS=ON \
