@@ -1067,37 +1067,26 @@ int Initialise(tFleshConfig *config) {
   CCTKi_FinaliseParamWarn();
 
   active_levels = optional<active_levels_t>();
-  
-  //-------------------------------------------------------------------------------------
-  //Set the value of max_grid_size initially.
-  CCTK_VINFO("Setting max_grid_size values (for all levels) initially, in schedule..."); 
-  for (const auto &patchdata : ghext->patchdata){      
-          amrex::Vector<int> mgs0_vec = {max_grid_size_x[0], max_grid_size_y[0], max_grid_size_z[0]};
-          amrex::IntVect mgs0(mgs0_vec); //This won't be steered here, but keeping for scaffolding.
-          amrex::Vector<int> mgs1_vec = {max_grid_size_x[1], max_grid_size_y[1], max_grid_size_z[1]};
-          amrex::IntVect mgs1(mgs1_vec);
-          amrex::Vector<int> mgs2_vec = {max_grid_size_x[2], max_grid_size_y[2], max_grid_size_z[2]};
-          amrex::IntVect mgs2(mgs2_vec);
-          amrex::Vector<int> mgs3_vec = {max_grid_size_x[3], max_grid_size_y[3], max_grid_size_z[3]};
-          amrex::IntVect mgs3(mgs3_vec);
-          amrex::Vector<int> mgs4_vec = {max_grid_size_x[4], max_grid_size_y[4], max_grid_size_z[4]};
-          amrex::IntVect mgs4(mgs4_vec);
-          amrex::Vector<int> mgs5_vec = {max_grid_size_x[5], max_grid_size_y[5], max_grid_size_z[5]};
-          amrex::IntVect mgs5(mgs5_vec);
-          amrex::Vector<int> mgs6_vec = {max_grid_size_x[6], max_grid_size_y[6], max_grid_size_z[6]};
-          amrex::IntVect mgs6(mgs6_vec);
-          amrex::Vector<int> mgs7_vec = {max_grid_size_x[7], max_grid_size_y[7], max_grid_size_z[7]};
-          amrex::IntVect mgs7(mgs7_vec);
-          amrex::Vector<int> mgs8_vec = {max_grid_size_x[8], max_grid_size_y[8], max_grid_size_z[8]};
-          amrex::IntVect mgs8(mgs8_vec);
-          amrex::Vector<int> mgs9_vec = {max_grid_size_x[9], max_grid_size_y[9], max_grid_size_z[9]};
-          amrex::IntVect mgs9(mgs9_vec);	
-        
-          amrex::Vector<amrex::IntVect> mgs_all = {mgs0, mgs1, mgs2, mgs3, mgs4, mgs5, mgs6, mgs7, mgs8, mgs9};
-          patchdata.amrcore->SetMaxGridSize(mgs_all);
-  }         
-  //-------------------------------------------------------------------------------------    
 
+  // Set the initial value of max_grid_size for all levels
+  CCTK_VINFO("Setting initial values for max_grid_size values for all levels");
+  for (const auto &patchdata : ghext->patchdata) {
+    amrex::Vector<amrex::IntVect> max_grid_sizes_vec(20);
+    for (int level = 0; level < 20; ++level) {
+      int size_x = max_grid_sizes_x[level];
+      if (size_x == -1)
+        size_x = max_grid_size_x;
+      int size_y = max_grid_sizes_y[level];
+      if (size_y == -1)
+        size_y = max_grid_size_y;
+      int size_z = max_grid_sizes_z[level];
+      if (size_z == -1)
+        size_z = max_grid_size_z;
+      const amrex::IntVect max_grid_size_vec{size_x, size_y, size_z};
+      max_grid_sizes_vec.at(level) = max_grid_size_vec;
+    }
+    patchdata.amrcore->SetMaxGridSize(max_grid_sizes_vec);
+  }
 
   if (config->recovered) {
     // Recover
@@ -1304,7 +1293,7 @@ int Initialise(tFleshConfig *config) {
               }
             }
           } // omp critical
-        }   // for patchdata
+        } // for patchdata
 
         int first_modified_level = INT_MAX;
         int last_modified_level = -1;
@@ -1619,34 +1608,24 @@ int Evolve(tFleshConfig *config) {
         patchdata.amrcore->level_modified.resize(old_numlevels, false);
         const CCTK_REAL time = 0; // dummy time
 
-        //-------------------------------------------------------------------------------------
-        //Set the value of max_grid_size before regridding. 
-        CCTK_VINFO("Setting max_grid_size values (for level > 0) before regridding, in schedule...");      
-        amrex::Vector<int> mgs0_vec = {max_grid_size_x[0], max_grid_size_y[0], max_grid_size_z[0]};
-        amrex::IntVect mgs0(mgs0_vec); //This won't be steered here, but keeping for scaffolding.
-        amrex::Vector<int> mgs1_vec = {max_grid_size_x[1], max_grid_size_y[1], max_grid_size_z[1]};
-        amrex::IntVect mgs1(mgs1_vec);
-        amrex::Vector<int> mgs2_vec = {max_grid_size_x[2], max_grid_size_y[2], max_grid_size_z[2]};
-        amrex::IntVect mgs2(mgs2_vec);
-        amrex::Vector<int> mgs3_vec = {max_grid_size_x[3], max_grid_size_y[3], max_grid_size_z[3]};
-        amrex::IntVect mgs3(mgs3_vec);
-        amrex::Vector<int> mgs4_vec = {max_grid_size_x[4], max_grid_size_y[4], max_grid_size_z[4]};
-        amrex::IntVect mgs4(mgs4_vec);
-        amrex::Vector<int> mgs5_vec = {max_grid_size_x[5], max_grid_size_y[5], max_grid_size_z[5]};
-        amrex::IntVect mgs5(mgs5_vec);
-        amrex::Vector<int> mgs6_vec = {max_grid_size_x[6], max_grid_size_y[6], max_grid_size_z[6]};
-        amrex::IntVect mgs6(mgs6_vec);
-        amrex::Vector<int> mgs7_vec = {max_grid_size_x[7], max_grid_size_y[7], max_grid_size_z[7]};
-        amrex::IntVect mgs7(mgs7_vec);
-        amrex::Vector<int> mgs8_vec = {max_grid_size_x[8], max_grid_size_y[8], max_grid_size_z[8]};
-        amrex::IntVect mgs8(mgs8_vec);
-        amrex::Vector<int> mgs9_vec = {max_grid_size_x[9], max_grid_size_y[9], max_grid_size_z[9]};
-        amrex::IntVect mgs9(mgs9_vec);	
-        
-        amrex::Vector<amrex::IntVect> mgs_all = {mgs0, mgs1, mgs2, mgs3, mgs4, mgs5, mgs6, mgs7, mgs8, mgs9};
-        patchdata.amrcore->SetMaxGridSize(mgs_all);         
-        //-------------------------------------------------------------------------------------
-
+        // Set the value of max_grid_size before regridding
+        CCTK_VINFO(
+            "Setting max_grid_size values for all levels before regridding");
+        amrex::Vector<amrex::IntVect> max_grid_sizes_vec(20);
+        for (int level = 0; level < 20; ++level) {
+          int size_x = max_grid_sizes_x[level];
+          if (size_x == -1)
+            size_x = max_grid_size_x;
+          int size_y = max_grid_sizes_y[level];
+          if (size_y == -1)
+            size_y = max_grid_size_y;
+          int size_z = max_grid_sizes_z[level];
+          if (size_z == -1)
+            size_z = max_grid_size_z;
+          const amrex::IntVect max_grid_size_vec{size_x, size_y, size_z};
+          max_grid_sizes_vec.at(level) = max_grid_size_vec;
+        }
+        patchdata.amrcore->SetMaxGridSize(max_grid_sizes_vec);
 
         patchdata.amrcore->regrid(0, time);
 
@@ -1682,7 +1661,7 @@ int Evolve(tFleshConfig *config) {
             }
           }
         } // omp critical
-      }   // for patchdata
+      } // for patchdata
 
       int first_modified_level = INT_MAX;
       int last_modified_level = -1;
@@ -2422,7 +2401,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                        []() { return "SyncGroupsByDirI before syncing"; });
       }
     } // for tl
-  }   // for gi
+  } // for gi
 
   // We need to loop over groups, patches, and levels in a definite
   // order so that AMReX's communication pattern does not get
@@ -2542,7 +2521,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                          []() { return "SyncGroupsByDirI after syncing"; });
       }
     } // for tl
-  }   // for gi
+  } // for gi
 
   if (have_multipatch_boundaries) {
     std::vector<CCTK_INT> cactusvarinds;
@@ -2667,8 +2646,8 @@ void Reflux(const cGH *cctkGH, int level) {
             });
         }
       } // for gi
-    }   // if level exists
-  }     // for patchdata
+    } // if level exists
+  } // for patchdata
 }
 
 void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
@@ -2788,9 +2767,9 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
           }
 
         } // for tl
-      }   // for gi
-    }     // if level exists
-  }       // for patchdata
+      } // for gi
+    } // if level exists
+  } // for patchdata
 }
 
 void Restrict(const cGH *cctkGH, int level) {

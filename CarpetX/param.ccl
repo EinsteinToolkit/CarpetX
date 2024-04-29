@@ -19,7 +19,6 @@ STRING amrex_parameters[100] "Additional AMReX parameters"
 } ""
 
 
-RESTRICTED:
 
 CCTK_REAL xmin "Domain size (location of vertices)"
 {
@@ -67,7 +66,6 @@ CCTK_INT ncells_z "Number of grid cells"
 {
   1:* :: "must be a multiple of the blocking factor"
 } 128
-
 
 
 
@@ -295,7 +293,7 @@ STRING robin_upper_z_vars "Override boundary condition at upper z boundary"
   ".*" :: ""
 } ""
 
-RESTRICTED:
+
 
 CCTK_INT blocking_factor_x "Blocking factor" STEERABLE=recover
 {
@@ -317,23 +315,40 @@ CCTK_REAL grid_efficiency "Minimum AMR grid efficiency" STEERABLE=recover
   0.0:* :: ""
 } 0.7
 
-#The values of max_grid_size_x[n] correspond to max_grid_size_x for level n. Currently, maximum 10 levels can be set. If number of levels is greater than 10, then max_grid_size for 10th level is used for higher levels as well. 
-CCTK_INT max_grid_size_x[10] "Maximum grid size" STEERABLE=always
+CCTK_INT max_grid_size_x "Maximum grid size" STEERABLE=always
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
-CCTK_INT max_grid_size_y[10] "Maximum grid size" STEERABLE=always
+CCTK_INT max_grid_size_y "Maximum grid size" STEERABLE=always
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
-CCTK_INT max_grid_size_z[10] "Maximum grid size" STEERABLE=always
+CCTK_INT max_grid_size_z "Maximum grid size" STEERABLE=always
 {
   1:* :: "must be a multiple of the blocking factor"
 } 32
 
-PRIVATE:
+CCTK_INT max_grid_sizes_x[20] "Maximum grid size" STEERABLE=always
+{
+  -1 :: "use value from max_grid_size_x"
+  1:* :: "must be a multiple of the blocking factor"
+} -1
+
+CCTK_INT max_grid_sizes_y[20] "Maximum grid size" STEERABLE=always
+{
+  -1 :: "use value from max_grid_size_y"
+  1:* :: "must be a multiple of the blocking factor"
+} -1
+
+CCTK_INT max_grid_sizes_z[20] "Maximum grid size" STEERABLE=always
+{
+  -1 :: "use value from max_grid_size_z"
+  1:* :: "must be a multiple of the blocking factor"
+} -1
+
+
 
 BOOLEAN refine_grid_layout "Ensure that each MPI process has at least one grid" STEERABLE=recover
 {

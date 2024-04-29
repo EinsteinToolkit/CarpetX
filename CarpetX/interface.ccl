@@ -18,6 +18,8 @@ USES INCLUDE HEADER: loop_device.hxx
 
 INCLUDES HEADER: reduction.hxx IN reduction.hxx
 
+
+
 # Number of patches
 CCTK_INT FUNCTION MultiPatch_GetSystemSpecification( \
   CCTK_INT OUT npatches)
