@@ -6,10 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real32 .
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
-# jammy is ubuntu:22.04
-# FROM ubuntu:jammy-20240227
 # noble is ubuntu:24.04
-FROM ubuntu:noble-20240423
+FROM arm64v8/ubuntu:noble-20240423
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -167,7 +165,7 @@ RUN mkdir src && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
-        -Dsimd=AVX2 \
+        -Dsimd=aarch64 \
         && \
     cmake --build build && \
     cmake --install build && \
@@ -218,7 +216,7 @@ RUN mkdir src && \
     ../configure \
         --disable-fortran \
         --enable-optimization \
-        --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial/include,/usr/lib/x86_64-linux-gnu/hdf5/serial/lib \
+        --with-hdf5=/usr/lib/aarch64-linux-gnu/hdf5/serial/include,/usr/lib/aarch64-linux-gnu/hdf5/serial/lib \
         --prefix=/usr/local \
         && \
     make -j$(nproc) && \
