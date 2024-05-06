@@ -1,18 +1,17 @@
+
 # How to build this Docker image:
 
-#     docker build --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real64 .
-#     docker push einsteintoolkit/carpetx:cpu-real64
+#     docker build --file carpetx-oneapi.dockerfile --tag einsteintoolkit/carpetx:oneapi-real64 .
+#     docker push einsteintoolkit/carpetx:oneapi-real64
 
-#     docker build --build-arg real_precision=real32 --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real32 .
-#     docker push einsteintoolkit/carpetx:cpu-real32
+#     docker build --build-arg real_precision=real32 --file carpetx-oneapi.dockerfile --tag einsteintoolkit/carpetx:oneapi-real32 .
+#     docker push einsteintoolkit/carpetx:oneapi-real32
 
-# jammy is ubuntu:22.04
-# FROM ubuntu:jammy-20240227
-# noble is ubuntu:24.04
-FROM ubuntu:noble-20240423
+# FROM intel/oneapi-basekit:devel-ubuntu22.04
+FROM intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    LANGUAGE=en_US.en \
+    LANGUAGE=en_US.UTF-8 \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
@@ -21,8 +20,6 @@ WORKDIR /cactus
 
 # Install system packages
 # - Boost on Ubuntu requires OpenMPI
-#        elfutils
-#        python2
 RUN apt-get update && \
     apt-get --yes --no-install-recommends install \
         ca-certificates \
@@ -53,7 +50,6 @@ RUN apt-get update && \
         libyaml-cpp-dev \
         locales \
         m4 \
-        make \
         meson \
         ninja-build \
         numactl \
@@ -66,41 +62,9 @@ RUN apt-get update && \
         subversion \
         vim \
         wget \
-        xz-utils \
         zlib1g-dev \
         && \
     rm -rf /var/lib/apt/lists/*
-
-# # Install HPCToolkit
-# # Install this first because it is expensive to build
-# RUN mkdir src && \
-#     (cd src && \
-#     wget https://github.com/spack/spack/archive/refs/tags/v0.21.0.tar.gz && \
-#     tar xzf v0.21.0.tar.gz && \
-#     export SPACK_ROOT="$(pwd)/spack-0.21.0" && \
-#     mkdir -p "${HOME}/.spack" && \
-#     echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
-#     . ${SPACK_ROOT}/share/spack/setup-env.sh && \
-#     spack external find \
-#         autoconf \
-#         automake \
-#         cmake \
-#         diffutils \
-#         elfutils \
-#         gmake \
-#         libtool \
-#         m4 \
-#         meson \
-#         ninja \
-#         numactl \
-#         perl \
-#         pkgconf \
-#         python \
-#     && \
-#     spack install --fail-fast hpctoolkit ~viewer && \
-#     spack view --dependencies no hardlink /hpctoolkit hpctoolkit && \
-#     true) && \
-#     rm -rf src "${HOME}/.spack"
 
 # Install blosc2
 # blosc2 is a compression library, comparable to zlib
@@ -124,7 +88,6 @@ RUN mkdir src && \
 
 # Install ADIOS2
 # ADIOS2 is a parallel I/O library, comparable to HDF5
-# - depends on blosc2
 RUN mkdir src && \
     (cd src && \
     wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.10.0.tar.gz && \
@@ -266,6 +229,7 @@ RUN mkdir src && \
     (cd src && \
     wget https://github.com/AMReX-Codes/amrex/archive/24.05.tar.gz && \
     tar xzf 24.05.tar.gz && \
+    rm -rf /opt/intel/oneapi/mpi && \
     cd amrex-24.05 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
@@ -274,13 +238,27 @@ RUN mkdir src && \
     esac && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_C_COMPILER=icx \
+        -DCMAKE_CXX_COMPILER=icpx \
+        -DCMAKE_PREFIX_PATH='/opt/intel/oneapi' \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
         -DBUILD_SHARED_LIBS=ON \
         -DAMReX_FORTRAN=OFF \
         -DAMReX_FORTRAN_INTERFACES=OFF \
-        -DAMReX_OMP=ON \
+        -DAMReX_GPU_BACKEND=SYCL \
+        -DAMReX_INTEL_ARCH=intel_gpu_pvc \
+        -DAMReX_OMP=OFF \
         -DAMReX_PARTICLES=ON \
         -DAMReX_PRECISION="$precision" \
+        -DMPI_CXX_ADDITIONAL_INCLUDE_DIRS='/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi;/usr/lib/x86_64-linux-gnu/openmpi/include' \
+        -DMPI_CXX_LIB_NAMES='mpi_cxx;mpi;open-rte;open-pal;hwloc' \
+        -DMPI_C_ADDITIONAL_INCLUDE_DIRS='/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi;/usr/lib/x86_64-linux-gnu/openmpi/include' \
+        -DMPI_C_LIB_NAMES='mpi;open-rte;open-pal;hwloc' \
+        -DMPI_hwloc_LIBRARY=/lib/x86_64-linux-gnu/libhwloc.so \
+        -DMPI_mpi_LIBRARY=/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so \
+        -DMPI_mpi_cxx_LIBRARY=/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_cxx.so \
+        -DMPI_open-pal_LIBRARY=/lib/x86_64-linux-gnu/libopen-pal.so \
+        -DMPI_open-rte_LIBRARY=/lib/x86_64-linux-gnu/libopen-rte.so \
         && \
     cmake --build build && \
     cmake --install build && \
