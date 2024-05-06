@@ -5,10 +5,14 @@
 
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_MultiFabUtil.H>
+#include <AMReX_Version.H>
 
 namespace CarpetX {
 
 using namespace amrex;
+#if AMREX_RELEASE_NUMBER >= 240500
+using namespace amrex::detail;
+#endif
 
 // The code in this file is written in a "coroutine style"
 // <https://en.wikipedia.org/wiki/Coroutine>. That is, each function
