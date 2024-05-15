@@ -194,9 +194,9 @@ RUN mkdir src && \
 # RePrimAnd is a physics package for nuclear equations of state
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/wokast/RePrimAnd/archive/refs/tags/v1.6.tar.gz && \
-    tar xzf v1.6.tar.gz && \
-    cd RePrimAnd-1.6 && \
+    wget https://github.com/wokast/RePrimAnd/archive/refs/tags/v1.7.tar.gz && \
+    tar xzf v1.7.tar.gz && \
+    cd RePrimAnd-1.7 && \
     meson build --buildtype=release --prefix=/usr/local && \
     ninja -C build && \
     ninja -C build install && \
