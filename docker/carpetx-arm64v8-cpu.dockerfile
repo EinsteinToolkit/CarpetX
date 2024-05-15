@@ -1,13 +1,14 @@
 # How to build this Docker image:
 
-#     docker build --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real64 .
-#     docker push einsteintoolkit/carpetx:cpu-real64
+#     docker build --file carpetx-arm64v8-cpu.dockerfile --tag einsteintoolkit/carpetx:arm64v8-cpu-real64 .
+#     docker push einsteintoolkit/carpetx:arm64v8-cpu-real64
 
-#     docker build --build-arg real_precision=real32 --file carpetx-cpu.dockerfile --tag einsteintoolkit/carpetx:cpu-real32 .
-#     docker push einsteintoolkit/carpetx:cpu-real32
+#     docker build --build-arg real_precision=real32 --file carpetx-arm64v8-cpu.dockerfile --tag einsteintoolkit/carpetx:arm64v8-cpu-real32 .
+#     docker push einsteintoolkit/carpetx:arm64v8-cpu-real32
 
 # noble is ubuntu:24.04
-FROM arm64v8/ubuntu:noble-20240423
+# FROM arm64v8/ubuntu:noble-20240423
+FROM arm64v8/ubuntu:noble-20240429
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -195,9 +196,9 @@ RUN mkdir src && \
 # RePrimAnd is a physics package for nuclear equations of state
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/wokast/RePrimAnd/archive/refs/tags/v1.6.tar.gz && \
-    tar xzf v1.6.tar.gz && \
-    cd RePrimAnd-1.6 && \
+    wget https://github.com/wokast/RePrimAnd/archive/refs/tags/v1.7.tar.gz && \
+    tar xzf v1.7.tar.gz && \
+    cd RePrimAnd-1.7 && \
     meson build --buildtype=release --prefix=/usr/local && \
     ninja -C build && \
     ninja -C build install && \

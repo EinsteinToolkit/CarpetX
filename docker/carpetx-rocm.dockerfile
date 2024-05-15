@@ -1,4 +1,3 @@
-
 # How to build this Docker image:
 
 #     docker build --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real64 .
@@ -7,8 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real32 .
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
-# FROM rocm/dev-ubuntu-22.04:6.0.2
-FROM rocm/dev-ubuntu-22.04:6.1
+# FROM rocm/dev-ubuntu-22.04:6.1
+FROM rocm/dev-ubuntu-22.04:6.1.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.UTF-8 \
@@ -197,9 +196,9 @@ RUN mkdir src && \
 # RePrimAnd is a physics package for nuclear equations of state
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/wokast/RePrimAnd/archive/refs/tags/v1.6.tar.gz && \
-    tar xzf v1.6.tar.gz && \
-    cd RePrimAnd-1.6 && \
+    wget https://github.com/wokast/RePrimAnd/archive/refs/tags/v1.7.tar.gz && \
+    tar xzf v1.7.tar.gz && \
+    cd RePrimAnd-1.7 && \
     meson build --buildtype=release --prefix=/usr/local && \
     ninja -C build && \
     ninja -C build install && \
