@@ -1068,6 +1068,26 @@ int Initialise(tFleshConfig *config) {
 
   active_levels = optional<active_levels_t>();
 
+  // Set the initial value of max_grid_size for all levels
+  CCTK_VINFO("Setting initial values for max_grid_size values for all levels");
+  for (const auto &patchdata : ghext->patchdata) {
+    amrex::Vector<amrex::IntVect> max_grid_sizes_vec(20);
+    for (int level = 0; level < 20; ++level) {
+      int size_x = max_grid_sizes_x[level];
+      if (size_x == -1)
+        size_x = max_grid_size_x;
+      int size_y = max_grid_sizes_y[level];
+      if (size_y == -1)
+        size_y = max_grid_size_y;
+      int size_z = max_grid_sizes_z[level];
+      if (size_z == -1)
+        size_z = max_grid_size_z;
+      const amrex::IntVect max_grid_size_vec{size_x, size_y, size_z};
+      max_grid_sizes_vec.at(level) = max_grid_size_vec;
+    }
+    patchdata.amrcore->SetMaxGridSize(max_grid_sizes_vec);
+  }
+
   if (config->recovered) {
     // Recover
 #pragma omp critical
@@ -1273,7 +1293,7 @@ int Initialise(tFleshConfig *config) {
               }
             }
           } // omp critical
-        }   // for patchdata
+        } // for patchdata
 
         int first_modified_level = INT_MAX;
         int last_modified_level = -1;
@@ -1587,6 +1607,26 @@ int Evolve(tFleshConfig *config) {
         patchdata.amrcore->level_modified.clear();
         patchdata.amrcore->level_modified.resize(old_numlevels, false);
         const CCTK_REAL time = 0; // dummy time
+
+        // Set the value of max_grid_size before regridding
+        CCTK_VINFO(
+            "Setting max_grid_size values for all levels before regridding");
+        amrex::Vector<amrex::IntVect> max_grid_sizes_vec(20);
+        for (int level = 0; level < 20; ++level) {
+          int size_x = max_grid_sizes_x[level];
+          if (size_x == -1)
+            size_x = max_grid_size_x;
+          int size_y = max_grid_sizes_y[level];
+          if (size_y == -1)
+            size_y = max_grid_size_y;
+          int size_z = max_grid_sizes_z[level];
+          if (size_z == -1)
+            size_z = max_grid_size_z;
+          const amrex::IntVect max_grid_size_vec{size_x, size_y, size_z};
+          max_grid_sizes_vec.at(level) = max_grid_size_vec;
+        }
+        patchdata.amrcore->SetMaxGridSize(max_grid_sizes_vec);
+
         patchdata.amrcore->regrid(0, time);
 
         const int new_numlevels = patchdata.amrcore->finestLevel() + 1;
@@ -1621,7 +1661,7 @@ int Evolve(tFleshConfig *config) {
             }
           }
         } // omp critical
-      }   // for patchdata
+      } // for patchdata
 
       int first_modified_level = INT_MAX;
       int last_modified_level = -1;
@@ -2361,7 +2401,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                        []() { return "SyncGroupsByDirI before syncing"; });
       }
     } // for tl
-  }   // for gi
+  } // for gi
 
   // We need to loop over groups, patches, and levels in a definite
   // order so that AMReX's communication pattern does not get
@@ -2481,7 +2521,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                          []() { return "SyncGroupsByDirI after syncing"; });
       }
     } // for tl
-  }   // for gi
+  } // for gi
 
   if (have_multipatch_boundaries) {
     std::vector<CCTK_INT> cactusvarinds;
@@ -2606,8 +2646,8 @@ void Reflux(const cGH *cctkGH, int level) {
             });
         }
       } // for gi
-    }   // if level exists
-  }     // for patchdata
+    } // if level exists
+  } // for patchdata
 }
 
 void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
@@ -2727,9 +2767,9 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
           }
 
         } // for tl
-      }   // for gi
-    }     // if level exists
-  }       // for patchdata
+      } // for gi
+    } // if level exists
+  } // for patchdata
 }
 
 void Restrict(const cGH *cctkGH, int level) {

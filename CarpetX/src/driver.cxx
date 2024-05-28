@@ -1924,7 +1924,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
         check_valid_gf(active_levels, gi, vi, tl, nan_handling,
                        []() { return "RemakeLevel before prolongation"; });
       } // for vi
-    }   // for tl
+    } // for tl
 
   } // for gi
 
@@ -2363,23 +2363,40 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   // we get core files.
   pp.add("amrex.throw_exception", 1);
 
-  // Enable managed memory (i.e. copy data automatically between accelerator and
-  // host)
-  #ifndef AMREX_USE_HIP
-    // This option would render the code inefficient on AMD GPUs.
-    // However, it is required to enable some thorns (TOVSolverX, TwoPuncturesX,
-    // ...) to work on NVIDIA GPUs.
-    // We might need to update those thorns to git rid of this option completely
-    // at some point.
-    pp.add("amrex.the_arena_is_managed", 1);
-  #endif
+  // Enable managed memory (i.e. copy data automatically between
+  // accelerator and host)
+#ifndef AMREX_USE_HIP
+  // This option would render the code inefficient on AMD GPUs.
+  // However, it is required to enable some thorns (TOVSolverX,
+  // TwoPuncturesX, ...) to work on NVIDIA GPUs.
+  // We might need to update those thorns to git rid of this option
+  // completely at some point.
+  pp.add("amrex.the_arena_is_managed", 1);
+#endif
 
   // Set blocking factors via parameter table since AmrMesh needs to
   // know them when its constructor is running, but there are no
   // constructor arguments for them
-  pp.add("amr.max_grid_size_x", max_grid_size_x);
-  pp.add("amr.max_grid_size_y", max_grid_size_y);
-  pp.add("amr.max_grid_size_z", max_grid_size_z);
+  amrex::Vector<int> max_grid_size_x_vec(20, -1), max_grid_size_y_vec(20, -1),
+      max_grid_size_z_vec(20, -1);
+  for (int level = 0; level < 20; ++level) {
+    int size_x = max_grid_sizes_x[level];
+    int size_y = max_grid_sizes_y[level];
+    int size_z = max_grid_sizes_z[level];
+    if (size_x == -1)
+      size_x = max_grid_size_x;
+    if (size_y == -1)
+      size_y = max_grid_size_y;
+    if (size_z == -1)
+      size_z = max_grid_size_z;
+    max_grid_size_x_vec.at(level) = size_x;
+    max_grid_size_y_vec.at(level) = size_y;
+    max_grid_size_z_vec.at(level) = size_z;
+  }
+  pp.addarr("amr.max_grid_size_x", max_grid_size_x_vec);
+  pp.addarr("amr.max_grid_size_y", max_grid_size_y_vec);
+  pp.addarr("amr.max_grid_size_z", max_grid_size_z_vec);
+
   pp.add("amr.refine_grid_layout", refine_grid_layout);
   pp.add("amr.blocking_factor_x", blocking_factor_x);
   pp.add("amr.blocking_factor_y", blocking_factor_y);
