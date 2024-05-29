@@ -302,21 +302,17 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
 
     if (valid.valid_all()) {
       grid.loop_idx(where_t::everywhere, groupdata.indextype,
-                    groupdata.nghostzones,
-                    [&](const Loop::PointDesc &p) { update_nan_found(p); });
+                    groupdata.nghostzones, update_nan_found);
     } else {
       if (valid.valid_int)
         grid.loop_idx(where_t::interior, groupdata.indextype,
-                      groupdata.nghostzones,
-                      [&](const Loop::PointDesc &p) { update_nan_found(p); });
+                      groupdata.nghostzones, update_nan_found);
       if (valid.valid_outer)
         grid.loop_idx(where_t::boundary, groupdata.indextype,
-                      groupdata.nghostzones,
-                      [&](const Loop::PointDesc &p) { update_nan_found(p); });
+                      groupdata.nghostzones, update_nan_found);
       if (valid.valid_ghosts)
         grid.loop_idx(where_t::ghosts, groupdata.indextype,
-                      groupdata.nghostzones,
-                      [&](const Loop::PointDesc &p) { update_nan_found(p); });
+                      groupdata.nghostzones, update_nan_found);
     }
   });
   synchronize();
