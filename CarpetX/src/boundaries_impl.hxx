@@ -380,11 +380,17 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                 const Loop::GF3D2<CCTK_REAL> var(layout,
                                                  destptr + comp * layout.np);
 
+#ifdef CCTK_DEBUG
+                using std::isnan;
+#endif
                 CCTK_REAL val;
                 if constexpr (any(boundaries == boundary_t::dirichlet)) {
                   val = dirichlet_value;
                 } else {
                   val = var(src);
+#ifdef CCTK_DEBUG
+                  assert(!isnan(val));
+#endif
                   if constexpr (any(boundaries == boundary_t::robin)) {
                     for (int d = 0; d < dim; ++d) {
                       if (boundaries[d] == boundary_t::robin) {
@@ -414,6 +420,9 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                   if constexpr (any(symmetries == symmetry_t::reflection))
                     val *= reflection_parity;
                 }
+#ifdef CCTK_DEBUG
+                assert(!isnan(val));
+#endif
                 var.store(dst, val);
               }
             };
