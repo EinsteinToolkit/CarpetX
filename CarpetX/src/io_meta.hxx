@@ -32,6 +32,7 @@ enum class reduction_t {
   norm_inf,
   minimum_location,
   maximum_location,
+  sum_location,
 };
 
 struct output_file_description_t {

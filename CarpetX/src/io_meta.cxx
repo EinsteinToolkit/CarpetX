@@ -75,6 +75,9 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml, const reduction_t &reduction) {
   case reduction_t::maximum_location:
     yaml << "maximum_location";
     break;
+  case reduction_t::sum_location:
+    yaml << "sum_location";
+    break;
   default:
     assert(0);
   }
