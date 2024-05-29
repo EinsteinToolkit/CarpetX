@@ -5,6 +5,7 @@
 #include "../../CarpetX/src/fillpatch.hxx"
 #include "../../CarpetX/src/reduction.hxx"
 #include "../../CarpetX/src/schedule.hxx"
+#include "../../CarpetX/src/task_manager.hxx"
 
 #include <div.hxx>
 #include <loop.hxx>
@@ -237,13 +238,23 @@ void define_point_type() {
       });
 
   // Synchronize (as if there was no prolongation)
-  for (const auto &patchdata : CarpetX::ghext->patchdata) {
-    for (const auto &leveldata : patchdata.leveldata) {
-      const int level = leveldata.level;
-      const auto &groupdata = *leveldata.groupdata.at(gi_ind);
-      amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
-      FillPatch_Sync(groupdata, mfab_ind, patchdata.amrcore->Geom(level));
+  {
+    CarpetX::task_manager tasks1;
+    CarpetX::task_manager tasks2;
+    for (const auto &patchdata : CarpetX::ghext->patchdata) {
+      for (const auto &leveldata : patchdata.leveldata) {
+        const int level = leveldata.level;
+        const auto &groupdata = *leveldata.groupdata.at(gi_ind);
+        amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
+        tasks1.submit_serially(
+            [&tasks2, &groupdata, &mfab_ind, &patchdata, level]() {
+              FillPatch_Sync(tasks2, groupdata, mfab_ind,
+                             patchdata.amrcore->Geom(level));
+            });
+      }
     }
+    tasks1.run_tasks_serially();
+    tasks2.run_tasks_serially();
   }
 
   // Check where the indicator changed; these are the synchronized points.
@@ -291,23 +302,36 @@ void define_point_type() {
       });
 
   // Prolongate and synchronize (we cannot just prolongate)
-  for (const auto &patchdata : CarpetX::ghext->patchdata) {
-    for (const auto &leveldata : patchdata.leveldata) {
-      const int level = leveldata.level;
-      if (level == 0)
-        continue;
-      const auto &coarseleveldata = patchdata.leveldata.at(level - 1);
-      const auto &groupdata = *leveldata.groupdata.at(gi_ind);
-      const auto &coarsegroupdata = *coarseleveldata.groupdata.at(gi_ind);
-      amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
-      amrex::MultiFab &coarsemfab_ind = *coarsegroupdata.mfab.at(tl);
-      amrex::Interpolater *const interpolator =
-          CarpetX::get_interpolator(std::array<int, 3>(indextype));
-      FillPatch_ProlongateGhosts(groupdata, mfab_ind, coarsemfab_ind,
-                                 patchdata.amrcore->Geom(level - 1),
-                                 patchdata.amrcore->Geom(level), interpolator,
-                                 groupdata.bcrecs);
+  {
+    CarpetX::task_manager tasks1;
+    CarpetX::task_manager tasks2;
+    CarpetX::task_manager tasks3;
+    for (const auto &patchdata : CarpetX::ghext->patchdata) {
+      for (const auto &leveldata : patchdata.leveldata) {
+        const int level = leveldata.level;
+        if (level == 0)
+          continue;
+        const auto &coarseleveldata = patchdata.leveldata.at(level - 1);
+        const auto &groupdata = *leveldata.groupdata.at(gi_ind);
+        const auto &coarsegroupdata = *coarseleveldata.groupdata.at(gi_ind);
+        amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
+        amrex::MultiFab &coarsemfab_ind = *coarsegroupdata.mfab.at(tl);
+        amrex::Interpolater *const interpolator =
+            CarpetX::get_interpolator(std::array<int, 3>(indextype));
+        tasks1.submit_serially([&tasks2, &tasks3, &groupdata, &coarsegroupdata,
+                                &mfab_ind, &coarsemfab_ind, &patchdata,
+                                &interpolator, level]() {
+          FillPatch_ProlongateGhosts(tasks2, tasks3, groupdata, coarsegroupdata,
+                                     mfab_ind, coarsemfab_ind,
+                                     patchdata.amrcore->Geom(level),
+                                     patchdata.amrcore->Geom(level - 1),
+                                     interpolator, groupdata.bcrecs);
+        });
+      }
     }
+    tasks1.run_tasks_serially();
+    tasks2.run_tasks_serially();
+    tasks3.run_tasks_serially();
   }
 
   // Check where the indicator changed; these are the prolongated points. If
@@ -607,13 +631,23 @@ void enumerate_points(
   }
 
   // Synchronize index
-  for (const auto &patchdata : CarpetX::ghext->patchdata) {
-    for (const auto &leveldata : patchdata.leveldata) {
-      const int level = leveldata.level;
-      const auto &groupdata = *leveldata.groupdata.at(gi_idx);
-      amrex::MultiFab &mfab_idx = *groupdata.mfab.at(tl);
-      FillPatch_Sync(groupdata, mfab_idx, patchdata.amrcore->Geom(level));
+  {
+    CarpetX::task_manager tasks1;
+    CarpetX::task_manager tasks2;
+    for (const auto &patchdata : CarpetX::ghext->patchdata) {
+      for (const auto &leveldata : patchdata.leveldata) {
+        const int level = leveldata.level;
+        const auto &groupdata = *leveldata.groupdata.at(gi_idx);
+        amrex::MultiFab &mfab_idx = *groupdata.mfab.at(tl);
+        tasks1.submit_serially(
+            [&tasks2, &patchdata, &groupdata, &mfab_idx, level]() {
+              FillPatch_Sync(tasks2, groupdata, mfab_idx,
+                             patchdata.amrcore->Geom(level));
+            });
+      }
     }
+    tasks1.run_tasks_serially();
+    tasks2.run_tasks_serially();
   }
 
   // Check that restriction and synchronization worked
