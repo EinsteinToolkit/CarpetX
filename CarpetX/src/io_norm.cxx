@@ -215,6 +215,10 @@ void OutputNorms(const cGH *restrict cctkGH) {
           for (int d = 0; d < dim; ++d)
             file << sep << red.maxloc[d];
         }
+        
+      printf("Output norm %s: min = %15.6e, max = %15.6e\n", CCTK_FullVarName(groupdata.firstvarindex + vi), red.min, red.max);  
+
+        
       }
     }
 
