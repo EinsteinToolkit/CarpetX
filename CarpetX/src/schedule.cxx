@@ -2427,9 +2427,8 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
         // Copy from adjacent boxes on same level
 
         for (int tl = 0; tl < sync_tl; ++tl) {
-          tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
-                                  tl]() {
-            FillPatch_Sync(tasks2, tasks3, groupdata, *groupdata.mfab.at(tl),
+          tasks1.submit_serially([&tasks2, &leveldata, &groupdata, tl]() {
+            FillPatch_Sync(tasks2, groupdata, *groupdata.mfab.at(tl),
                            ghext->patchdata.at(leveldata.patch)
                                .amrcore->Geom(leveldata.level));
           });
@@ -2452,17 +2451,14 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 
           tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
                                   &coarsegroupdata, interpolator, tl]() {
-            auto task2 = FillPatch_ProlongateGhosts(
-                groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
-                ghext->patchdata.at(leveldata.patch)
-                    .amrcore->Geom(leveldata.level - 1),
-                ghext->patchdata.at(leveldata.patch)
-                    .amrcore->Geom(leveldata.level),
-                interpolator, groupdata.bcrecs);
-            tasks2.submit([&tasks3, task2 = std::move(task2)]() {
-              auto task3 = task2();
-              tasks3.submit([task3 = std::move(task3)]() { task3(); });
-            });
+            FillPatch_ProlongateGhosts(tasks2, tasks3, groupdata,
+                                       coarsegroupdata, *groupdata.mfab.at(tl),
+                                       *coarsegroupdata.mfab.at(tl),
+                                       ghext->patchdata.at(leveldata.patch)
+                                           .amrcore->Geom(leveldata.level),
+                                       ghext->patchdata.at(leveldata.patch)
+                                           .amrcore->Geom(leveldata.level - 1),
+                                       interpolator, groupdata.bcrecs);
           });
 
         } // for tl
