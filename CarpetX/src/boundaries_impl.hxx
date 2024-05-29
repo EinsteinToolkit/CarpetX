@@ -26,7 +26,7 @@ namespace CarpetX {
 
 constexpr int NEG = -1, INT = 0, POS = +1;
 
-constexpr int maxncomps = 10;
+constexpr int maxncomps = 16;
 
 template <int NI, int NJ, int NK>
 void BoundaryCondition::apply_on_face() const {
@@ -198,7 +198,10 @@ void BoundaryCondition::apply_on_face_symbcxyz(
   // TODO: Move loop over components to the far outside
 
   const int ncomps = dest.nComp();
-  assert(ncomps <= maxncomps);
+  if (CCTK_BUILTIN_EXPECT(ncomps > maxncomps, false))
+    CCTK_VERROR("Internal error: Found ncomps=%d, maxncomps=%d when applying "
+                "boundary conditions",
+                ncomps, maxncomps);
   const int cmin = 0;
   const int cmax = ncomps;
 
