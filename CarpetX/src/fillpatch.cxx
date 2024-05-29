@@ -28,43 +28,27 @@ using namespace amrex::detail;
 // Coroutines were popularized in the "Modula" language in the 1980s.
 // Welcome to the future, C++, you're only 40 years behind.
 
-namespace {
-using task0 = void;
-using task1 = std::function<task0()>;
-using task2 = std::function<task1()>;
-task0 do_nothing1() {}
-task1 do_nothing2() { return do_nothing1; }
-} // namespace
-
-task2 FillPatch_Sync(const GHExt::PatchData::LevelData::GroupData &groupdata,
-                     MultiFab &mfab, const Geometry &geom) {
-  mfab.FillBoundary_nowait(0, mfab.nComp(), mfab.nGrowVect(),
-                           geom.periodicity());
-  return [&groupdata, &mfab]() -> task1 {
-    mfab.FillBoundary_finish();
-    groupdata.apply_boundary_conditions(mfab);
-    return do_nothing2();
-  };
-}
-
-void FillPatch_Sync(task_manager &tasks2, task_manager &tasks3,
+void FillPatch_Sync(task_manager &tasks2,
                     const GHExt::PatchData::LevelData::GroupData &groupdata,
                     MultiFab &mfab, const Geometry &geom) {
   mfab.FillBoundary_nowait(0, mfab.nComp(), mfab.nGrowVect(),
                            geom.periodicity());
-  tasks2.submit([&groupdata, &mfab]() {
+  tasks2.submit_serially([&groupdata, &mfab]() {
     mfab.FillBoundary_finish();
     groupdata.apply_boundary_conditions(mfab);
   });
 }
 
-task2 FillPatch_ProlongateGhosts(
-    const GHExt::PatchData::LevelData::GroupData &groupdata, MultiFab &mfab,
-    const MultiFab &cmfab, const Geometry &cgeom, const Geometry &fgeom,
-    Interpolater *const mapper, const Vector<BCRec> &bcrecs) {
+void FillPatch_ProlongateGhosts(
+    task_manager &tasks2, task_manager &tasks3,
+    const GHExt::PatchData::LevelData::GroupData &groupdata,
+    const GHExt::PatchData::LevelData::GroupData &coarsegroupdata,
+    MultiFab &mfab, const MultiFab &cmfab, const Geometry &fgeom,
+    const Geometry &cgeom, Interpolater *const mapper,
+    const Vector<BCRec> &bcrecs) {
   const IntVect &nghosts = mfab.nGrowVect();
   if (nghosts.max() == 0)
-    return do_nothing2;
+    return;
 
   const int ncomps = mfab.nComp();
   const IntVect ratio{2, 2, 2};
@@ -83,15 +67,14 @@ task2 FillPatch_ProlongateGhosts(
     // There is no coarser level for our boundaries, i.e. there is no
     // prolongation. Apply the boundary conditions right away.
 
-    return [&groupdata, &mfab]() -> task1 {
+    tasks2.submit_serially([&groupdata, &mfab]() {
       // Finish synchronizing
       mfab.FillBoundary_finish();
 
       // Apply symmetry and boundary conditions
       groupdata.apply_boundary_conditions(mfab);
-
-      return do_nothing1;
-    };
+    });
+    return;
   }
 
   // Prolongate from the next coarser level. Apply the boundary
@@ -109,8 +92,9 @@ task2 FillPatch_ProlongateGhosts(
       cmfab, 0, 0, ncomps, IntVect{0} /* don't use coarse ghosts */,
       mfab_crse_patch.nGrowVect(), cgeom.periodicity());
 
-  return [&groupdata, &mfab, &cgeom, &fgeom, mapper, &bcrecs, &fpc,
-          mfab_crse_patch_ptr]() -> task1 {
+  tasks2.submit_serially([&tasks3, &groupdata, &coarsegroupdata, &mfab, &cgeom,
+                          &fgeom, mapper, &bcrecs, &fpc,
+                          mfab_crse_patch_ptr]() {
     const IntVect &nghosts = mfab.nGrowVect();
     const int ncomps = mfab.nComp();
     const IntVect ratio{2, 2, 2};
@@ -121,7 +105,8 @@ task2 FillPatch_ProlongateGhosts(
 
     // Finish copying parts of coarse grid into temporary buffer
     mfab_crse_patch.ParallelCopy_finish();
-    groupdata.apply_boundary_conditions(mfab_crse_patch);
+
+    coarsegroupdata.apply_boundary_conditions(mfab_crse_patch);
 
     MultiFab *const mfab_fine_patch_ptr =
         new MultiFab(make_mf_fine_patch<MultiFab>(fpc, ncomps));
@@ -140,7 +125,7 @@ task2 FillPatch_ProlongateGhosts(
 
     delete mfab_crse_patch_ptr;
 
-    return [&groupdata, &mfab, mfab_fine_patch_ptr]() {
+    tasks3.submit_serially([&groupdata, &mfab, mfab_fine_patch_ptr]() {
       // Finish copying fine buffer into destination
       mfab.ParallelCopy_finish();
 
@@ -148,16 +133,17 @@ task2 FillPatch_ProlongateGhosts(
       groupdata.apply_boundary_conditions(mfab);
 
       delete mfab_fine_patch_ptr;
-    };
-  };
+    });
+  });
 }
 
-void FillPatch_NewLevel(const GHExt::PatchData::LevelData::GroupData &groupdata,
-                        MultiFab &mfab, const MultiFab &cmfab,
-                        const Geometry &cgeom, const Geometry &fgeom,
-                        Interpolater *const mapper,
-                        const Vector<BCRec> &bcrecs) {
 
+void FillPatch_NewLevel(
+    const GHExt::PatchData::LevelData::GroupData &groupdata,
+    const GHExt::PatchData::LevelData::GroupData &coarsegroupdata,
+    MultiFab &mfab, const MultiFab &cmfab, const Geometry &cgeom,
+    const Geometry &fgeom, Interpolater *const mapper,
+    const Vector<BCRec> &bcrecs) {
   const int ncomps = mfab.nComp();
   const IntVect ratio{2, 2, 2};
   const IntVect &nghosts = mfab.nGrowVect();
@@ -189,7 +175,7 @@ void FillPatch_NewLevel(const GHExt::PatchData::LevelData::GroupData &groupdata,
 
   cmfab_g.ParallelCopy(cmfab, 0, 0, ncomps, cgeom.periodicity());
 
-  groupdata.apply_boundary_conditions(cmfab_g);
+  coarsegroupdata.apply_boundary_conditions(cmfab_g);
 
   FillPatchInterp(mfab, 0, cmfab_g, 0, ncomps, nghosts, cgeom, fgeom, fdomain_g,
                   ratio, mapper, bcrecs, 0);
@@ -198,9 +184,10 @@ void FillPatch_NewLevel(const GHExt::PatchData::LevelData::GroupData &groupdata,
 }
 
 void FillPatch_RemakeLevel(
-    const GHExt::PatchData::LevelData::GroupData &groupdata, MultiFab &mfab,
-    const MultiFab &cmfab, const MultiFab &fmfab, const Geometry &cgeom,
-    const Geometry &fgeom, Interpolater *const mapper,
+    const GHExt::PatchData::LevelData::GroupData &groupdata,
+    const GHExt::PatchData::LevelData::GroupData &coarsegroupdata,
+    MultiFab &mfab, const MultiFab &cmfab, const MultiFab &fmfab,
+    const Geometry &cgeom, const Geometry &fgeom, Interpolater *const mapper,
     const Vector<BCRec> &bcrecs) {
   const int ncomps = mfab.nComp();
   const IntVect ratio{2, 2, 2};
@@ -219,7 +206,7 @@ void FillPatch_RemakeLevel(
     mfab_crse_patch.ParallelCopy(
         cmfab, 0, 0, ncomps, IntVect{0} /* don't use coarse ghosts */,
         mfab_crse_patch.nGrowVect(), cgeom.periodicity());
-    groupdata.apply_boundary_conditions(mfab_crse_patch);
+    coarsegroupdata.apply_boundary_conditions(mfab_crse_patch);
 
     MultiFab mfab_fine_patch = make_mf_fine_patch<MultiFab>(fpc, ncomps);
 

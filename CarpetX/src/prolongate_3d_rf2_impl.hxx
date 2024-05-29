@@ -1498,7 +1498,7 @@ void prolongate_3d_rf2<
                           const amrex::RunOn gpu_or_cpu) {
   DECLARE_CCTK_PARAMETERS;
 
-  constexpr int maxncomps = 10;
+  constexpr int maxncomps = 16;
   assert(ncomps <= maxncomps);
 
   static std::once_flag have_timers;

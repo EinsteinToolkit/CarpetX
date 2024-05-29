@@ -1833,9 +1833,9 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
           });
         }
         FillPatch_NewLevel(
-            groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
-            patchdata.amrcore->Geom(level - 1), patchdata.amrcore->Geom(level),
-            interpolator, groupdata.bcrecs);
+            groupdata, coarsegroupdata, *groupdata.mfab.at(tl),
+            *coarsegroupdata.mfab.at(tl), patchdata.amrcore->Geom(level - 1),
+            patchdata.amrcore->Geom(level), interpolator, groupdata.bcrecs);
         const auto outer_valid =
             groupdata.all_faces_have_symmetries_or_boundaries()
                 ? make_valid_outer()
@@ -1980,9 +1980,10 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
       if (tl < prolongate_tl) {
         // Copy from same level and/or prolongate from next coarser level
         FillPatch_RemakeLevel(
-            groupdata, *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
-            *oldgroupdata.mfab.at(tl), patchdata.amrcore->Geom(level - 1),
-            patchdata.amrcore->Geom(level), interpolator, groupdata.bcrecs);
+            groupdata, coarsegroupdata, *groupdata.mfab.at(tl),
+            *coarsegroupdata.mfab.at(tl), *oldgroupdata.mfab.at(tl),
+            patchdata.amrcore->Geom(level - 1), patchdata.amrcore->Geom(level),
+            interpolator, groupdata.bcrecs);
 
         for (int vi = 0; vi < groupdata.numvars; ++vi)
           groupdata.valid.at(tl).at(vi) =
