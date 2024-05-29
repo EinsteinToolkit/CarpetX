@@ -166,11 +166,11 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
     // multiple of the grid spacing
     const int levoff = (1 - levfac) * (1 - 2 * nghostzones[d]);
     const int levoffdenom = 2;
-    // Cell-centred coordinates on coarse level
+    // Vertex-centred coordinates on coarse level
     const CCTK_REAL origin_space =
         global_x0[d] + (1 - 2 * nghostzones[d]) * global_dx[d] / 2;
     const CCTK_REAL delta_space = global_dx[d];
-    // Cell-centred coordinates on current level
+    // Vertex-centred coordinates on current level
     dx[d] = delta_space / levfac;
     x0[d] = origin_space + dx[d] * levoff / levoffdenom;
   }
@@ -274,11 +274,11 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
     // multiple of the grid spacing
     const int levoff = (1 - levfac) * (1 - 2 * nghostzones[d]);
     const int levoffdenom = 2;
-    // Cell-centred coordinates on coarse level
+    // Vertex-centred coordinates on coarse level
     const CCTK_REAL origin_space =
         global_x0[d] + (1 - 2 * nghostzones[d]) * global_dx[d] / 2;
     const CCTK_REAL delta_space = global_dx[d];
-    // Cell-centred coordinates on current level
+    // Vertex-centred coordinates on current level
     dx[d] = delta_space / levfac;
     x0[d] = origin_space + dx[d] * levoff / levoffdenom;
   }
@@ -618,8 +618,7 @@ void enter_patch_mode(cGH *restrict cctkGH,
     assert(domain.type(d) == amrex::IndexType::CELL);
     cctkGH->cctk_gsh[d] = domain[orient(d, 1)] + 1 - domain[orient(d, 0)] + 1 +
                           2 * cctkGH->cctk_nghostzones[d];
-    // Cell-centred coarse level coordinates
-    // TODOPATCH: Shouldn't these be vertex centred?
+    // Vertex-centred coarse level coordinates
     const CCTK_REAL origin_space =
         global_x0[d] + (1 - 2 * cctkGH->cctk_nghostzones[d]) * global_dx[d] / 2;
     const CCTK_REAL delta_space = global_dx[d];
