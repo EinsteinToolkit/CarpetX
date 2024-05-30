@@ -568,6 +568,10 @@ BOOLEAN out_norm_omit_unstable "Omit unstable norms (e.g. maxloc)" STEERABLE=alw
 {
 } no
 
+BOOLEAN out_norm_omit_sumloc_for_backward_compatibility "Omit sumloc norms" STEERABLE=always
+{
+} no
+
 
 
 KEYWORD openpmd_format "openPMD file format" STEERABLE=always

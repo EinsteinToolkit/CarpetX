@@ -37,6 +37,7 @@ IO::parfile_write = no
 CarpetX::out_metadata = no
 CarpetX::out_norm_vars = "all"
 CarpetX::out_norm_omit_unstable = yes
+CarpetX::out_norm_omit_sumloc_for_backward_compatibility = yes
 
 CarpetX::out_tsv_vars = "
     FluxWaveToyX::state

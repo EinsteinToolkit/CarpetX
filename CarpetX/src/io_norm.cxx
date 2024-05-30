@@ -79,6 +79,13 @@ void OutputNorms(const cGH *restrict cctkGH) {
       reductions.push_back(buf.str());
     }
   }
+  if (!out_norm_omit_sumloc_for_backward_compatibility) {
+    for (int d = 0; d < dim; ++d) {
+      std::ostringstream buf;
+      buf << "sumloc[" << d << "]";
+      reductions.push_back(buf.str());
+    }
+  }
 
   if (is_root) {
     static std::once_flag create_directory;
@@ -215,6 +222,10 @@ void OutputNorms(const cGH *restrict cctkGH) {
           for (int d = 0; d < dim; ++d)
             file << sep << red.maxloc[d];
         }
+        if (!out_norm_omit_sumloc_for_backward_compatibility) {
+          for (int d = 0; d < dim; ++d)
+            file << sep << red.sumloc[d];
+        }
       }
     }
 
@@ -240,8 +251,10 @@ void OutputNorms(const cGH *restrict cctkGH) {
         ofd.reductions.push_back(reduction_t::minimum_location);
         ofd.reductions.push_back(reduction_t::maximum_location);
       }
+      if (!out_norm_omit_sumloc_for_backward_compatibility)
+        ofd.reductions.push_back(reduction_t::sum_location);
       ofd.format_name = "CarpetX/norms/TSV";
-      ofd.format_version = {1, 0, 0};
+      ofd.format_version = {1, 1, 0};
 
       OutputMeta_RegisterOutputFile(std::move(ofd));
     }
