@@ -10,7 +10,7 @@
 FROM intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    LANGUAGE=en_US.UTF-8 \
+    LANGUAGE=en_US.en \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
@@ -19,7 +19,8 @@ WORKDIR /cactus
 
 # Install system packages
 # - Boost on Ubuntu requires OpenMPI
-RUN apt-get update && \
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA && \
+    apt-get update --allow-insecure-repositories && \
     apt-get --yes --no-install-recommends install \
         ca-certificates \
         cmake \
@@ -78,6 +79,7 @@ RUN mkdir src && \
         -DBUILD_BENCHMARKS=OFF \
         -DBUILD_EXAMPLES=OFF \
         -DBUILD_FUZZERS=OFF \
+        -DBUILD_STATIC=OFF \
         -DBUILD_TESTS=OFF \
         && \
     cmake --build build && \
@@ -95,8 +97,11 @@ RUN mkdir src && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_SHARED_LIBS=ON \
         -DBUILD_TESTING=OFF \
         -DADIOS2_BUILD_EXAMPLES=OFF \
+        -DADIOS2_Blosc2_PREFER_SHARED=ON \
+        -DADIOS2_USE_Blosc2=ON \
         -DADIOS2_USE_Fortran=OFF \
         && \
     cmake --build build && \
@@ -112,7 +117,11 @@ RUN mkdir src && \
     wget https://github.com/eschnett/asdf-cxx/archive/refs/tags/version/7.3.2.tar.gz && \
     tar xzf 7.3.2.tar.gz && \
     cd asdf-cxx-version-7.3.2 && \
-    cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_SHARED_LIBS=ON \
+        && \
     cmake --build build && \
     cmake --install build && \
     true) && \
@@ -147,8 +156,10 @@ RUN mkdir src && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
-        -DBUILD_TESTING=OFF \
         -DBUILD_EXAMPLES=OFF \
+        -DBUILD_TESTING=OFF \
+        -DopenPMD_BUILD_SHARED_LIBS=ON \
+        -DopenPMD_USE_MPI=ON \
         && \
     cmake --build build && \
     cmake --install build && \
@@ -179,7 +190,9 @@ RUN mkdir src && \
     cd build && \
     ../configure \
         --disable-fortran \
+        --disable-static \
         --enable-optimization \
+        --enable-shared \
         --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial/include,/usr/lib/x86_64-linux-gnu/hdf5/serial/lib \
         --prefix=/usr/local \
         && \
@@ -198,7 +211,11 @@ RUN mkdir src && \
     wget https://github.com/eschnett/SimulationIO/archive/refs/tags/version/9.0.3.tar.gz && \
     tar xzf 9.0.3.tar.gz && \
     cd SimulationIO-version-9.0.3 && \
-    cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local -DENABLE_ASDF_CXX=OFF && \
+    cmake -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DENABLE_ASDF_CXX=OFF \
+        && \
     cmake --build build && \
     cmake --install build && \
     true) && \
@@ -211,7 +228,11 @@ RUN mkdir src && \
     wget https://github.com/astro-informatics/ssht/archive/v1.5.2.tar.gz && \
     tar xzf v1.5.2.tar.gz && \
     cd ssht-1.5.2 && \
-    cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DBUILD_TESTING=OFF \
+            && \
     cmake --build build && \
     cmake --install build && \
     true) && \
@@ -263,3 +284,7 @@ RUN mkdir src && \
     cmake --install build && \
     true) && \
     rm -rf src
+
+# Find libraries in /usr/local/lib64
+RUN echo /usr/local/lib64 >/etc/ld.so.conf.d/usr-local-lib64.conf && \
+    ldconfig
