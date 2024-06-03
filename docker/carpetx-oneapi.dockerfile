@@ -91,9 +91,9 @@ RUN mkdir src && \
 # ADIOS2 is a parallel I/O library, comparable to HDF5
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.10.0.tar.gz && \
-    tar xzf v2.10.0.tar.gz && \
-    cd ADIOS2-2.10.0 && \
+    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.10.1.tar.gz && \
+    tar xzf v2.10.1.tar.gz && \
+    cd ADIOS2-2.10.1 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
