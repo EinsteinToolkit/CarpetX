@@ -1405,10 +1405,10 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
     robin_values.resize(numvars, 0);
 
   amrex::BCRec bcrec;
-  for (int d = 0; d < dim; ++d) {
-    for (int f = 0; f < dim; ++f) {
+  for (int f = 0; f < 2; ++f) {
+    for (int d = 0; d < dim; ++d) {
       const auto bc =
-          ghext->patchdata.at(patch).symmetries[d][f] == symmetry_t::periodic
+          ghext->patchdata.at(patch).symmetries[f][d] == symmetry_t::periodic
               ? amrex::BCType::int_dir
               : amrex::BCType::ext_dir;
       if (f == 0)
