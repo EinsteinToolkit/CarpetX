@@ -7,26 +7,28 @@ STORAGE: state rhs error order
 SCHEDULE TestODESolvers2_Initial AT initial
 {
   LANG: C
-  WRITES: state(everywhere)
+  WRITES: state(interior)
+  SYNC: state
 } "Initialize state vector"
 
 SCHEDULE TestODESolvers2_RHS IN ODESolvers_RHS
 {
   LANG: C
-  READS: state(everywhere)
-  WRITES: rhs(everywhere)
+  READS: state(interior)
+  WRITES: rhs(interior)
 } "RHS function"
 
-# SCHEDULE TestODESolvers2_Boundary AT poststep
-# {
-#   LANG: C
-#   OPTIONS: global
-#   SYNC: state
-# } "Apply boundary conditions to state vector"
+SCHEDULE TestODESolvers2_Boundary IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Apply boundary conditions to state vector"
 
 SCHEDULE TestODESolvers2_Error AT analysis
 {
   LANG: C
-  READS: state(everywhere)
-  WRITES: error(everywhere) order(everywhere)
+  READS: state(interior)
+  WRITES: error(interior) order(interior)
+  SYNC: error order
 } "Calculate error in state vector"

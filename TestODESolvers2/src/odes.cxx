@@ -38,7 +38,7 @@ extern "C" void TestODESolvers2_Initial(CCTK_ARGUMENTS) {
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp1_(cctkGH, exp1);
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp2_(cctkGH, exp2);
 
-  Loop::loop_all<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
+  Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     time_(p.I) = cctk_time;
     poly_(p.I) = pow(1 + cctk_time, porder);
     exp1_(p.I) = exp(cctk_time);
@@ -46,12 +46,12 @@ extern "C" void TestODESolvers2_Initial(CCTK_ARGUMENTS) {
   });
 }
 
-// extern "C" void TestODESolvers2_Boundary(CCTK_ARGUMENTS) {
-//   DECLARE_CCTK_ARGUMENTS_TestODESolvers2_Boundary;
-//   DECLARE_CCTK_PARAMETERS;
-//
-//   // do nothing
-// }
+extern "C" void TestODESolvers2_Boundary(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_TestODESolvers2_Boundary;
+  DECLARE_CCTK_PARAMETERS;
+
+  // do nothing
+}
 
 extern "C" void TestODESolvers2_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_TestODESolvers2_RHS;
@@ -66,7 +66,7 @@ extern "C" void TestODESolvers2_RHS(CCTK_ARGUMENTS) {
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp1_rhs_(cctkGH, exp1_rhs);
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp2_rhs_(cctkGH, exp2_rhs);
 
-  Loop::loop_all<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
+  Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     if (porder > 0)
       if (abs(time_(p.I) - cctk_time) >
           10 * numeric_limits<CCTK_REAL>::epsilon())
@@ -92,7 +92,7 @@ extern "C" void TestODESolvers2_Error(CCTK_ARGUMENTS) {
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> poly_err_(cctkGH, poly_err);
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp_order_(cctkGH, exp_order);
 
-  Loop::loop_all<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
+  Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
     time_err_(p.I) = time_(p.I) - cctk_time;
     poly_err_(p.I) = poly_(p.I) - pow(1 + cctk_time, porder);
     if (cctk_iteration == 0) {
