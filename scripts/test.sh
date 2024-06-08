@@ -33,19 +33,28 @@ TWOPROC_DIR="$(./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECIS
 # git add test_nums.csv
 # git commit -m "Add new test result" && git push
 
+# Show all log, output, and error files
+echo 'All log files:'
 echo '================================================================================'
+for logfile in $(find "${ONEPROC_DIR}" "${TWOPROC_DIR}" -name '*.log' -print); do
+    echo "Log file $logfile:"
+    cat "$logfile"
+    echo '================================================================================'
+done
 echo 'All output files:'
-ls -lR /__w/CarpetX/workspace/simulations/TestJob01_temp_1
 echo '================================================================================'
-
-#TODO # Show all log files
-#TODO echo 'All logfiles:'
-#TODO echo '================================================================================'
-#TODO for logfile in $(find "${ONEPROC_DIR}" "${TWOPROC_DIR}" -name '*.log' -print); do
-#TODO     echo "Logfile $logfile:"
-#TODO     cat "$logfile"
-#TODO     echo '================================================================================'
-#TODO done
+for outfile in $(find "${ONEPROC_DIR}" "${TWOPROC_DIR}" -name '*.out' -print); do
+    echo "Log file $outfile:"
+    cat "$outfile"
+    echo '================================================================================'
+done
+echo 'All error files:'
+echo '================================================================================'
+for errfile in $(find "${ONEPROC_DIR}" "${TWOPROC_DIR}" -name '*.err' -print); do
+    echo "Log file $errfile:"
+    cat "$errfile"
+    echo '================================================================================'
+done
 
 TESTS_FAILED=False
 for test_dir in "${ONEPROC_DIR}" "${TWOPROC_DIR}"; do
