@@ -36,7 +36,7 @@ TWOPROC_DIR="$(./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECIS
 # Show all log files
 echo 'All logfiles:'
 echo '================================================================================'
-for logfile in find "${ONEPROC_DIR}" "${TWOPROC_DIR}" -name '*.log' -print; do
+for logfile in $(find "${ONEPROC_DIR}" "${TWOPROC_DIR}" -name '*.log' -print); do
     echo "Logfile $logfile:"
     echo 
     cat "$logfile"
