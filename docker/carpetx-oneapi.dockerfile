@@ -6,8 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-oneapi.dockerfile --tag einsteintoolkit/carpetx:oneapi-real32 .
 #     docker push einsteintoolkit/carpetx:oneapi-real32
 
-# FROM intel/oneapi-basekit:devel-ubuntu22.04
-FROM intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04
+# FROM intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04
+FROM intel/oneapi-basekit:2024.1.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \

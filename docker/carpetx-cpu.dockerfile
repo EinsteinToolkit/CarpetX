@@ -7,8 +7,8 @@
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
 # noble is ubuntu:24.04
-# FROM ubuntu:noble-20240423
-FROM ubuntu:noble-20240429
+# FROM ubuntu:noble-20240429
+FROM ubuntu:noble-20240530
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
