@@ -32,12 +32,14 @@ env | sort >SIMFACTORY/ENVIRONMENT
 echo "Starting:"
 export CACTUS_STARTTIME=$(date +%s)
 
-time                                            \
-    mpiexec                                     \
-    -n @NUM_PROCS@                              \
-    @EXECUTABLE@ -L 3 @PARFILE@                 \
-    >stdout.txt                                 \
-    2>stderr.txt
+# time                                            \
+#     mpiexec                                     \
+#     -n @NUM_PROCS@                              \
+#     @EXECUTABLE@ -L 3 @PARFILE@                 \
+#     >stdout.txt                                 \
+#     2>stderr.txt
+
+time mpiexec -n @NUM_PROCS@ @EXECUTABLE@ -L 3 @PARFILE@
 
 echo "Stopping:"
 date

@@ -33,6 +33,32 @@ TWOPROC_DIR="$(./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECIS
 # git add test_nums.csv
 # git commit -m "Add new test result" && git push
 
+# Show all log, output, and error files
+echo 'All log files:'
+echo '================================================================================'
+for logfile in $(find "${ONEPROC_DIR}" "${TWOPROC_DIR}" -name '*.log' -print); do
+    echo "Log file $logfile:"
+    ls -l "$logfile"
+    cat "$logfile"
+    echo '================================================================================'
+done
+echo 'All output files:'
+echo '================================================================================'
+for outfile in $(find "${ONEPROC_DIR}/../.." "${TWOPROC_DIR}/../.." -name '*.out' -print); do
+    echo "Output file $outfile:"
+    ls -l "$outfile"
+    cat "$outfile"
+    echo '================================================================================'
+done
+echo 'All error files:'
+echo '================================================================================'
+for errfile in $(find "${ONEPROC_DIR}/../.." "${TWOPROC_DIR}/../.." -name '*.err' -print); do
+    echo "Error file $errfile:"
+    ls -l "$errfile"
+    cat "$errfile"
+    echo '================================================================================'
+done
+
 TESTS_FAILED=False
 for test_dir in "${ONEPROC_DIR}" "${TWOPROC_DIR}"; do
     log="${test_dir}/summary.log"
