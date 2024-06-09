@@ -247,10 +247,10 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.05.tar.gz && \
-    tar xzf 24.05.tar.gz && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.06.tar.gz && \
+    tar xzf 24.06.tar.gz && \
     rm -rf /opt/intel/oneapi/mpi && \
-    cd amrex-24.05 && \
+    cd amrex-24.06 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
