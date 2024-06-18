@@ -67,7 +67,16 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA &&
     rm -rf /var/lib/apt/lists/*
 
 # Remove troublesome libraries
-RUN find /opt/intel \( -name 'libhwloc.so' -o -name 'libmpi.so' \) -delete
+RUN find /opt/intel -name 'impi.pc' -delete && \
+    find /opt/intel -name 'libhwloc.a' -delete && \
+    find /opt/intel -name 'libhwloc.so' -delete && \
+    find /opt/intel -name 'libmpi*a' -delete && \
+    find /opt/intel -name 'libmpi*so' -delete && \
+    find /opt/intel -name 'mpi.h' -delete && \
+    find /opt/intel -name 'mpicc' -delete && \
+    find /opt/intel -name 'mpicxx' -delete && \
+    find /opt/intel -name 'mpiexec' -delete && \
+    find /opt/intel -name 'mpirun' -delete
 
 # Install blosc2
 # blosc2 is a compression library, comparable to zlib
