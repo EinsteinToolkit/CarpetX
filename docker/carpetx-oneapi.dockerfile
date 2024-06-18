@@ -6,8 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-oneapi.dockerfile --tag einsteintoolkit/carpetx:oneapi-real32 .
 #     docker push einsteintoolkit/carpetx:oneapi-real32
 
-# FROM intel/oneapi-basekit:devel-ubuntu22.04
-FROM intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04
+# FROM intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04
+FROM intel/oneapi-basekit:2024.1.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -65,6 +65,18 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA &&
         zlib1g-dev \
         && \
     rm -rf /var/lib/apt/lists/*
+
+# Remove troublesome libraries
+RUN find /opt/intel -name 'impi.pc' -delete && \
+    find /opt/intel -name 'libhwloc.a' -delete && \
+    find /opt/intel -name 'libhwloc.so' -delete && \
+    find /opt/intel -name 'libmpi*a' -delete && \
+    find /opt/intel -name 'libmpi*so' -delete && \
+    find /opt/intel -name 'mpi.h' -delete && \
+    find /opt/intel -name 'mpicc' -delete && \
+    find /opt/intel -name 'mpicxx' -delete && \
+    find /opt/intel -name 'mpiexec' -delete && \
+    find /opt/intel -name 'mpirun' -delete
 
 # Install blosc2
 # blosc2 is a compression library, comparable to zlib
@@ -247,10 +259,10 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.05.tar.gz && \
-    tar xzf 24.05.tar.gz && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.06.tar.gz && \
+    tar xzf 24.06.tar.gz && \
     rm -rf /opt/intel/oneapi/mpi && \
-    cd amrex-24.05 && \
+    cd amrex-24.06 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \

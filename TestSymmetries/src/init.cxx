@@ -275,7 +275,7 @@ extern "C" void TestSymmetries_Check(CCTK_ARGUMENTS) {
                   auto &var, const auto &value) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         using std::abs;
         if (abs(var - value) > 10 * std::numeric_limits<CCTK_REAL>::epsilon()) {
-#if !defined __CUDACC__ && !defined __HIPCC__
+#if !defined __CUDACC__ && !defined __HIPCC__ && !defined SYCL_LANGUAGE_VERSION
           CCTK_VERROR(
               "Grid function symmetry check failed: I=[%d,%d,%d] X=[%g,%g,%g] "
               "centering=[%d,%d,%d] parity=[%d,%d,%d] var=%.17g value=%.17g",
