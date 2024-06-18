@@ -138,7 +138,16 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       const int maxiters = 100;
       int iters;
       bool failed;
-      auto x = newton_raphson_nd(gnd<CCTK_REAL>, vec<CCTK_REAL, 2>{1.0, 1.0},
+
+      // SYCL cannot call the templated function above, so we define a
+      // local copy
+      auto gnd_CCTK_REAL = [](vec<CCTK_REAL, 2> x)
+          -> std::pair<vec<CCTK_REAL, 2>, mat<CCTK_REAL, 2> > {
+        return {vec<CCTK_REAL, 2>{x(0) * x(0) - 2, x(0) * x(1) - 2},
+                mat<CCTK_REAL, 2>{2 * x(0), x(1), 0, x(0)}};
+      };
+
+      auto x = newton_raphson_nd(gnd_CCTK_REAL, vec<CCTK_REAL, 2>{1.0, 1.0},
                                  vec<CCTK_REAL, 2>{0.0, 0.0},
                                  vec<CCTK_REAL, 2>{10.0, 10.0}, minbits,
                                  maxiters, iters, failed);
