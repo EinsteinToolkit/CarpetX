@@ -1339,14 +1339,14 @@ void prolongate_3d_rf2<
 #endif
       return crseptr[crsebox.index(vcrse)];
     };
+#ifdef CCTK_DEBUG
     const auto fine = [=] CCTK_DEVICE(const int i, const int j, const int k)
         __attribute__((__always_inline__, __flatten__)) {
       const amrex::IntVect vfine(i, j, k);
-#ifdef CCTK_DEBUG
       assert(finebox.contains(vfine));
-#endif
       return fineptr[finebox.index(vfine)];
     };
+#endif
     const auto setfine = [=] CCTK_DEVICE(const int i, const int j, const int k,
                                          const CCTK_REAL val)
         __attribute__((__always_inline__, __flatten__)) {
