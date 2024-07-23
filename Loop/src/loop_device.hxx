@@ -216,7 +216,7 @@ public:
     domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
                              int_max);
 
-    for (int rank = dim - 1; rank >= 0; --rank) {
+    for (int rank = dim; rank > 0; --rank) {
 
       for (int nk = -1; nk <= +1; ++nk) {
         for (int nj = -1; nj <= +1; ++nj) {
@@ -318,7 +318,7 @@ public:
     // rank(face)     = 2
     // rank(edge)     = 1
     // rank(corner)   = 0
-    for (int rank = dim - 1; rank >= 0; --rank) {
+    for (int rank = dim; rank > 0; --rank) {
 
       // Nested loops that determine {ni,nj,nk} components of the normal vector
       for (int nk = -1; nk <= +1; ++nk) {
@@ -381,7 +381,7 @@ public:
                                const F &f) const {
     constexpr vect<int, dim> offset{CI, CJ, CK};
 
-    for (int rank = dim - 1; rank >= 0; --rank) {
+    for (int rank = dim; rank > 0; --rank) {
 
       for (int nk = -1; nk <= +1; ++nk) {
         for (int nj = -1; nj <= +1; ++nj) {
@@ -447,7 +447,7 @@ public:
     domain_boxes<CI, CJ, CK>(group_nghostzones, all_min, all_max, int_min,
                              int_max);
 
-    for (int rank = dim - 1; rank >= 0; --rank) {
+    for (int rank = dim; rank > 0; --rank) {
 
       for (int nk = -1; nk <= +1; ++nk) {
         for (int nj = -1; nj <= +1; ++nj) {
