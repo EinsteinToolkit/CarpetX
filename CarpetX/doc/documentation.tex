@@ -544,7 +544,7 @@ This means that a typical lambda passed to a loop method will have the form
   }
 \end{lstlisting}
 
-In addition, users can specify inlining by using the \texttt{CCTK\_ATTRIBUTE\_ALWAYS\_INLINE} macro and designate the location (host or device) via the \texttt{CCTK\_HOST} or \texttt{CCTK\_DEVICE} macros, respectively. The location macros indicate whether a lambda should be available to the host (CPU), the device (GPU), or both. The inlining macro instructs the compiler to inline the lambda (a compile-time optimization where the function call is replaced by its body). These annotations are optional unless the compiler is unable to build a function due to an inability to automatically determine that it needs to be available for device usage, for example. However, when these annotations are desired, they must be placed in specific locations. To add them to a loop lambda declaration, the following syntax is required:
+In addition, users can specify inlining (a compile-time optimization where the function call is replaced by its body) by using the \texttt{CCTK\_ATTRIBUTE\_ALWAYS\_INLINE} macro and designate host or device availability via the \texttt{CCTK\_HOST} or \texttt{CCTK\_DEVICE} macros, respectively. These annotations are optional unless the compiler is unable to build a function due to an inability to automatically determine that it needs to be available for device usage, for example. However, when these annotations are desired, they must be placed in specific locations. To add them to a loop lambda declaration, the following syntax is required:
 %
 \begin{lstlisting}
   [=] LOCATION_MACRO(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
