@@ -544,6 +544,38 @@ This means that a typical lambda passed to a loop method will have the form
   }
 \end{lstlisting}
 
+In addition, users can specify inlining by using the \texttt{CCTK\_ATTRIBUTE\_ALWAYS\_INLINE} macro and designate the location (host or device) via the \texttt{CCTK\_HOST} or \texttt{CCTK\_DEVICE} macros, respectively. The location macros indicate whether a lambda should be available to the host (CPU), the device (GPU), or both. The inlining macro instructs the compiler to inline the lambda (a compile-time optimization where the function call is replaced by its body). These annotations are optional unless the compiler is unable to build a function due to an inability to automatically determine that it needs to be available for device usage, for example. However, when these annotations are desired, they must be placed in specific locations. To add them to a loop lambda declaration, the following syntax is required:
+%
+\begin{lstlisting}
+  [=] LOCATION_MACRO(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+    // loop body
+  }
+\end{lstlisting}
+%
+For instance, to mark a lambda for host usage, one would use:
+%
+\begin{lstlisting}
+  [=] CCTK_HOST(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+    // loop body
+  }
+\end{lstlisting}
+%
+For device usage, one would use:
+%
+\begin{lstlisting}
+  [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+    // loop body
+  }
+\end{lstlisting}
+%
+For both host and device usage, one would use:
+%
+\begin{lstlisting}
+  [=] CCTK_HOST CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+    // loop body
+  }
+\end{lstlisting}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{The \texttt{PointDesc} type and loop lambda body}
 \label{sec:point_des}
