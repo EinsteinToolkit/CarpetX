@@ -27,7 +27,6 @@
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 using namespace Arith;
 
 using Loop::dim;
@@ -72,7 +71,7 @@ class CactusAmrCore final : public amrex::AmrCore {
 
 public:
   bool cactus_is_initialized = false;
-  vector<bool> level_modified;
+  std::vector<bool> level_modified;
 
   CactusAmrCore();
   CactusAmrCore(int patch, const amrex::RealBox *rb, int max_level_in,
@@ -131,7 +130,7 @@ struct GHExt {
   };
 
   cctkGHptr global_cctkGH;
-  vector<cctkGHptr> level_cctkGHs; // [reflevel]
+  std::vector<cctkGHptr> level_cctkGHs; // [reflevel]
 
   struct CommonGroupData {
     std::string groupname;
@@ -142,7 +141,7 @@ struct GHExt {
     bool do_checkpoint; // whether to checkpoint
     bool do_restrict;   // whether to restrict
 
-    vector<vector<why_valid_t> > valid; // [time level][var index]
+    std::vector<std::vector<why_valid_t> > valid; // [time level][var index]
 
     // TODO: add poison_invalid and check_valid functions
 
@@ -158,7 +157,7 @@ struct GHExt {
     // we assume that grid scalars only hold "analysis" data.
 
     struct ArrayGroupData : public CommonGroupData {
-      vector<vector<CCTK_REAL> >
+      std::vector<std::vector<CCTK_REAL> >
           data; // [time level][var index + grid point index]
       int array_size;
       int dimension;
@@ -190,7 +189,8 @@ struct GHExt {
                                        const ArrayGroupData &arraygroupdata);
     };
     // TODO: right now this is sized for the total number of groups
-    vector<unique_ptr<ArrayGroupData> > arraygroupdata; // [group index]
+    std::vector<std::unique_ptr<ArrayGroupData> >
+        arraygroupdata; // [group index]
 
     friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
                                      const GlobalData &globaldata);
@@ -208,11 +208,11 @@ struct GHExt {
 
     int patch;
 
-    array<array<symmetry_t, dim>, 2> symmetries;
+    std::array<std::array<symmetry_t, dim>, 2> symmetries;
 
     // AMReX grid structure
     // TODO: convert this from unique_ptr to optional
-    unique_ptr<CactusAmrCore> amrcore;
+    std::unique_ptr<CactusAmrCore> amrcore;
 
     struct LevelData {
       LevelData() = delete;
@@ -223,7 +223,7 @@ struct GHExt {
 
       LevelData(const int patch, const int level, const amrex::BoxArray &ba,
                 const amrex::DistributionMapping &dm,
-                const function<string()> &why);
+                const std::function<std::string()> &why);
 
       int patch, level;
 
@@ -237,10 +237,10 @@ struct GHExt {
       // Fabamrex::ArrayBase object holding a cell-centred BoxArray for
       // iterating over grid functions. This stores the grid structure
       // and its distribution over all processes, but holds no data.
-      unique_ptr<amrex::FabArrayBase> fab;
+      std::unique_ptr<amrex::FabArrayBase> fab;
 
       cctkGHptr patch_cctkGH;
-      vector<cctkGHptr> local_cctkGHs; // [component]
+      std::vector<cctkGHptr> local_cctkGHs; // [component]
 
       cGH *get_patch_cctkGH() const { return patch_cctkGH.get(); }
       cGH *get_local_cctkGH(const int component) const {
@@ -256,30 +256,30 @@ struct GHExt {
 
         GroupData(int patch, int level, int gi, const amrex::BoxArray &ba,
                   const amrex::DistributionMapping &dm,
-                  const function<string()> &why);
+                  const std::function<std::string()> &why);
 
         int patch, level;
 
-        array<int, dim> indextype;
-        array<int, dim> nghostzones;
+        std::array<int, dim> indextype;
+        std::array<int, dim> nghostzones;
 
-        array<array<boundary_t, dim>, 2> boundaries;
+        std::array<std::array<boundary_t, dim>, 2> boundaries;
         bool all_faces_have_symmetries_or_boundaries() const;
-        vector<array<int, dim> > parities;
-        vector<CCTK_REAL> dirichlet_values;
-        vector<CCTK_REAL> robin_values;
+        std::vector<array<int, dim> > parities;
+        std::vector<CCTK_REAL> dirichlet_values;
+        std::vector<CCTK_REAL> robin_values;
         amrex::Vector<amrex::BCRec> bcrecs;
 
         // Apply outer (physical) boundary conditions to a MultiFab
         void apply_boundary_conditions(amrex::MultiFab &mfab) const;
 
         // each amrex::MultiFab has numvars components
-        vector<unique_ptr<amrex::MultiFab> > mfab; // [time level]
+        std::vector<std::unique_ptr<amrex::MultiFab> > mfab; // [time level]
 
         // flux register between this and the next coarser level
-        unique_ptr<amrex::FluxRegister> freg;
+        std::unique_ptr<amrex::FluxRegister> freg;
         // associated flux group indices
-        array<int, dim> fluxes; // [dir]
+        std::array<int, dim> fluxes; // [dir]
 
         // CarpetX can allocate and free (temporary) multifabs that
         // are associated with a Cactus grid function group. These
@@ -302,17 +302,17 @@ struct GHExt {
                                          const GroupData &groupdata);
       };
       // TODO: right now this is sized for the total number of groups
-      vector<unique_ptr<GroupData> > groupdata; // [group index]
+      std::vector<unique_ptr<GroupData> > groupdata; // [group index]
 
       friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
                                        const LevelData &leveldata);
     };
-    vector<LevelData> leveldata; // [reflevel]
+    std::vector<LevelData> leveldata; // [reflevel]
 
     friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
                                      const PatchData &patchdata);
   };
-  vector<PatchData> patchdata; // [patch]
+  std::vector<PatchData> patchdata; // [patch]
 
   int num_patches() const { return patchdata.size(); }
   int num_levels() const {
@@ -339,12 +339,12 @@ struct GHExt {
   }
 
   friend YAML::Emitter &operator<<(YAML::Emitter &yaml, const GHExt &ghext);
-  friend ostream &operator<<(ostream &os, const GHExt &ghext);
+  friend std::ostream &operator<<(std::ostream &os, const GHExt &ghext);
 };
 
-extern unique_ptr<GHExt> ghext;
+extern std::unique_ptr<GHExt> ghext;
 
-amrex::Interpolater *get_interpolator(const array<int, dim> indextype);
+amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype);
 
 } // namespace CarpetX
 

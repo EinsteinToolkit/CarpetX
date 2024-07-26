@@ -12,7 +12,6 @@
 #include <ostream>
 
 namespace CarpetX {
-using namespace std;
 using namespace Arith;
 
 template <typename T, int D> struct reduction {
@@ -48,7 +47,7 @@ template <typename T, int D> struct reduction {
   constexpr T norm_inf() const noexcept { return maxabs; }
 
   template <typename T1, int D1>
-  friend ostream &operator<<(ostream &os, const reduction<T1, D1> &red);
+  friend std::ostream &operator<<(ostream &os, const reduction<T1, D1> &red);
 };
 
 template <typename T, int D>
@@ -89,7 +88,7 @@ constexpr reduction<T, D>::reduction(const reduction &x, const reduction &y)
       sumloc(x.sumloc + y.sumloc) {}
 
 template <typename T, int D>
-ostream &operator<<(ostream &os, const reduction<T, D> &red) {
+std::ostream &operator<<(std::ostream &os, const reduction<T, D> &red) {
   return os << "reduction{\n"
             << "  min:      " << red.min << "\n"
             << "  max:      " << red.max << "\n"

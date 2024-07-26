@@ -30,18 +30,18 @@
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
-vector<bool> find_groups(const char *const method, const char *const out_vars) {
+std::vector<bool> find_groups(const char *const method,
+                              const char *const out_vars) {
   DECLARE_CCTK_PARAMETERS;
 
-  vector<bool> enabled(CCTK_NumGroups(), false);
+  std::vector<bool> enabled(CCTK_NumGroups(), false);
   const auto callback{
       [](const int index, const char *const optstring, void *const arg) {
-        vector<bool> &enabled = *static_cast<vector<bool> *>(arg);
+        std::vector<bool> &enabled = *static_cast<std::vector<bool> *>(arg);
         enabled.at(CCTK_GroupIndexFromVarI(index)) = true;
       }};
   CCTK_TraverseString(out_vars, callback, &enabled, CCTK_GROUP_OR_VAR);
@@ -54,29 +54,29 @@ vector<bool> find_groups(const char *const method, const char *const out_vars) {
   return enabled;
 }
 
-string get_parameter_filename() {
-  vector<char> buf(10000);
+std::string get_parameter_filename() {
+  std::vector<char> buf(10000);
   int ilen = CCTK_ParameterFilename(buf.size(), buf.data());
   assert(ilen < int(buf.size() - 1));
-  string parfilename(buf.data());
+  std::string parfilename(buf.data());
   // Remove directory prefix, if any
   auto slash = parfilename.rfind('/');
-  if (slash != string::npos)
+  if (slash != std::string::npos)
     parfilename = parfilename.substr(slash + 1);
   // Remove suffix, if it is there
   auto suffix = parfilename.rfind('.');
-  if (suffix != string::npos && parfilename.substr(suffix) == ".par")
+  if (suffix != std::string::npos && parfilename.substr(suffix) == ".par")
     parfilename = parfilename.substr(0, suffix);
   return parfilename;
 }
 
-string get_simulation_name() {
-  string name = get_parameter_filename();
+std::string get_simulation_name() {
+  std::string name = get_parameter_filename();
   const size_t last_slash = name.rfind('/');
-  if (last_slash != string::npos && last_slash < name.length())
+  if (last_slash != std::string::npos && last_slash < name.length())
     name = name.substr(last_slash + 1);
   const size_t last_dot = name.rfind('.');
-  if (last_dot != string::npos && last_dot > 0)
+  if (last_dot != std::string::npos && last_dot > 0)
     name = name.substr(0, last_dot);
   return name;
 }
@@ -170,8 +170,8 @@ void RecoverGH(const cGH *restrict cctkGH) {
   }
 
   // Find input groups
-  const vector<bool> group_enabled = [&] {
-    vector<bool> enabled(CCTK_NumGroups(), false);
+  const std::vector<bool> group_enabled = [&] {
+    std::vector<bool> enabled(CCTK_NumGroups(), false);
     for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
       const GHExt::GlobalData &globaldata = ghext->globaldata;
       if (globaldata.arraygroupdata.at(gi)) {
@@ -235,8 +235,9 @@ void InputGH(const cGH *restrict cctkGH) {
 
 #ifdef HAVE_CAPABILITY_openPMD_api
     // TODO: handle multiple file names in `filereader_ID_files`
-    const vector<bool> input_group = find_groups("openPMD", filereader_ID_vars);
-    const string simulation_name = get_simulation_name();
+    const std::vector<bool> input_group =
+        find_groups("openPMD", filereader_ID_vars);
+    const std::string simulation_name = get_simulation_name();
     InputOpenPMD(cctkGH, input_group, filereader_ID_dir, filereader_ID_files);
 #else
     // TODO: Check this at paramcheck
@@ -247,12 +248,13 @@ void InputGH(const cGH *restrict cctkGH) {
 
   } else if (CCTK_EQUALS(filereader_method, "silo")) {
 
-    const vector<bool> input_group = find_groups("Silo", filereader_ID_vars);
+    const std::vector<bool> input_group =
+        find_groups("Silo", filereader_ID_vars);
 #ifdef HAVE_CAPABILITY_Silo
     // TODO: Stop at paramcheck time when Silo input parameters are
     // set, but Silo is not available
     // TODO: handle multiple file names in `filereader_ID_files`
-    const string simulation_name = get_simulation_name();
+    const std::string simulation_name = get_simulation_name();
     InputSilo(cctkGH, input_group, filereader_ID_dir, filereader_ID_files);
 #else
     // TODO: Check this at paramcheck
@@ -275,9 +277,10 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
   Interval interval(timer);
 
   const int numgroups = CCTK_NumGroups();
-  vector<bool> group_enabled(numgroups, false);
+  std::vector<bool> group_enabled(numgroups, false);
   auto enable_group{[](int index, const char *optstring, void *callback) {
-    vector<bool> &group_enabled = *static_cast<vector<bool> *>(callback);
+    std::vector<bool> &group_enabled =
+        *static_cast<std::vector<bool> *>(callback);
     // CCTK_TraverseString expands the given groups into their variables
     // so I condense it down again to groups only
     group_enabled.at(CCTK_GroupIndexFromVarI(index)) = true;
@@ -300,26 +303,26 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
     if (groupdata0.mfab.size() > 0) {
       const int tl = 0;
 
-      string groupname = CCTK_FullGroupName(gi);
+      std::string groupname = CCTK_FullGroupName(gi);
       groupname = regex_replace(groupname, regex("::"), "-");
       for (auto &c : groupname)
         c = tolower(c);
 
       for (const auto &restrict patchdata : ghext->patchdata) {
 
-        const string basename = [&]() {
-          ostringstream buf;
+        const std::string basename = [&]() {
+          std::ostringstream buf;
           buf << groupname << ".it" << setw(8) << setfill('0')
               << cctk_iteration;
           if (ghext->num_patches() > 1)
             buf << ".m" << setw(2) << setfill('0') << patchdata.patch;
           return buf.str();
         }();
-        const string filename = string(out_dir) + "/" + basename;
+        const std::string filename = std::string(out_dir) + "/" + basename;
 
-        amrex::Vector<string> varnames(groupdata0.numvars);
+        amrex::Vector<std::string> varnames(groupdata0.numvars);
         for (int vi = 0; vi < groupdata0.numvars; ++vi) {
-          ostringstream buf;
+          std::ostringstream buf;
           buf << CCTK_VarName(groupdata0.firstvarindex + vi);
           for (int i = 0; i < tl; ++i)
             buf << "_p";
@@ -344,17 +347,17 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
 
         const bool is_root = CCTK_MyProc(nullptr) == 0;
         if (is_root) {
-          const string visitname = [&]() {
-            ostringstream buf;
+          const std::string visitname = [&]() {
+            std::ostringstream buf;
             buf << out_dir << "/" << groupname << ".visit";
             return buf.str();
           }();
-          ofstream visit(visitname, ios::app);
+          std::ofstream visit(visitname, ios::app);
           assert(visit.good());
           visit << basename << "/Header\n";
           visit.close();
         } // if is_root
-      }   // for patchdata
+      } // for patchdata
     }
   }
 }
@@ -466,11 +469,11 @@ void OutputMetadata(const cGH *restrict cctkGH) {
     yaml << YAML::EndMap;
     yaml << YAML::EndDoc;
 
-    ostringstream buf;
+    std::ostringstream buf;
     buf << out_dir << "/carpetx-metadata"
         << ".it" << setw(8) << setfill('0') << cctk_iteration << ".yaml";
-    const string filename = buf.str();
-    ofstream file(filename.c_str(), std::ofstream::out);
+    const std::string filename = buf.str();
+    std::ofstream file(filename.c_str(), std::ofstream::out);
     file << yaml.c_str();
   }
 
@@ -481,11 +484,11 @@ void OutputMetadata(const cGH *restrict cctkGH) {
     yaml << parameters();
     yaml << YAML::EndDoc;
 
-    ostringstream buf;
+    std::ostringstream buf;
     buf << out_dir << "/parameters"
         << ".it" << setw(8) << setfill('0') << cctk_iteration << ".yaml";
-    const string filename = buf.str();
-    ofstream file(filename.c_str(), std::ofstream::out);
+    const std::string filename = buf.str();
+    std::ofstream file(filename.c_str(), std::ofstream::out);
     file << yaml.c_str();
   }
 }
@@ -517,11 +520,12 @@ int OutputGH(const cGH *restrict cctkGH) {
   {
     const int every = out_adios2_every == -1 ? out_every : out_adios2_every;
     if (every > 0 && cctk_iteration % every == 0) {
-      const vector<bool> group_enabled = find_groups("ADIOS2", out_adios2_vars);
+      const std::vector<bool> group_enabled =
+          find_groups("ADIOS2", out_adios2_vars);
 #ifdef HAVE_CAPABILITY_ADIOS2
       // TODO: Stop at paramcheck time when ADIOS2 output parameters
       // are set, but ADIOS2 is not available
-      const string simulation_name = get_simulation_name();
+      const std::string simulation_name = get_simulation_name();
       OutputADIOS2(cctkGH, group_enabled, out_dir, simulation_name);
 #else
       if (strlen(out_adios2_vars) != 0)
@@ -534,12 +538,12 @@ int OutputGH(const cGH *restrict cctkGH) {
   {
     const int every = out_openpmd_every == -1 ? out_every : out_openpmd_every;
     if (every > 0 && cctk_iteration % every == 0) {
-      const vector<bool> group_enabled =
+      const std::vector<bool> group_enabled =
           find_groups("openPMD", out_openpmd_vars);
 #ifdef HAVE_CAPABILITY_openPMD_api
       // TODO: Stop at paramcheck time when openPMD output parameters
       // are set, but openPMD is not available
-      const string simulation_name = get_simulation_name();
+      const std::string simulation_name = get_simulation_name();
       OutputOpenPMD(cctkGH, group_enabled, out_dir, simulation_name);
 #else
       if (strlen(out_openpmd_vars) != 0)
@@ -558,11 +562,12 @@ int OutputGH(const cGH *restrict cctkGH) {
   {
     const int every = out_silo_every == -1 ? out_every : out_silo_every;
     if (every > 0 && cctk_iteration % every == 0) {
-      const vector<bool> group_enabled = find_groups("Silo", out_silo_vars);
+      const std::vector<bool> group_enabled =
+          find_groups("Silo", out_silo_vars);
 #ifdef HAVE_CAPABILITY_Silo
       // TODO: Stop at paramcheck time when Silo output parameters are
       // set, but Silo is not available
-      const string simulation_name = get_simulation_name();
+      const std::string simulation_name = get_simulation_name();
       OutputSilo(cctkGH, group_enabled, out_dir, simulation_name);
 #else
       if (strlen(out_silo_vars) != 0)
@@ -618,8 +623,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
   if (CCTK_EQUALS(checkpoint_method, "openpmd")) {
 
 #ifdef HAVE_CAPABILITY_openPMD_api
-    const vector<bool> checkpoint_group = [&] {
-      vector<bool> enabled(CCTK_NumGroups(), false);
+    const std::vector<bool> checkpoint_group = [&] {
+      std::vector<bool> enabled(CCTK_NumGroups(), false);
       for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
         const GHExt::GlobalData &globaldata = ghext->globaldata;
         if (globaldata.arraygroupdata.at(gi)) {
@@ -649,8 +654,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
   } else if (CCTK_EQUALS(checkpoint_method, "silo")) {
 
 #ifdef HAVE_CAPABILITY_Silo
-    const vector<bool> checkpoint_group = [&] {
-      vector<bool> enabled(CCTK_NumGroups(), false);
+    const std::vector<bool> checkpoint_group = [&] {
+      std::vector<bool> enabled(CCTK_NumGroups(), false);
       for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
         const GHExt::GlobalData &globaldata = ghext->globaldata;
         if (globaldata.arraygroupdata.at(gi)) {

@@ -44,7 +44,6 @@ using namespace std::experimental;
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 
 namespace {
 
@@ -107,13 +106,13 @@ std::string make_filename(const std::string &file_name, const int iteration,
 }
 
 int match_filename(const std::string &file_name) {
-  const regex filename_regex("[.]it(\\d+)[.]silo$",
-                             regex_constants::ECMAScript);
-  smatch sm;
+  const std::regex filename_regex("[.]it(\\d+)[.]silo$",
+                                  regex_constants::ECMAScript);
+  std::smatch sm;
   regex_search(file_name, sm, filename_regex);
   if (sm.empty())
     return -1;
-  return stoi(sm.str(1));
+  return std::stoi(sm.str(1));
 }
 
 std::string make_meshname(const int reflevel = -1, const int component = -1) {
@@ -174,7 +173,7 @@ int InputSiloParameters(const std::string &input_dir,
   Interval interval(timer);
 
   static Timer timer_setup("InputSiloParameters.setup");
-  auto interval_setup = make_unique<Interval>(timer_setup);
+  auto interval_setup = std::make_unique<Interval>(timer_setup);
 
   const MPI_Comm mpi_comm = MPI_COMM_WORLD;
   const int myproc = CCTK_MyProc(nullptr);
@@ -188,7 +187,7 @@ int InputSiloParameters(const std::string &input_dir,
   // TODO: directories instead of carefully chosen names
 
   static Timer timer_parameters("InputSiloParameters.parameters");
-  auto interval_parameters = make_unique<Interval>(timer_parameters);
+  auto interval_parameters = std::make_unique<Interval>(timer_parameters);
 
   // Find checkpoint input iteration
   int input_iteration = -1;
@@ -196,12 +195,13 @@ int InputSiloParameters(const std::string &input_dir,
 
     // Find latest iteration (if any)
     try {
-      for (const auto &direntry : filesystem::directory_iterator(input_dir)) {
+      for (const auto &direntry :
+           std::filesystem::directory_iterator(input_dir)) {
         const auto &filename = direntry.path().filename().string();
         const int iter = match_filename(filename);
         input_iteration = max(input_iteration, iter);
       }
-    } catch (const filesystem::filesystem_error &) {
+    } catch (const std::filesystem::filesystem_error &) {
       // do nothing if directory does not exist
     }
   }
@@ -287,7 +287,7 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
   Interval interval(timer);
 
   static Timer timer_setup("InputSiloGridStructure.setup");
-  auto interval_setup = make_unique<Interval>(timer_setup);
+  auto interval_setup = std::make_unique<Interval>(timer_setup);
 
   const MPI_Comm mpi_comm = MPI_COMM_WORLD;
   const int myproc = CCTK_MyProc(cctkGH);
@@ -303,7 +303,7 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
   interval_setup = nullptr;
 
   static Timer timer_meta("InputSiloGridStructure.meta");
-  auto interval_meta = make_unique<Interval>(timer_meta);
+  auto interval_meta = std::make_unique<Interval>(timer_meta);
 
   // TODO: Recover grid structure for grid arrays; call SetupGlobals for them?
 
@@ -448,7 +448,7 @@ void InputSilo(const cGH *restrict const cctkGH,
   }
 
   static Timer timer_setup("InputSilo.setup");
-  auto interval_setup = make_unique<Interval>(timer_setup);
+  auto interval_setup = std::make_unique<Interval>(timer_setup);
 
   const MPI_Comm mpi_comm = MPI_COMM_WORLD;
   const int myproc = CCTK_MyProc(cctkGH);
@@ -479,7 +479,7 @@ void InputSilo(const cGH *restrict const cctkGH,
   interval_setup = nullptr;
 
   static Timer timer_data("InputSilo.data");
-  auto interval_data = make_unique<Interval>(timer_data);
+  auto interval_data = std::make_unique<Interval>(timer_data);
 
   // Read data
   {
@@ -507,7 +507,7 @@ void InputSilo(const cGH *restrict const cctkGH,
                    leveldata.level);
 
       // Loop over groups
-      // set<mesh_props_t> have_meshes;
+      // std::set<mesh_props_t> have_meshes;
       for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
         if (!input_group.at(gi))
           continue;
@@ -543,17 +543,17 @@ void InputSilo(const cGH *restrict const cctkGH,
 
           const amrex::Box &fabbox = mfab.fabbox(component); // exterior
 
-          array<int, ndims> dims;
+          std::array<int, ndims> dims;
           for (int d = 0; d < ndims; ++d)
             dims[d] = fabbox.length(d);
-          ptrdiff_t zonecount = 1;
+          std::ptrdiff_t zonecount = 1;
           for (int d = 0; d < ndims; ++d)
             zonecount *= dims[d];
           assert(zonecount >= 0 && zonecount <= INT_MAX);
 
           // Communicate variable, part 1
           static Timer timer_mpi("InputSilo.mpi");
-          auto interval_mpi = make_unique<Interval>(timer_mpi);
+          auto interval_mpi = std::make_unique<Interval>(timer_mpi);
           const int mpi_tag = 22901; // randomly chosen
           std::vector<CCTK_REAL> buffer;
           MPI_Request mpi_req;
@@ -635,11 +635,11 @@ void InputSilo(const cGH *restrict const cctkGH,
               void *const data_ptr = data + vi * zonecount;
               memcpy(data_ptr, read_ptr, zonecount * sizeof(CCTK_REAL));
             } // for vi
-          }   // if read_file
+          } // if read_file
 
           // Communicate variable, part 2
           static Timer timer_wait("InputSilo.wait");
-          auto interval_wait = make_unique<Interval>(timer_wait);
+          auto interval_wait = std::make_unique<Interval>(timer_wait);
           if (recv_this_fab && read_this_fab) {
             // do nothing
           } else if (recv_this_fab) {
@@ -659,8 +659,8 @@ void InputSilo(const cGH *restrict const cctkGH,
         } // for component
 
       } // for gi
-    }   // for leveldata
-  }     // write data
+    } // for leveldata
+  } // write data
 
   interval_data = nullptr;
 }
@@ -686,7 +686,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
     CCTK_VINFO("OutputSilo...");
 
   static Timer timer_setup("OutputSilo.setup");
-  auto interval_setup = make_unique<Interval>(timer_setup);
+  auto interval_setup = std::make_unique<Interval>(timer_setup);
 
   const MPI_Comm mpi_comm = MPI_COMM_WORLD;
   const int myproc = CCTK_MyProc(cctkGH);
@@ -727,12 +727,12 @@ void OutputSilo(const cGH *restrict const cctkGH,
   interval_setup = nullptr;
 
   static Timer timer_data("OutputSilo.data");
-  auto interval_data = make_unique<Interval>(timer_data);
+  auto interval_data = std::make_unique<Interval>(timer_data);
 
   // Write data
   {
     static Timer timer_mkdir("OutputSilo.mkdir");
-    auto interval_mkdir = make_unique<Interval>(timer_mkdir);
+    auto interval_mkdir = std::make_unique<Interval>(timer_mkdir);
     const std::string subdirname = make_subdirname(output_file, cctk_iteration);
     const std::string pathname = std::string(output_dir) + "/" + subdirname;
     const int mode = 0755;
@@ -786,7 +786,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
     for (const auto &leveldata : patchdata.leveldata) {
 
       // Loop over groups
-      set<mesh_props_t> have_meshes;
+      std::set<mesh_props_t> have_meshes;
       for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
         if (!output_group.at(gi))
           continue;
@@ -818,10 +818,10 @@ void OutputSilo(const cGH *restrict const cctkGH,
           // TODO: Check whether data are valid
           const amrex::Box &fabbox = mfab.fabbox(component); // exterior
 
-          array<int, ndims> dims;
+          std::array<int, ndims> dims;
           for (int d = 0; d < ndims; ++d)
             dims[d] = fabbox.length(d);
-          ptrdiff_t zonecount = 1;
+          std::ptrdiff_t zonecount = 1;
           for (int d = 0; d < ndims; ++d)
             zonecount *= dims[d];
           assert(zonecount >= 0 && zonecount <= INT_MAX);
@@ -833,7 +833,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const std::string meshname =
                 make_meshname(leveldata.level, component);
 
-            array<int, ndims> dims_vc;
+            std::array<int, ndims> dims_vc;
             for (int d = 0; d < ndims; ++d)
               dims_vc[d] = dims[d] + int(indextype.cellCentered(d));
 
@@ -841,13 +841,13 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 patchdata.amrcore->Geom(leveldata.level);
             const amrex::Real *const x0 = geom.ProbLo();
             const amrex::Real *const dx = geom.CellSize();
-            array<vector<CCTK_REAL>, ndims> coords;
+            std::array<vector<CCTK_REAL>, ndims> coords;
             for (int d = 0; d < ndims; ++d) {
               coords[d].resize(dims_vc[d]);
               for (int i = 0; i < dims_vc[d]; ++i)
                 coords[d][i] = x0[d] + (fabbox.smallEnd(d) + i) * dx[d];
             }
-            array<void *, ndims> coord_ptrs;
+            std::array<void *, ndims> coord_ptrs;
             for (int d = 0; d < ndims; ++d)
               coord_ptrs[d] = coords[d].data();
 
@@ -862,7 +862,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
             ierr = DBAddOption(optlist.get(), DBOPT_CYCLE, &cycle);
             assert(!ierr);
 
-            array<int, ndims> min_index, max_index;
+            std::array<int, ndims> min_index, max_index;
             for (int d = 0; d < ndims; ++d) {
               min_index[d] = ngrow[d];
               max_index[d] = ngrow[d];
@@ -899,7 +899,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
           // Communicate variable
           static Timer timer_mpi("OutputSilo.mpi");
-          auto interval_mpi = make_unique<Interval>(timer_mpi);
+          auto interval_mpi = std::make_unique<Interval>(timer_mpi);
           const int mpi_tag = 22900; // randomly chosen
           std::vector<CCTK_REAL> buffer;
           const CCTK_REAL *data = nullptr;
@@ -993,18 +993,18 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                    ndims, nullptr, 0, db_datatype_v<CCTK_REAL>,
                                    centering, optlist.get());
             } // for vi
-          }   // if write_file
+          } // if write_file
 
         } // for component
 
       } // for gi
-    }   // for leveldata
-  }     // write data
+    } // for leveldata
+  } // write data
 
   interval_data = nullptr;
 
   static Timer timer_meta("OutputSilo.meta");
-  auto interval_meta = make_unique<Interval>(timer_meta);
+  auto interval_meta = std::make_unique<Interval>(timer_meta);
 
   // Write metadata
   if (write_metafile) {
@@ -1036,7 +1036,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
     }
 
     // Loop over groups
-    set<mesh_props_t> have_meshes;
+    std::set<mesh_props_t> have_meshes;
     for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
       if (!output_group.at(gi))
         continue;
@@ -1307,12 +1307,12 @@ void OutputSilo(const cGH *restrict const cctkGH,
           for (const std::string &name : regionnames)
             regionname_ptrs.push_back(name.c_str());
 
-          array<vector<int>, ndims> data;
+          std::array<vector<int>, ndims> data;
           for (int d = 0; d < ndims; ++d) {
             data[d].reserve(1);
             data[d].push_back(2);
           }
-          array<const void *, ndims> data_ptrs;
+          std::array<const void *, ndims> data_ptrs;
           for (int d = 0; d < ndims; ++d)
             data_ptrs[d] = data[d].data();
 
@@ -1323,8 +1323,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
           assert(!ierr);
         }
 
-        typedef array<array<int, ndims>, 2> iextent_t;
-        typedef array<array<CCTK_REAL, ndims>, 2> extent_t;
+        typedef std::array<array<int, ndims>, 2> iextent_t;
+        typedef std::array<array<CCTK_REAL, ndims>, 2> extent_t;
         std::vector<iextent_t> iextents;
         std::vector<extent_t> extents;
         iextents.reserve(ncomps_total);
@@ -1377,8 +1377,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
           for (const std::string &name : regionnames)
             regionname_ptrs.push_back(name.c_str());
 
-          array<array<vector<int>, 2>, ndims> idata;
-          array<array<vector<CCTK_REAL>, 2>, ndims> data;
+          std::array<array<vector<int>, 2>, ndims> idata;
+          std::array<array<vector<CCTK_REAL>, 2>, ndims> data;
           for (int d = 0; d < ndims; ++d) {
             for (int f = 0; f < 2; ++f) {
               idata[d][f].reserve(ncomps_total);
@@ -1393,8 +1393,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
               }
             }
           }
-          array<array<const void *, 2>, ndims> idata_ptrs;
-          array<array<const void *, 2>, ndims> data_ptrs;
+          std::array<array<const void *, 2>, ndims> idata_ptrs;
+          std::array<array<const void *, 2>, ndims> data_ptrs;
           for (int d = 0; d < ndims; ++d) {
             for (int f = 0; f < 2; ++f) {
               idata_ptrs[d][f] = idata[d][f].data();
@@ -1466,7 +1466,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
         int extents_size = 2 * ndims;
         // This needs to have type `double`, even if everything else is `float`
-        typedef array<array<double, ndims>, 2> dextent_t;
+        typedef std::array<array<double, ndims>, 2> dextent_t;
 #ifdef CCTK_REAL_PRECISION_8
         std::vector<dextent_t> &dextents = extents;
 #else
@@ -1496,7 +1496,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
           const int nfabs = mfab.size();
           for (int c = 0; c < nfabs; ++c) {
             const amrex::Box &fabbox = mfab.fabbox(c); // exterior
-            array<int, ndims> dims_vc;
+            std::array<int, ndims> dims_vc;
             for (int d = 0; d < ndims; ++d)
               dims_vc[d] = fabbox.length(d) + int(indextype.cellCentered(d));
             int zonecount = 1;
@@ -1586,7 +1586,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                nullptr, optlist.get());
           assert(!ierr);
         } // for vi
-      }   // write multivar
+      } // write multivar
 
     } // for gi
 

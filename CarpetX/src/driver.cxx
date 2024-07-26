@@ -36,14 +36,13 @@
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 
 // Global variables
 
 int ghext_handle = -1;
 
 amrex::AMReX *restrict pamrex = nullptr;
-unique_ptr<GHExt> ghext;
+std::unique_ptr<GHExt> ghext;
 
 // Registered functions
 
@@ -116,12 +115,12 @@ std::ostream &operator<<(std::ostream &os, const boundary_t boundary) {
   return os;
 }
 
-array<array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
+std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
   // patch < 0 return symmetries without taking interpatch boundaries into
   // account
   DECLARE_CCTK_PARAMETERS;
 
-  array<array<bool, 3>, 2> is_interpatch{
+  std::array<std::array<bool, 3>, 2> is_interpatch{
       {{{false, false, false}}, {{false, false, false}}}};
   if (patch >= 0 &&
       CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2")) {
@@ -133,7 +132,7 @@ array<array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
       for (int d = 0; d < dim; ++d)
         is_interpatch[f][d] = is_interpatch_boundary[2 * d + f];
   }
-  const array<array<bool, 3>, 2> is_periodic{{
+  const std::array<std::array<bool, 3>, 2> is_periodic{{
       {{bool(periodic_x), bool(periodic_y), bool(periodic_z)}},
       {{bool(periodic_x), bool(periodic_y), bool(periodic_z)}},
   }};
@@ -148,7 +147,7 @@ array<array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
       assert(is_interpatch[f][d] + is_periodic[f][d] + is_reflection[f][d] <=
              1);
 
-  array<array<symmetry_t, dim>, 2> symmetries;
+  std::array<std::array<symmetry_t, dim>, 2> symmetries;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
       symmetries[f][d] = is_interpatch[f][d]   ? symmetry_t::interpatch
@@ -159,16 +158,17 @@ array<array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
   return symmetries;
 }
 
-array<array<boundary_t, dim>, 2> get_default_boundaries() {
+std::array<std::array<boundary_t, dim>, 2> get_default_boundaries() {
   DECLARE_CCTK_PARAMETERS;
 
-  const array<array<symmetry_t, dim>, 2> symmetries = get_symmetries(-1);
-  array<array<bool, 3>, 2> is_symmetry;
+  const std::array<std::array<symmetry_t, dim>, 2> symmetries =
+      get_symmetries(-1);
+  std::array<std::array<bool, 3>, 2> is_symmetry;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
       is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none;
 
-  const array<array<bool, 3>, 2> is_dirichlet{{
+  const std::array<std::array<bool, 3>, 2> is_dirichlet{{
       {{
           bool(CCTK_EQUALS(boundary_x, "dirichlet")),
           bool(CCTK_EQUALS(boundary_y, "dirichlet")),
@@ -180,7 +180,7 @@ array<array<boundary_t, dim>, 2> get_default_boundaries() {
           bool(CCTK_EQUALS(boundary_upper_z, "dirichlet")),
       }},
   }};
-  const array<array<bool, 3>, 2> is_linear_extrapolation{{
+  const std::array<std::array<bool, 3>, 2> is_linear_extrapolation{{
       {{
           bool(CCTK_EQUALS(boundary_x, "linear extrapolation")),
           bool(CCTK_EQUALS(boundary_y, "linear extrapolation")),
@@ -192,7 +192,7 @@ array<array<boundary_t, dim>, 2> get_default_boundaries() {
           bool(CCTK_EQUALS(boundary_upper_z, "linear extrapolation")),
       }},
   }};
-  const array<array<bool, 3>, 2> is_neumann{{
+  const std::array<std::array<bool, 3>, 2> is_neumann{{
       {{
           bool(CCTK_EQUALS(boundary_x, "neumann")),
           bool(CCTK_EQUALS(boundary_y, "neumann")),
@@ -204,7 +204,7 @@ array<array<boundary_t, dim>, 2> get_default_boundaries() {
           bool(CCTK_EQUALS(boundary_upper_z, "neumann")),
       }},
   }};
-  const array<array<bool, 3>, 2> is_robin{{
+  const std::array<std::array<bool, 3>, 2> is_robin{{
       {{
           bool(CCTK_EQUALS(boundary_x, "robin")),
           bool(CCTK_EQUALS(boundary_y, "robin")),
@@ -223,7 +223,7 @@ array<array<boundary_t, dim>, 2> get_default_boundaries() {
                  is_robin[f][d] <=
              1);
 
-  array<array<boundary_t, dim>, 2> boundaries;
+  std::array<std::array<boundary_t, dim>, 2> boundaries;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
       boundaries[f][d] = is_symmetry[f][d]    ? boundary_t::symmetry_boundary
@@ -237,16 +237,18 @@ array<array<boundary_t, dim>, 2> get_default_boundaries() {
   return boundaries;
 }
 
-array<array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
+std::array<std::array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
   DECLARE_CCTK_PARAMETERS;
 
-  const array<array<symmetry_t, dim>, 2> symmetries = get_symmetries(-1);
-  array<array<bool, 3>, 2> is_symmetry;
+  const std::array<std::array<symmetry_t, dim>, 2> symmetries =
+      get_symmetries(-1);
+  std::array<std::array<bool, 3>, 2> is_symmetry;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
       is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none;
 
-  array<array<boundary_t, dim>, 2> boundaries = get_default_boundaries();
+  std::array<std::array<boundary_t, dim>, 2> boundaries =
+      get_default_boundaries();
 
   const auto override_group_boundary = [&](const char *const var_set_string,
                                            const int dir, const int face,
@@ -254,8 +256,8 @@ array<array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
     // Arguments for the callback function
     struct arg_t {
       const int gi;
-      const array<array<bool, dim>, 2> &is_symmetry;
-      array<array<boundary_t, dim>, 2> &boundaries;
+      const std::array<std::array<bool, dim>, 2> &is_symmetry;
+      std::array<std::array<boundary_t, dim>, 2> &boundaries;
       const int dir, face;
       const boundary_t boundary;
     } arg{gi, is_symmetry, boundaries, dir, face, boundary};
@@ -316,7 +318,7 @@ bool get_group_checkpoint_flag(const int gi) {
   if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
     return true;
   } else if (iret >= 0) {
-    string str(buf);
+    std::string str(buf);
     for (auto &c : str)
       c = tolower(c);
     if (str == "yes")
@@ -337,7 +339,7 @@ bool get_group_restrict_flag(const int gi) {
   if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
     return true;
   } else if (iret >= 0) {
-    string str(buf);
+    std::string str(buf);
     for (auto &c : str)
       c = tolower(c);
     if (str == "yes")
@@ -350,14 +352,14 @@ bool get_group_restrict_flag(const int gi) {
   }
 }
 
-array<int, dim> get_group_indextype(const int gi) {
+std::array<int, dim> get_group_indextype(const int gi) {
   DECLARE_CCTK_PARAMETERS;
 
   assert(gi >= 0);
 
   const int tags = CCTK_GroupTagsTableI(gi);
   assert(tags >= 0);
-  array<CCTK_INT, dim> index;
+  std::array<CCTK_INT, dim> index;
 
   // The CST stage doesn't look for the `index` tag, and
   // `CCTK_ARGUMENTSX_...` would thus ignore it
@@ -389,11 +391,11 @@ array<int, dim> get_group_indextype(const int gi) {
   return indextype;
 }
 
-array<int, dim> get_group_fluxes(const int gi) {
+std::array<int, dim> get_group_fluxes(const int gi) {
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
   assert(tags >= 0);
-  vector<char> fluxes_buf(1000);
+  std::vector<char> fluxes_buf(1000);
   const int iret =
       Util_TableGetString(tags, fluxes_buf.size(), fluxes_buf.data(), "fluxes");
   if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
@@ -404,18 +406,18 @@ array<int, dim> get_group_fluxes(const int gi) {
     assert(0);
   }
 
-  const string str(fluxes_buf.data());
-  vector<string> strs;
-  size_t end = 0;
+  const std::string str(fluxes_buf.data());
+  std::vector<std::string> strs;
+  std::size_t end = 0;
   while (end < str.size()) {
-    const size_t begin = str.find_first_not_of(' ', end);
+    const std::size_t begin = str.find_first_not_of(' ', end);
     if (begin == string::npos)
       break;
     end = str.find(' ', begin);
     strs.push_back(str.substr(begin, end - begin));
   }
 
-  array<int, dim> fluxes;
+  std::array<int, dim> fluxes;
   fluxes.fill(-1);
   if (strs.empty())
     return fluxes; // No fluxes specified
@@ -438,12 +440,12 @@ array<int, dim> get_group_fluxes(const int gi) {
   return fluxes;
 }
 
-array<int, dim> get_group_nghostzones(const int gi) {
+std::array<int, dim> get_group_nghostzones(const int gi) {
   DECLARE_CCTK_PARAMETERS;
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
   assert(tags >= 0);
-  array<CCTK_INT, dim> nghostzones;
+  std::array<CCTK_INT, dim> nghostzones;
   int iret =
       Util_TableGetIntArray(tags, dim, nghostzones.data(), "nghostzones");
   if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
@@ -459,7 +461,7 @@ array<int, dim> get_group_nghostzones(const int gi) {
   return nghostzones;
 }
 
-vector<array<int, dim> > get_group_parities(const int gi) {
+std::vector<std::array<int, dim> > get_group_parities(const int gi) {
   DECLARE_CCTK_PARAMETERS;
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
@@ -473,19 +475,19 @@ vector<array<int, dim> > get_group_parities(const int gi) {
   } else {
     assert(0);
   }
-  vector<CCTK_INT> parities1(nelems);
+  std::vector<CCTK_INT> parities1(nelems);
   const int iret =
       Util_TableGetIntArray(tags, nelems, parities1.data(), "parities");
   assert(iret == nelems);
   assert(nelems % dim == 0);
-  vector<array<int, dim> > parities(nelems / dim);
-  for (size_t n = 0; n < parities.size(); ++n)
+  std::vector<std::array<int, dim> > parities(nelems / dim);
+  for (std::size_t n = 0; n < parities.size(); ++n)
     for (int d = 0; d < dim; ++d)
       parities.at(n).at(d) = parities1.at(dim * n + d);
   return parities;
 }
 
-vector<CCTK_REAL> get_group_dirichlet_values(const int gi) {
+std::vector<CCTK_REAL> get_group_dirichlet_values(const int gi) {
   DECLARE_CCTK_PARAMETERS;
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
@@ -500,14 +502,14 @@ vector<CCTK_REAL> get_group_dirichlet_values(const int gi) {
   } else {
     assert(0);
   }
-  vector<CCTK_REAL> dirichlet_values(nelems);
+  std::vector<CCTK_REAL> dirichlet_values(nelems);
   const int iret = Util_TableGetRealArray(tags, nelems, dirichlet_values.data(),
                                           "dirichlet_values");
   assert(iret == nelems);
   return dirichlet_values;
 }
 
-vector<CCTK_REAL> get_group_robin_values(const int gi) {
+std::vector<CCTK_REAL> get_group_robin_values(const int gi) {
   DECLARE_CCTK_PARAMETERS;
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
@@ -521,14 +523,14 @@ vector<CCTK_REAL> get_group_robin_values(const int gi) {
   } else {
     assert(0);
   }
-  vector<CCTK_REAL> robin_values(nelems);
+  std::vector<CCTK_REAL> robin_values(nelems);
   const int iret =
       Util_TableGetRealArray(tags, nelems, robin_values.data(), "robin_values");
   assert(iret == nelems);
   return robin_values;
 }
 
-amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
+amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
   DECLARE_CCTK_PARAMETERS;
 
   enum class interp_t {
@@ -540,6 +542,7 @@ amrex::Interpolater *get_interpolator(const array<int, dim> indextype) {
     hermite,
     natural,
     poly_cons3lfb,
+    poly_eno3lfb,
   };
   static interp_t interp = [&]() {
     if (CCTK_EQUALS(prolongation_type, "interpolate"))
@@ -1319,7 +1322,7 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
       for (int d = 0; d < dim; ++d) {
         assert(groupdata.fluxes[d] != groupdata.groupindex);
         const auto &flux_groupdata = *this->groupdata.at(groupdata.fluxes[d]);
-        array<int, dim> flux_indextype{1, 1, 1};
+        std::array<int, dim> flux_indextype{1, 1, 1};
         flux_indextype[d] = 0;
         assert(flux_groupdata.indextype == flux_indextype);
         assert(flux_groupdata.numvars == groupdata.numvars);
@@ -1386,7 +1389,7 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
   boundaries = get_group_boundaries(gi);
   parities = get_group_parities(gi);
   if (parities.empty()) {
-    array<int, dim> parity;
+    std::array<int, dim> parity;
     for (int d = 0; d < dim; ++d)
       // parity[d] = indextype[d] == 0 ? +1 : -1;
       parity[d] = +1;
@@ -1710,7 +1713,7 @@ void SetupGlobals() {
 
 void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
                                const amrex::DistributionMapping &dm,
-                               const function<string()> &why) {
+                               const std::function<std::string()> &why) {
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
@@ -2026,16 +2029,18 @@ void CactusAmrCore::ClearLevel(const int level) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <typename T, size_t N> inline vector<T> seq(const array<T, N> &v) {
-  vector<T> r;
+template <typename T, size_t N>
+inline std::vector<T> seq(const std::array<T, N> &v) {
+  std::vector<T> r;
   for (const auto &x : v)
     r.push_back(x);
   return r;
 }
 
 template <typename T, size_t N>
-inline vector<vector<T> > seqs(const vector<array<T, N> > &v) {
-  vector<vector<T> > r;
+inline std::vector<std::vector<T> >
+seqs(const std::vector<std::array<T, N> > &v) {
+  std::vector<std::vector<T> > r;
   for (const auto &x : v)
     r.push_back(seq(x));
   return r;
@@ -2045,7 +2050,7 @@ inline vector<vector<T> > seqs(const vector<array<T, N> > &v) {
 
 namespace std {
 template <typename T, size_t N>
-YAML::Emitter &operator<<(YAML::Emitter &yaml, const array<T, N> &arr) {
+YAML::Emitter &operator<<(YAML::Emitter &yaml, const std::array<T, N> &arr) {
   yaml << YAML::Flow << YAML::BeginSeq;
   for (const auto &elt : arr)
     yaml << elt;
@@ -2249,7 +2254,7 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml, const GHExt &ghext) {
   return yaml;
 }
 
-ostream &operator<<(ostream &os, const GHExt &ghext) {
+std::ostream &operator<<(std::ostream &os, const GHExt &ghext) {
   YAML::Emitter yaml;
   yaml << ghext;
   os << yaml.c_str() << "\n";
@@ -2289,7 +2294,7 @@ extern "C" int CarpetX_Startup() {
       "optimized",
 #endif
   };
-  ostringstream buf;
+  std::ostringstream buf;
   buf << logo();
   buf << "AMR driver provided by CarpetX,\n"
       << "using AMReX " << amrex::Version() << " (";
@@ -2611,16 +2616,16 @@ CCTK_INT CarpetX_GetBoundarySizesAndTypes(
   const cGH *restrict const cctkGH = static_cast<const cGH *>(cctkGH_);
   assert(size == 2 * dim);
 
-  const array<array<bool, 3>, 2> is_periodic{{
+  const std::array<std::array<bool, 3>, 2> is_periodic{{
       {{bool(periodic_x), bool(periodic_y), bool(periodic_z)}},
       {{bool(periodic_x), bool(periodic_y), bool(periodic_z)}},
   }};
-  const array<array<bool, 3>, 2> is_reflection{{
+  const std::array<std::array<bool, 3>, 2> is_reflection{{
       {{bool(reflection_x), bool(reflection_y), bool(reflection_z)}},
       {{bool(reflection_upper_x), bool(reflection_upper_y),
         bool(reflection_upper_z)}},
   }};
-  const array<array<bool, 3>, 2> is_boundary{{
+  const std::array<std::array<bool, 3>, 2> is_boundary{{
       {{
           bool(!CCTK_EQUALS(boundary_x, "none")),
           bool(!CCTK_EQUALS(boundary_y, "none")),
