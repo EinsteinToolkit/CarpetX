@@ -12,7 +12,6 @@
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 
 extern "C" void CarpetX_SolvePoisson(const CCTK_INT gi_sol,
                                      const CCTK_INT gi_rhs,

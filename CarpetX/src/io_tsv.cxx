@@ -21,18 +21,18 @@
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 
-void WriteTSVold(const cGH *restrict cctkGH, const string &filename, int gi,
-                 const vector<string> &varnames) {
-  ostringstream buf;
+void WriteTSVold(const cGH *restrict cctkGH, const std::string &filename,
+                 int gi, const std::vector<std::string> &varnames) {
+  std::ostringstream buf;
   buf << filename << ".tsv";
-  ofstream file(buf.str());
-  const string sep = "\t";
+  std::ofstream file(buf.str());
+  const std::string sep = "\t";
 
   // get more precision for floats, could also use
   // https://stackoverflow.com/a/30968371
-  file << setprecision(numeric_limits<CCTK_REAL>::digits10 + 1) << scientific;
+  file << setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1)
+       << scientific;
 
   // Output header
   file << "# 1:iteration" << sep << "2:time" << sep << "3:patch" << sep
@@ -56,8 +56,8 @@ void WriteTSVold(const cGH *restrict cctkGH, const string &filename, int gi,
         for (int k = imin.z; k < imax.z; ++k) {
           for (int j = imin.y; j < imax.y; ++j) {
             for (int i = imin.x; i < imax.x; ++i) {
-              const array<int, dim> I{i, j, k};
-              array<CCTK_REAL, dim> x;
+              const std::array<int, dim> I{i, j, k};
+              std::array<CCTK_REAL, dim> x;
               for (int d = 0; d < dim; ++d)
                 x[d] = geom.ProbLo(d) +
                        (I[d] + CCTK_REAL(0.5) * groupdata.indextype[d]) *
@@ -103,19 +103,19 @@ void OutputTSVold(const cGH *restrict cctkGH) {
     if (groupdata0.mfab.size() > 0) {
       const int tl = 0;
 
-      string groupname = CCTK_FullGroupName(gi);
+      std::string groupname = CCTK_FullGroupName(gi);
       groupname = regex_replace(groupname, regex("::"), "-");
       for (auto &c : groupname)
         c = tolower(c);
-      ostringstream buf;
+      std::ostringstream buf;
       buf << out_dir << "/" << groupname;
       buf << ".it" << setw(6) << setfill('0') << cctk_iteration;
       buf << ".p" << setw(4) << setfill('0') << CCTK_MyProc(nullptr);
-      const string filename = buf.str();
+      const std::string filename = buf.str();
 
-      amrex::Vector<string> varnames(groupdata0.numvars);
+      amrex::Vector<std::string> varnames(groupdata0.numvars);
       for (int vi = 0; vi < groupdata0.numvars; ++vi) {
-        ostringstream buf;
+        std::ostringstream buf;
         buf << CCTK_VarName(groupdata0.firstvarindex + vi);
         for (int i = 0; i < tl; ++i)
           buf << "_p";
@@ -129,7 +129,7 @@ void OutputTSVold(const cGH *restrict cctkGH) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void WriteTSVScalars(const cGH *restrict cctkGH, const string &filename,
+void WriteTSVScalars(const cGH *restrict cctkGH, const std::string &filename,
                      const int gi) {
   // Output only on root process
   if (CCTK_MyProc(nullptr) > 0)
@@ -137,15 +137,16 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const string &filename,
 
   const auto &arraygroupdata = *ghext->globaldata.arraygroupdata.at(gi);
 
-  vector<string> varnames;
+  std::vector<std::string> varnames;
   for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
     varnames.push_back(CCTK_VarName(arraygroupdata.firstvarindex + vi));
 
-  const string sep = "\t";
-  ofstream file(filename);
+  const std::string sep = "\t";
+  std::ofstream file(filename);
   // get more precision for floats, could also use
   // https://stackoverflow.com/a/30968371
-  file << setprecision(numeric_limits<CCTK_REAL>::digits10 + 1) << scientific;
+  file << setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1)
+       << scientific;
 
   // Output header
   file << "# 1:iteration" << sep << "2:time";
@@ -162,7 +163,7 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const string &filename,
   file << "\n";
 }
 
-void WriteTSVArrays(const cGH *restrict cctkGH, const string &filename,
+void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
                     const int gi, const int out_dir) {
   // Output only on root process
   if (CCTK_MyProc(nullptr) > 0)
@@ -173,15 +174,16 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const string &filename,
   if (out_dir >= arraygroupdata.dimension)
     return;
 
-  vector<string> varnames;
+  std::vector<std::string> varnames;
   for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
     varnames.push_back(CCTK_VarName(arraygroupdata.firstvarindex + vi));
 
-  const string sep = "\t";
-  ofstream file(filename);
+  const std::string sep = "\t";
+  std::ofstream file(filename);
   // get more precision for floats, could also use
   // https://stackoverflow.com/a/30968371
-  file << setprecision(numeric_limits<CCTK_REAL>::digits10 + 1) << scientific;
+  file << setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1)
+       << scientific;
 
   // Output header
   int col = 1;
@@ -212,7 +214,7 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const string &filename,
   }
 }
 
-void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
+void WriteTSVGFs(const cGH *restrict cctkGH, const std::string &filename,
                  const int gi, const vect<bool, dim> &outdirs,
                  const vect<CCTK_REAL, dim> &outcoords) {
   const auto &groupdata0 =
@@ -228,7 +230,7 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
                       + groupdata0.numvars; // grid function values
 
   // Data transmitted from this process
-  vector<CCTK_REAL> data;
+  std::vector<CCTK_REAL> data;
   data.reserve(10000);
   for (const auto &patchdata : ghext->patchdata) {
     for (const auto &leveldata : patchdata.leveldata) {
@@ -322,9 +324,9 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
             }
           }
         } // if output_something
-      }   // for mfi
-    }     // for leveldata
-  }       // for patchdata
+      } // for mfi
+    } // for leveldata
+  } // for patchdata
   assert(data.size() % nvalues == 0);
 
   const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
@@ -335,14 +337,14 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
   assert(data.size() <= INT_MAX);
   const int npoints = data.size();
 
-  vector<int> all_npoints;
+  std::vector<int> all_npoints;
   if (myproc == ioproc)
     all_npoints.resize(nprocs);
   MPI_Gather(&npoints, 1, MPI_INT, all_npoints.data(), 1, MPI_INT, ioproc,
              comm);
 
   int total_npoints = 0;
-  vector<int> all_offsets;
+  std::vector<int> all_offsets;
   if (myproc == ioproc) {
     all_offsets.resize(nprocs);
     for (int p = 0; p < nprocs; ++p) {
@@ -351,7 +353,7 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
       total_npoints += all_npoints.at(p);
     }
   }
-  vector<CCTK_REAL> all_data;
+  std::vector<CCTK_REAL> all_data;
   if (myproc == ioproc)
     all_data.resize(total_npoints);
   MPI_Gatherv(data.data(), npoints, mpi_datatype<CCTK_REAL>::value,
@@ -361,10 +363,10 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
   if (myproc == ioproc) {
 
     assert(total_npoints % nvalues == 0);
-    vector<int> iptr(total_npoints / nvalues);
+    std::vector<int> iptr(total_npoints / nvalues);
     iota(iptr.begin(), iptr.end(), 0);
     const auto compare_eq = [&](const int i, const int j) {
-      array<int, nintvalues> pi, pj;
+      std::array<int, nintvalues> pi, pj;
       for (int d = 0; d < nintvalues; ++d)
         pi[d] = int(all_data.at(i * nvalues + d));
       // Ignore `isghost` field
@@ -376,7 +378,7 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
       return pi == pj;
     };
     const auto compare_lt = [&](const int i, const int j) {
-      array<int, nintvalues> pi, pj;
+      std::array<int, nintvalues> pi, pj;
       for (int d = 0; d < nintvalues; ++d)
         pi[d] = int(all_data.at(i * nvalues + d));
       for (int d = 0; d < nintvalues; ++d)
@@ -387,15 +389,16 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const string &filename,
     const auto last = unique(iptr.begin(), iptr.end(), compare_eq);
     iptr.erase(last, iptr.end());
 
-    vector<string> varnames;
+    std::vector<std::string> varnames;
     for (int vi = 0; vi < groupdata0.numvars; ++vi)
       varnames.push_back(CCTK_VarName(groupdata0.firstvarindex + vi));
 
-    const string sep = "\t";
-    ofstream file(filename);
+    const std::string sep = "\t";
+    std::ofstream file(filename);
     // get more precision for floats, could also use
     // https://stackoverflow.com/a/30968371
-    file << setprecision(numeric_limits<CCTK_REAL>::digits10 + 1) << scientific;
+    file << setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1)
+         << scientific;
 
     // Output header
     int col = 0;
@@ -441,11 +444,11 @@ void OutputTSV(const cGH *restrict cctkGH) {
   Interval interval(timer);
 
   // Find output groups
-  const vector<bool> group_enabled = [&] {
-    vector<bool> enabled(CCTK_NumGroups(), false);
+  const std::vector<bool> group_enabled = [&] {
+    std::vector<bool> enabled(CCTK_NumGroups(), false);
     const auto callback{
         [](const int index, const char *const optstring, void *const arg) {
-          vector<bool> &enabled = *static_cast<vector<bool> *>(arg);
+          std::vector<bool> &enabled = *static_cast<vector<bool> *>(arg);
           enabled.at(CCTK_GroupIndexFromVarI(index)) = true;
         }};
     CCTK_TraverseString(out_tsv_vars, callback, &enabled, CCTK_GROUP_OR_VAR);
@@ -465,14 +468,14 @@ void OutputTSV(const cGH *restrict cctkGH) {
   const int numgroups = CCTK_NumGroups();
   for (int gi = 0; gi < numgroups; ++gi) {
     if (group_enabled.at(gi)) {
-      string groupname = CCTK_FullGroupName(gi);
+      std::string groupname = CCTK_FullGroupName(gi);
       groupname = regex_replace(groupname, regex("::"), "-");
       for (auto &ch : groupname)
         ch = tolower(ch);
-      ostringstream buf;
+      std::ostringstream buf;
       buf << out_dir << "/" << groupname << ".it" << setw(6) << setfill('0')
           << cctk_iteration;
-      const string basename = buf.str();
+      const std::string basename = buf.str();
       switch (CCTK_GroupTypeI(gi)) {
       case CCTK_SCALAR:
         WriteTSVScalars(cctkGH, basename + ".tsv", gi);

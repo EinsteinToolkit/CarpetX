@@ -7,7 +7,6 @@
 #include <cctk_Parameters.h>
 
 namespace CarpetX {
-using namespace std;
 
 extern "C" void CarpetX_InitError(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_CarpetX_InitError;

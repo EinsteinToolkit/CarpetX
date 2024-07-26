@@ -16,7 +16,6 @@
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 using namespace Loop;
 
 int Initialise(tFleshConfig *config);
@@ -91,7 +90,7 @@ public:
 
 // The levels CallFunction should traverse
 // TODO: Move this into ghext
-extern optional<active_levels_t> active_levels;
+extern std::optional<active_levels_t> active_levels;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -163,8 +162,8 @@ struct GridPtrDesc : GridDesc {
 
 struct GridPtrDesc1 : GridDesc {
   amrex::Dim3 cactus_offset;
-  array<int, dim> gimin, gimax;
-  array<int, dim> gash;
+  std::array<int, dim> gimin, gimax;
+  std::array<int, dim> gash;
 
   GridPtrDesc1() = delete;
   GridPtrDesc1(const GridPtrDesc1 &) = delete;
@@ -189,7 +188,7 @@ struct GridPtrDesc1 : GridDesc {
     return GF3D1<T>(ptr(vars, vi), gimin, gimax, gash);
   }
 
-  friend ostream &operator<<(ostream &os, const GridPtrDesc1 &p) {
+  friend std::ostream &operator<<(std::ostream &os, const GridPtrDesc1 &p) {
     os << "GridPtrDesc1{" << (const GridDescBase &)p << ", "
        << "cactus_offset:"
        << "{" << p.cactus_offset.x << "," << p.cactus_offset.y << ","

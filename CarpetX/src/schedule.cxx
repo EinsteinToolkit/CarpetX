@@ -44,7 +44,6 @@ static inline int omp_in_parallel() { return 0; }
 #include <vector>
 
 namespace CarpetX {
-using namespace std;
 
 #ifndef CCTK_HAVE_CGH_LEVEL
 #error                                                                         \
@@ -79,10 +78,10 @@ double gettime() {
 } // namespace
 
 // Used to pass active levels from AMReX's regridding functions
-optional<active_levels_t> active_levels;
+std::optional<active_levels_t> active_levels;
 
 void Reflux(const cGH *cctkGH, int level);
-void Restrict(const cGH *cctkGH, int level, const vector<int> &groups);
+void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups);
 void Restrict(const cGH *cctkGH, int level);
 
 namespace {
@@ -955,7 +954,7 @@ mode_t decode_mode(const cFunctionData *restrict attribute) {
 }
 
 enum class rdwr_t { read, write, invalid };
-ostream &operator<<(ostream &os, const rdwr_t rdwr) {
+std::ostream &operator<<(std::ostream &os, const rdwr_t rdwr) {
   switch (rdwr) {
   case rdwr_t::read:
     return os << "read";
@@ -981,15 +980,15 @@ struct clause_t {
            make_tuple(y.gi, y.vi, y.tl, y.valid);
   }
 
-  friend ostream &operator<<(ostream &os, const clause_t &cl) {
+  friend std::ostream &operator<<(std::ostream &os, const clause_t &cl) {
     return os << "clause_t{gi:" << cl.gi << ",vi:" << cl.vi << ",tl:" << cl.tl
               << ",valid:" << cl.valid << "}";
   }
 };
 
-vector<clause_t> decode_clauses(const cFunctionData *restrict attribute,
-                                const rdwr_t rdwr) {
-  vector<clause_t> result;
+std::vector<clause_t> decode_clauses(const cFunctionData *restrict attribute,
+                                     const rdwr_t rdwr) {
+  std::vector<clause_t> result;
   result.reserve(attribute->n_RDWR);
   for (int n = 0; n < attribute->n_RDWR; ++n) {
     const RDWR_entry &restrict RDWR = attribute->RDWR[n];
