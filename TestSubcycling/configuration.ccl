@@ -1,0 +1,3 @@
+# Configuration definitions for thorn TestSubcycling
+
+REQUIRES Loop Subcycling

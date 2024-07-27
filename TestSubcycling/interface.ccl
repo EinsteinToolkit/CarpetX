@@ -1,0 +1,59 @@
+# Interface definition for thorn TestSubcycling
+
+IMPLEMENTS: TestSubcycling
+
+INHERITS: CarpetX Subcycling
+
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: subcycling.hxx
+USES INCLUDE HEADER: vect.hxx
+
+
+CCTK_REAL ustate TYPE=gf CENTERING={vvv} TAGS='dependents="uerror"'
+{
+  u
+  rho
+} "Scalar wave state vector"
+
+CCTK_REAL pstate TYPE=gf TAGS='checkpoint="no"'
+{
+  u_p
+  rho_p
+} "Scalar wave old state vector"
+
+CCTK_REAL k1 TYPE=gf TAGS='checkpoint="no"'
+{
+    u_k1
+    rho_k1
+} "The Runge-Kutta k_1 variables"
+
+CCTK_REAL k2 TYPE=gf TAGS='checkpoint="no"'
+{
+    u_k2
+    rho_k2
+} "The Runge-Kutta k_2 variables"
+
+CCTK_REAL k3 TYPE=gf TAGS='checkpoint="no"'
+{
+    u_k3
+    rho_k3
+} "The Runge-Kutta k_3 variables"
+
+CCTK_REAL k4 TYPE=gf TAGS='checkpoint="no"'
+{
+    u_k4
+    rho_k4
+} "The Runge-Kutta k_4 variables"
+
+
+CCTK_REAL energy CENTERING={CCC} TYPE=gf TAGS='checkpoint="no"'
+{
+  eps
+} "Energy density"
+
+
+CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
+{
+  u_err
+  rho_err
+} "Error in scalar wave state vector"
