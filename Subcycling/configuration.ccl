@@ -1,0 +1,7 @@
+# Configuration definition for thorn Subcycling
+
+REQUIRES Loop
+
+PROVIDES Subcycling
+{
+}

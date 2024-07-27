@@ -1,0 +1,25 @@
+# Schedule definitions for thorn Subcycling
+
+if(use_subcycling_wip) {
+  SCHEDULE GROUP Subcycling_RMBndryGroup AT initial
+  {
+  } "Check if the ghost points are at refinement boundary"
+
+  SCHEDULE GROUP Subcycling_RMBndryGroup AT postregrid
+  {
+  } "Check if the ghost points are at refinement boundary"
+
+  SCHEDULE Subcycling_SetLevelNeighbor IN Subcycling_RMBndryGroup
+  {
+    LANG: C
+    WRITES: level_neighbor(interior)
+    SYNC: level_neighbor
+  } "Set level_neighbor"
+
+  SCHEDULE Subcycling_SetIsRMBndry IN Subcycling_RMBndryGroup AFTER Subcycling_SetLevelNeighbor
+  {
+    LANG: C
+    READS: level_neighbor(everywhere)
+    WRITES: isrmbndry(everywhere)
+  } "Set isrmbndry"
+}
