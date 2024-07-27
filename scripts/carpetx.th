@@ -714,6 +714,7 @@ CarpetX/PoissonX
 CarpetX/SIMDWaveToyX
 CarpetX/SpacetimeWaveToyX
 CarpetX/StaggeredWaveToyX
+CarpetX/Subcycling
 CarpetX/TestArrayGroup
 CarpetX/TestBoundaries
 CarpetX/TestBoxInBox
@@ -726,6 +727,7 @@ CarpetX/TestODESolvers2
 CarpetX/TestOutput
 CarpetX/TestProlongate
 CarpetX/TestSymmetries
+CarpetX/TestSubcycling
 CarpetX/TmunuBaseX
 CarpetX/WaveToyX
 
