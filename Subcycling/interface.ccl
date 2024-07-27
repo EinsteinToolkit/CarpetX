@@ -1,0 +1,15 @@
+# Interface definition for thorn Subcycling
+
+IMPLEMENTS: Subcycling
+
+USES INCLUDE HEADER: loop_device.hxx
+
+INCLUDES HEADER: subcycling.hxx IN subcycling.hxx
+
+
+
+PUBLIC:
+
+CCTK_REAL level_neighbor TYPE=gf TAGS='checkpoint="no"' "Level of its neighbor which will fill in this ghost point"
+
+CCTK_REAL isrmbndry TYPE=gf TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not"

@@ -1,0 +1,5 @@
+# Parameter definitions for thorn Subcycling
+
+SHARES: CarpetX
+
+USES BOOLEAN use_subcycling_wip
