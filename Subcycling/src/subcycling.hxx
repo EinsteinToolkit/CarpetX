@@ -61,6 +61,8 @@ inline array<int, Loop::dim> get_group_indextype(const int gi) {
 
 /**
  * \brief Calculate Ys ghost points for fine grid using Ks on coarse grid
+ *        using eq(39) of Peter McCorquodale and Phillip Colella,
+ *        Applied Mathematics and Computational Science, 6(1):1-25, 2011.
  *
  * \param Yf        RK substage Ys on the fine side to be interperated into
  *                  the ghost zones
