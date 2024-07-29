@@ -95,6 +95,13 @@ BOOLEAN periodic_z "Periodic boundary conditions in z-direction"
   "no"  :: "not periodic in z direction"
 } "yes"
 
+RESTRICTED:
+
+BOOLEAN use_subcycling_wip "Use subcycling in time"
+{
+} no
+
+
 
 PRIVATE:
 
@@ -454,12 +461,6 @@ CCTK_INT interpolation_order "Interpolation order" STEERABLE=always
 {
   0:* :: ""
 } 1
-
-
-
-BOOLEAN use_subcycling_wip "Use subcycling in time"
-{
-} no  
 
 
 
