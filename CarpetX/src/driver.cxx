@@ -133,8 +133,10 @@ std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
         is_interpatch[f][d] = is_interpatch_boundary[2 * d + f];
   }
   const std::array<std::array<bool, 3>, 2> is_periodic{{
-      {{bool(periodic_x), bool(periodic_y), bool(periodic_z)}},
-      {{bool(periodic_x), bool(periodic_y), bool(periodic_z)}},
+      {{bool(periodic && periodic_x), bool(periodic && periodic_y),
+        bool(periodic && periodic_z)}},
+      {{bool(periodic && periodic_x), bool(periodic && periodic_y),
+        bool(periodic && periodic_z)}},
   }};
   const array<array<bool, 3>, 2> is_reflection{{
       {{bool(reflection_x), bool(reflection_y), bool(reflection_z)}},
@@ -1562,7 +1564,7 @@ void CactusAmrCore::ErrorEst(const int level, amrex::TagBoxArray &tags,
 #pragma omp critical
     CCTK_VINFO("ErrorEst patch %d level %d", patch, level);
 
-  const int gi = CCTK_GroupIndex("CarpetX::regrid_error");
+  const int gi = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
   assert(gi >= 0);
   const int vi = 0;
   const int tl = 0;
