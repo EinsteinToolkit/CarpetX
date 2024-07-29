@@ -1924,19 +1924,28 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
 #pragma omp critical
     CCTK_VINFO("MakeNewLevelFromCoarse patch %d level %d", patch, level);
 
-  assert(!use_subcycling_wip);
   assert(level > 0);
 
   SetupLevel(level, ba, dm, []() { return "MakeNewLevelFromCoarse"; });
 
   // Prolongate
-  assert(!use_subcycling_wip);
   auto &patchdata = ghext->patchdata.at(patch);
   auto &leveldata = patchdata.leveldata.at(level);
   auto &coarseleveldata = patchdata.leveldata.at(level - 1);
   const active_levels_t active_levels(level, level + 1, patch, patch + 1);
   const active_levels_t active_coarse_levels(level - 1, level, patch,
                                              patch + 1);
+
+  // only allow creation of new levels when the source and target are aligned
+  // in time
+  if (leveldata.iteration != coarseleveldata.iteration) {
+    ostringstream msg;
+    msg << "Coarse (rl=" << (level-1) <<", it=" << coarseleveldata.iteration <<
+           ") and fine (rl=" << level << ", it=" << leveldata.iteration <<
+           ") grid do not align in time when regridding";
+#pragma omp critical
+    CCTK_VERROR(msg.str().c_str());
+  }
 
   const int num_groups = CCTK_NumGroups();
   for (int gi = 0; gi < num_groups; ++gi) {
@@ -2033,8 +2042,16 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   const active_levels_t active_coarse_levels(level - 1, level, patch,
                                              patch + 1);
 
-  // Copy or prolongate
-  assert(!use_subcycling_wip);
+  // only allow modfication of levels when the source and target are aligned in
+  // time
+  if (leveldata.iteration != coarseleveldata.iteration) {
+    ostringstream msg;
+    msg << "Coarse (rl=" << (level-1) <<", it=" << coarseleveldata.iteration <<
+           ") and fine (rl=" << level << ", it=" << leveldata.iteration <<
+           ") grid do not align in time when regridding";
+#pragma omp critical
+    CCTK_VERROR(msg.str().c_str());
+  }
 
   // Check old level
   const int num_groups = CCTK_NumGroups();
