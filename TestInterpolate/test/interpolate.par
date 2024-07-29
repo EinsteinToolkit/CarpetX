@@ -31,7 +31,7 @@ CarpetX::ncells_z = $ncells
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 16
-CarpetX::regrid_error_threshold = 5.0
+Driver::regrid_error_threshold = 5.0
 
 CarpetX::prolongation_type = "ddf"
 

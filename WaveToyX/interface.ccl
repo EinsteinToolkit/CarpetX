@@ -2,7 +2,7 @@
 
 IMPLEMENTS: WaveToyX
 
-INHERITS: CarpetX
+INHERITS: Driver
 
 USES INCLUDE HEADER: loop_device.hxx
 USES INCLUDE HEADER: vect.hxx

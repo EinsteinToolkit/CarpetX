@@ -12,9 +12,9 @@ Cactus::presync_mode = "mixed-error"
 
 CarpetX::poison_undefined_values = no
 
-CarpetX::periodic_x = yes
-CarpetX::periodic_y = yes
-CarpetX::periodic_z = yes
+Driver::periodic_x = yes
+Driver::periodic_y = yes
+Driver::periodic_z = yes
 
 Cactus::terminate = "time"
 Cactus::cctk_final_time = 1.0

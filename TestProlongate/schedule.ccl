@@ -50,13 +50,13 @@ STORAGE: gf111_sum_count
 SCHEDULE TestProlongate_Regrid AT postinitial
 {
   LANG: C
-  WRITES: CarpetX::regrid_error(interior)
+  WRITES: Driver::regrid_error(interior)
 } "Set up test grid"
 
 SCHEDULE TestProlongate_Regrid AT poststep
 {
   LANG: C
-  WRITES: CarpetX::regrid_error(interior)
+  WRITES: Driver::regrid_error(interior)
 } "Set up test grid"
 
 

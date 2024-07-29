@@ -2,7 +2,7 @@
 
 IMPLEMENTS: ErrorEstimator
 
-INHERITS: CarpetX
+INHERITS: Driver
 
 
 

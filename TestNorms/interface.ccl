@@ -1,6 +1,6 @@
 # Interface definition for thorn TestNorms
 implements: TestNorms
-inherits: CarpetX
+inherits: Driver
 
 uses include header: loop.hxx
 

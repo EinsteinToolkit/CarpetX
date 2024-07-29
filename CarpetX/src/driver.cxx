@@ -216,12 +216,19 @@ array<array<boundary_t, dim>, 2> get_default_boundaries() {
           bool(CCTK_EQUALS(boundary_upper_z, "robin")),
       }},
   }};
-  for (int f = 0; f < 2; ++f)
-    for (int d = 0; d < dim; ++d)
+  for (int f = 0; f < 2; ++f) {
+    for (int d = 0; d < dim; ++d) {
+      std::cout << "f=" << f << " d=" << d << std::endl;
+      std::cout << "is_symmetry[f][d]=" << is_symmetry[f][d] << std::endl;
+      std::cout << "is_dirichlet[f][d]=" << is_dirichlet[f][d] << std::endl;
+      std::cout << "is_neumann[f][d]=" << is_neumann[f][d] << std::endl;
+      std::cout << "is_robin[f][d]=" << is_robin[f][d] << std::endl;
       assert(is_symmetry[f][d] + is_dirichlet[f][d] +
                  is_linear_extrapolation[f][d] + is_neumann[f][d] +
                  is_robin[f][d] <=
              1);
+    }
+  }
 
   array<array<boundary_t, dim>, 2> boundaries;
   for (int f = 0; f < 2; ++f)
@@ -1527,7 +1534,7 @@ void CactusAmrCore::ErrorEst(const int level, amrex::TagBoxArray &tags,
 #pragma omp critical
     CCTK_VINFO("ErrorEst patch %d level %d", patch, level);
 
-  const int gi = CCTK_GroupIndex("CarpetX::regrid_error");
+  const int gi = CCTK_GroupIndex("Driver::regrid_error");
   assert(gi >= 0);
   const int vi = 0;
   const int tl = 0;

@@ -2,7 +2,7 @@
 
 IMPLEMENTS: TestProlongate
 
-INHERITS: CarpetX
+INHERITS: Driver
 
 USES INCLUDE HEADER: loop.hxx
 

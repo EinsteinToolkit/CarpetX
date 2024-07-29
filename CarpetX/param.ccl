@@ -71,6 +71,12 @@ CCTK_INT ncells_z "Number of grid cells"
 
 RESTRICTED:
 
+# Do not use
+BOOLEAN periodic "Periodic"
+{
+ no :: "Only valid value"
+} no
+
 BOOLEAN periodic_x "Periodic"
 {
 } no

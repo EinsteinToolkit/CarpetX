@@ -34,7 +34,7 @@ CarpetX::out_metadata = no
 CarpetX::out_norm_omit_unstable = yes
 # TestODESolvers::corder requires larger tolerances (~1e-5)
 CarpetX::out_norm_vars = "
-    CarpetX::regrid_error
+    Driver::regrid_error
     # TestODESolvers::corder
     TestODESolvers::error
     TestODESolvers::error2
