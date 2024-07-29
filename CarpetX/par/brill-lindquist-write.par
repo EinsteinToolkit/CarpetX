@@ -29,9 +29,9 @@ CarpetX::ncells_x = 64
 CarpetX::ncells_y = 64
 CarpetX::ncells_z = 64
 
-CarpetX::periodic_x = no
-CarpetX::periodic_y = no
-CarpetX::periodic_z = no
+Driver::periodic_x = no
+Driver::periodic_y = no
+Driver::periodic_z = no
 # CarpetX::reflection_x = yes
 # CarpetX::reflection_y = yes
 # CarpetX::reflection_z = yes

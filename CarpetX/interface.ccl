@@ -1,8 +1,6 @@
 # Interface definition for thorn CarpetX
 
-IMPLEMENTS: CarpetX
-
-INHERITS: IO
+IMPLEMENTS: Driver
 
 USES INCLUDE HEADER: silo.hxx
 
@@ -168,12 +166,3 @@ CCTK_INT FUNCTION DriverInterpolate(
   CCTK_INT ARRAY IN output_array_types,
   CCTK_POINTER ARRAY IN output_arrays)
 PROVIDES FUNCTION DriverInterpolate WITH CarpetX_DriverInterpolate LANGUAGE C
-
-
-
-PUBLIC:
-
-CCTK_REAL regrid_error TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"'
-{
-  regrid_error
-} "Regridding condition"
