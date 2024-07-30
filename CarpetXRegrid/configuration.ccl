@@ -1,0 +1,6 @@
+# Configuration definitions for thorn CarpetXRegrid
+REQUIRES AMReX Arith Loop 
+
+PROVIDES CarpetXRegrid
+{
+}

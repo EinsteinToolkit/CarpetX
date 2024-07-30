@@ -1,0 +1,11 @@
+Cactus Code Thorn CarpetXRegrid
+Author(s)    : Steven R. Brandt <sbrandt@cct.lsu.edu>
+Maintainer(s): Steven R. Brandt <sbrandt@cct.lsu.edu>
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Provide an extra grid function, "regrid_error," to the CarpetX driver.
+This grid function is used by CarpetX and AMReX to determine where to
+refine the grid.

@@ -1,0 +1,7 @@
+# Main make.code.defn file for thorn CarpetXRegrid
+
+# Source files in this directory
+SRCS = regrid_error.cxx
+
+# Subdirectories containing source files
+SUBDIRS = 
