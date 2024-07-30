@@ -1802,7 +1802,7 @@ int Evolve(tFleshConfig *config) {
       if (!restrict_during_sync) {
         // Restrict
         active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
-          if (leveldata.level != ghext->num_levels() - 1)
+          if (leveldata.level + 1 < active_levels->max_level)
             Restrict(cctkGH, leveldata.level);
         });
         // Prolongation
