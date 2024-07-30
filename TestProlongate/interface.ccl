@@ -2,7 +2,7 @@
 
 IMPLEMENTS: TestProlongate
 
-INHERITS: Driver
+INHERITS: Driver, Regrid
 
 USES INCLUDE HEADER: loop.hxx
 

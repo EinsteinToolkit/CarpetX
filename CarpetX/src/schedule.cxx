@@ -2240,7 +2240,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     CCTK_VINFO("SyncGroups %s", buf.str().c_str());
   }
 
-  const int gi_regrid_error = CCTK_GroupIndex("Driver::regrid_error");
+  const int gi_regrid_error = CCTK_GroupIndex("Regrid::regrid_error");
   assert(gi_regrid_error >= 0);
 
   vector<int> groups;
@@ -2621,7 +2621,7 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
   static Timer timer("Restrict");
   Interval interval(timer);
 
-  const int gi_regrid_error = CCTK_GroupIndex("Driver::regrid_error");
+  const int gi_regrid_error = CCTK_GroupIndex("Regrid::regrid_error");
   assert(gi_regrid_error >= 0);
 
   for (const auto &patchdata : ghext->patchdata) {

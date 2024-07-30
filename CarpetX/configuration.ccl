@@ -2,7 +2,7 @@
 
 REQUIRES AMReX IOUtil MPI yaml_cpp zlib
 
-REQUIRES Arith Loop
+REQUIRES Arith Loop Regrid
 
 OPTIONAL ADIOS2
 {

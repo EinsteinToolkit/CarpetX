@@ -1,7 +1,7 @@
 # Interface definition for thorn TestDerivs
 IMPLEMENTS: TestDerivs
 
-INHERITS: Driver
+INHERITS: Driver, Regrid
 
 USES INCLUDE HEADER: defs.hxx
 USES INCLUDE HEADER: loop_device.hxx

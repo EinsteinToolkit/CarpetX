@@ -1,6 +1,6 @@
 # Interface definition for thorn TestNorms
 implements: TestNorms
-inherits: Driver
+inherits: Driver, Regrid
 
 uses include header: loop.hxx
 

@@ -1,0 +1,6 @@
+# Configuration definitions for thorn Regrid
+REQUIRES AMReX Arith Loop 
+
+PROVIDES Regrid
+{
+}

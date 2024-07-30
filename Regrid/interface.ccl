@@ -1,0 +1,9 @@
+# Interface definition for thorn Regrid
+implements: Regrid
+inherits:
+PUBLIC:
+
+CCTK_REAL regrid_error TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"'
+{
+  regrid_error
+} "Regridding condition"

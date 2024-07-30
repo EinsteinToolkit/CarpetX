@@ -7,7 +7,7 @@ STORAGE: ddchi
 SCHEDULE TestDerivs_SetError AT postinitial
 {
   LANG: C
-  WRITES: Driver::regrid_error(interior)
+  WRITES: Regrid::regrid_error(interior)
 } "Set up test grid"
 
 SCHEDULE TestDerivs_Set AT initial

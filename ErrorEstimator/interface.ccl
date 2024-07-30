@@ -2,7 +2,7 @@
 
 IMPLEMENTS: ErrorEstimator
 
-INHERITS: Driver
+INHERITS: Driver, Regrid
 
 
 

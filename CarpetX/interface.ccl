@@ -166,12 +166,3 @@ CCTK_INT FUNCTION DriverInterpolate(
   CCTK_INT ARRAY IN output_array_types,
   CCTK_POINTER ARRAY IN output_arrays)
 PROVIDES FUNCTION DriverInterpolate WITH CarpetX_DriverInterpolate LANGUAGE C
-
-
-
-PUBLIC:
-
-CCTK_REAL regrid_error TYPE=gf dim=default_dim CENTERING={ccc} TAGS='checkpoint="no"'
-{
-  regrid_error
-} "Regridding condition"

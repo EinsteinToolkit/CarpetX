@@ -19,7 +19,7 @@ SCHEDULE BoxInBox_Setup AS EstimateError AT postinitial
   READS: positions
   READS: radii
   READS: radiixyz
-  WRITES: Driver::regrid_error(interior)
+  WRITES: Regrid::regrid_error(interior)
 } "Estimate error"
 
 SCHEDULE BoxInBox_Setup AS EstimateError AT poststep
@@ -30,5 +30,5 @@ SCHEDULE BoxInBox_Setup AS EstimateError AT poststep
   READS: positions
   READS: radii
   READS: radiixyz
-  WRITES: Driver::regrid_error(interior)
+  WRITES: Regrid::regrid_error(interior)
 } "Estimate error"
