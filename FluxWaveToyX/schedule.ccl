@@ -15,6 +15,7 @@ SCHEDULE FluxWaveToyX_Fluxes IN ODESolvers_RHS
   WRITES: flux_x(interior)
   WRITES: flux_y(interior)
   WRITES: flux_z(interior)
+  # Sync for test output
   SYNC: flux_x
   SYNC: flux_y
   SYNC: flux_z
@@ -28,6 +29,8 @@ SCHEDULE FluxWaveToyX_RHS IN ODESolvers_RHS AFTER FluxWaveToyX_Fluxes
   READS: flux_y(interior)
   READS: flux_z(interior)
   WRITES: rhs(interior)
+  # Sync for test output
+  SYNC: rhs
 } "Calculate scalar wave RHS"
 
 SCHEDULE FluxWaveToyX_Boundaries IN ODESolvers_PostStep
