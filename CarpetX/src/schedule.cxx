@@ -528,8 +528,8 @@ void enter_global_mode(cGH *restrict cctkGH) {
           const auto &restrict vars = arraygroupdata.data.at(tl);
           for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
             cctkGH->data[arraygroupdata.firstvarindex + vi][tl] =
-                const_cast<CCTK_REAL *>(
-                    &vars.at(vi * arraygroupdata.array_size));
+                const_cast<void *>(
+                    vars.data_at(vi * arraygroupdata.array_size));
         }
       }
     }

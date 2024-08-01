@@ -1783,7 +1783,6 @@ void SetupGlobals() {
     if (group.grouptype == CCTK_GF)
       continue;
     assert(group.grouptype == CCTK_ARRAY || group.grouptype == CCTK_SCALAR);
-    assert(group.vartype == CCTK_VARIABLE_REAL);
     assert(group.disttype == CCTK_DISTRIB_CONSTANT);
     assert(group.dim >= 0);
     assert(group.dim <= dim);
@@ -1834,9 +1833,8 @@ void SetupGlobals() {
     arraygroupdata.data.resize(group.numtimelevels);
     arraygroupdata.valid.resize(group.numtimelevels);
     for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
-      // TODO: Allocate in managed memory
-      arraygroupdata.data.at(tl).resize(arraygroupdata.numvars *
-                                        arraygroupdata.array_size);
+      arraygroupdata.data.at(tl).alloc(
+          group.vartype, arraygroupdata.numvars * arraygroupdata.array_size);
       why_valid_t why([]() { return "SetupGlobals"; });
       arraygroupdata.valid.at(tl).resize(arraygroupdata.numvars, why);
       for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
@@ -2309,6 +2307,37 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml,
        << commongroupdata.do_restrict;
   yaml << YAML::Key << "valid" << YAML::Value << commongroupdata.valid;
   yaml << YAML::EndMap;
+  return yaml;
+}
+
+YAML::Emitter &operator<<(YAML::Emitter &yaml, const CCTK_COMPLEX &cval) {
+  yaml << YAML::Flow << YAML::BeginSeq << cval.real() << cval.imag()
+       << YAML::EndSeq;
+  return yaml;
+};
+
+YAML::Emitter &
+operator<<(YAML::Emitter &yaml,
+           const GHExt::GlobalData::AnyTypeVector &anytypevector) {
+  yaml << YAML::BeginSeq;
+  for (size_t i = 0; i < anytypevector.size(); ++i) {
+    switch (anytypevector.type()) {
+    case CCTK_VARIABLE_COMPLEX:
+      yaml << *(CCTK_COMPLEX *)anytypevector.data_at(i);
+      break;
+    case CCTK_VARIABLE_REAL:
+      yaml << *(CCTK_REAL *)anytypevector.data_at(i);
+      break;
+    case CCTK_VARIABLE_INT:
+      yaml << *(CCTK_INT *)anytypevector.data_at(i);
+      break;
+    default:
+      // missed to implement a type
+      CCTK_VERROR("Cannot handle type %d", anytypevector.type());
+      break;
+    }
+  }
+  yaml << YAML::EndSeq;
   return yaml;
 }
 

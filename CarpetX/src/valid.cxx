@@ -229,24 +229,28 @@ void poison_invalid_ga(const int gi, const int vi, const int tl) {
 
   auto &restrict globaldata = ghext->globaldata;
   auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
+  cGroup group;
+  int ierr = CCTK_GroupData(gi, &group);
+  assert(!ierr);
 
   const valid_t &valid = arraygroupdata.valid.at(tl).at(vi).get();
   if (valid.valid_all())
     return;
 
-  CCTK_REAL poison;
-  std::memcpy(&poison, &ipoison, sizeof poison);
+  const size_t typesize = size_t(CCTK_VarTypeSize(group.vartype));
+  char poison[typesize];
+  // for int: deadbeef for little endian machines
+  for (size_t i = 0; i < typesize; i += sizeof poison)
+    std::memcpy(&poison[i], &ipoison, std::min(sizeof poison, typesize - i));
 
   if (!valid.valid_int) {
     int dimension = arraygroupdata.dimension;
-    CCTK_REAL *restrict const ptr =
-        const_cast<CCTK_REAL *>(&arraygroupdata.data.at(tl).at(vi));
     const int *gsh = arraygroupdata.gsh;
     int n_elems = 1;
     for (int i = 0; i < dimension; i++)
       n_elems *= gsh[i];
     for (int i = 0; i < n_elems; i++)
-      ptr[i] = poison;
+      memcpy(arraygroupdata.data.at(tl).data_at(vi + i), poison, typesize);
   }
 }
 
@@ -477,6 +481,9 @@ void check_valid_ga(const int gi, const int vi, const int tl,
 
   auto &restrict globaldata = ghext->globaldata;
   auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
+  cGroup group;
+  int ierr = CCTK_GroupData(gi, &group);
+  assert(!ierr);
 
   std::size_t nan_count{0};
 
@@ -484,26 +491,40 @@ void check_valid_ga(const int gi, const int vi, const int tl,
   if (valid.valid_all())
     return;
 
-  CCTK_REAL poison;
-  std::memcpy(&poison, &ipoison, sizeof poison);
+  const size_t typesize = size_t(CCTK_VarTypeSize(group.vartype));
+  char poison[typesize];
+  // for int: deadbeef for little endian machines
+  for (size_t i = 0; i < typesize; i += sizeof poison)
+    std::memcpy(&poison[i], &ipoison, std::min(sizeof poison, typesize - i));
 
   // arrays have no boundary so we expect them to alway be valid
   assert(valid.valid_outer && valid.valid_ghosts);
 
   if (valid.valid_int) {
-    const CCTK_REAL *restrict const ptr = &arraygroupdata.data.at(tl).at(vi);
     int dimension = arraygroupdata.dimension;
     const int *gsh = arraygroupdata.gsh;
     int n_elems = 1;
     for (int i = 0; i < dimension; i++)
       n_elems *= gsh[i];
-    for (int i = 0; i < n_elems; i++) {
-      using std::isnan;
-      if (CCTK_BUILTIN_EXPECT(nan_handling == nan_handling_t::allow_nans
-                                  ? std::memcmp(ptr, &poison, sizeof *ptr) == 0
-                                  : isnan(*ptr),
-                              false))
-        ++nan_count;
+    if (group.vartype == CCTK_VARIABLE_REAL) {
+      const CCTK_REAL *restrict const ptr = static_cast<const CCTK_REAL *const>(
+          arraygroupdata.data.at(tl).data_at(vi));
+      for (int i = 0; i < n_elems; i++) {
+        using std::isnan;
+        if (CCTK_BUILTIN_EXPECT(nan_handling == nan_handling_t::allow_nans
+                                    ? std::memcmp(ptr, poison, sizeof *ptr) == 0
+                                    : isnan(*ptr),
+                                false))
+          ++nan_count;
+      }
+    } else {
+      for (int i = 0; i < n_elems; i++) {
+        if (CCTK_BUILTIN_EXPECT(
+                std::memcmp(arraygroupdata.data.at(tl).data_at(vi + i), poison,
+                            typesize) == 0,
+                false))
+          ++nan_count;
+      }
     }
   }
 
