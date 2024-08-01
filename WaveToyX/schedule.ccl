@@ -34,7 +34,7 @@ SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
 SCHEDULE WaveToyX_Boundaries IN ODESolvers_PostStep
 {
   LANG: C
-  OPTIONS: level
+  OPTIONS: global
   SYNC: state
 } "Apply boundary conditions"
 

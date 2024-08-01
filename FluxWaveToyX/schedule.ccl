@@ -36,7 +36,7 @@ SCHEDULE FluxWaveToyX_RHS IN ODESolvers_RHS AFTER FluxWaveToyX_Fluxes
 SCHEDULE FluxWaveToyX_Boundaries IN ODESolvers_PostStep
 {
   LANG: C
-  OPTIONS: level
+  OPTIONS: global
   SYNC: state
 } "Apply boundary conditions"
 
