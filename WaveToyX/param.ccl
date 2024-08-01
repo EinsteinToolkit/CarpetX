@@ -31,6 +31,12 @@ CCTK_REAL gaussian_width "width of Gaussian"
   (0:* :: ""
 } 1.0
 
+CCTK_INT fd_order "finite differencing order" STEERABLE=always
+{
+  2 :: "2nd order"
+  4 :: "4th order"
+} 2
+
 KEYWORD boundary_condition "Boundary condition"
 {
   "CarpetX" :: "Apply boundary conditions via CarpetX"
