@@ -11,6 +11,7 @@ $out_every = 16
 Cactus::cctk_show_schedule = no
 Cactus::presync_mode = "mixed-error"
 
+CarpetX::verbose = no
 CarpetX::poison_undefined_values = no
 
 CarpetX::periodic_x = yes

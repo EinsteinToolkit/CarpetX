@@ -204,6 +204,12 @@ extern "C" void StaggeredWaveToyX_RHS(CCTK_ARGUMENTS) {
       });
 }
 
+extern "C" void StaggeredWaveToyX_Boundaries(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_StaggeredWaveToyX_Boundaries;
+
+  // Do nothing
+}
+
 extern "C" void StaggeredWaveToyX_Constraints(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_StaggeredWaveToyX_Constraints;
 
