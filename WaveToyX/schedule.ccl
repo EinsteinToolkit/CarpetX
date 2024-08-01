@@ -27,6 +27,8 @@ SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
   LANG: C
   READS: state(everywhere)
   WRITES: rhs(interior)
+  # Sync for test output
+  SYNC: rhs
 } "Calculate scalar wave RHS"
 
 SCHEDULE WaveToyX_Boundaries IN ODESolvers_PostStep
