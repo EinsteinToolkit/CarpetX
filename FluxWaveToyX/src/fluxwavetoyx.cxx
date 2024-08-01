@@ -250,6 +250,13 @@ extern "C" void FluxWaveToyX_RHS(CCTK_ARGUMENTS) {
       });
 }
 
+extern "C" void FluxWaveToyX_Boundaries(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_FluxWaveToyX_Boundaries;
+  DECLARE_CCTK_PARAMETERS;
+
+  // Do nothing
+}
+
 extern "C" void FluxWaveToyX_Constraints(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_FluxWaveToyX_Constraints;
 
