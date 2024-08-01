@@ -9,10 +9,6 @@ SCHEDULE StaggeredWaveToyX_Initial AT initial
   WRITES: fxstate(interior)
   WRITES: fystate(interior)
   WRITES: fzstate(interior)
-  # SYNC: ustate
-  # SYNC: fxstate
-  # SYNC: fystate
-  # SYNC: fzstate
 } "Initialize scalar wave state"
 
 SCHEDULE StaggeredWaveToyX_RHS IN ODESolvers_RHS
@@ -26,6 +22,11 @@ SCHEDULE StaggeredWaveToyX_RHS IN ODESolvers_RHS
   WRITES: fxrhs(interior)
   WRITES: fyrhs(interior)
   WRITES: fzrhs(interior)
+  # Sync for test output
+  SYNC: urhs
+  SYNC: fxrhs
+  SYNC: fyrhs
+  SYNC: fzrhs
 } "Calculate scalar wave RHS"
 
 SCHEDULE StaggeredWaveToyX_Boundaries IN ODESolvers_PostStep
