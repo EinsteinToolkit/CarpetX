@@ -10,6 +10,7 @@ $out_every = 16
 Cactus::cctk_show_schedule = no
 Cactus::presync_mode = "mixed-error"
 
+CarpetX::verbose = no
 CarpetX::poison_undefined_values = yes
 
 CarpetX::ncells_x = 8
