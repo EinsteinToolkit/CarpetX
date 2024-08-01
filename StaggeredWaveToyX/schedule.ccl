@@ -32,7 +32,7 @@ SCHEDULE StaggeredWaveToyX_RHS IN ODESolvers_RHS
 SCHEDULE StaggeredWaveToyX_Boundaries IN ODESolvers_PostStep
 {
   LANG: C
-  OPTIONS: level
+  OPTIONS: global
   SYNC: ustate
   SYNC: fxstate
   SYNC: fystate
