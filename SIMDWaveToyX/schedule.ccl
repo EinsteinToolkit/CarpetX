@@ -13,6 +13,8 @@ SCHEDULE SIMDWaveToyX_RHS IN ODESolvers_RHS
   LANG: C
   READS: state(everywhere)
   WRITES: rhs(interior)
+  # Sync for test output
+  SYNC: rhs
 } "Calculate scalar wave RHS"
 
 SCHEDULE SIMDWaveToyX_Boundaries IN ODESolvers_PostStep
