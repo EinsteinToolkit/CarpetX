@@ -128,7 +128,7 @@ extern "C" void TestODESolvers_Error(CCTK_ARGUMENTS) {
           // happens reliably at cctk_time == cctk_initial_time
           corder[ind] = 0;
         } else {
-          using std::log;
+          using std::abs, std::log;
           corder[ind] = log(abs(error2[ind] / error[ind])) / log(2.0);
         }
       }
