@@ -6,7 +6,6 @@ SCHEDULE WaveToyX_Initial AT initial
 {
   LANG: C
   WRITES: state(interior)
-  SYNC: state
 } "Initialize scalar wave state"
 
 # SCHEDULE WaveToyX_EstimateError AT postinitial
@@ -28,10 +27,16 @@ SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
   LANG: C
   READS: state(everywhere)
   WRITES: rhs(interior)
-  SYNC: rhs
 } "Calculate scalar wave RHS"
 
-SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep
+SCHEDULE WaveToyX_Boundaries IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: level
+  SYNC: state
+} "Apply boundary conditions"
+
+SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep AFTER WaveToyX_Boundaries
 {
   LANG: C
   READS: state(everywhere)
