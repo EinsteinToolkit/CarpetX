@@ -152,13 +152,85 @@ struct GHExt {
   struct GlobalData {
     // all data that exists on all levels
 
+    class AnyTypeVector {
+    private:
+      int _type;
+      void *_data;
+      size_t _count;
+
+    public:
+      AnyTypeVector() : _type(-1), _data(nullptr), _count(0){};
+      AnyTypeVector(int type_, size_t count_)
+          : _type(type_),
+            _data(amrex::The_Arena()->alloc(CCTK_VarTypeSize(type_) * count_)),
+            _count(count_){};
+      // Noncopyable for now
+      AnyTypeVector(const AnyTypeVector &) = delete;
+      AnyTypeVector &operator=(const AnyTypeVector &) = delete;
+      AnyTypeVector &operator=(const AnyTypeVector &&other) {
+        this->_type = other._type;
+        this->_data = other._data;
+        this->_count = other._count;
+        return *this;
+      }
+      AnyTypeVector(AnyTypeVector &&other)
+          : _type(other._type), _data(other._data), _count(other._count) {}
+      void swap(AnyTypeVector &other) {
+        std::swap(this->_type, other._type);
+        std::swap(this->_data, other._data);
+        std::swap(this->_count, other._count);
+      }
+
+      ~AnyTypeVector() {
+        if (_data != nullptr) {
+          assert(_type != -1);
+          amrex::The_Arena()->free(_data);
+          _type = -1;
+          _data = nullptr;
+          _count = 0;
+        }
+        assert(_data == nullptr);
+        assert(_type == -1);
+        assert(_count == 0);
+      };
+
+      void alloc(int type_, size_t count_) {
+        assert(_type == -1);
+        assert(_data == nullptr);
+        assert(_count == 0);
+
+        _type = type_;
+        _data = amrex::The_Arena()->alloc(CCTK_VarTypeSize(type_) * count_);
+        _count = count_;
+      }
+
+      void free() {
+        assert(_type != -1);
+        assert(_data != nullptr);
+        amrex::The_Arena()->free(_data);
+        _type = -1;
+        _data = nullptr;
+        _count = 0;
+      }
+
+      int type() const { return _type; };
+
+      void *data_at(size_t i) const {
+        return (char *)_data + i * CCTK_VarTypeSize(_type);
+      };
+
+      size_t size() const { return _count; };
+
+      friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
+                                       const AnyTypeVector &commongroupdata);
+    };
+
     // For subcycling in time, there really should be one copy of each
     // integrated grid scalar per level. We don't do that yet; instead,
     // we assume that grid scalars only hold "analysis" data.
 
     struct ArrayGroupData : public CommonGroupData {
-      std::vector<std::vector<CCTK_REAL> >
-          data; // [time level][var index + grid point index]
+      vector<AnyTypeVector> data; // [time level][var index + grid point index]
       int array_size;
       int dimension;
       int activetimelevels;
