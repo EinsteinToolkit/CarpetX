@@ -1061,7 +1061,6 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
         assert(!ierr);
         if (cgroup.grouptype == CCTK_GF)
           continue;
-        assert(cgroup.vartype == CCTK_VARIABLE_REAL);
         assert(cgroup.disttype == CCTK_DISTRIB_CONSTANT);
         assert(cgroup.dim >= 0);
         assert(cgroup.dim <= 3);
@@ -1155,38 +1154,50 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
         assert(cactus_dk > 0);
         assert(cactus_np > 0);
         for (int vi = 0; vi < numvars; ++vi) {
-          CCTK_REAL *const cactus_var_ptr =
-              groupdata.data.at(tl).data() + vi * cactus_np;
+          void *const cactus_var_ptr =
+              groupdata.data.at(tl).data_at(vi * cactus_np);
           if (input_ghosts || intbox == extbox) {
-#if OPENPMDAPI_VERSION_GE(0, 15, 0)
-            record_components.at(vi).loadChunkRaw(cactus_var_ptr, start, count);
-#else
-            record_components.at(vi).loadChunk(
-                openPMD::shareRaw(cactus_var_ptr), start, count);
+#if !OPENPMDAPI_VERSION_GE(0, 15, 0)
+#define loadChunkRaw(ptr, start, count)                                        \
+  loadChunk(openPMD::shareRaw(ptr), start, count)
 #endif
-
+            switch (cgroup.vartype) {
+            case CCTK_VARIABLE_REAL:
+              record_components.at(vi).loadChunkRaw(
+                  static_cast<CCTK_REAL *>(cactus_var_ptr), start, count);
+              break;
+            case CCTK_VARIABLE_INT:
+              record_components.at(vi).loadChunkRaw(
+                  static_cast<CCTK_INT *>(cactus_var_ptr), start, count);
+              break;
+            case CCTK_VARIABLE_COMPLEX:
+              record_components.at(vi).loadChunkRaw(
+                  static_cast<CCTK_COMPLEX *>(cactus_var_ptr), start, count);
+              break;
+            default:
+              assert(0 && "Unexpected variable type");
+            }
           } else {
-            const Arith::vect<int, 3> cactus_offset = box.lo - extbox.lo;
-            CCTK_REAL *const cactus_ptr =
-                cactus_var_ptr + cactus_di * cactus_offset[0] +
-                cactus_dj * cactus_offset[1] + cactus_dk * cactus_offset[2];
+            auto cactus_ptr = &groupdata.data.at(tl);
             const Arith::vect<int, 3> contig_shape = box.shape();
             constexpr int contig_di = 1;
             const int contig_dj = contig_di * contig_shape[0];
             const int contig_dk = contig_dj * contig_shape[1];
             const int contig_np = contig_dk * contig_shape[2];
             assert(contig_np == np);
-            CCTK_REAL *const contig_ptr =
-                cactus_var_ptr + extbox.size() - box.size();
+            const int contig_offset = extbox.size() - box.size();
             // TODO: optimize memory layout
-            const auto expand_box = [=](CCTK_REAL *const contig_ptr) {
+            const auto expand_box = [=](void *const contig_ptr) {
               for (int k = 0; k < contig_shape[2]; ++k)
                 for (int j = 0; j < contig_shape[1]; ++j)
-#pragma omp simd
                   for (int i = 0; i < contig_shape[0]; ++i)
-                    cactus_ptr[cactus_di * i + cactus_dj * j + cactus_dk * k] =
-                        contig_ptr[contig_di * i + contig_dj * j +
-                                   contig_dk * k];
+                    // TODO: copy whole contiguous strip at once
+                    memcpy(cactus_ptr->data_at(cactus_di * i + cactus_dj * j +
+                                               cactus_dk * k + cactus_np * vi),
+                           cactus_ptr->data_at(contig_di * i + contig_dj * j +
+                                               contig_dk * k + contig_offset +
+                                               cactus_np * vi),
+                           CCTK_VarTypeSize(cgroup.vartype));
               if (poison_undefined_values) {
                 // TODO: Get this from `valid.cxx`
 #if defined CCTK_REAL_PRECISION_4
@@ -1195,23 +1206,61 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                 constexpr std::uint64_t ipoison =
                     0xfff8000000000000ULL + 0xdeadbeef;
 #endif
-                CCTK_REAL poison;
-                std::memcpy(&poison, &ipoison, sizeof poison);
+                const size_t typesize =
+                    size_t(CCTK_VarTypeSize(cgroup.vartype));
+                std::vector<char> poison(typesize);
+                // for int: deadbeef for little endian machines
+                for (size_t i = 0; i < typesize; i += sizeof poison)
+                  std::memcpy(&poison[i], &ipoison,
+                              std::min(poison.size(), typesize - i));
                 for (int k = extbox.lo[2]; k < extbox.hi[2]; ++k) {
                   for (int j = extbox.lo[1]; j < extbox.hi[1]; ++j) {
                     for (int i = extbox.lo[0]; i < extbox.hi[0]; ++i) {
                       const Arith::vect<int, dim> I{i, j, k};
                       if (any(I < box.lo || I >= box.hi))
-                        cactus_var_ptr[cactus_di * i + cactus_dj * j +
-                                       cactus_dk * k] = poison;
+                        memcpy(cactus_ptr->data_at(cactus_di * i +
+                                                   cactus_dj * j +
+                                                   cactus_dk * k),
+                               poison.data(), poison.size());
                     }
                   }
                 }
               }
             };
-            record_components.at(vi).loadChunk(
-                std::shared_ptr<CCTK_REAL>(contig_ptr, expand_box), start,
-                count);
+            switch (cgroup.vartype) {
+            case CCTK_VARIABLE_REAL:
+              record_components.at(vi).loadChunk(
+                  std::shared_ptr<CCTK_REAL>(
+                      static_cast<CCTK_REAL *const>(
+                          cactus_ptr->data_at(contig_offset + cactus_np * vi)),
+                      [=](CCTK_REAL *const ptr) {
+                        expand_box(static_cast<void *>(ptr));
+                      }),
+                  start, count);
+              break;
+            case CCTK_VARIABLE_INT:
+              record_components.at(vi).loadChunk(
+                  std::shared_ptr<CCTK_INT>(
+                      static_cast<CCTK_INT *>(
+                          cactus_ptr->data_at(contig_offset + cactus_np * vi)),
+                      [=](CCTK_INT *const ptr) {
+                        expand_box(static_cast<void *const>(ptr));
+                      }),
+                  start, count);
+              break;
+            case CCTK_VARIABLE_COMPLEX:
+              record_components.at(vi).loadChunk(
+                  std::shared_ptr<CCTK_COMPLEX>(
+                      static_cast<CCTK_COMPLEX *>(
+                          cactus_ptr->data_at(contig_offset + cactus_np * vi)),
+                      [=](CCTK_COMPLEX *const ptr) {
+                        expand_box(static_cast<void *const>(ptr));
+                      }),
+                  start, count);
+              break;
+            default:
+              assert(0 && "Unexpected variable type");
+            }
           }
 
           // Mark read variables as valid
@@ -1664,7 +1713,6 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         assert(!ierr);
         if (cgroup.grouptype == CCTK_GF)
           continue;
-        assert(cgroup.vartype == CCTK_VARIABLE_REAL);
         assert(cgroup.disttype == CCTK_DISTRIB_CONSTANT);
         assert(cgroup.dim >= 0);
         assert(cgroup.dim <= 3);
@@ -1686,8 +1734,18 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
         // Create dataset
 
-        const openPMD::Datatype datatype =
-            openPMD::determineDatatype<CCTK_REAL>();
+        const openPMD::Datatype datatype = [](int varType) {
+          switch (varType) {
+          case CCTK_VARIABLE_REAL:
+            return openPMD::determineDatatype<CCTK_REAL>();
+          case CCTK_VARIABLE_INT:
+            return openPMD::determineDatatype<CCTK_INT>();
+          case CCTK_VARIABLE_COMPLEX:
+            return openPMD::determineDatatype<CCTK_COMPLEX>();
+          default:
+            assert(0 && "Unexpected varType");
+          }
+        }(cgroup.vartype);
         const openPMD::Extent extent = to_vector(reversed(idomain.shape()));
         const openPMD::Dataset dataset(datatype, extent);
 
@@ -1771,36 +1829,74 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         assert(cactus_dk > 0);
         assert(cactus_np > 0);
         for (int vi = 0; vi < numvars; ++vi) {
-          const CCTK_REAL *const var_ptr =
-              groupdata.data.at(tl).data() + vi * cactus_np;
+          const void *const var_ptr =
+              groupdata.data.at(tl).data_at(vi * cactus_np);
           if (output_ghosts || intbox == extbox) {
-            const CCTK_REAL *const ptr = var_ptr;
-#if OPENPMDAPI_VERSION_GE(0, 15, 0)
-            record_components.at(vi).storeChunkRaw(ptr, start, count);
-#else
-            record_components.at(vi).storeChunk(openPMD::shareRaw(ptr), start,
-                                                count);
+#if !OPENPMDAPI_VERSION_GE(0, 15, 0)
+#define storeChunkRaw(ptr, start, count)                                       \
+  storeChunk(openPMD::shareRaw(ptr), start, count)
 #endif
+            switch (cgroup.vartype) {
+            case CCTK_VARIABLE_REAL:
+              record_components.at(vi).storeChunkRaw(
+                  static_cast<CCTK_REAL const *const>(var_ptr), start, count);
+              break;
+            case CCTK_VARIABLE_INT:
+              record_components.at(vi).storeChunkRaw(
+                  static_cast<CCTK_INT const *const>(var_ptr), start, count);
+              break;
+            case CCTK_VARIABLE_COMPLEX:
+              record_components.at(vi).storeChunkRaw(
+                  static_cast<CCTK_COMPLEX const *const>(var_ptr), start,
+                  count);
+              break;
+            default:
+              assert(0 && "Unexpected variable type");
+            }
           } else {
-            std::shared_ptr<CCTK_REAL> ptr(new CCTK_REAL[np],
-                                           std::default_delete<CCTK_REAL[]>());
-            const Arith::vect<int, 3> cactus_offset = box.lo - extbox.lo;
-            const CCTK_REAL *restrict const cactus_ptr =
-                var_ptr + cactus_di * cactus_offset[0] +
-                cactus_dj * cactus_offset[1] + cactus_dk * cactus_offset[2];
+            auto cactus_ptr = &groupdata.data.at(tl);
             const Arith::vect<int, 3> contig_shape = box.shape();
             constexpr int contig_di = 1;
             const int contig_dj = contig_di * contig_shape[0];
             const int contig_dk = contig_dj * contig_shape[1];
             const int contig_np = contig_dk * contig_shape[2];
             assert(contig_np == np);
-            CCTK_REAL *restrict const contig_ptr = ptr.get();
+            auto contig_ptr =
+                new GHExt::GlobalData::AnyTypeVector(cgroup.vartype, np);
             for (int k = 0; k < contig_shape[2]; ++k)
               for (int j = 0; j < contig_shape[1]; ++j)
                 for (int i = 0; i < contig_shape[0]; ++i)
-                  contig_ptr[contig_di * i + contig_dj * j + contig_dk * k] =
-                      cactus_ptr[cactus_di * i + cactus_dj * j + cactus_dk * k];
-            record_components.at(vi).storeChunk(std::move(ptr), start, count);
+                  // TODO: copy whole contiguous strip at once
+                  memcpy(contig_ptr->data_at(contig_di * i + contig_dj * j +
+                                             contig_dk * k),
+                         cactus_ptr->data_at(cactus_di * i + cactus_dj * j +
+                                             cactus_dk * k + vi * cactus_np),
+                         CCTK_VarTypeSize(cgroup.vartype));
+            switch (cgroup.vartype) {
+            case CCTK_VARIABLE_REAL:
+              record_components.at(vi).storeChunk(
+                  std::shared_ptr<CCTK_REAL>(
+                      static_cast<CCTK_REAL *const>(contig_ptr->data_at(0)),
+                      [=](CCTK_REAL *const) { delete contig_ptr; }),
+                  start, count);
+              break;
+            case CCTK_VARIABLE_INT:
+              record_components.at(vi).storeChunk(
+                  std::shared_ptr<CCTK_INT>(
+                      static_cast<CCTK_INT *const>(contig_ptr->data_at(0)),
+                      [=](CCTK_INT *const) { delete contig_ptr; }),
+                  start, count);
+              break;
+            case CCTK_VARIABLE_COMPLEX:
+              record_components.at(vi).storeChunk(
+                  std::shared_ptr<CCTK_COMPLEX>(
+                      static_cast<CCTK_COMPLEX *const>(contig_ptr->data_at(0)),
+                      [=](CCTK_COMPLEX *const) { delete contig_ptr; }),
+                  start, count);
+              break;
+            default:
+              assert(0 && "Unexpected variable type");
+            }
           }
         } // for vi
       }
