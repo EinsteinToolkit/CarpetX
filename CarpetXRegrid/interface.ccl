@@ -1,5 +1,5 @@
 # Interface definition for thorn Regrid
-implements: Regrid
+implements: CarpetXRegrid
 inherits:
 PUBLIC:
 

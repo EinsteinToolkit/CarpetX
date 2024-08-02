@@ -52,7 +52,7 @@ CarpetX::out_norm_vars = "all"
 CarpetX::out_norm_omit_unstable = yes
 
 CarpetX::out_tsv_vars = "
-    Regrid::regrid_error
+    CarpetXRegrid::regrid_error
     CoordinatesX::vertex_coords
     CoordinatesX::cell_coords
 "

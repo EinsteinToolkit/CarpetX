@@ -72,22 +72,21 @@ CCTK_INT ncells_z "Number of grid cells"
 RESTRICTED:
 
 # Do not use
-BOOLEAN periodic "Periodic"
-{
- no :: "Only valid value"
-} no
-
-BOOLEAN periodic_x "Periodic"
+BOOLEAN periodic "Do not use"
 {
 } no
 
-BOOLEAN periodic_y "Periodic"
+BOOLEAN periodic_x "Do not use"
 {
-} no
+} yes
 
-BOOLEAN periodic_z "Periodic"
+BOOLEAN periodic_y "Do not use"
 {
-} no
+} yes
+
+BOOLEAN periodic_z "Do not use"
+{
+} yes
 
 
 

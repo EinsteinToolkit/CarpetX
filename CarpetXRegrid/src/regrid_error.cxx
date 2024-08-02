@@ -1,6 +1,3 @@
-//#include "schedule.hxx"
-
-#include <loop.hxx>
 #include <loop_device.hxx>
 
 #include <cctk.h>

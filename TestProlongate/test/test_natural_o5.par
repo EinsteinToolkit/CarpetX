@@ -90,3 +90,6 @@ CarpetX::out_tsv_vars = "
     TestProlongate::gf110_sum_count
     TestProlongate::gf111_sum_count
 "
+Driver::periodic_x = no
+Driver::periodic_y = no
+Driver::periodic_z = no

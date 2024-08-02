@@ -2,8 +2,6 @@
 
 IMPLEMENTS: Driver
 
-INHERITS: IO
-
 USES INCLUDE HEADER: silo.hxx
 
 USES INCLUDE HEADER: defs.hxx

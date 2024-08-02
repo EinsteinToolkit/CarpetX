@@ -1534,7 +1534,7 @@ void CactusAmrCore::ErrorEst(const int level, amrex::TagBoxArray &tags,
 #pragma omp critical
     CCTK_VINFO("ErrorEst patch %d level %d", patch, level);
 
-  const int gi = CCTK_GroupIndex("Regrid::regrid_error");
+  const int gi = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
   assert(gi >= 0);
   const int vi = 0;
   const int tl = 0;

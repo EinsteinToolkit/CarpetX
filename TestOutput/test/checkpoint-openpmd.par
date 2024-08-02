@@ -44,3 +44,6 @@ IO::checkpoint_dir = $parfile + "/checkpoints"
 IO::checkpoint_ID = yes
 IO::checkpoint_every = 1
 IO::checkpoint_on_terminate = yes
+Driver::periodic_x = no
+Driver::periodic_y = no
+Driver::periodic_z = no

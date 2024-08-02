@@ -46,3 +46,6 @@ CarpetX::out_openpmd_vars = "
     TestOutput::a2
     TestOutput::a3
 "
+Driver::periodic_x = no
+Driver::periodic_y = no
+Driver::periodic_z = no

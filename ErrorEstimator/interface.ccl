@@ -2,7 +2,7 @@
 
 IMPLEMENTS: ErrorEstimator
 
-INHERITS: Driver, Regrid
+INHERITS: Driver, CarpetXRegrid
 
 
 

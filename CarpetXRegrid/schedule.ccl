@@ -2,5 +2,5 @@
 SCHEDULE CarpetX_InitError AT basegrid
 {
   LANG: C
-  WRITES: Regrid::regrid_error(everywhere)
+  WRITES: CarpetXRegrid::regrid_error(everywhere)
 } "Initialize regridding error to zero"

@@ -45,3 +45,6 @@ CarpetX::out_tsv_vars = "
     FluxWaveToyX::energy
     FluxWaveToyX::error
 "
+Driver::periodic_x = no
+Driver::periodic_y = no
+Driver::periodic_z = no
