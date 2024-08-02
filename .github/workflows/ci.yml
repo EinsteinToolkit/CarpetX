@@ -52,8 +52,6 @@ jobs:
 
       - name: Build Cactus
         run: /bin/bash $GITHUB_WORKSPACE/scripts/build.sh
-        # The oneAPI setup does not build yet
-        continue-on-error: ${{matrix.accelerator == 'oneapi'}}
 
       - name: Test Cactus
         # We cannot run on accelerators. Debug builds run too slowly.
