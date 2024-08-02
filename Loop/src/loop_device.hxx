@@ -275,6 +275,7 @@ public:
             int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
   loop_outermost_int_device(const vect<int, dim> &group_nghostzones,
+                            const vect<vect<bool, dim>, 2> &is_sym_bnd,
                             const F &f) const {
     // boundary_box sets bnd_min and bnd_max
     vect<int, dim> bnd_min, bnd_max;
@@ -329,9 +330,12 @@ public:
               // True when point is on left/right boundary,
               // and vector is not parallel to a {face,corner,edge}
               // In either of the 3 directions
-              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0]) ||
-                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1]) ||
-                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2])) {
+              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0] &&
+                   !is_sym_bnd[ni < 0 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1] &&
+                   !is_sym_bnd[nj < 0 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2] &&
+                   !is_sym_bnd[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk}; // normal vector
 

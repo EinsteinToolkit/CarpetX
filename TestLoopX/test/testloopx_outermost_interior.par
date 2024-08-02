@@ -14,18 +14,42 @@ CarpetX::poison_undefined_values = "yes"
 
 CarpetX::xmin = -10
 CarpetX::ymin = -10
-CarpetX::zmin = -10
+CarpetX::zmin = 0
 CarpetX::xmax = +10
 CarpetX::ymax = +10
 CarpetX::zmax = +10
 
+CarpetX::blocking_factor_x = 2
+CarpetX::blocking_factor_y = 2
+CarpetX::blocking_factor_z = 2
+
+CarpetX::boundary_x = "none"
+CarpetX::boundary_y = "dirichlet"
+CarpetX::boundary_z = "none"
+
+CarpetX::boundary_upper_x = "none"
+CarpetX::boundary_upper_y = "dirichlet"
+CarpetX::boundary_upper_z = "dirichlet"
+
+CarpetX::reflection_x = "no"
+CarpetX::reflection_y = "no"
+CarpetX::reflection_z = "yes"
+
+CarpetX::reflection_upper_x = "no"
+CarpetX::reflection_upper_y = "no"
+CarpetX::reflection_upper_z = "no"
+
 CarpetX::periodic_x = "yes"
-CarpetX::periodic_y = "yes"
-CarpetX::periodic_z = "yes"
+CarpetX::periodic_y = "no"
+CarpetX::periodic_z = "no"
 
 CarpetX::ncells_x = 40
 CarpetX::ncells_y = 40
-CarpetX::ncells_z = 40
+CarpetX::ncells_z = 20
+
+CarpetX::max_grid_size_x = 4
+CarpetX::max_grid_size_y = 4
+CarpetX::max_grid_size_z = 4
 
 CarpetX::max_num_levels = 1
 CarpetX::regrid_every = 1
