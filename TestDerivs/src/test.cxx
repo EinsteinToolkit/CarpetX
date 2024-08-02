@@ -154,12 +154,14 @@ extern "C" void TestDerivs_CalcDerivs(CCTK_ARGUMENTS) {
             dyydchi - gf_ddchi(1, 1)(p.I) > tiny ||
             dyzdchi - gf_ddchi(1, 2)(p.I) > tiny ||
             dzzdchi - gf_ddchi(2, 2)(p.I) > tiny) {
+#ifndef SYCL_LANGUAGE_VERSION
           printf("ddxx = %f\n", dxxdchi - gf_ddchi(0, 0)(p.I));
           printf("ddxy = %f\n", dxydchi - gf_ddchi(0, 1)(p.I));
           printf("ddxz = %f\n", dxzdchi - gf_ddchi(0, 2)(p.I));
           printf("ddyy = %f\n", dyydchi - gf_ddchi(1, 1)(p.I));
           printf("ddyz = %f\n", dyzdchi - gf_ddchi(1, 2)(p.I));
           printf("ddzz = %f\n", dzzdchi - gf_ddchi(2, 2)(p.I));
+#endif
           assert(0);
         }
       });
