@@ -234,7 +234,7 @@ void poison_invalid_ga(const int gi, const int vi, const int tl) {
   if (valid.valid_all())
     return;
 
-  const int typesize = CCTK_VarTypeSize(group.vartype);
+  const size_t typesize = size_t(CCTK_VarTypeSize(group.vartype));
   char poison[typesize];
   // for int: deadbeef for little endian machines
   for (size_t i = 0; i < typesize; i += sizeof poison)
@@ -486,7 +486,7 @@ void check_valid_ga(const int gi, const int vi, const int tl,
   if (valid.valid_all())
     return;
 
-  const int typesize = CCTK_VarTypeSize(group.vartype);
+  const size_t typesize = size_t(CCTK_VarTypeSize(group.vartype));
   char poison[typesize];
   // for int: deadbeef for little endian machines
   for (size_t i = 0; i < typesize; i += sizeof poison)
