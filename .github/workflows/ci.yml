@@ -23,6 +23,7 @@ jobs:
         exclude:
           - {accelerator: rocm, real-precision: real32}
           - {accelerator: oneapi, real-precision: real32}
+          - {accelerator: oneapi, mode: debug} # uses too much disk space?
           - {real-precision: real32, mode: optimize}
     env:
       ACCELERATOR: ${{matrix.accelerator}}
