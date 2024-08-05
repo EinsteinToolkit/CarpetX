@@ -50,6 +50,7 @@ RUN apt-get update && \
         libtool \
         libudev-dev \
         libyaml-cpp-dev \
+        libzstd-dev \
         locales \
         m4 \
         meson \
@@ -106,9 +107,9 @@ RUN apt-get update && \
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.14.4.tar.gz && \
-    tar xzf v2.14.4.tar.gz && \
-    cd c-blosc2-2.14.4 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.0.tar.gz && \
+    tar xzf v2.15.0.tar.gz && \
+    cd c-blosc2-2.15.0 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -283,9 +284,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.06.tar.gz && \
-    tar xzf 24.06.tar.gz && \
-    cd amrex-24.06 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.08.tar.gz && \
+    tar xzf 24.08.tar.gz && \
+    cd amrex-24.08 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
