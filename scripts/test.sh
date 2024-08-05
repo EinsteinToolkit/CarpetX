@@ -59,11 +59,21 @@ for errfile in $(find "${ONEPROC_DIR}/../.." "${TWOPROC_DIR}/../.." -name '*.err
     echo '================================================================================'
 done
 
-TESTS_FAILED=False
+# TESTS_FAILED=False
+# for test_dir in "${ONEPROC_DIR}" "${TWOPROC_DIR}"; do
+#     log="${test_dir}/summary.log"
+#     if ! grep -q '^    Number failed            -> 0$' ${log}; then
+#         TESTS_FAILED=True
+#     fi
+# done
+# echo "TESTS_FAILED=${TESTS_FAILED}" >>"${GITHUB_ENV}"
+
 for test_dir in "${ONEPROC_DIR}" "${TWOPROC_DIR}"; do
     log="${test_dir}/summary.log"
     if ! grep -q '^    Number failed            -> 0$' ${log}; then
-        TESTS_FAILED=True
+        # Failure
+        exit 1
     fi
 done
-echo "TESTS_FAILED=${TESTS_FAILED}" >>"${GITHUB_ENV}"
+# Success
+exit 0
