@@ -38,6 +38,14 @@ CarpetX::out_tsv_vars = "
     TestOutput::a1
     TestOutput::a2
     TestOutput::a3
+    TestOutput::sc_int
+    TestOutput::a1_int
+    TestOutput::a2_int
+    TestOutput::a3_int
+    TestOutput::sc_complex
+    TestOutput::a1_complex
+    TestOutput::a2_complex
+    TestOutput::a3_complex
 "
 
 CarpetX::checkpoint_method = "openpmd"
