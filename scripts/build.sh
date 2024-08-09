@@ -29,7 +29,9 @@ esac
 
 # Build
 # The build log needs to be stored for later.
-time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build "$mode" --jobs $(nproc) sim 2>&1 |
+#TODO time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build "$mode" --jobs $(nproc) sim 2>&1 |
+#TODO     tee build.log
+time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build "$mode" --jobs 1 2>&1 |
     tee build.log
 
 # Check whether the executable exists and is executable
