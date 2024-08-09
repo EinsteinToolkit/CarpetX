@@ -42,11 +42,12 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
 
   const amrex::Box box(amrex::IntVect(imin[0], imin[1], imin[2]),
                        amrex::IntVect(imax[0] - 1, imax[1] - 1, imax[2] - 1));
-  amrex::ParallelFor(box, [=] CCTK_DEVICE(const int i, const int j, const int k)
-                              CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                const Arith::vect<int, dim> p{i, j, k};
-                                f(p);
-                              });
+  amrex::ParallelFor(
+      box, [=] CCTK_DEVICE(const int i, const int j, const int k)
+               __attribute__((__always_inline__, __flatten__)) {
+                 const Arith::vect<int, dim> p{i, j, k};
+                 f(p);
+               });
 }
 } // namespace
 
@@ -350,8 +351,9 @@ template <int ORDER> struct interp1d<VC, POLY, ORDER> {
   static_assert(ORDER % 2 == 1);
   static constexpr int required_ghosts = (ORDER + 1) / 2;
   CCTK_DEVICE
-  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
-  stencil_radius(const int shift, const int off) const {
+  CCTK_HOST constexpr
+      __attribute__((__always_inline__, __flatten__)) std::array<int, 2>
+      stencil_radius(const int shift, const int off) const {
     if (off == 0)
       return {0, 0};
     constexpr int N = ORDER + 1;
@@ -359,7 +361,7 @@ template <int ORDER> struct interp1d<VC, POLY, ORDER> {
     return {0 - i0, ORDER - i0};
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
@@ -412,8 +414,9 @@ template <int ORDER> struct interp1d<VC, POLY, ORDER> {
 template <int ORDER> struct interp1d<CC, POLY, ORDER> {
   static constexpr int required_ghosts = (ORDER + 1) / 2;
   CCTK_DEVICE
-  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
-  stencil_radius(const int shift, const int off) const {
+  CCTK_HOST constexpr
+      __attribute__((__always_inline__, __flatten__)) std::array<int, 2>
+      stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
 #endif
@@ -425,7 +428,7 @@ template <int ORDER> struct interp1d<CC, POLY, ORDER> {
       return {0 - i0 + ORDER % 2, N - 1 - i0 + ORDER % 2};
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
@@ -466,8 +469,9 @@ template <int ORDER> struct interp1d<VC, HERMITE, ORDER> {
   static_assert(ORDER % 2 == 1);
   static constexpr int required_ghosts = (ORDER + 1) / 2;
   CCTK_DEVICE
-  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
-  stencil_radius(const int shift, const int off) const {
+  CCTK_HOST constexpr
+      __attribute__((__always_inline__, __flatten__)) std::array<int, 2>
+      stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
 #endif
@@ -478,7 +482,7 @@ template <int ORDER> struct interp1d<VC, HERMITE, ORDER> {
     return {0 - i0, N - 1 - i0};
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(off == 0 || off == 1);
@@ -531,8 +535,9 @@ template <int ORDER> struct interp1d<VC, HERMITE, ORDER> {
 template <int ORDER> struct interp1d<VC, CONS, ORDER> {
   static constexpr int required_ghosts = (ORDER + 1) / 2;
   CCTK_DEVICE
-  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
-  stencil_radius(const int shift, const int off) const {
+  CCTK_HOST constexpr
+      __attribute__((__always_inline__, __flatten__)) std::array<int, 2>
+      stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(shift == 0);
     assert(off == 0 || off == 1);
@@ -546,7 +551,7 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
     }
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(shift == 0);
@@ -577,8 +582,9 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
 template <int ORDER> struct interp1d<CC, CONS, ORDER> {
   static constexpr int required_ghosts = (ORDER + 1) / 2;
   CCTK_DEVICE
-  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
-  stencil_radius(const int shift, const int off) const {
+  CCTK_HOST constexpr
+      __attribute__((__always_inline__, __flatten__)) std::array<int, 2>
+      stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(shift == 0);
     assert(off == 0 || off == 1);
@@ -589,7 +595,7 @@ template <int ORDER> struct interp1d<CC, CONS, ORDER> {
       return {-(ORDER / 2), +((ORDER + 1) / 2)};
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(shift == 0);
@@ -683,7 +689,7 @@ template <centering_t CENT, interpolation_t INTP, int ORDER>
 struct undivided_difference_1d {
   static constexpr int required_ghosts = 0;
   template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse) const {
     return 0;
   }
@@ -694,7 +700,7 @@ template <int ORDER> struct undivided_difference_1d<CC, ENO, ORDER> {
   // The stencil size is ORDER / 2, and the stencil shift can be ORDER / 2
   // static constexpr int required_ghosts = ORDER;
   template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse) const {
     constexpr int N = ORDER + 1;
     constexpr std::array<int, N> ws = undivided_difference_weights<N>::weights;
@@ -734,8 +740,9 @@ template <int ORDER> struct interp1d<CC, ENO, ORDER> {
   static_assert(ORDER % 2 == 0);
   static constexpr int required_ghosts = ORDER;
   CCTK_DEVICE
-  CCTK_HOST constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE std::array<int, 2>
-  stencil_radius(const int shift, const int off) const {
+  CCTK_HOST constexpr
+      __attribute__((__always_inline__, __flatten__)) std::array<int, 2>
+      stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(-ORDER / 2 <= shift && shift <= +ORDER / 2);
     assert(off == 0 || off == 1);
@@ -745,7 +752,7 @@ template <int ORDER> struct interp1d<CC, ENO, ORDER> {
     return {0 - i0, ORDER - i0};
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
-  CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
     assert(-ORDER / 2 <= shift && shift <= +ORDER / 2);
@@ -991,13 +998,13 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename F, typename T = std::invoke_result_t<F> >
-CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_0d(const F &crse) {
   return crse();
 }
 
 template <typename F, typename Si, typename T = std::invoke_result_t<F, int> >
-CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_1d(const F &crse, const Si &si) {
   return si(
       [&](const int i) { return call_stencil_0d([&]() { return crse(i); }); });
@@ -1005,7 +1012,7 @@ call_stencil_1d(const F &crse, const Si &si) {
 
 template <typename F, typename Si, typename Sj,
           typename T = std::invoke_result_t<F, int, int> >
-CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_2d(const F &crse, const Si &si, const Sj &sj) {
   return sj([&](const int j) {
     return call_stencil_1d([&](const int i) { return crse(i, j); }, si);
@@ -1014,7 +1021,7 @@ call_stencil_2d(const F &crse, const Si &si, const Sj &sj) {
 
 template <typename F, typename Si, typename Sj, typename Sk,
           typename T = std::invoke_result_t<F, int, int, int> >
-CCTK_DEVICE CCTK_HOST inline CCTK_ATTRIBUTE_ALWAYS_INLINE T
+CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_3d(const F &crse, const Si &si, const Sj &sj, const Sk &sk) {
   return sk([&](const int k) {
     return call_stencil_2d(
@@ -1147,37 +1154,38 @@ void prolongate_3d_rf2<
     CCTK_REAL *restrict fineptr = fine.dataPtr(fine_comp + comp);
 
     const auto crse = [=] CCTK_DEVICE(const int i, const int j, const int k)
-                          CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                            const amrex::IntVect vcrse(i, j, k);
+        __attribute__((__always_inline__, __flatten__)) {
+      const amrex::IntVect vcrse(i, j, k);
 #ifdef CCTK_DEBUG
-                            assert(crsebox.contains(vcrse));
+      assert(crsebox.contains(vcrse));
 #endif
-                            return crseptr[crsebox.index(vcrse)];
-                          };
+      return crseptr[crsebox.index(vcrse)];
+    };
     const auto fine = [=] CCTK_DEVICE(const int i, const int j, const int k)
-                          CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                            const amrex::IntVect vfine(i, j, k);
+        __attribute__((__always_inline__, __flatten__)) {
+      const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-                            assert(finebox.contains(vfine));
+      assert(finebox.contains(vfine));
 #endif
-                            return fineptr[finebox.index(vfine)];
-                          };
+      return fineptr[finebox.index(vfine)];
+    };
     const auto setfine = [=] CCTK_DEVICE(const int i, const int j, const int k,
                                          const CCTK_REAL val)
-                             CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                               const amrex::IntVect vfine(i, j, k);
+        __attribute__((__always_inline__, __flatten__)) {
+      const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-                               assert(finebox.contains(vfine));
+      assert(finebox.contains(vfine));
 #endif
-                               fineptr[finebox.index(vfine)] = val;
-                             };
+      fineptr[finebox.index(vfine)] = val;
+    };
 
 #ifdef CCTK_DEBUG
     // Check that the input values are finite
     amrex::ParallelFor(
-        source_region,
-        [=] CCTK_DEVICE(const int i, const int j, const int k)
-            CCTK_ATTRIBUTE_ALWAYS_INLINE { assert(isfinite(crse(i, j, k))); });
+        source_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
+                           __attribute__((__always_inline__, __flatten__)) {
+                             assert(isfinite(crse(i, j, k)));
+                           });
 #endif
 
     // Undivided differences
@@ -1196,8 +1204,8 @@ void prolongate_3d_rf2<
                               target_region.hiVect()[1] + 1,
                               target_region.hiVect()[2] + 1};
     loop_region(
-        [=] CCTK_DEVICE(
-            const vect<int, dim> &ifine) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        [=] CCTK_DEVICE(const vect<int, dim> &ifine) __attribute__((
+            __always_inline__, __flatten__)) {
           // Redefine `constexpr` values since they are only captured as
           // `const` by nvcc
           constexpr vect<interpolation_t, dim> interpolation{INTPI, INTPJ,
@@ -1469,9 +1477,10 @@ void prolongate_3d_rf2<
 #ifdef CCTK_DEBUG
     // Check that the output values are finite
     amrex::ParallelFor(
-        target_region,
-        [=] CCTK_DEVICE(const int i, const int j, const int k)
-            CCTK_ATTRIBUTE_ALWAYS_INLINE { assert(isfinite(fine(i, j, k))); });
+        target_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
+                           __attribute__((__always_inline__, __flatten__)) {
+                             assert(isfinite(fine(i, j, k)));
+                           });
 #endif
 
   } // for comp
@@ -1572,41 +1581,41 @@ void prolongate_3d_rf2<
   CCTK_REAL *restrict fineptr = fine_box.dataPtr(fine_comp);
   const std::ptrdiff_t finenp = fine_box.dataPtr(1) - fine_box.dataPtr(0);
 
-  const auto crse =
-      [=] CCTK_DEVICE(const int i, const int j, const int k, const int comp)
-          CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            const amrex::IntVect vcrse(i, j, k);
+  const auto crse = [=] CCTK_DEVICE(const int i, const int j, const int k,
+                                    const int comp)
+      __attribute__((__always_inline__, __flatten__)) {
+    const amrex::IntVect vcrse(i, j, k);
 #ifdef CCTK_DEBUG
-            assert(crsebox.contains(vcrse));
+    assert(crsebox.contains(vcrse));
 #endif
-            return crseptr[crsebox.index(vcrse) + comp * crsenp];
-          };
+    return crseptr[crsebox.index(vcrse) + comp * crsenp];
+  };
 #ifdef CCTK_DEBUG
-  const auto fine =
-      [=] CCTK_DEVICE(const int i, const int j, const int k, const int comp)
-          CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            const amrex::IntVect vfine(i, j, k);
+  const auto fine = [=] CCTK_DEVICE(const int i, const int j, const int k,
+                                    const int comp)
+      __attribute__((__always_inline__, __flatten__)) {
+    const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-            assert(finebox.contains(vfine));
+    assert(finebox.contains(vfine));
 #endif
-            return fineptr[finebox.index(vfine) + comp * finenp];
-          };
+    return fineptr[finebox.index(vfine) + comp * finenp];
+  };
 #endif
-  const auto setfine =
-      [=] CCTK_DEVICE(const int i, const int j, const int k, const int comp,
-                      const CCTK_REAL val) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        const amrex::IntVect vfine(i, j, k);
+  const auto setfine = [=] CCTK_DEVICE(const int i, const int j, const int k,
+                                       const int comp, const CCTK_REAL val)
+      __attribute__((__always_inline__, __flatten__)) {
+    const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-        assert(finebox.contains(vfine));
+    assert(finebox.contains(vfine));
 #endif
-        fineptr[finebox.index(vfine) + comp * finenp] = val;
-      };
+    fineptr[finebox.index(vfine) + comp * finenp] = val;
+  };
 
 #ifdef CCTK_DEBUG
   // Check that the input values are finite
-  amrex::ParallelFor(source_region,
-                     [=] CCTK_DEVICE(const int i, const int j, const int k)
-                         CCTK_ATTRIBUTE_ALWAYS_INLINE {
+  amrex::ParallelFor(
+      source_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
+                         __attribute__((__always_inline__, __flatten__)) {
                            for (int comp = 0; comp < ncomps; ++comp)
                              assert(isfinite(crse(i, j, k, comp)));
                          });
@@ -1627,8 +1636,8 @@ void prolongate_3d_rf2<
                             target_region.hiVect()[1] + 1,
                             target_region.hiVect()[2] + 1};
   loop_region(
-      [=] CCTK_DEVICE(
-          const vect<int, dim> &ifine) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+      [=] CCTK_DEVICE(const vect<int, dim> &ifine) __attribute__((
+          __always_inline__, __flatten__)) {
         // Redefine `constexpr` values since they are only captured as
         // `const` by nvcc
         constexpr vect<interpolation_t, dim> interpolation{INTPI, INTPJ, INTPK};
@@ -1937,9 +1946,9 @@ void prolongate_3d_rf2<
 
 #ifdef CCTK_DEBUG
   // Check that the output values are finite
-  amrex::ParallelFor(target_region,
-                     [=] CCTK_DEVICE(const int i, const int j, const int k)
-                         CCTK_ATTRIBUTE_ALWAYS_INLINE {
+  amrex::ParallelFor(
+      target_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
+                         __attribute__((__always_inline__, __flatten__)) {
                            for (int comp = 0; comp < ncomps; ++comp)
                              assert(isfinite(fine(i, j, k, comp)));
                          });
