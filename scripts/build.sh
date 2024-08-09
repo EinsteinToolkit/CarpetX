@@ -22,14 +22,8 @@ git config --global user.email "carpetx@einsteintoolkit.org"
 git config --global user.name "Github Actions"
 
 case "$MODE" in
-    debug)
-        mode='--debug'
-        configuration='sim-debug'
-        ;;
-    optimize)
-        mode='--optimise'
-        configuration='sim'
-        ;;
+    debug) mode='--debug';;
+    optimize) mode='--optimise';;
     *) exit 1;;
 esac
 
@@ -39,4 +33,4 @@ time ./simfactory/bin/sim --machine="actions-$ACCELERATOR-$REAL_PRECISION" build
     tee build.log
 
 # Check whether the executable exists and is executable
-test -x "exe/cactus_$configuration"
+test -x exe/cactus_sim
