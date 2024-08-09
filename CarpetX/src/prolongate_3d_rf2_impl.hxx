@@ -1011,14 +1011,14 @@ template <typename F, typename Si, typename T = std::invoke_result_t<F, int> >
 CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_1d(const F &crse, const Si &si) {
   return si(
-      [&](const int i) { return call_stencil_0d([&]() __attribute__((__always_inline__, __flatten__)) { return crse(i); }); });
+      [&](const int i) __attribute__((__always_inline__, __flatten__)) { return call_stencil_0d([&]() __attribute__((__always_inline__, __flatten__)) { return crse(i); }); });
 }
 
 template <typename F, typename Si, typename Sj,
           typename T = std::invoke_result_t<F, int, int> >
 CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_2d(const F &crse, const Si &si, const Sj &sj) {
-  return sj([&](const int j) {
+  return sj([&](const int j) __attribute__((__always_inline__, __flatten__)) {
     return call_stencil_1d([&](const int i) __attribute__((__always_inline__, __flatten__)) { return crse(i, j); }, si);
   });
 }
@@ -1027,7 +1027,7 @@ template <typename F, typename Si, typename Sj, typename Sk,
           typename T = std::invoke_result_t<F, int, int, int> >
 CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_3d(const F &crse, const Si &si, const Sj &sj, const Sk &sk) {
-  return sk([&](const int k) {
+  return sk([&](const int k) __attribute__((__always_inline__, __flatten__)) {
     return call_stencil_2d(
         [&](const int i, const int j) __attribute__((__always_inline__, __flatten__)) { return crse(i, j, k); }, si, sj);
   });
@@ -1773,16 +1773,16 @@ void prolongate_3d_rf2<
         std::array<CCTK_REAL, maxncomps> vals;
         for (int comp = 0; comp < ncomps; ++comp)
           vals[comp] = call_stencil_3d(
-              [&](const int di, const int dj, const int dk) {
+              [&](const int di, const int dj, const int dk) __attribute__((__always_inline__, __flatten__)) {
                 return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk, comp);
               },
-              [&](const auto &crse) {
+              [&](const auto &crse) __attribute__((__always_inline__, __flatten__)) {
                 return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0], off[0]);
               },
-              [&](const auto &crse) {
+              [&](const auto &crse) __attribute__((__always_inline__, __flatten__)) {
                 return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1], off[1]);
               },
-              [&](const auto &crse) {
+              [&](const auto &crse) __attribute__((__always_inline__, __flatten__)) {
                 return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2], off[2]);
               });
 
