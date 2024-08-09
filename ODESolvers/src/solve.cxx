@@ -422,29 +422,43 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
       if (!read_dst) {
 
-        amrex::launch(box, [=] CCTK_DEVICE(const amrex::Box &box)
-                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                 const int i = box.smallEnd()[0];
-                                 // const int j = box.smallEnd()[1];
-                                 // const int k = box.smallEnd()[2];
-                                 CCTK_REAL accum = 0;
-                                 for (size_t n = 0; n < N; ++n)
-                                   accum += factors[n] * srcptrs[n][i];
-                                 dstptr[i] = accum;
-                               });
+        amrex::launch(
+            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
+                     __always_inline__, __flatten__)) {
+              const int i = box.smallEnd()[0];
+              // const int j = box.smallEnd()[1];
+              // const int k = box.smallEnd()[2];
+              CCTK_REAL accum = 0;
+              // The ROCM 6.2 compiler can't handle `std::array::operator[]`, so
+              // we avoid it via pointers: for (size_t n = 0; n < N; ++n)
+              //   accum += factors[n] * srcptrs[n][i];
+              const CCTK_REAL *restrict const factors_ptr = factors.data();
+              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
+                  srcptrs.data();
+              for (size_t n = 0; n < N; ++n)
+                accum += factors_ptr[n] * srcptrs_ptr[n][i];
+              dstptr[i] = accum;
+            });
 
       } else {
 
-        amrex::launch(box, [=] CCTK_DEVICE(const amrex::Box &box)
-                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                 const int i = box.smallEnd()[0];
-                                 // const int j = box.smallEnd()[1];
-                                 // const int k = box.smallEnd()[2];
-                                 CCTK_REAL accum = scale1 * dstptr[i];
-                                 for (size_t n = 0; n < N; ++n)
-                                   accum += factors[n] * srcptrs[n][i];
-                                 dstptr[i] = accum;
-                               });
+        amrex::launch(
+            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
+                     __always_inline__, __flatten__)) {
+              const int i = box.smallEnd()[0];
+              // const int j = box.smallEnd()[1];
+              // const int k = box.smallEnd()[2];
+              CCTK_REAL accum = scale1 * dstptr[i];
+              // The ROCM 6.2 compiler can't handle `std::array::operator[]`, so
+              // we avoid it via pointers: for (size_t n = 0; n < N; ++n)
+              //   accum += factors[n] * srcptrs[n][i];
+              const CCTK_REAL *restrict const factors_ptr = factors.data();
+              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
+                  srcptrs.data();
+              for (size_t n = 0; n < N; ++n)
+                accum += factors_ptr[n] * srcptrs_ptr[n][i];
+              dstptr[i] = accum;
+            });
       }
 
 #endif
