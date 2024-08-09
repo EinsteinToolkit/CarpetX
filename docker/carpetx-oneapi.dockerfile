@@ -32,6 +32,7 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA &&
         gfortran \
         git \
         hdf5-tools \
+        hwloc-nox \
         language-pack-en \
         less \
         libblosc-dev \

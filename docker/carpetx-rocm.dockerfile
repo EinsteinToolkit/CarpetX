@@ -6,8 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real32 .
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
-# FROM rocm/dev-ubuntu-22.04:6.1.1
-FROM rocm/dev-ubuntu-22.04:6.1.2
+# FROM rocm/dev-ubuntu-22.04:6.1.2
+FROM rocm/dev-ubuntu-24.04:6.2
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -34,6 +34,7 @@ RUN apt-get update && \
         git \
         hdf5-tools \
         hiprand-dev \
+        hwloc-nox \
         language-pack-en \
         less \
         libblosc-dev \

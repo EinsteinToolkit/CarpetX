@@ -34,6 +34,7 @@ RUN apt-get update && \
         gfortran \
         git \
         hdf5-tools \
+        hwloc-nox \
         language-pack-en \
         less \
         libblosc-dev \
