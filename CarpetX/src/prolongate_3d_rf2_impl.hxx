@@ -570,8 +570,12 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
       constexpr int i0 = (ORDER + 1) / 2 - 1;
       constexpr std::array<T, (ORDER + 1) / 2 * 2> cs =
           coeffs1d<VC, CONS, ORDER, T>::coeffs1;
+      // The ROCM 6.2 compiler can't handle `cs[i]`, so we avoid it via pointers:
+      // for (int i = 0; i < (ORDER + 1) / 2 * 2; ++i)
+      //   y += cs[i] * crse(i - i0);
+      const T* restrict const csptr = cs.data();
       for (int i = 0; i < (ORDER + 1) / 2 * 2; ++i)
-        y += cs[i] * crse(i - i0);
+        y += csptr[i] * crse(i - i0);
     }
     return y;
   }
