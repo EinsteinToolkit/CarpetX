@@ -1,5 +1,6 @@
 ActiveThorns = "
     CarpetX
+    CarpetXRegrid
     FluxWaveToyX
     IOUtil
     ODESolvers
@@ -31,6 +32,7 @@ ODESolvers::method = "RK3"
 
 IO::out_dir = $parfile
 IO::out_every = 10
+IO::out_fileinfo = "axis labels"
 IO::parfile_write = no
 
 CarpetX::out_metadata = no
