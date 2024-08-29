@@ -1,6 +1,7 @@
 ActiveThorns = "
     BoxInBox
     CarpetX
+    CarpetXRegrid
     CoordinatesX
     IOUtil
     TestBoxInBox
@@ -33,6 +34,7 @@ Cactus::cctk_itlast = 10
 
 IO::out_dir = $parfile
 IO::out_every = 10
+IO::out_fileinfo = "axis labels"
 IO::parfile_write = no
 
 CarpetX::out_metadata = no
@@ -40,7 +42,7 @@ CarpetX::out_norm_vars = "all"
 CarpetX::out_norm_omit_unstable = yes
 
 CarpetX::out_tsv_vars = "
-    CarpetX::regrid_error
+    CarpetXRegrid::regrid_error
     CoordinatesX::vertex_coords
     CoordinatesX::cell_coords
 "
