@@ -1,9 +1,9 @@
 ActiveThorns = "
-    MovingBoxToy
     BoxInBox
     CarpetX
     CoordinatesX
     IOUtil
+    MovingBoxToy
 "
 
 Cactus::cctk_show_schedule = no
@@ -45,6 +45,7 @@ Cactus::cctk_itlast = 5
 
 IO::out_dir = $parfile
 IO::out_every = 1
+IO::out_fileinfo = "axis labels"
 IO::parfile_write = no
 
 CarpetX::out_metadata = no
@@ -53,7 +54,7 @@ CarpetX::out_norm_omit_unstable = yes
 CarpetX::out_norm_omit_sumloc_for_backward_compatibility = yes
 
 CarpetX::out_tsv_vars = "
-    CarpetX::regrid_error
+    CarpetXRegrid::regrid_error
     CoordinatesX::vertex_coords
     CoordinatesX::cell_coords
 "
