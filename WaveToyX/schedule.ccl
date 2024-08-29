@@ -12,14 +12,14 @@ SCHEDULE WaveToyX_Initial AT initial
 # {
 #   LANG: C
 #   READS: state(everywhere)
-#   WRITES: CarpetX::regrid_error(interior)
+#   WRITES: CarpetXRegrid::regrid_error(interior)
 # } "Estimate error for regridding"
 # 
 # SCHEDULE WaveToyX_EstimateError AT poststep
 # {
 #   LANG: C
 #   READS: state(everywhere)
-#   WRITES: CarpetX::regrid_error(interior)
+#   WRITES: CarpetXRegrid::regrid_error(interior)
 # } "Estimate error for regridding"
 
 SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
