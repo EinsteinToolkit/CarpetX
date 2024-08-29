@@ -1,8 +1,6 @@
 # Interface definition for thorn TestLoopX
 IMPLEMENTS: TestLoopX
 
-INHERITS: CarpetX
-
 USES INCLUDE HEADER: loop.hxx
 USES INCLUDE HEADER: loop_device.hxx
 
