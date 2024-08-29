@@ -1,5 +1,6 @@
 ActiveThorns = "
     CarpetX
+    CarpetXRegrid
     FluxWaveToyX
     IOUtil
     ODESolvers
@@ -14,9 +15,10 @@ CarpetX::ncells_x = 8
 CarpetX::ncells_y = 8
 CarpetX::ncells_z = 8
 
-CarpetX::periodic_x = yes
-CarpetX::periodic_y = yes
-CarpetX::periodic_z = yes
+Driver::periodic = "yes"
+Driver::periodic_x = yes
+Driver::periodic_y = yes
+Driver::periodic_z = yes
 
 Cactus::cctk_itlast = 10
 
@@ -26,6 +28,7 @@ ODESolvers::method = "RK3"
 
 IO::out_dir = $parfile
 IO::out_every = 10
+IO::out_fileinfo = "axis labels"
 IO::parfile_write = no
 
 CarpetX::out_metadata = no
