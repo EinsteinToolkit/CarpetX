@@ -7,8 +7,8 @@
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
 # noble is ubuntu:24.04
-# FROM ubuntu:noble-20240530
-FROM ubuntu:noble-20240605
+# FROM ubuntu:noble-20240605
+FROM ubuntu:noble-20240801
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -26,6 +26,7 @@ RUN apt-get update && \
     apt-get --yes --no-install-recommends install \
         bzip2 \
         ca-certificates \
+        clang-format \
         cmake \
         cvs \
         diffutils \
@@ -117,9 +118,9 @@ RUN mkdir src && \
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.0.tar.gz && \
-    tar xzf v2.15.0.tar.gz && \
-    cd c-blosc2-2.15.0 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.1.tar.gz && \
+    tar xzf v2.15.1.tar.gz && \
+    cd c-blosc2-2.15.1 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -277,10 +278,10 @@ RUN mkdir src && \
     tar xzf v1.5.2.tar.gz && \
     cd ssht-1.5.2 && \
     cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_INSTALL_PREFIX=/usr/local \
-            -DBUILD_TESTING=OFF \
-            && \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_TESTING=OFF \
+        && \
     cmake --build build && \
     cmake --install build && \
     true) && \
@@ -295,9 +296,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.08.tar.gz && \
-    tar xzf 24.08.tar.gz && \
-    cd amrex-24.08 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.09.tar.gz && \
+    tar xzf 24.09.tar.gz && \
+    cd amrex-24.09 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
