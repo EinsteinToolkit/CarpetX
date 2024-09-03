@@ -21,8 +21,9 @@ CarpetX::max_num_levels = $nlevels
 CarpetX::dtfac = 0.5
 
 IO::out_dir = $parfile
-IO::parfile_write = "no"
 IO::out_every = 1
+IO::out_fileinfo = "axis labels"
+IO::parfile_write = no
 
 CarpetX::out_metadata = no
 CarpetX::out_tsv_vars = "
