@@ -6,3 +6,9 @@ ActiveThorns = "
 
 Cactus::presync_mode = "mixed-error"
 Cactus::cctk_itlast = 0
+
+IO::out_fileinfo = "axis labels"
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+
