@@ -75,28 +75,10 @@
 %  thorn without the Cactus Flesh download this from the Cactus
 %  homepage at www.cactuscode.org)
 \usepackage{../../../../doc/latex/cactus}
-\usepackage{listings}
-\usepackage{graphics}
-\usepackage{amsmath}
 
 \usepackage[svgnames]{xcolor}
 \usepackage{hyperref}
 \hypersetup{colorlinks=true,urlcolor=Blue,linkcolor=Blue,citecolor=CornflowerBlue,naturalnames=true,hypertexnames=true}
-
-\usepackage{tabularx}
-
-% Code listing boxes
-\lstset{
-    language=C++,
-    breaklines=true,
-    basicstyle=\tt,
-    keywordstyle=\color{blue},
-    identifierstyle=\color{magenta},
-    frame=single,
-    numbers=left,
-    stepnumber=1,
-    showstringspaces=false,
-}
 
 \begin{document}
 
@@ -173,18 +155,18 @@ Another is build from this \href{https://github.com/stevenrbrandt/carpetx-instal
 
 If you are running on a cluster with Singularity installed, you can compile the image as follows:
 
-\begin{lstlisting}
+\begin{verbatim}
 singularity build -F /work/sbrandt/images/etworkshop.simg \
     docker://stevenrbrandt/etworkshop
-\end{lstlisting}
+\end{verbatim}
 
 You can run the image using something like the following:
-\begin{lstlisting}
+\begin{verbatim}
 srun singularity exec --nv \
      --bind /var/spool --bind /work \
      --bind /etc/ssh/ssh_known_hosts \
      exec /work/sbrandt/images/etworkshop.simg cactus_sim my_parfile.par
-\end{lstlisting}
+\end{verbatim}
 
 Whether you choose to use one of the above images, or create an installation based on what you find in the dockerfiles for the above images, we wish you luck in your compiling and running efforts.
 
@@ -205,30 +187,30 @@ In their \texttt{C++} code, users should always use the \texttt{DECLARE\_CCTK\_A
 
 The centering of a grid function is declared via \texttt{CENTERING={<centering-code>}}, where \texttt{<centering-code>} is a three-letter code containing any combination of either \texttt{c} or \texttt{v}, representing cell centering and vertex centering, respectively in \texttt{interface.ccl} files. For example, to declare a group of variables as being cell centered, one would use
 %
-\begin{lstlisting}
+\begin{verbatim}
   CCTK_<type> <group-name> CENTERING={ccc}
   {
     ...
   } "A group of variables"
-\end{lstlisting}
+\end{verbatim}
 
 Similarly, for a vertex centered group one would use
 %
-\begin{lstlisting}
+\begin{verbatim}
   CCTK_<type> <group-name> CENTERING={vvv}
   {
     ...
   } "A group of variables"
-\end{lstlisting}
+\end{verbatim}
 
 Note that it is possible to mix centering indexes. For example, to have a quantity centered at faces in the x direction, one would write
 %
-\begin{lstlisting}
+\begin{verbatim}
   CCTK_<type> <group-name> CENTERING={cvv}
   {
     ...
   } "A group of variables"
-\end{lstlisting}
+\end{verbatim}
 
 Not also that if no \texttt{CENTERING} is specified, \CarpetX\space assumes that the variable group is vertex centered in all directions.
 
@@ -239,12 +221,12 @@ Finally, it is very important to match the centering description in interface fi
 
 Tags are declared in interface statements (in \texttt{interface.ccl}) with the \texttt{TAGS=<tags>} syntax. The \texttt{<tags>} declaration consists of a single quote string (marked by \texttt{'}) with space separated key-value pars of the form \texttt{key="value"}. For example, a tagged interface declaration will be similar to the following
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CCTK_<type> <group-name> TAGS='key_1="key1" key_2="key2" ...'
   {
     ...
   } "A group of variables"
-\end{lstlisting}
+\end{verbatim}
 
 We will now list the tags supported by \CarpetX\space and describe their usage.
 
@@ -252,7 +234,7 @@ We will now list the tags supported by \CarpetX\space and describe their usage.
 
 Marks a group of grid variables as the RHS (right-hand side) of a system. \texttt{ODESolvers} uses this information to perform time steps and update a state vector (See Sec.~\ref{sec:odesolvers} for more information). For example, in
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CCTK_<type> state_vector TAGS='rhs="right_hand_side"'
   {
     ...
@@ -262,27 +244,27 @@ Marks a group of grid variables as the RHS (right-hand side) of a system. \textt
   {
     ...
   } "A group of variables representing the PDE RHS"
-\end{lstlisting}
+\end{verbatim}
 %
 the \texttt{rhs="right\_hand\_side"} tag indicates that the group named \texttt{state\_vector} has a corresponding RHS group named \texttt{right\_hand\_side}.
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CCTK_<type> state_vector TAGS='rhs="right_hand_side"'
   {
     ...
   } "A group of variables representing the PDE system state"
-\end{lstlisting}
+\end{verbatim}
 
 \subsubsection{\texttt{dependents}}
 
 Indicates that the groups of variables contained on this tag must be marked as invalid if there are any changes to the group being declared. For example, in
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CCTK_<type> parent_group TAGS='dependents="child1 child2"'
   {
     ...
   } "A group of real variables"
-\end{lstlisting}
+\end{verbatim}
 %
 the tag \texttt{dependents="child1 child2"} indicates that \texttt{parent\_group} has two dependent groups, \texttt{child1} and \texttt{child2}. Whenever \CarpetX\space writes to variables in \texttt{parent\_group}, variables in \texttt{child1} and \texttt{child2} are marked as invalid and cannot be read from unless written to again.
 
@@ -290,7 +272,7 @@ the tag \texttt{dependents="child1 child2"} indicates that \texttt{parent\_group
 
 Indicates that a variable group must be saved as a simulation checkpoint. \Cactus\space and \CarpetX\space can then later recover the saved checkpoint variables and restore the simulation state to continue evolution from there. Usually, only state vectors are checkpointed (See Chap. A3 of the \Cactus user manual for further details). For example, in
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CCTK_<type> state_vector TAGS='checkpoint="yes"'
   {
     ...
@@ -300,7 +282,7 @@ Indicates that a variable group must be saved as a simulation checkpoint. \Cactu
   {
     ...
   } "A group of real variables describing the simulation RHS"
-\end{lstlisting}
+\end{verbatim}
 %
 the simulation state, represented by the \texttt{state\_vector} group is checkpointed, while the \texttt{right\_hand\_side} group is not.
 
@@ -326,7 +308,7 @@ Additionally, it is \textit{imperative} to set the flash's presync mode to \text
 
 As an example, we present an excerpt of a parameter file for a simulation that ends after simulation time reaches $t=100$, but we allow \Cactus\space running for only 1 minute of wall time. For the physical system being simulated, such execution time is not enough for the system to reach $t=100$, thus the execution of \Cactus\space will be terminated before the system is completely evolved. We would like to be able to recover from the last iteration performed by the system in subsequent executions of \Cactus. To do that, we will configure the \texttt{IO} thorn to produce checkpoint files upon \Cactus\space termination.
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   # Required in order to recover successfully
   Cactus::presync_mode = "presync-only"
 
@@ -347,28 +329,30 @@ As an example, we present an excerpt of a parameter file for a simulation that e
   IO::checkpoint_dir          = "../checkpoints"
   IO::recover_dir             = "../checkpoints"
   IO::abort_on_io_errors      = yes
-\end{lstlisting}
+\end{verbatim}
 
 \subsection{\texttt{parity}}
 The \texttt{parity} tag controls a tensor's reflection symmetries about the \texttt{x}, \texttt{y} and \texttt{z} axes. There are 3 parities for each tensor component, representing the symmetries about the 3 spatial axes.
 
 For example, a scalar, has \texttt{parities=\{+1 +1 +1\}}, which indicates that no sign changes take place when the quantity is reflected around the axes. If no \texttt{parities} tag is present in a variable group declaration, it is assumed to be a scalar and \texttt{parities=\{+1 +1 +1\}} is implicitly assumed. For a vector, the \texttt{parities=\{-1 +1 +1\hspace{15pt}+1 -1 +1\hspace{15pt}+1 +1 -1\}} tag indicates in the first triad of numbers that the vector's \texttt{x} component changes sign while being reflected in the \texttt{x} direction, the second triad indicates that the \texttt{y} component changes sign while reflected in the \texttt{y} direction and the third triad indicates that the \texttt{z} component changes sign while being reflected in the \texttt{z} direction. As an example, let us look at the parities of the energy momentum tensor in general relativity as declared in the \texttt{interface.ccl} file of the \texttt{TmunuBaseX} thorn included in \CarpetX\space: 
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
 # The T_{tt} component represents the energy density and
 # is stored as a scalar. The parities={+1 +1 +1} tag is implicit.
 CCTK_REAL eTtt TAGS='checkpoint="no"' TYPE=gf "T_00"
 
 # The T_{ti} components of the tensor are a vector of three entries.
 # Each component changes sign when reflected on their respective axes.
-CCTK_REAL eTti TAGS='parities={-1 +1 +1    +1 -1 +1    +1 +1 -1} checkpoint="no"' TYPE=gf
+CCTK_REAL eTti TAGS='parities={-1 +1 +1    +1 -1 +1    +1 +1 -1} checkpoint="no"'
+               TYPE=gf
 { 
     eTtx eTty eTtz
 } "T_0i"
 
 # The T_{ij} components form a rank 2 tensor of 3 spatial dimensions.
 # Each index triplet represents a component in the tensor.
-CCTK_REAL eTij TAGS='parities={+1 +1 +1    -1 -1 +1    -1 +1 -1    +1 +1 +1    +1 -1 -1    +1 +1 +1} checkpoint="no"' TYPE=gf
+CCTK_REAL eTij TAGS='parities={+1 +1 +1    -1 -1 +1    -1 +1 -1    +1 +1 +1
+                     +1 -1 -1    +1 +1 +1} checkpoint="no"' TYPE=gf
 {
     eTxx eTxy eTxz eTyy eTyz eTzz
 } "T_ij"
@@ -380,7 +364,7 @@ CCTK_REAL eTij TAGS='parities={+1 +1 +1    -1 -1 +1    -1 +1 -1    +1 +1 +1    +
 # * The yy component does not change sign.
 # * The yz component changes sign while reflecting on either y or z.
 # * The zz component does not change sign.
-\end{lstlisting}
+\end{verbatim}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Creating grids}
@@ -442,22 +426,22 @@ When running on GPUs, captures by value are \textit{required} and captures by re
 
 The API for writing loops in \CarpetX\space is provided by the \texttt{Loop} thorn. To use it, one must add
 %
-\begin{lstlisting}[language=Bash]
+\begin{verbatim}
     REQUIRES Loop
-\end{lstlisting}
+\end{verbatim}
 %
 to the thorn's \texttt{configuration.ccl} file and
 %
-\begin{lstlisting}[language=Bash]
-    INHERITS: CarpetX   
+\begin{verbatim}
+    INHERITS: CarpetX
     USES INCLUDE HEADER: loop_device.hxx
-\end{lstlisting}
+\end{verbatim}
 %
 to the thorn's \texttt{interface.ccl} file. Furthermore, one must include the \texttt{Loop} API header file in all source files where the API is needed by adding
 %
-\begin{lstlisting}
+\begin{verbatim}
     #include <loop_device.hxx>
-\end{lstlisting}
+\end{verbatim}
 %
 to the beginning of the source file.
 
@@ -489,22 +473,22 @@ Loop API functions are methods of the \texttt{GridDescBaseDevice} class which co
 
 For example, to loop over boundaries using the CPU one would call
 %
-\begin{lstlisting}
+\begin{verbatim}
     grid.loop_bnd<...>(...);
-\end{lstlisting}
+\end{verbatim}
 %
 To obtain a GPU equivalent version, one would simply append \texttt{\_device} to the function name. Thus, for example, to loop over the interior using a GPU, one would call 
 
-\begin{lstlisting}
+\begin{verbatim}
     grid.loop_int_device<...>(...);
-\end{lstlisting}
+\end{verbatim}
 
 Let us now look at the required parameter of loop methods. The typical signature is as follows
 
-\begin{lstlisting}
+\begin{verbatim}
   template <int CI, int CJ, int CK, ..., typename F>
   void loop_REG_PU(const vect<int, dim> &group_nghostzones, const F &f);
-\end{lstlisting}
+\end{verbatim}
 
 The template parameters meanings are as follows:
 
@@ -529,46 +513,46 @@ We shall now discuss the syntax and the available elements of the lambda functio
 
 To start, let us be reminded of the general syntax of a lambda function in \texttt{C++}:
 
-\begin{lstlisting}
+\begin{verbatim}
   // append ; if assigning to a variable
   [capture_parameter] (argument_list) -> return_type { function_body }
-\end{lstlisting}
+\end{verbatim}
 
 When running on GPUs, the \texttt{capture\_parameter} field used should always be \texttt{=}, indicating pass by value (copy) rather than \texttt{\&}, indicating pass by reference. The \texttt{argument\_list} of the lambda should receive only one element of type \texttt{PointDesc} (which will be described on Sec.~\ref{sec:point_des}) and the lambda must return no value, which means that \texttt{return\_type} can be omitted altogether.
 
 This means that a typical lambda passed to a loop method will have the form
 %
-\begin{lstlisting}
+\begin{verbatim}
   [=] (const Loop::PointDesc &p) {
     // loop body
   }
-\end{lstlisting}
+\end{verbatim}
 
 In addition, users can specify inlining (a compile-time optimization where the function call is replaced by its body) by using the \texttt{CCTK\_ATTRIBUTE\_ALWAYS\_INLINE} macro and designate host or device availability via the \texttt{CCTK\_HOST} or \texttt{CCTK\_DEVICE} macros, respectively. These annotations are optional unless the compiler is unable to build a function due to an inability to automatically determine that it needs to be available for device usage, for example. However, when these annotations are desired, they must be placed in specific locations.
 
 To mark a lambda for host usage, one would use:
 %
-\begin{lstlisting}
+\begin{verbatim}
   [=] CCTK_HOST(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
     // loop body
   }
-\end{lstlisting}
+\end{verbatim}
 %
 For device usage, one would use:
 %
-\begin{lstlisting}
+\begin{verbatim}
   [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
     // loop body
   }
-\end{lstlisting}
+\end{verbatim}
 %
 For both host and device usage, one would use:
 %
-\begin{lstlisting}
+\begin{verbatim}
   [=] CCTK_HOST CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
     // loop body
   }
-\end{lstlisting}
+\end{verbatim}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{The \texttt{PointDesc} type and loop lambda body}
@@ -598,7 +582,7 @@ Let us now combine the elements describe thus far into a single example. Let us 
 
 Let us suppose that the grid functions \texttt{u} and \texttt{rho} where made available, while grid functions \texttt{u\_rhs} and \texttt{rho\_rhs} are their corresponding RHS storage variables. The function that computes the RHS of Eqs.~\eqref{eq:toy_loop_0}-\eqref{eq:toy_loop_1} can be written as
 
-\begin{lstlisting}
+\begin{verbatim}
 extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_LoopExample_RHS;
   DECLARE_CCTK_PARAMETERS;
@@ -631,22 +615,22 @@ extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
     } // Ending of the loop lambda
   ); // Ending of the loop_int call
 }
-\end{lstlisting}
+\end{verbatim}
 
 \subsection{SIMD Vectorization of loops}
 
 If the user's CPU supports SIMD instructions (see \href{https://en.wikipedia.org/wiki/Single_instruction,_multiple_data}{here} for details), \CarpetX\space is capable of vectorizing loops via the \texttt{Arith} thorn. To use it, users must add
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   USES INCLUDE HEADER: simd.hxx
   USES INCLUDE HEADER: vect.hxx
-\end{lstlisting}
+\end{verbatim}
 %
 to the top of their \texttt{interface.ccl} files, in addition to the other required headers.
 
 While writing SIMD vectorized code, one has to keep in mind that grid functions are not a collection of \texttt{CCTK\_REAL} values but a collection of \texttt{Arith::simd<CCTK\_REAL>} real values, which is itself a collection of \texttt{CCTK\_REAL} values. This becomes apparent when reading and writing to grid functions at a particular grid point. To see how these differences come about, let us study an example of initializing grid data using the SIMD API
 %
-\begin{lstlisting}
+\begin{verbatim}
   extern "C" void SIMDExample_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_SIMDExample_Initial;
   DECLARE_CCTK_PARAMETERS;
@@ -654,10 +638,12 @@ While writing SIMD vectorized code, one has to keep in mind that grid functions 
   using real = CCTK_REAL;
   using vreal = Arith::simd<real>;
   
-  // This is the compile time determined vector size supported by the underlying CPU architecture
+  // This is the compile time determined vector size supported by the underlying
+  // CPU architecture
   constexpr std::size_t vsize = std::tuple_size_v<vreal>;
 
-  // After passing the centering indices, size of the SIMD vectors is passed as template arguments
+  // After passing the centering indices, size of the SIMD vectors is passed as
+  // template arguments
   grid.loop_int_device<0, 0, 0, vsize>(
     grid.nghostzones,
     
@@ -676,7 +662,7 @@ While writing SIMD vectorized code, one has to keep in mind that grid functions 
     }
   );
 }
-\end{lstlisting}
+\end{verbatim}
 
 In lines 5 and 6, we define aliases for the real scalar type \texttt{CCTK\_REAL} and its associated vector type \texttt{Arith::simd<real>}. Values assigned to grid functions need to be of this type. In line 9, the \texttt{vsize} variable stores the size of the SIMD vectors of the target CPU. The \texttt{constexpr} keyword ensures that this expression is evaluated at compile time. In line 12, we call a loop API function with the three centering indices, discussed in Sec.~\ref{sec:loop_methods}, plus the extra \texttt{vreal} parameter which informs the loop method call that the loops will be vectorized.
 
@@ -716,7 +702,7 @@ On lines 22 and 23, the \texttt{initial\_data} function gets called and uses the
 
 Let us now look at an example of writing derivatives and RHS functions with SIMD loops.
 
-\begin{lstlisting}
+\begin{verbatim}
   extern "C" void SIMDExample_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_SIMDExample_RHS;
   DECLARE_CCTK_PARAMETERS;
@@ -730,11 +716,14 @@ Let us now look at an example of writing derivatives and RHS functions with SIMD
     [=] (const Loop::PointDesc &p) {
       using Arith::pow2;
 
-      const auto d2udx2 = (u(p.mask, p.I - p.DI[0]) - 2 * u(p.mask, p.I) + u(p.mask, p.I + p.DI[0]) ) / pow2(p.DX[0]);
+      const auto d2udx2 = (u(p.mask, p.I - p.DI[0]) - 2 * u(p.mask, p.I) +
+                           u(p.mask, p.I + p.DI[0]) ) / pow2(p.DX[0]);
       
-      const auto d2udy2 = (u(p.mask, p.I - p.DI[1]) - 2 * u(p.mask, p.I) + u(p.mask, p.I + p.DI[1]) ) / pow2(p.DX[1]);
+      const auto d2udy2 = (u(p.mask, p.I - p.DI[1]) - 2 * u(p.mask, p.I) +
+                           u(p.mask, p.I + p.DI[1]) ) / pow2(p.DX[1]);
       
-      const auto d2udz2 = (u(p.mask, p.I - p.DI[2]) - 2 * u(p.mask, p.I) + u(p.mask, p.I + p.DI[2]) ) / pow2(p.DX[2]);
+      const auto d2udz2 = (u(p.mask, p.I - p.DI[2]) - 2 * u(p.mask, p.I) +
+                           u(p.mask, p.I + p.DI[2]) ) / pow2(p.DX[2]);
 
       const auto udot = rho(p.mask, p.I);
       const auto rhodot = ddu;
@@ -743,7 +732,7 @@ Let us now look at an example of writing derivatives and RHS functions with SIMD
       rho_rhs.store(p.mask, p.I, rhodot);
     });
   }
-\end{lstlisting}
+\end{verbatim}
 
 As previously mentioned, \texttt{Arith} overloads arithmetic operators, which makes writing mathematical expressions in vectorized loops no different from their non-vectorized counterparts. This is exemplified in lines 14-18 where second derivatives are being taken via finite differences approximations. Note once again in line 8 the presence of an extra template argument indicating the CPU's vector sizes, the extra \texttt{p.mask} argument being passed on all invocations of grid functions and the use of the \texttt{store} method to assign computed values to the RHS grid functions.
 
@@ -757,9 +746,9 @@ In \CarpetX, time integration of PDEs via the Method of Lines is provided by the
 
 From the user's perspective, \texttt{ODESolvers} is very similar (and sometimes even more straightforward) the \texttt{MoL} thorn, but a few key differences need to be observed. Firstly, not all integrators available to \texttt{MoL} are available to \texttt{ODESolvers}. The list of all supported methods is displayed in Tab.~\ref{tab:odesolvers_methods}. Method selection occurs via configuration file, by setting
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   ODESolvers::method = "Method name"
-\end{lstlisting}
+\end{verbatim}
 %
 and the default method used if none other is set is "RK2".
 
@@ -783,9 +772,9 @@ and the default method used if none other is set is "RK2".
 
 Additionally, users can set verbose output from the time integrator by setting
 %
-\begin{lstlisting}
+\begin{verbatim}
   ODESolvers::verbose = "yes"
-\end{lstlisting}
+\end{verbatim}
 %
 By default, this option is set to \texttt{"no"}. Finally, to control the step size of the time integrator, it is possible to set the configuration parameter \texttt{CarpetX::dtfac}, which defaults to $0.5$, is defined as
 %
@@ -799,7 +788,7 @@ To actually perform time evolution, the PDE system of interest needs to be decla
 
 To see how \texttt{ODESolvers} is used in practice, let us turn once again to the \texttt{WaveToyX} example, bundled with \CarpetX. To begin, let us look at an excerpt from this example's \texttt{interface.ccl} file
 
-\begin{lstlisting}
+\begin{verbatim}
   CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="energy error"'
   {
     u
@@ -813,13 +802,13 @@ To see how \texttt{ODESolvers} is used in practice, let us turn once again to th
   } "RHS of scalar wave state vector"
 
   ...
-\end{lstlisting}
+\end{verbatim}
 
 In lines 1-5, the group of real grid functions called \texttt{state}, consisting of grid function \texttt{u} and \texttt{rho}, is declared. The \texttt{TYPE=gf} entry indicates that the variables in this group are grid functions and the \texttt{TAGS} entry is particularly important in this instance, thus it is highly recommended that readers visit Sec.~\ref{sec:ccl_files} for more information. The \texttt{rhs="rhs"} tag indicates that these grid functions have an associated RHS group, that is, a group of variables with grid functions responsible for storing the PDE system's RHS and this group is called \texttt{"rhs"} which is defined later in lines 7-11. This information is used by \texttt{ODESolvers} while taking a time step and is tightly coupled to \Cactus\space file parsers. In lines 7-11, the \texttt{rhs} group is declared with two real grid functions, \texttt{u\_rhs} and \texttt{rho\_rhs}. These variables will be responsible for holding the RHS data of the PDE, which will in turn be used by \texttt{ODESolvers}.
 
 The next step is to schedule the execution of functions into their correct schedule groups. The most relevant schedule groups provided by \texttt{ODESolvers} are \texttt{ODESolvers\_RHS} and \texttt{ODESolvers\_PostStep}. The former is the group where one evaluates the RHS of the state vector everywhere on the grid and the latter is where boundary conditions are applied to the state vector, and projections are applied if necessary. For example, looking at \texttt{WaveToyX}'s \texttt{schedule.ccl} file, one sees
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
   {
     LANG: C
@@ -835,7 +824,7 @@ SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep
     WRITES: energy(interior)
     SYNC: energy
   } "Calculate scalar wave energy density"
-\end{lstlisting}
+\end{verbatim}
 
 The schedule statement from lines 1-7 schedules the function that computes the RHS of the wave equation. Note that the function reads the state on the whole grid and writes to the RHS grid variables in the interior. With \CarpetX, grid functions read and write statements are enforced: You cannot write to a variable which was declared as read only in the \texttt{schedule.ccl} file. Lines 9-15 exemplify the scheduling of a function in the \texttt{ODESolvers\_PostStep} group, which is executed after \texttt{ODESolvers\_RHS} during the time stepping loop. In this particular example, the scheduled function is computing the energy associated with the scalar wave equation system. These are all the required steps for using \texttt{ODESolvers} to solve a PDE system via the method of lines.
 
@@ -849,19 +838,19 @@ The schedule statement from lines 1-7 schedules the function that computes the R
 \CarpetX\space supports fixed mesh refinement via the so called box-in-box paradigm. This capability is provided by the \texttt{BoxInBox} thorn. Using it is very simple and similar to \texttt{Carpet}'s \texttt{CarpetRegrid2} usage.
 
 \begin{table}[ht]
-  \begin{tabularx}{\textwidth}{cXccX}
-    Name                    & Type                      & Possible Values                                                   & Default Value                   & Description                               \\\hline\hline
-    \texttt{shape\_n}       & String                    & \texttt{"sphere"} or \texttt{"cube"}                              & \texttt{"sphere"}               & Shape of refined region                   \\
-    \texttt{active\_n}      & Boolean                   & \texttt{"yes"} or \texttt{"no"}                                   &  \texttt{"yes"}                 & Is this box active?                       \\
-    \texttt{num\_levels\_n} & Single integer            & $[1,30]$                                                          & $1$                             & Number of refinement levels for this box  \\
-    \texttt{position\_x\_n} & Single real number        & Any real                                                          & $0.0$                           & x-position of this box                    \\
-    \texttt{position\_y\_n} & Single real number        & Any real                                                          & $0.0$                           & y-position of this box                    \\
-    \texttt{position\_z\_n} & Single real number        & Any real                                                          & $0.0$                           & z-position of this box                    \\
-    \texttt{radius\_n}      & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & Radius of refined region for this level   \\
-    \texttt{radius\_x\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & x-radius of refined region for this level \\
-    \texttt{radius\_y\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & y-radius of refined region for this level \\
-    \texttt{radius\_z\_n}   & 30 element array of reals & $-1.0$ or positive real                                           & $-1.0$ (radius ignored)         & z-radius of refined region for this level \\\hline\hline
-  \end{tabularx}
+  \begin{tabular*}{\linewidth}{cp{7em}ccp{9em}}
+    Name                    & Type                      & Possible Values                                                   & Default Value                                        & Description                               \\\hline\hline
+    \texttt{shape\_n}       & String                    & \parbox[t]{6em}{\centering\texttt{"sphere"} or\\\texttt{"cube"}}  & \texttt{"sphere"}                                    & Shape of refined region                   \\
+    \texttt{active\_n}      & Boolean                   & \parbox[t]{6em}{\centering\texttt{"yes"} or \texttt{"no"}}        &  \texttt{"yes"}                                      & Is this box active?                       \\
+    \texttt{num\_levels\_n} & Single integer            & $[1,30]$                                                          & $1$                                                  & Number of refinement levels for this box  \\
+    \texttt{position\_x\_n} & Single real number        & Any real                                                          & $0.0$                                                & x-position of this box                    \\
+    \texttt{position\_y\_n} & Single real number        & Any real                                                          & $0.0$                                                & y-position of this box                    \\
+    \texttt{position\_z\_n} & Single real number        & Any real                                                          & $0.0$                                                & z-position of this box                    \\
+    \texttt{radius\_n}      & 30 element array of reals & \parbox[t]{6em}{\centering$-1.0$ or positive real}                & \parbox[t]{10em}{\centering$-1.0$\\(radius ignored)} & Radius of refined region for this level   \\
+    \texttt{radius\_x\_n}   & 30 element array of reals & \parbox[t]{6em}{\centering$-1.0$ or positive real}                & \parbox[t]{10em}{\centering$-1.0$\\(radius ignored)} & x-radius of refined region for this level \\
+    \texttt{radius\_y\_n}   & 30 element array of reals & \parbox[t]{6em}{\centering$-1.0$ or positive real}                & \parbox[t]{10em}{\centering$-1.0$\\(radius ignored)} & y-radius of refined region for this level \\
+    \texttt{radius\_z\_n}   & 30 element array of reals & \parbox[t]{6em}{\centering$-1.0$ or positive real}                & \parbox[t]{10em}{\centering$-1.0$\\(radius ignored)} & z-radius of refined region for this level \\\hline\hline
+  \end{tabular*}
   \caption{Configuration parameters for a single (1 out of 3) box that can be defined in parameter files using the \texttt{BoxInBox} thorn.}
   \label{tab:box_config}
 \end{table}
@@ -872,7 +861,7 @@ These configurations are subjected to (and restricted by) two additional \Carpet
 
 As an example, we present a configuration file excerpt for creating two refinement boxes with the \texttt{BoxInBox} thorn
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   BoxInBox::num_regions = 2
 
   BoxInBox::num_levels_1 = 2
@@ -886,33 +875,33 @@ As an example, we present a configuration file excerpt for creating two refineme
   BoxInBox::radius_x_2[1] = 0.25
   BoxInBox::radius_y_2[1] = 0.25
   BoxInBox::radius_z_2[1] = 0.25
-\end{lstlisting}
+\end{verbatim}
 
 Let us now suppose that one wishes to make the boxes set up in the above parameter file to move in a circle around the origin. This is not very useful in practice, but it illustrates important concepts that can be later applied to more complex tools, such as puncture trackers. The \texttt{MovingBoxToy} thorn bundled in \CarpetX\space provides an example of how to achieve this. We shall now examine this implementation closely. Let us start by the examining the thorn's \texttt{interface.ccl} file:
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   # Interface definition for thorn MovingBoxToy
 
   IMPLEMENTS: MovingBoxToy
 
   INHERITS: BoxInBox
-\end{lstlisting}
+\end{verbatim}
 
 The \texttt{INHERITS} statement in line 5 states that this thorn will write to grid functions provided in \texttt{BoxInBox} which control the refinement boxes parameters. Next, in the thorn's \texttt{param.ccl} file we have
 %
-\begin{lstlisting}
+\begin{verbatim}
   # Parameter definitions for thorn MovingBoxToy
 
   shares: BoxInBox
   USES CCTK_REAL position_x_1
   USES CCTK_REAL position_x_2
-\end{lstlisting}
+\end{verbatim}
 
 Lines 3-5 declare that \texttt{MovingBoxToy} uses parameters \texttt{position\_x\_1} and \texttt{position\_x\_2} from \texttt{BoxInBox}. These declarations are required in order to access the initial positions of the boxes. Note that similar statements would be used if other parameters from \texttt{BoxInBox} were required.
 
 Finally, in the \texttt{schedule.ccl} file we schedule the routine that will actually update the box positions, called \texttt{MovingBoxToy\_MoveBoxes}:
 %
-\begin{lstlisting}
+\begin{verbatim}
   # Schedule definitions for thorn MovingBoxToy
 
   SCHEDULE MovingBoxToy_MoveBoxes AT postinitial BEFORE EstimateError
@@ -928,13 +917,13 @@ Finally, in the \texttt{schedule.ccl} file we schedule the routine that will act
     READS: BoxInBox::positions
     WRITES: BoxInBox::positions
   } "Update box positions"
-\end{lstlisting}
+\end{verbatim}
 
 Note that the routine is scheduled with \texttt{AT poststep BEFORE EstimateError}. This is important, since it is in the \texttt{EstimateError} bin that \CarpetX's AMR error grid function (see Sec.~\ref{sec:advanced_amr}) will be updated thus any changes to box data should be scheduled before that.
 
 Finally, the \texttt{C++} routine \texttt{MovingBoxToy\_MoveBoxes} that will actually update the boxes positions reads
 %
-\begin{lstlisting}
+\begin{verbatim}
   extern "C" void MovingBoxToy_MoveBoxes(CCTK_ARGUMENTS) {
     DECLARE_CCTK_ARGUMENTSX_MovingBoxToy_MoveBoxes;
     DECLARE_CCTK_PARAMETERS;
@@ -957,7 +946,7 @@ Finally, the \texttt{C++} routine \texttt{MovingBoxToy\_MoveBoxes} that will act
     position_x[1] = x0_2 * cos(omega * cctk_time);
     position_y[1] = x0_2 * sin(omega * cctk_time);
   }
-\end{lstlisting}
+\end{verbatim}
 
 In lines 10 and 13, we read \texttt{BoxInBox} parameters for the initial positions of the boxes. In line 16-21 those positions are updated in a way that the boxes centers describe a circle around the origin. At each time, the boxes move $\pi/4$ radians around the origin in a counterclockwise fashion. Figure~\ref{fig:boxes_circle} shows 6 still frames of the boxes motions around the origin. All panels are $z=0$ slices of the grid hierarchy and time and iteration values are provided for each panel. These plots were produced with the \texttt{VisIt} visualization software with \CarpetX\space producing \texttt{silo} data files as output (see Sec.~\ref{sec:data} for more details on how to visualize and post-process \CarpetX\space data). The data can be reproduced by running the \texttt{circle.par} parameter file, provided in the \texttt{par} folder of the \texttt{MovingBoxToy} thorn. An animated version of Fig.~\ref{fig:boxes_circle} can be found in the \texttt{doc} folder of the \CarpetX\space thorn under the name {animated\_boxes.gif}.
 
@@ -976,7 +965,7 @@ In lines 10 and 13, we read \texttt{BoxInBox} parameters for the initial positio
 
 Note that \CarpetX\space \textbf{does not} provide a ``standardized'' regrid error routine. This is because refinement criteria are highly specific to the problem being solved via AMR, and thus there is no one size fits all error criteria. This might seem inconvenient, but ultimately it allows for users to have higher degrees of customization in their AMR codes. For demonstration purposes, we shall now provide a routine that estimates the regrinding error as \todo{what? Provide a good starter example}. This implementation could be used as a starting point for codes that wish to use different error criteria in their AMR grids.
 
-\begin{lstlisting}
+\begin{verbatim}
   extern "C" void EstimateError(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_EstimateError;
   DECLARE_CCTK_PARAMETERS;
@@ -990,11 +979,11 @@ Note that \CarpetX\space \textbf{does not} provide a ``standardized'' regrid err
         regrid_error(p.I) = 0.0;
       });
 }
-\end{lstlisting}
+\end{verbatim}
 
 Once defined, \texttt{EstimateError} should be scheduled in both the \texttt{postinitial} and \texttt{poststep} bins. The \texttt{poststep} bin gets called right after a new state vector has been calculated, and is thus the proper place to analyze it. The \texttt{postinitial} scheduling is also necessary for computing the initial refinement after initial conditions have been set up. A thorn making use of the \texttt{regrid\_error} AMR mechanism should then add the following to its \texttt{schedule.ccl} file:
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   SCHEDULE EstimateError AT postinitial
   {
     LANG: C
@@ -1008,7 +997,7 @@ Once defined, \texttt{EstimateError} should be scheduled in both the \texttt{pos
     READS: state(everywhere)
     WRITES: CarpetX::regrid_error(interior)
   } "Estimate error for regridding"
-\end{lstlisting}
+\end{verbatim}
 
 \subsection{Controlling prolongation}
 
@@ -1016,7 +1005,7 @@ Prolongation refers to the interpolation of data on coarse grid into a finer gri
 
 \begin{table}[ht]
   \centering
-  \begin{tabularx}{\textwidth}{lX}
+  \begin{tabular*}{\textwidth}{lp{35em}}
     Method                   & Description                                                                                                                                   \\\hline\hline
     \texttt{"interpolate"}   & Interpolate between data points                                                                                                               \\
     \texttt{"conservative"}  & Interpolate cell averages, ensuring conservation                                                                                              \\
@@ -1025,19 +1014,19 @@ Prolongation refers to the interpolation of data on coarse grid into a finer gri
     \texttt{"ddf-hermite"}   & Hermite-interpolate in vertex centered and conserve in cell centered directions                                                               \\
     \texttt{"natural"}       & Interpolate in vertex centered and conserve in cell centered directions, using the same order                                                 \\
     \texttt{"poly-cons3lfb"} & Interpolate polynomially in vertex centered directions and conserve with 3rd order accuracy and a linear fallback in cell centered directions \\\hline\hline
-  \end{tabularx}
+  \end{tabular*}
   \caption{Prolongation methods available in \CarpetX.}
   \label{tab:prolongation_methods}
 \end{table}
 
 \begin{table}[ht]
   \centering
-  \begin{tabularx}{\textwidth}{lccX}
+  \begin{tabular*}{\textwidth}{lccp{15em}}
     Parameter                       & Type                  & Default value & Description                                             \\\hline\hline
     \texttt{prolongation\_order}    & Integer larger than 0 & 1             & Controls the order of the interpolation in prolongation \\
     \texttt{do\_restrict}           & Boolean               & yes           & Automatically restrict fine to coarse grid functions    \\
     \texttt{restrict\_during\_sync} & Boolean               & yes           & Restrict fine to coarse grid functions when syncing     \\
-  \end{tabularx}
+  \end{tabular*}
   \caption{Parameters controlling prolongation in \CarpetX.}
   \label{tab:other_prolongation_params}
 \end{table}
@@ -1125,7 +1114,7 @@ and \texttt{<direction>} is one of
 
 In order to set the actual values of Dirichlet, Neumann and Robin boundary conditions, users can specify values via the \texttt{TAGS} mechanism in \texttt{interface.ccl}, detailed in Sec.~\ref{sec:tags}. Note that it is only possible to set the quantity $g$ in Eqs~\eqref{eq:dirichlet}-\eqref{eq:robin}. The syntax is as follows
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   # For Dirichlet BCs
   CCTK_<type> <group-name> TAGS='dirichlet_values={1.0}'
   {
@@ -1143,16 +1132,17 @@ In order to set the actual values of Dirichlet, Neumann and Robin boundary condi
   {
     ...
   } "A group of variables"
-\end{lstlisting}
+\end{verbatim}
 
 If a variable group contains multiple variables or multiple boundary conditions, simply append the boundary values to the brace enclose list of boundary values and add another boundary condition as a tag. For example, consider the 3-metric variable group declared in the \texttt{ADMBaseX} thorn bundled with \CarpetX, which consists of 6 grid functions each with their own Dirichlet and Robin boundary condition values:
 
-\begin{lstlisting}[language=bash]
-  CCTK_REAL metric TYPE=gf TAGS='dirichlet_values={1.0 0.0 0.0   1.0 0.0   1.0} robin_values={1.0 0.0 0.0   1.0 0.0   1.0} ...'
+\begin{verbatim}
+  CCTK_REAL metric TYPE=gf TAGS='dirichlet_values={1.0 0.0 0.0   1.0 0.0   1.0}
+                                 robin_values={1.0 0.0 0.0   1.0 0.0   1.0} ...'
   {
     gxx gxy gxz gyy gyz gzz
   } "ADM 3-metric g_ij"
-\end{lstlisting}
+\end{verbatim}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Symmetry boundary conditions}
@@ -1191,7 +1181,7 @@ If a variable group contains multiple variables or multiple boundary conditions,
 
 The recommended way of applying custom boundary conditions is to write them to the RHS of the evolution system. Let us once again consider the function that computes the RHS of Eqs.~\eqref{eq:toy_loop_0}-\eqref{eq:toy_loop_1} presented in Sec.~\ref{sec:loops} modified to compute boundary conditions:
 
-\begin{lstlisting}
+\begin{verbatim}
 extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_LoopExample_RHS;
   DECLARE_CCTK_PARAMETERS;
@@ -1234,7 +1224,7 @@ extern "C" void LoopExample_RHS(CCTK_ARGUMENTS) {
     } // Ending of the loop lambda
   ); // Ending of the loop_int call
 }
-\end{lstlisting}
+\end{verbatim}
 
 Instead of computing derivatives and boundaries for each direction explicitly, we use a loop over each direction, written on line 20. The \texttt{if} branches on lines 23-25 and 27-29 set the values of the RHS of the system in the boundaries associated with the \texttt{xyz\_min} values and \texttt{xyz\_max} values, respectively. In these case, we are setting boundary values to $0$, but users would use whatever boundary condition they require. The takeaway message of this example is to note how one can \textit{access} boundary points, instead of what to write to those points.
 
@@ -1246,7 +1236,7 @@ The recommended way of performing interpolation is using the flesh interface for
 
 Internally, this functionality is implemented by the \texttt{DriverInterpolate} function. If users desire, they can call it directly instead of using \texttt{CCTK\_InterpGridArrays()}. In order to do so, users must add the following to their \texttt{interface.ccl} file
 %
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CCTK_INT FUNCTION DriverInterpolate(
     CCTK_POINTER_TO_CONST IN cctkGH,
     CCTK_INT IN N_dims,
@@ -1262,11 +1252,11 @@ Internally, this functionality is implemented by the \texttt{DriverInterpolate} 
     CCTK_INT ARRAY IN output_array_types,
     CCTK_POINTER ARRAY IN output_arrays)
   REQUIRES FUNCTION DriverInterpolate
-\end{lstlisting}
+\end{verbatim}
 
 Note that \texttt{DriverInterpolate} and \texttt{CCTK\_InterpGridArrays()} receive exactly the same arguments (again, a complete description of these is given in Sec.~A149 of the \Cactus\space reference manual) but some arguments are unused by \CarpetX. These are \texttt{coord\_system\_handle}, \texttt{interp\_coords\_type\_code}, \texttt{output\_array\_type\_codes} and \texttt{interp\_handle}. Here's and example of a \texttt{DriverInterpolate} call where these ignored parameters are set to zero:
 
-\begin{lstlisting}
+\begin{verbatim}
   // DriverInterpolate arguments that aren't currently used
   CCTK_INT const coord_system_handle = 0;
   CCTK_INT const interp_coords_type_code = 0;
@@ -1277,9 +1267,9 @@ Note that \texttt{DriverInterpolate} and \texttt{CCTK\_InterpGridArrays()} recei
   // within the scope but are ommited from this snippet for clarity
   DriverInterpolate(
       cctkGH, N_dims, interp_handle, param_table_handle, coord_system_handle,
-      npoints, interp_coords_type_code, interp_coords, nvars, (int const*const)varinds,
-      nvars, output_array_type_codes, output_array);
-\end{lstlisting}
+      npoints, interp_coords_type_code, interp_coords, nvars,
+      (int const*const)varinds, nvars, output_array_type_codes, output_array);
+\end{verbatim}
 
 Lastly, to control the order of the interpolation operators, users can set the \texttt{CarpetX::interpolation\_order} parameter, which defaults to 1 and must be greater than 0.
 
@@ -1345,29 +1335,29 @@ Installing \texttt{HPCToolkit} on an HPC system will probably require the help o
   
   \item Assuming that the system's \texttt{MPI} launcher is called \texttt{mpirun}, to profile a CPU application, issue
   %
-  \begin{lstlisting}[language=bash]
+  \begin{verbatim}
     mpirun hpcrun ./cactus_config-name perf.par
-  \end{lstlisting}
+  \end{verbatim}
   %
   To profile a GPU application, issue
   %
-  \begin{lstlisting}[language=bash]
+  \begin{verbatim}
     mpirun hpcrun -e gpu=<vendor> ./cactus_config-name perf.par
-  \end{lstlisting}
+  \end{verbatim}
   %
   where \texttt{<vendor>} is either \texttt{nvidia} or \texttt{amd}, depending on which GPU chips are available in the system.
 
   \item After \Cactus\space completes the evolution, a new folder called \texttt{hpctoolkit-cactus\_config-name-measurements} will be created on the same directory where \texttt{hpcrun} was executed. \texttt{HPCToolkit} needs to recover program structure in order to create better profiling information. To do that, issue
   %
-  \begin{lstlisting}[language=bash]
+  \begin{verbatim}
     hpcstruct hpctoolkit-cactus_config-name-measurements
-  \end{lstlisting}
+  \end{verbatim}
 
   \item Finally, to have \texttt{HPCToolkit} analyze measurements and attribute it to source code, issue
   %
-  \begin{lstlisting}[language=bash]
+  \begin{verbatim}
     hpcprof hpctoolkit-cactus_config-name-measurements
-  \end{lstlisting}
+  \end{verbatim}
 \end{enumerate}
 
 This will generate the \texttt{hpctoolkit-cactus\_config-name-database} folder, which can be used with \texttt{HPCToolkit}'s provided profile visualization tool called \href{http://hpctoolkit.org/download.html}{\texttt{hpcviewer}}. See chapter 10 of the \texttt{HPCToolkit} \href{http://hpctoolkit.org/manual/HPCToolkit-users-manual.pdf}{manual} for usage details.
@@ -1387,19 +1377,19 @@ To control \texttt{TSV} output, \CarpetX\space provides the parameters described
 
 \begin{table}[ht]
   \centering
-  \begin{tabularx}{\textwidth}{cccX}
+  \begin{tabular*}{\textwidth}{cccp{24em}}
     Parameter                & Type    & Default Value  & Description \\\hline\hline
     \texttt{out\_tsv}        & Boolean & \texttt{"yes"} & Whether to produce \texttt{TSV} output \\
     \texttt{out\_tsv\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
     \texttt{out\_tsv\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
-  \end{tabularx}
+  \end{tabular*}
   \label{tab:tsv_params}
   \caption{\CarpetX\space parameters for \texttt{TSV} output.}
 \end{table}
 
 As an example, to output the grid functions of \texttt{WaveToyX} as \texttt{TSV} files every 2 iterations, one would write in their parameter file the following excerpt
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CarpetX::out_tsv = yes
   CarpetX::out_tsv_every = 2
   CarpetX::out_tsv_vars = "
@@ -1408,7 +1398,7 @@ As an example, to output the grid functions of \texttt{WaveToyX} as \texttt{TSV}
     WaveToyX::energy
     WaveToyX::error
 "
-\end{lstlisting}
+\end{verbatim}
 
 \subsection{SILO}
 \label{sec:silo}
@@ -1419,18 +1409,18 @@ To control \texttt{SILO} output, \CarpetX\space provides the parameters describe
 
 \begin{table}[ht]
   \centering
-  \begin{tabularx}{\textwidth}{cccX}
+  \begin{tabular*}{\textwidth}{cccp{24em}}
     Parameter                 & Type    & Default Value  & Description \\\hline\hline
     \texttt{out\_silo\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
     \texttt{out\_silo\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
-  \end{tabularx}
+  \end{tabular*}
   \label{tab:silo_params}
   \caption{\CarpetX\space parameters for \texttt{SILO} output.}
 \end{table}
 
 As an example, to output the grid functions of \texttt{WaveToyX} as \texttt{SILO} files every 2 iterations, one would write in their parameter file the following excerpt
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CarpetX::out_silo_every = 2
   CarpetX::out_silo_vars = "
     WaveToyX::state
@@ -1438,7 +1428,7 @@ As an example, to output the grid functions of \texttt{WaveToyX} as \texttt{SILO
     WaveToyX::energy
     WaveToyX::error
 "
-\end{lstlisting}
+\end{verbatim}
 
 \subsection{openPMD}
 \label{sec:openpmd}
@@ -1449,13 +1439,13 @@ To control \texttt{openPMD} output, \CarpetX\space provides the parameters descr
 
 \begin{table}[ht]
   \centering
-  \begin{tabularx}{\textwidth}{cccX}
+  \begin{tabular*}{\textwidth}{cccp{23em}}
     Parameter                 & Type    & Default Value  & Description \\\hline\hline
     \texttt{out\_openpmd\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
     \texttt{out\_openpmd\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
-  \end{tabularx}
+  \end{tabular*}
   \label{tab:openpmd_params}
-  \caption{\CarpetX\space parameters for \texttt{SILO} output.}
+  \caption{\CarpetX\space parameters for \texttt{OpenPMD} output.}
 \end{table}
 
 Additionally, it is possible to control which ``backing'' format to use with \texttt{openPMD} via the \texttt{CarpetX::openpmd\_format} parameter, whose possible string values are listed in Tab~\ref{tab:openpmd_formats}
@@ -1480,7 +1470,7 @@ Additionally, it is possible to control which ``backing'' format to use with \te
 
 When using \texttt{openPMD} output, \CarpetX\space can produce files that can be visualized with \texttt{VisIt}. To do that for \texttt{WaveToyX}, for example, the following excerpt would be added to a parameter file
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   # It is very important to produce BP4 files, as BP5
   # cannot be imported into VisIt at the time of writing
   CarpetX::openpmd_format = "ADIOS2_BP4"
@@ -1491,19 +1481,19 @@ When using \texttt{openPMD} output, \CarpetX\space can produce files that can be
       WaveToyX::energy
       WaveToyX::error
   "
-\end{lstlisting}
+\end{verbatim}
 
 When loading data into \texttt{VisIt}, users must open the \texttt{*.pmd.visit} file produced together with the simulation output. It is also \textit{imperative} to select the file format as \texttt{ADIOS2} in \texttt{VisIt}'s file selector window, otherwise the files will not be loaded correctly.
 
 In addition to \texttt{VisIt}, users can find in the \texttt{CarpetX/doc/openpmd-plot} folder a sample \texttt{Python} script for extracting and plotting data from \CarpetX\space produced \texttt{openPMD} files. The best way to interact with the script is using a \texttt{Python} virtual environment. First, navigate to the \texttt{CarpetX/doc/openpmd-plot} and issue the following commands:
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
 python -m venv venv             # Creates the virtual environment.
 source venv/bin/activate        # Activates the virtual environment.
 pip install -r requirements.txy # Installs required packages.
 python plot-zslice.py -h        # See the options available.
 deactivate                      # Exits the environment when done.
-\end{lstlisting}
+\end{verbatim}
 
 \subsection{Pure \texttt{ADIOS2} files}
 
@@ -1511,18 +1501,18 @@ To output pure \texttt{ADIOS2 BP5} files, (without \texttt{openPMD} formatting),
 
 \begin{table}[ht]
   \centering
-  \begin{tabularx}{\textwidth}{cccX}
+  \begin{tabular*}{\textwidth}{cccp{23em}}
     Parameter                 & Type    & Default Value  & Description \\\hline\hline
     \texttt{out\_adios2\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
     \texttt{out\_adios2\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
-  \end{tabularx}
+  \end{tabular*}
   \label{tab:adios2_params}
   \caption{\CarpetX\space parameters for \texttt{ADIOS2} output.}
 \end{table}
 
 As an example, to produce \texttt{ADIOS2} files at every $2$ time steps in \texttt{WaveToyX}, users would use the following excerpt
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CarpetX::out_adios2_every = 2
   CarpetX::out_adios2_vars = "
     WaveToyX::state
@@ -1530,7 +1520,7 @@ As an example, to produce \texttt{ADIOS2} files at every $2$ time steps in \text
     WaveToyX::energy
     WaveToyX::error
 "
-\end{lstlisting}
+\end{verbatim}
 
 \subsection{Norms files}
 
@@ -1538,18 +1528,18 @@ As an example, to produce \texttt{ADIOS2} files at every $2$ time steps in \text
 
 \begin{table}[hb]
   \centering
-  \begin{tabularx}{\textwidth}{cccX}
+  \begin{tabular*}{\textwidth}{cccp{23em}}
     Parameter                 & Type    & Default Value  & Description \\\hline\hline
     \texttt{out\_norm\_vars}  & String  & Empty string   & Space or newline separated string of grid functions to output \\
     \texttt{out\_norm\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations \\\hline\hline
-  \end{tabularx}
+  \end{tabular*}
   \label{tab:norms_output}
   \caption{\CarpetX\space parameters for norms output.}
 \end{table}
 
 For example, to output \texttt{openPMD} and norms for the \texttt{WaveToyX} thorn grid functions, the following excerpt could be added to a parameter file
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CarpetX::out_norm_every = 2
   
   # Here we choose to output only norms of the error grid function    
@@ -1567,7 +1557,7 @@ For example, to output \texttt{openPMD} and norms for the \texttt{WaveToyX} thor
       WaveToyX::energy
       WaveToyX::error
   "
-\end{lstlisting}
+\end{verbatim}
 
 \subsection{Performance file}
 
@@ -1575,21 +1565,21 @@ For example, to output \texttt{openPMD} and norms for the \texttt{WaveToyX} thor
 
 \begin{table}[ht]
   \centering
-  \begin{tabularx}{\textwidth}{cccX}
+  \begin{tabular*}{\textwidth}{cccp{20em}}
     Parameter                       & Type     & Default Value  & Description \\\hline\hline
     \texttt{out\_performance}        & Boolean & \texttt{"yes"} & Whether to produce performance data in YAML format. \\
     \texttt{out\_performance\_every} & Integer & $-1$           & If set to $-1$, output is produced as often as the setting of \texttt{IO::out\_every}. If set to $0$, output is never produced. If set to $1$ or larger, output every that many iterations. \\\hline\hline
-  \end{tabularx}
+  \end{tabular*}
   \label{tab:perf_output}
   \caption{\CarpetX\space parameters for performance output.}
 \end{table}
 
 As an example, to  have performance measurements output for a simulation every 2 iterations, the following parameters may be added to a parameter file
 
-\begin{lstlisting}[language=bash]
+\begin{verbatim}
   CarpetX::out_performance = yes  
   CarpetX::out_performance_every = 2
-\end{lstlisting}
+\end{verbatim}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Debugging}
