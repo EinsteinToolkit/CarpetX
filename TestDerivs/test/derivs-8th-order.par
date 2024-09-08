@@ -25,10 +25,9 @@ CarpetX::xmax = 0.1234567+$pi
 CarpetX::ymax = 0.2345678+$pi
 CarpetX::zmax = 0.3456789+$pi
 
-Driver::periodic = "yes"
-Driver::periodic_x = "yes"
-Driver::periodic_y = "yes"
-Driver::periodic_z = "yes"
+CarpetX::periodic_x = "yes"
+CarpetX::periodic_y = "yes"
+CarpetX::periodic_z = "yes"
 
 CarpetX::ncells_x = $ncells
 CarpetX::ncells_y = $ncells
@@ -40,21 +39,21 @@ CarpetX::blocking_factor_z = $blocking_factor
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 1
-Driver::regrid_error_threshold = 0.01
+CarpetX::regrid_error_threshold = 0.01
 
 CarpetX::dtfac = 0.5
 
 CarpetX::prolongation_type = "ddf"
 CarpetX::prolongation_order = 7
-CarpetX::ghost_size = 4  # 1 extra for diss operator
+CarpetX::ghost_size = 5  # 1 extra for diss operator
 
-TestDerivs::deriv_order = 6
+TestDerivs::deriv_order = 8
 TestDerivs::kxx = 1.0
 TestDerivs::kxy = 1.0
 TestDerivs::kyz = 1.0
 
 IO::out_dir = $parfile
-IO::out_fileinfo = "axis labels"
+IO::out_fileinfo = "none"
 IO::parfile_write = "no"
 IO::out_every = 1
 
