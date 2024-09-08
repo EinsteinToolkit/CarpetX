@@ -44,10 +44,10 @@ CarpetX::regrid_error_threshold = 0.01
 CarpetX::dtfac = 0.5
 
 CarpetX::prolongation_type = "ddf"
-CarpetX::prolongation_order = 3
-CarpetX::ghost_size = 2  # 1 extra for diss operator
+CarpetX::prolongation_order = 7
+CarpetX::ghost_size = 5  # 1 extra for diss operator
 
-TestDerivs::deriv_order = 2
+TestDerivs::deriv_order = 8
 TestDerivs::kxx = 1.0
 TestDerivs::kxy = 1.0
 TestDerivs::kyz = 1.0
