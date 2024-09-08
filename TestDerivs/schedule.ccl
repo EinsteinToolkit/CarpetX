@@ -14,7 +14,8 @@ SCHEDULE TestDerivs_Set AT initial
 {
   LANG: C
   WRITES: chi(interior)
-  SYNC: chi
+  WRITES: beta(interior)
+  SYNC: chi beta
 } "Set up test data"
 
 SCHEDULE TestDerivs_Sync AT postregrid
@@ -27,7 +28,15 @@ SCHEDULE TestDerivs_Sync AT postregrid
 SCHEDULE TestDerivs_CalcDerivs AT poststep
 {
   LANG: C
-  READS: chi(everywhere)
-  WRITES: dchi(interior) ddchi(interior)
-  SYNC: dchi ddchi
+  READS: chi(everywhere) beta(interior)
+  WRITES: dchi(interior) ddchi(interior) chi_diss(interior) chi_upwind(interior)
+  SYNC: dchi ddchi chi_diss chi_upwind
 } "Calculate derivs"
+
+SCHEDULE TestDerivs_CalcError AT poststep AFTER TestDerivs_CalcDerivs
+{
+  LANG: C
+  READS: dchi(interior) ddchi(interior) chi_diss(interior) chi_upwind(interior)
+  WRITES: dchi_error(interior) ddchi_error(interior) chi_diss_error(interior) chi_upwind_error(interior)
+  SYNC: dchi_error ddchi_error chi_diss_error chi_upwind_error
+} "Calculate derivs error"
