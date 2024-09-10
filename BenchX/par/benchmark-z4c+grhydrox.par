@@ -1,4 +1,5 @@
 ActiveThorns = "
+    # SystemTopology
     ADMBase
     CarpetX
     ErrorEstimator
@@ -8,7 +9,6 @@ ActiveThorns = "
     HydroBase
     IOUtil
     ODESolvers
-    # SystemTopology
     TimerReport
     TmunuBase
     Z4c
