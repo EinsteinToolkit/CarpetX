@@ -1,11 +1,11 @@
 ActiveThorns = "
+    # SystemTopology
     ADMBaseX
     CarpetX
     ErrorEstimator
     Formaline
     IOUtil
     ODESolvers
-    # SystemTopology
     TimerReport
     TmunuBaseX
     Z4c
