@@ -595,7 +595,7 @@ template <typename T> struct simd {
     return exp10_u10(x.elts);
 #else
     using std::exp2;
-    constexpr T log2_10 = log2(T(10));
+    const T log2_10 = log2(T(10));
     return exp2(log2_10 * x.elts);
 #endif
   }
