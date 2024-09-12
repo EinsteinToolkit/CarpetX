@@ -122,7 +122,7 @@ void TestSIMD() {
   check(isapprox(copysign(a, b), copysign(s, t)));
   check(isapprox(cos(a), cos(s)));
   check(isapprox(cosh(a), cosh(s)));
-  check(isapprox(cospi(a), cos(M_PI * s)));
+  check(isapprox(cospi(a), cos(CCTK_REAL(M_PI) * s)));
   check(isapprox(exp(a), exp(s)));
   check(isapprox(exp10(a), exp10(s)));
   check(isapprox(exp2(a), exp2(s)));
@@ -182,7 +182,7 @@ void TestSIMD() {
   check(isequal(signbit(a), signbit(s)));
   check(isapprox(sin(a), sin(s)));
   check(isapprox(sinh(a), sinh(s)));
-  check(isapprox(sinpi(a), sin(M_PI * s)));
+  check(isapprox(sinpi(a), sin(CCTK_REAL(M_PI) * s)));
   check(isapprox(sqrt(a), sqrt(s)));
   check(isapprox(tan(a), tan(s)));
   check(isapprox(tanh(a), tanh(s)));
