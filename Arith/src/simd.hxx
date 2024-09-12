@@ -7,14 +7,19 @@
 
 // // Disable SIMD when the `NSIMD` library is not available
 // #ifndef HAVE_CAPABILITY_NSIMD
-// #ifndef SIMD_CPU
-// #define SIMD_CPU
+// #ifndef SIMD_DISABLE
+// #define SIMD_DISABLE
 // #endif
 // #endif
+
+// Accept `SIMD_CPU` as well for backward compatibility
+#ifdef SIMD_CPU
+#define SIMD_DISABLE
+#endif
 
 #include "defs.hxx"
 
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
 #include <nsimd/nsimd-all.hpp>
 #undef vec // This should arguably not be defined in C++
 #else
@@ -36,7 +41,7 @@ using namespace std;
 template <typename T> struct simd;
 template <typename T> struct simdl;
 
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
 namespace detail {
 struct reinterpret32 {
   typedef i32 int_type;
@@ -86,7 +91,7 @@ std::size_t get_memop_count();
 
 template <typename T> struct simd {
   using value_type = T;
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   using storage_type = nsimd::pack<T>;
 #else
   using storage_type = T;
@@ -101,7 +106,7 @@ template <typename T> struct simd {
 
   constexpr ARITH_DEVICE ARITH_HOST simd() {}
   constexpr ARITH_DEVICE ARITH_HOST simd(const T &a) : elts(a) {}
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   template <typename U = T,
             enable_if_t<!is_same_v<nsimd::pack<T>, T> > * = nullptr>
   constexpr ARITH_DEVICE ARITH_HOST simd(const nsimd::pack<T> &elts)
@@ -122,7 +127,7 @@ template <typename T> struct simd {
   }
 
   constexpr ARITH_DEVICE ARITH_HOST std::size_t size() const {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return sizeof(nsimd::pack<T>) / sizeof(T);
 #else
     return 1;
@@ -133,7 +138,7 @@ template <typename T> struct simd {
 #ifdef CCTK_DEBUG
     assert(n >= 0 && n < int(storage_size));
 #endif
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     T xarr[storage_size];
     storeu(xarr, *this);
     return xarr[n];
@@ -160,7 +165,7 @@ template <typename T> struct simd {
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator+(const simd &x) {
     count_flop();
-    return +x.elts;
+    return x.elts;
   }
   friend constexpr ARITH_DEVICE ARITH_HOST simd operator-(const simd &x) {
     count_flop();
@@ -439,13 +444,23 @@ template <typename T> struct simd {
     return abs(x.elts);
   }
 
-  friend constexpr ARITH_DEVICE ARITH_HOST simd andnot(const simd &x,
-                                                       const simd &y) {
-#ifndef SIMD_CPU
-    count_flop();
-    return andnotb(x.elts, y.elts);
+  friend constexpr ARITH_DEVICE ARITH_HOST simd acos(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return acos_u10(x.elts);
 #else
-    return x & ~y;
+    using std::acos;
+    return acos(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd acosh(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return acosh_u10(x.elts);
+#else
+    using std::acosh;
+    return acosh(x.elts);
 #endif
   }
 
@@ -454,14 +469,74 @@ template <typename T> struct simd {
     return all(isfinite(x));
   }
 
+  friend constexpr ARITH_DEVICE ARITH_HOST simd andnot(const simd &x,
+                                                       const simd &y) {
+#ifndef SIMD_DISABLE
+    count_flop();
+    return andnotb(x.elts, y.elts);
+#else
+    return x & ~y;
+#endif
+  }
+
   friend constexpr ARITH_DEVICE ARITH_HOST bool anyisnan(const simd &x) {
     using std::isnan;
     return any(isnan(x));
   }
 
+  friend constexpr ARITH_DEVICE ARITH_HOST simd asin(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return asin_u10(x.elts);
+#else
+    using std::asin;
+    return asin(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd asinh(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return asinh_u10(x.elts);
+#else
+    using std::asinh;
+    return asinh(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd atan(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return atan_u10(x.elts);
+#else
+    using std::atan;
+    return atan(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd atanh(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return atanh_u10(x.elts);
+#else
+    using std::atanh;
+    return atanh(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd cbrt(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return cbrt_u10(x.elts);
+#else
+    using std::cbrt;
+    return cbrt(x.elts);
+#endif
+  }
+
   friend constexpr ARITH_DEVICE ARITH_HOST simd copysign(const simd &x,
                                                          const simd &y) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     typedef detail::unsigned_type<T> U;
     const T signmask =
         nsimd::scalar_reinterpret(T{}, U(1) << (8 * sizeof(U) - 1));
@@ -473,6 +548,68 @@ template <typename T> struct simd {
 #endif
   }
 
+  friend constexpr ARITH_DEVICE ARITH_HOST simd cos(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return cos_u10(x.elts);
+#else
+    using std::cos;
+    return cos(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd cosh(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return cosh_u10(x.elts);
+#else
+    using std::cosh;
+    return cosh(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd cospi(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return cospi_u05(x.elts);
+#else
+    using std::acos, std::cos;
+    constexpr T pi = acos(T(-1));
+    return cos(pi * x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd exp(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return exp_u10(x.elts);
+#else
+    using std::exp;
+    return exp(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd exp10(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return exp10_u10(x.elts);
+#else
+    using std::exp2;
+    constexpr T log2_10 = log2(T(10));
+    return exp2(log2_10 * x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd exp2(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return exp2_u10(x.elts);
+#else
+    using std::exp2;
+    return exp2(x.elts);
+#endif
+  }
+
   friend constexpr ARITH_DEVICE ARITH_HOST simd fabs(const simd &x) {
     count_flop();
     using std::abs;
@@ -481,7 +618,7 @@ template <typename T> struct simd {
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd flipsign(const simd &x,
                                                          const simd &y) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     typedef detail::unsigned_type<T> U;
     const T signmask =
         nsimd::scalar_reinterpret(T{}, U(1) << (8 * sizeof(U) - 1));
@@ -531,6 +668,26 @@ template <typename T> struct simd {
     return min(x, simd(b));
   }
 
+  friend constexpr ARITH_DEVICE ARITH_HOST simd hypot(const simd &x,
+                                                      const simd &y) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return hypot_u05(x.elts, y.elts);
+#else
+    using std::hypot;
+    return hypot(x.elts, y.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd inv(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return rec(x.elts);
+#else
+    return inv(x.elts);
+#endif
+  }
+
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> isfinite(const simd &x) {
     // using std::isfinite;
     // return isfinite(x.elts);
@@ -547,6 +704,36 @@ template <typename T> struct simd {
     // using std::isnan;
     // return isnan(x.elts);
     return x != x;
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd log(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return log_u10(x.elts);
+#else
+    using std::log;
+    return log(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd log10(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return log10_u10(x.elts);
+#else
+    using std::log10;
+    return log10(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd log2(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return log2_u10(x.elts);
+#else
+    using std::log2;
+    return log2(x.elts);
+#endif
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simd max(const simd &x,
@@ -603,7 +790,7 @@ template <typename T> struct simd {
                                                        const simd &y,
                                                        const simd &z) {
     count_flop(2);
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return nsimd::fma(x.elts, y.elts, z.elts);
 #else
     return muladd(x.elts, y.elts, z.elts);
@@ -642,7 +829,7 @@ template <typename T> struct simd {
                                                        const simd &y,
                                                        const simd &z) {
     count_flop(2);
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return nsimd::fms(x.elts, y.elts, z.elts);
 #else
     return mulsub(x.elts, y.elts, z.elts);
@@ -681,7 +868,7 @@ template <typename T> struct simd {
                                                           const simd &y,
                                                           const simd &z) {
     count_flop(2);
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return nsimd::fnma(x.elts, y.elts, z.elts);
 #else
     return negmuladd(x.elts, y.elts, z.elts);
@@ -722,7 +909,7 @@ template <typename T> struct simd {
                                                           const simd &y,
                                                           const simd &z) {
     count_flop(2);
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return nsimd::fnms(x.elts, y.elts, z.elts);
 #else
     return negmulsub(x.elts, y.elts, z.elts);
@@ -759,8 +946,25 @@ template <typename T> struct simd {
     return negmulsub(x, simd(b), simd(c));
   }
 
+  friend constexpr ARITH_DEVICE ARITH_HOST simd pow(const simd &x,
+                                                    const simd &y) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return pow_u10(x.elts, y.elts);
+#else
+    using std::pow;
+    return pow(x.elts, y.elts);
+#endif
+  }
+  friend constexpr ARITH_DEVICE ARITH_HOST simd pow(const simd &x, const T &b) {
+    return pow(x, simd(b));
+  }
+  friend constexpr ARITH_DEVICE ARITH_HOST simd pow(const T &a, const simd &y) {
+    return pow(simd(a), y);
+  }
+
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> signbit(const simd &x) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     typedef detail::unsigned_type<T> U;
     const T signmask =
         nsimd::scalar_reinterpret(T{}, U(1) << (8 * sizeof(U) - 1));
@@ -771,10 +975,61 @@ template <typename T> struct simd {
 #endif
   }
 
+  friend constexpr ARITH_DEVICE ARITH_HOST simd sin(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return sin_u10(x.elts);
+#else
+    using std::sin;
+    return sin(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd sinh(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return sinh_u10(x.elts);
+#else
+    using std::sinh;
+    return sinh(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd sinpi(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return sinpi_u05(x.elts);
+#else
+    using std::acos, std::sin;
+    constexpr T pi = acos(T(-1));
+    return sin(pi * x.elts);
+#endif
+  }
+
   friend constexpr ARITH_DEVICE ARITH_HOST simd sqrt(const simd &x) {
     count_flop(10);
     using std::sqrt;
     return sqrt(x.elts);
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd tan(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return tan_u10(x.elts);
+#else
+    using std::tan;
+    return tan(x.elts);
+#endif
+  }
+
+  friend constexpr ARITH_DEVICE ARITH_HOST simd tanh(const simd &x) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return tanh_u10(x.elts);
+#else
+    using std::tanh;
+    return tanh(x.elts);
+#endif
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> to_logical(const simd &x) {
@@ -783,7 +1038,7 @@ template <typename T> struct simd {
 
   friend ARITH_DEVICE ARITH_HOST void storea(T *ptr, const simd &x) {
     count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     storea(ptr, x.elts);
 #else
     *ptr = x.elts;
@@ -791,7 +1046,7 @@ template <typename T> struct simd {
   }
   friend ARITH_DEVICE ARITH_HOST void storeu(T *ptr, const simd &x) {
     count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     storeu(ptr, x.elts);
 #else
     *ptr = x.elts;
@@ -800,7 +1055,7 @@ template <typename T> struct simd {
   friend ARITH_DEVICE ARITH_HOST void mask_storea(const simdl<T> &mask, T *ptr,
                                                   const simd &x) {
     count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     mask_storea(mask.elts, ptr, x.elts);
 #else
     if (mask.elts)
@@ -810,11 +1065,27 @@ template <typename T> struct simd {
   friend ARITH_DEVICE ARITH_HOST void mask_storeu(const simdl<T> &mask, T *ptr,
                                                   const simd &x) {
     count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     mask_storeu(mask.elts, ptr, x.elts);
 #else
-    if (mask.elts)
+    if (mask.elts) {
+#if 0 && defined __CUDACC__
+      // __stwb: Cache write-back all coherent levels
+      // __stcg: Cache at global level (cache in L2 and below, not L1)
+      // __stcs: Cache streaming, likely to be accessed once
+      // __stwt: Cache write-through (to system memory)
+      __stwt(ptr, x.elts);
+#elif 0 && defined __HIPCC__
+      __builtin_nontemporal_store(x.elts, ptr);
+#else
+      // CPU
+#if 0 && defined __llvm__
+      __builtin_nontemporal_store(x.elts, ptr);
+#else
       *ptr = x.elts;
+#endif
+#endif
+    }
 #endif
   }
 
@@ -873,7 +1144,7 @@ template <typename T> struct nan<simd<T> > {
 
 template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simd<T> iota() {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return nsimd::iota<nsimd::pack<T> >();
 #else
   return 0;
@@ -884,7 +1155,7 @@ template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simdl<T> mask_for_loop_tail(const int i,
                                                            const int n) {
   simd<T>::count_flop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return nsimd::mask_for_loop_tail<nsimd::packl<T> >(i, n);
 #else
   return i < n;
@@ -894,7 +1165,7 @@ ARITH_DEVICE ARITH_HOST inline simdl<T> mask_for_loop_tail(const int i,
 template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simd<T> loada(const T *ptr) {
   simd<T>::count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return nsimd::loada<nsimd::pack<T> >(ptr);
 #else
   return *ptr;
@@ -904,7 +1175,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> loada(const T *ptr) {
 template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simd<T> loadu(const T *ptr) {
   simd<T>::count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return nsimd::loadu<nsimd::pack<T> >(ptr);
 #else
   return *ptr;
@@ -915,7 +1186,7 @@ template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loada(const simdl<T> &mask,
                                                    const T *ptr) {
   simd<T>::count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return nsimd::maskz_loada(mask.elts, ptr);
 #else
   return mask.elts ? *ptr : 0;
@@ -926,7 +1197,7 @@ template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loadu(const simdl<T> &mask,
                                                    const T *ptr) {
   simd<T>::count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return nsimd::maskz_loadu(mask.elts, ptr);
 #else
   return mask.elts ? *ptr : 0;
@@ -937,7 +1208,7 @@ template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loada(const simdl<T> &mask, const T *ptr, const simd<T> &other) {
   simd<T>::count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return masko_loada(mask.elts, ptr, other.elts);
 #else
   return mask.elts ? *ptr : other.elts;
@@ -948,7 +1219,7 @@ template <typename T>
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loadu(const simdl<T> &mask, const T *ptr, const simd<T> &other) {
   simd<T>::count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return masko_loadu(mask.elts, ptr, other.elts);
 #else
   return mask.elts ? *ptr : other.elts;
@@ -960,7 +1231,7 @@ template <typename T, typename U,
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loada(const simdl<T> &mask, const T *ptr, const U &other) {
   simd<T>::count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return masko_loada(mask, ptr, simd<T>(other));
 #else
   return mask.elts ? *ptr : other;
@@ -972,76 +1243,11 @@ template <typename T, typename U,
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loadu(const simdl<T> &mask, const T *ptr, const U &other) {
   simd<T>::count_memop();
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   return masko_loadu(mask, ptr, simd<T>(other));
 #else
   return mask.elts ? *ptr : other;
 #endif
-}
-
-template <typename T>
-ARITH_DEVICE ARITH_HOST inline simd<T> acos(const simd<T> &x) {
-  simd<T>::count_memop(10);
-  alignas(simd<T>) T xarr[simd<T>::storage_size];
-  storea(xarr, x);
-  alignas(simd<T>) T yarr[simd<T>::storage_size];
-  using std::acos;
-  for (std::size_t n = 0; n < x.size(); ++n)
-    yarr[n] = acos(xarr[n]);
-  const simd<T> y = loada<simd<T> >(yarr);
-  return y;
-}
-
-template <typename T>
-ARITH_DEVICE ARITH_HOST inline simd<T> cbrt(const simd<T> &x) {
-  simd<T>::count_memop(10);
-  alignas(simd<T>) T xarr[simd<T>::storage_size];
-  storea(xarr, x);
-  alignas(simd<T>) T yarr[simd<T>::storage_size];
-  using std::cbrt;
-  for (std::size_t n = 0; n < x.size(); ++n)
-    yarr[n] = cbrt(xarr[n]);
-  const simd<T> y = loada<simd<T> >(yarr);
-  return y;
-}
-
-template <typename T>
-ARITH_DEVICE ARITH_HOST inline simd<T> cos(const simd<T> &x) {
-  simd<T>::count_memop(10);
-  alignas(simd<T>) T xarr[simd<T>::storage_size];
-  storea(xarr, x);
-  alignas(simd<T>) T yarr[simd<T>::storage_size];
-  using std::cos;
-  for (std::size_t n = 0; n < x.size(); ++n)
-    yarr[n] = cos(xarr[n]);
-  const simd<T> y = loada<simd<T> >(yarr);
-  return y;
-}
-
-template <typename T>
-ARITH_DEVICE ARITH_HOST inline simd<T> exp(const simd<T> &x) {
-  simd<T>::count_memop(10);
-  alignas(simd<T>) T xarr[simd<T>::storage_size];
-  storea(xarr, x);
-  alignas(simd<T>) T yarr[simd<T>::storage_size];
-  using std::exp;
-  for (std::size_t n = 0; n < x.size(); ++n)
-    yarr[n] = exp(xarr[n]);
-  const simd<T> y = loada<simd<T> >(yarr);
-  return y;
-}
-
-template <typename T>
-ARITH_DEVICE ARITH_HOST inline simd<T> sin(const simd<T> &x) {
-  simd<T>::count_memop(10);
-  alignas(simd<T>) T xarr[simd<T>::storage_size];
-  storea(xarr, x);
-  alignas(simd<T>) T yarr[simd<T>::storage_size];
-  using std::sin;
-  for (std::size_t n = 0; n < x.size(); ++n)
-    yarr[n] = sin(xarr[n]);
-  const simd<T> y = loada<simd<T> >(yarr);
-  return y;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1059,7 +1265,7 @@ ARITH_DEVICE ARITH_HOST inline simd<T> sin(const simd<T> &x) {
 
 template <typename T> struct simdl {
   typedef T value_type;
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   using storage_type = nsimd::packl<T>;
 #else
   using storage_type = bool;
@@ -1074,13 +1280,13 @@ template <typename T> struct simdl {
 
   constexpr ARITH_DEVICE ARITH_HOST simdl() {}
   constexpr ARITH_DEVICE ARITH_HOST simdl(bool a) : elts(a) {}
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
   constexpr ARITH_DEVICE ARITH_HOST simdl(const nsimd::packl<T> &elts)
       : elts(elts) {}
 #endif
 
   constexpr ARITH_DEVICE ARITH_HOST std::size_t size() const {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return sizeof(nsimd::packl<T>) / sizeof(T);
 #else
     return 1;
@@ -1089,7 +1295,7 @@ template <typename T> struct simdl {
 
   constexpr ARITH_DEVICE ARITH_HOST bool
   operator[](const std::ptrdiff_t n) const {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     // TOOD: Introduce `to_mask` for simd/simdl
     return simd<T>(nsimd::to_mask(elts))[n];
 #else
@@ -1127,7 +1333,11 @@ template <typename T> struct simdl {
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator^(const simdl &x,
                                                  const simdl &y) {
+#ifndef SIMD_DISABLE
+    return xorl(x.elts, y.elts);
+#else
     return x.elts ^ y.elts;
+#endif
   }
 
   friend ARITH_DEVICE ARITH_HOST simdl operator&(const bool a, const simdl &y) {
@@ -1172,77 +1382,77 @@ template <typename T> struct simdl {
 
   friend ARITH_DEVICE ARITH_HOST simdl operator==(const simdl &x,
                                                   const simdl &y) {
-    return x.elts == y.elts;
+    return !(x != y);
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator!=(const simdl &x,
                                                   const simdl &y) {
-    return x.elts != y.elts;
+    return x ^ y;
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator<(const simdl &x,
                                                  const simdl &y) {
-    return x.elts < y.elts;
+    return !x & y;
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator>(const simdl &x,
                                                  const simdl &y) {
-    return x.elts > y.elts;
+    return y < x;
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator<=(const simdl &x,
                                                   const simdl &y) {
-    return x.elts <= y.elts;
+    return !(x > y);
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator>=(const simdl &x,
                                                   const simdl &y) {
-    return x.elts >= y.elts;
+    return !(x < y);
   }
 
   friend ARITH_DEVICE ARITH_HOST simdl operator==(const bool a,
                                                   const simdl &y) {
-    return a == y.elts;
+    return simdl(a) == y;
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator!=(const bool a,
                                                   const simdl &y) {
-    return a != y.elts;
+    return simdl(a) != y;
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator<(const bool a, const simdl &y) {
-    return a < y.elts;
+    return simdl(a) < y;
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator>(const bool a, const simdl &y) {
-    return a > y.elts;
+    return simdl(a) > y;
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator<=(const bool a,
                                                   const simdl &y) {
-    return a <= y.elts;
+    return simdl(a) <= y;
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator>=(const bool a,
                                                   const simdl &y) {
-    return a >= y.elts;
+    return simdl(a) >= y;
   }
 
   friend ARITH_DEVICE ARITH_HOST simdl operator==(const simdl &x,
                                                   const bool b) {
-    return x.elts == b;
+    return x == simdl(b);
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator!=(const simdl &x,
                                                   const bool b) {
-    return x.elts != b;
+    return x != simdl(b);
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator<(const simdl &x, const bool b) {
-    return x.elts < b;
+    return x < simdl(b);
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator>(const simdl &x, const bool b) {
-    return x.elts > b;
+    return x > simdl(b);
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator<=(const simdl &x,
                                                   const bool b) {
-    return x.elts <= b;
+    return x <= simdl(b);
   }
   friend ARITH_DEVICE ARITH_HOST simdl operator>=(const simdl &x,
                                                   const bool b) {
-    return x.elts >= b;
+    return x >= simdl(b);
   }
 
   friend ARITH_DEVICE ARITH_HOST bool all(const simdl &x) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return all(x.elts);
 #else
     return x.elts;
@@ -1250,7 +1460,7 @@ template <typename T> struct simdl {
   }
 
   friend ARITH_DEVICE ARITH_HOST simdl andnot(const simdl &x, const simdl &y) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return andnotl(x.elts, y.elts);
 #else
     return x && !y;
@@ -1258,7 +1468,7 @@ template <typename T> struct simdl {
   }
 
   friend ARITH_DEVICE ARITH_HOST bool any(const simdl &x) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return any(x.elts);
 #else
     return x.elts;
@@ -1267,7 +1477,7 @@ template <typename T> struct simdl {
 
   friend ARITH_DEVICE ARITH_HOST simd<T>
   if_else(const simdl &cond, const simd<T> &x, const simd<T> &y) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return if_else1(cond.elts, x.elts, y.elts);
 #else
     return cond.elts ? x.elts : y.elts;
@@ -1288,7 +1498,7 @@ template <typename T> struct simdl {
 
   friend ARITH_DEVICE ARITH_HOST simdl<T>
   if_else(const simdl &cond, const simdl<T> &x, const simdl<T> &y) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     return if_else1(cond.elts, x.elts, y.elts);
 #else
     return cond.elts ? x.elts : y.elts;
@@ -1308,14 +1518,14 @@ template <typename T> struct simdl {
   }
 
   friend ARITH_DEVICE ARITH_HOST void storela(T *ptr, const simdl &x) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     storela(ptr, x.elts);
 #else
     *ptr = x.elts;
 #endif
   }
   friend ARITH_DEVICE ARITH_HOST void storelu(T *ptr, const simdl &x) {
-#ifndef SIMD_CPU
+#ifndef SIMD_DISABLE
     storelu(ptr, x.elts);
 #else
     *ptr = x.elts;
