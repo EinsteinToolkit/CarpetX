@@ -574,7 +574,7 @@ template <typename T> struct simd {
     return cospi_u05(x.elts);
 #else
     using std::acos, std::cos;
-    constexpr T pi = acos(T(-1));
+    const T pi = acos(T(-1));
     return cos(pi * x.elts);
 #endif
   }
@@ -1001,7 +1001,7 @@ template <typename T> struct simd {
     return sinpi_u05(x.elts);
 #else
     using std::acos, std::sin;
-    constexpr T pi = acos(T(-1));
+    const T pi = acos(T(-1));
     return sin(pi * x.elts);
 #endif
   }
