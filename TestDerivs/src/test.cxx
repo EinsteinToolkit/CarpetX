@@ -50,7 +50,8 @@ extern "C" void TestDerivs_Set(CCTK_ARGUMENTS) {
         const CCTK_REAL y0 = p.y;
         const CCTK_REAL z0 = p.z;
         vreal u0;
-        poly(kxx, kxy, kyz, Arith::cos(x0), std::sin(y0), std::sin(z0), u0);
+        using std::sin, std::cos;
+        poly(kxx, kxy, kyz, cos(x0), sin(y0), sin(z0), u0);
 
         chi.store(mask, p.I, u0);
       });
@@ -133,12 +134,13 @@ extern "C" void TestDerivs_CalcDerivs(CCTK_ARGUMENTS) {
 #if CCTK_DEBUG
   grid.loop_int_device<0, 0, 0>(
       grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
-        const auto sinx = std::sin(p.x);
-        const auto siny = std::sin(p.y);
-        const auto sinz = std::sin(p.z);
-        const auto cosx = std::cos(p.x);
-        const auto cosy = std::cos(p.y);
-        const auto cosz = std::cos(p.z);
+        using std::cos, std::sin;
+        const auto sinx = sin(p.x);
+        const auto siny = sin(p.y);
+        const auto sinz = sin(p.z);
+        const auto cosx = cos(p.x);
+        const auto cosy = cos(p.y);
+        const auto cosz = cos(p.z);
         const auto dxxdchi =
             -2 * kxx * cosx * cosx + 2 * kxx * sinx * sinx - kxy * cosx * siny;
         const auto dxydchi = -kxy * cosy * sinx;
