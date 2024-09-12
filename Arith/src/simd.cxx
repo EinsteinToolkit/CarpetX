@@ -124,7 +124,7 @@ void TestSIMD() {
   check(isapprox(cosh(a), cosh(s)));
   check(isapprox(cospi(a), cos(CCTK_REAL(M_PI) * s)));
   check(isapprox(exp(a), exp(s)));
-  check(isapprox(exp10(a), exp10(s)));
+  check(isapprox(exp10(a), pow(CCTK_REAL(10), s)));
   check(isapprox(exp2(a), exp2(s)));
   check(isapprox(fabs(a), fabs(s)));
   check(isapprox(flipsign(a, b), flipsign(s, t)));
