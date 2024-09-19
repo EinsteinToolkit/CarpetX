@@ -9,6 +9,7 @@ KEYWORD method "ODE solver method" STEERABLE=always
   "RK3" :: "Kutta's third-order method"
   "SSPRK3" :: "third-order Strong Stability Preserving Runge-Kutta (SSPRK3)"
   "RK4" :: "classic RK4"
+  "RKAB" :: "hybrid RK-Adams-Bashforth method"
   "RKF78" :: "Runge-Kutta-Fehlberg 7(8)"
   "DP87" :: "Dormand & Prince 8(7)"
 

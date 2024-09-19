@@ -608,6 +608,36 @@ int get_group_rhs(const int gi) {
   return rhs;
 }
 
+inline int get_group_old(const int gi) {
+  assert(gi >= 0);
+  const int tags = CCTK_GroupTagsTableI(gi);
+  assert(tags >= 0);
+  std::vector<char> rhs_buf(1000);
+  const int iret =
+      Util_TableGetString(tags, rhs_buf.size(), rhs_buf.data(), "rhs");
+  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
+    rhs_buf[0] = '\0'; // default: empty (no RHS)
+  } else if (iret >= 0) {
+    // do nothing
+  } else {
+    assert(0);
+  }
+
+  std::string str(rhs_buf.data());
+  if (str.empty())
+    return -1; // No RHS specified
+  std::size_t pos = str.find("rhs");
+  str.replace(pos, 3, "old");
+  const int old = groupindex(gi, str);
+  if (old < 0)
+    CCTK_VERROR("Variable group \"%s\" declares a OLD group \"%s\". "
+                "That group does not exist.",
+                CCTK_FullGroupName(gi), str.c_str());
+  assert(old != gi);
+
+  return old;
+}
+
 std::vector<int> get_group_dependents(const int gi) {
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
@@ -684,8 +714,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   static Timer timer_setup("ODESolvers::Solve::setup");
   std::optional<Interval> interval_setup(timer_setup);
 
-  statecomp_t var, rhs;
-  std::vector<int> var_groups, rhs_groups, dep_groups;
+  statecomp_t var, rhs, old;
+  std::vector<int> var_groups, rhs_groups, dep_groups, old_groups;
   int nvars = 0;
   bool do_accumulate_nvars = true;
   assert(CarpetX::active_levels);
@@ -717,6 +747,37 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     }
     do_accumulate_nvars = false;
   });
+
+  if (CCTK_EQUALS(method, "RKAB")) {
+    CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
+      for (const auto &groupdataptr : leveldata.groupdata) {
+        // TODO: add support for evolving grid scalars
+        if (groupdataptr == nullptr)
+          continue;
+
+        auto &groupdata = *groupdataptr;
+        const int old_gi = get_group_old(groupdata.groupindex);
+        if (old_gi >= 0) {
+          assert(old_gi != groupdata.groupindex);
+          auto &old_groupdata = *leveldata.groupdata.at(old_gi);
+          old.groupdatas.push_back(&old_groupdata);
+          old.mfabs.push_back(old_groupdata.mfab.at(tl).get());
+          if (do_accumulate_nvars) {
+            nvars += groupdata.numvars;
+            old_groups.push_back(old_gi);
+          }
+        }
+      }
+      do_accumulate_nvars = false;
+    });
+
+    {
+      std::sort(old_groups.begin(), old_groups.end());
+      const auto last = std::unique(old_groups.begin(), old_groups.end());
+      assert(last == old_groups.end());
+    }
+  }
+
   if (verbose)
     CCTK_VINFO("  Integrating %d variables", nvars);
   if (nvars == 0)
