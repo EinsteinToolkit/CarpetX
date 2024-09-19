@@ -969,14 +969,45 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   } else if (CCTK_EQUALS(method, "RKAB")) {
 
-    const CCTK_REAL c1 = 0.3736646857963324;
-    const CCTK_REAL c2 = 0.03127973625120939;
-    const CCTK_REAL c3 = -0.14797683066152537;
-    const CCTK_REAL c4 = 0.33238257148754524;
-    const CCTK_REAL c5 = -0.0010981891892632696;
-    const CCTK_REAL c6 = -0.0547559191353386;
-    const CCTK_REAL c7 = 2.754535159970365;
-    const CCTK_REAL c8 = 3.414713672966062;
+    const CCTK_REAL c1 = 0.3736646857963324 * dt;
+    const CCTK_REAL c2 = 0.03127973625120939 * dt;
+    const CCTK_REAL c3 = -0.14797683066152537 * dt;
+    const CCTK_REAL c4 = 0.33238257148754524 * dt;
+    const CCTK_REAL c5 = -0.0010981891892632696 * dt;
+    const CCTK_REAL c6 = -0.0547559191353386 * dt;
+    const CCTK_REAL c7 = 2.754535159970365 * dt;
+    const CCTK_REAL c8 = 3.414713672966062 * dt;
+    const CCTK_REAL c9 = dt - c6 - c7 - c8;
+
+    // y0
+    const auto old = copy_state(var, make_valid_all());
+
+    // replace state u with u_p
+    statecomp_t::lincomb(var, 0.0, reals<1>{1.0}, states<1>{&pre},
+                         make_valid_all());
+
+    // calculate k0
+    calcrhs(1);
+    const auto k0 = copy_state(rhs, make_valid_int());
+    calcupdate(1, dt / 2, 0.0, reals<1>{1.0}, states<1>{&old});
+
+    // calculate k1
+    calcrhs(2);
+    const auto k1 = copy_state(rhs, make_valid_int());
+    calcupdate(2, dt / 2, 0.0, reals<3>{1.0, c2, c1},
+               states<3>{&old, &k0, &k1});
+
+    // calculate k2
+    calcrhs(3);
+    const auto k2 = copy_state(rhs, make_valid_int());
+    calcupdate(3, dt, 0.0, reals<4>{1.0, c5, c4, c3},
+               states<4>{&old, &k0, &k1, &k2});
+
+    // calculate k3
+    calcrhs(4);
+    const auto k3 = copy_state(rhs, make_valid_int());
+    calcupdate(4, dt, 0.0, reals<5>{1.0, c6, c7, c8, c9},
+               states<5>{&old, &k0, &k1, &k2, &k3});
 
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
