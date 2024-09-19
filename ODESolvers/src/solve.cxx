@@ -4,8 +4,8 @@
 #include "../../CarpetX/src/timer.hxx"
 
 #include <cctk.h>
-#include <cctk_Parameters.h>
 #include <cctk_Arguments.h>
+#include <cctk_Parameters.h>
 #include <util_Table.h>
 
 #include <div.hxx>
@@ -43,10 +43,10 @@ using namespace std;
 namespace details {
 template <class> struct is_ref_wrapper : std::false_type {};
 template <class T>
-struct is_ref_wrapper<std::reference_wrapper<T> > : std::true_type {};
+struct is_ref_wrapper<std::reference_wrapper<T>> : std::true_type {};
 
 template <class T>
-using not_ref_wrapper = std::negation<is_ref_wrapper<std::decay_t<T> > >;
+using not_ref_wrapper = std::negation<is_ref_wrapper<std::decay_t<T>>>;
 
 template <class D, class...> struct return_type_helper {
   using type = D;
@@ -308,7 +308,7 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
   statecomp_t::combine_valids(dst, scale, factors, srcs, where);
 
 #ifndef AMREX_USE_GPU
-  vector<function<void()> > tasks;
+  vector<function<void()>> tasks;
 #endif
 
   for (size_t m = 0; m < size; ++m) {
@@ -971,7 +971,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     typedef CCTK_REAL T;
     const auto R = [](T x, T y) { return x / y; };
-    const tuple<vector<tuple<T, vector<T> > >, vector<T> > tableau{
+    const tuple<vector<tuple<T, vector<T>>>, vector<T>> tableau{
         {
             {/* 1 */ 0, {}},                                           //
             {/* 2 */ R(2, 27), {R(2, 27)}},                            //
@@ -1083,7 +1083,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // CactusNumerical/MoL, file RK87.c, written by Peter Diener,
     // following P. J. Prince and J. R. Dormand, Journal of
     // Computational and Applied Mathematics, volume 7, no 1, 1981
-    const tuple<vector<vector<T> >, vector<T> > tableau{
+    const tuple<vector<vector<T>>, vector<T>> tableau{
         {
             {/*1*/},                                    //
             {/*2*/ R(1, 18)},                           //
