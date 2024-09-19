@@ -982,13 +982,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // y0
     const auto old = copy_state(var, make_valid_all());
 
-    // replace state u with u_p
-    statecomp_t::lincomb(var, 0.0, reals<1>{1.0}, states<1>{&pre},
-                         make_valid_all());
-
-    // calculate k0
-    calcrhs(1);
-    const auto k0 = copy_state(rhs, make_valid_int());
+    // copy k0 from pre
+    const auto k0 = copy_state(pre, make_valid_int());
     calcupdate(1, dt / 2, 0.0, reals<1>{1.0}, states<1>{&old});
 
     // calculate k1
@@ -1009,9 +1004,9 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     calcupdate(4, dt, 0.0, reals<5>{1.0, c6, c7, c8, c9},
                states<5>{&old, &k0, &k1, &k2, &k3});
 
-    // update pre
-    statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&old},
-                         make_valid_all());
+    // update pre with k1
+    statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&k1},
+                         make_valid_int());
 
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
