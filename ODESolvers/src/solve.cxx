@@ -1010,7 +1010,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                states<5>{&old, &k0, &k1, &k2, &k3});
 
     // update pre
-    statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&var},
+    statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&old},
                          make_valid_all());
 
   } else if (CCTK_EQUALS(method, "RKF78")) {
