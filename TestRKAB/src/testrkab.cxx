@@ -81,8 +81,6 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestRKAB_Initial;
   DECLARE_CCTK_PARAMETERS;
 
-  const CCTK_REAL dt = cctk_delta_time;
-
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
@@ -98,8 +96,6 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           gaussian(amplitude, gaussian_width, cctk_time, p.x, p.y, p.z, u(p.I),
                    rho(p.I));
-          dtgaussian(amplitude, gaussian_width, cctk_time - dt, p.x, p.y, p.z,
-                     u_pre(p.I), rho_pre(p.I));
         });
 
   } else {
