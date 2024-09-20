@@ -959,52 +959,85 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   } else if (CCTK_EQUALS(method, "RKAB")) {
 
-    const std::array<CCTK_REAL, 8> coeff_multipliers = {
-        0.3736646857963324,     // c1
-        0.03127973625120939,    // c2
-        -0.14797683066152537,   // c3
-        0.33238257148754524,    // c4
-        -0.0010981891892632696, // c5
-        -0.0547559191353386,    // c6
-        2.754535159970365,      // c7
-        3.414713672966062       // c8
-    };
+    if (cctkGH->cctk_iteration <= 1) {
 
-    // Precompute all coefficients by multiplying by dt
-    std::array<CCTK_REAL, 9> coeff; // We include c9 as well
-    for (int i = 0; i < 8; ++i) {
-      coeff[i] = dt * coeff_multipliers[i];
+      const auto old = copy_state(var, make_valid_all());
+
+      calcrhs(1);
+      const auto kaccum = copy_state(rhs, make_valid_int());
+      calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
+
+      calcrhs(2);
+      statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&rhs},
+                           make_valid_int());
+      {
+        Interval interval_lincomb(timer_lincomb);
+        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
+                             make_valid_int());
+      }
+      calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
+
+      calcrhs(3);
+      {
+        Interval interval_lincomb(timer_lincomb);
+        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
+                             make_valid_int());
+      }
+      calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
+
+      calcrhs(4);
+      calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
+                 states<3>{&old, &kaccum, &rhs});
+
+    } else {
+
+      const std::array<CCTK_REAL, 8> coeff_multipliers = {
+          0.3736646857963324,     // c1
+          0.03127973625120939,    // c2
+          -0.14797683066152537,   // c3
+          0.33238257148754524,    // c4
+          -0.0010981891892632696, // c5
+          -0.0547559191353386,    // c6
+          2.754535159970365,      // c7
+          3.414713672966062       // c8
+      };
+
+      // Precompute all coefficients by multiplying by dt
+      std::array<CCTK_REAL, 9> coeff; // We include c9 as well
+      for (int i = 0; i < 8; ++i) {
+        coeff[i] = dt * coeff_multipliers[i];
+      }
+      // Compute c9 (requires subtraction of c6, c7, and c8)
+      coeff[8] = dt - coeff[5] - coeff[6] - coeff[7]; // c9
+
+      // y0
+      const auto old = copy_state(var, make_valid_all());
+
+      // copy k0 from pre
+      const auto k0 = copy_state(pre, make_valid_int());
+      calcupdate(1, dt / 2, 0.0, reals<1>{1.0}, states<1>{&old});
+
+      // calculate k1
+      calcrhs(2);
+      statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&rhs},
+                           make_valid_int());
+      const auto k1 = copy_state(rhs, make_valid_int());
+      calcupdate(2, dt / 2, 0.0, reals<3>{1.0, coeff[1], coeff[0]},
+                 states<3>{&old, &k0, &k1});
+
+      // calculate k2
+      calcrhs(3);
+      const auto k2 = copy_state(rhs, make_valid_int());
+      calcupdate(3, dt, 0.0, reals<4>{1.0, coeff[4], coeff[3], coeff[2]},
+                 states<4>{&old, &k0, &k1, &k2});
+
+      // calculate k3
+      calcrhs(4);
+      const auto k3 = copy_state(rhs, make_valid_int());
+      calcupdate(4, dt, 0.0,
+                 reals<5>{1.0, coeff[5], coeff[6], coeff[7], coeff[8]},
+                 states<5>{&old, &k0, &k1, &k2, &k3});
     }
-    // Compute c9 (requires subtraction of c6, c7, and c8)
-    coeff[8] = dt - coeff[5] - coeff[6] - coeff[7]; // c9
-
-    // y0
-    const auto old = copy_state(var, make_valid_all());
-
-    // copy k0 from pre
-    const auto k0 = copy_state(pre, make_valid_int());
-    calcupdate(1, dt / 2, 0.0, reals<1>{1.0}, states<1>{&old});
-
-    // calculate k1
-    calcrhs(2);
-    statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&rhs},
-                         make_valid_int());
-    const auto k1 = copy_state(rhs, make_valid_int());
-    calcupdate(2, dt / 2, 0.0, reals<3>{1.0, coeff[1], coeff[0]},
-               states<3>{&old, &k0, &k1});
-
-    // calculate k2
-    calcrhs(3);
-    const auto k2 = copy_state(rhs, make_valid_int());
-    calcupdate(3, dt, 0.0, reals<4>{1.0, coeff[4], coeff[3], coeff[2]},
-               states<4>{&old, &k0, &k1, &k2});
-
-    // calculate k3
-    calcrhs(4);
-    const auto k3 = copy_state(rhs, make_valid_int());
-    calcupdate(4, dt, 0.0,
-               reals<5>{1.0, coeff[5], coeff[6], coeff[7], coeff[8]},
-               states<5>{&old, &k0, &k1, &k2, &k3});
 
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
