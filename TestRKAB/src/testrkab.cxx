@@ -56,9 +56,32 @@ constexpr void gaussian(const T A, const T W, const T t, const T x, const T y,
   }
 }
 
+template <typename T>
+constexpr void dtgaussian(const T A, const T W, const T t, const T x, const T y,
+                          const T z, T &dtu, T &dtrho) {
+  using std::exp, std::pow, std::sqrt;
+
+  const T r = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+  const auto f = [&](const T v) {
+    return A * exp(-pow(v, 2) / (2 * pow(W, 2)));
+  };
+
+  if (r < sqrt(std::numeric_limits<T>::epsilon())) {
+    dtu = -2 / pow(W, 4) * f(t) * (pow(t, 2) - pow(W, 2));
+    dtrho = (2 * t * (pow(t, 2) - 3 * pow(W, 2)) * f(t)) / pow(W, 6);
+  } else {
+    dtu = -(f(t - r) * (t - r) - f(t + r) * (t + r)) / (pow(W, 2) * r);
+    dtrho = -(f(t - r) * (1 - pow(t - r, 2) / pow(W, 2)) -
+              f(t + r) * (1 - pow(t + r, 2) / pow(W, 2))) /
+            (pow(W, 2) * r);
+  }
+}
+
 extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestRKAB_Initial;
   DECLARE_CCTK_PARAMETERS;
+
+  const CCTK_REAL dt = cctk_delta_time;
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
     grid.loop_int_device<0, 0, 0>(
@@ -75,6 +98,8 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           gaussian(amplitude, gaussian_width, cctk_time, p.x, p.y, p.z, u(p.I),
                    rho(p.I));
+          dtgaussian(amplitude, gaussian_width, cctk_time - dt, p.x, p.y, p.z,
+                     u_pre(p.I), rho_pre(p.I));
         });
 
   } else {

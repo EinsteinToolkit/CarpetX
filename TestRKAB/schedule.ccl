@@ -6,8 +6,8 @@ STORAGE: state pre rhs
 SCHEDULE TestRKAB_Initial AT initial
 {
   LANG: C
-  WRITES: state(interior)
-  SYNC: state
+  WRITES: state(interior) pre(interior)
+  SYNC: state pre
 } "Initialize scalar wave state"
 
 SCHEDULE TestRKAB_Sync AT postregrid
