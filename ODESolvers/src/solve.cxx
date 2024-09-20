@@ -964,12 +964,12 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const auto old = copy_state(var, make_valid_all());
 
       calcrhs(1);
+      statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&rhs},
+                           make_valid_int());
       const auto kaccum = copy_state(rhs, make_valid_int());
       calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
 
       calcrhs(2);
-      statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&rhs},
-                           make_valid_int());
       {
         Interval interval_lincomb(timer_lincomb);
         statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
