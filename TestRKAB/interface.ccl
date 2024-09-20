@@ -1,0 +1,37 @@
+# Interface definition for thorn TestRKAB
+
+IMPLEMENTS: TestRKAB
+
+INHERITS: CarpetX
+
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: vect.hxx
+
+
+
+CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="error"'
+{
+  u
+  rho
+} "Scalar wave state vector"
+
+CCTK_REAL pre TYPE=gf TAGS='checkpoint="no"'
+{
+  u_pre
+  rho_pre
+} "Scalar wave pre state vector"
+
+CCTK_REAL rhs TYPE=gf TAGS='checkpoint="no"'
+{
+  u_rhs
+  rho_rhs
+} "RHS of scalar wave state vector"
+
+CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
+{
+  u_err
+  rho_err
+} "Error in scalar wave state vector"
+
+
+
