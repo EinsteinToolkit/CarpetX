@@ -715,7 +715,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   std::optional<Interval> interval_setup(timer_setup);
 
   statecomp_t var, rhs, pre;
-  std::vector<int> var_groups, rhs_groups, dep_groups, pre_groups;
+  std::vector<int> var_groups, rhs_groups, dep_groups;
   int nvars = 0;
   bool do_accumulate_nvars = true;
   assert(CarpetX::active_levels);
@@ -762,20 +762,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
           auto &pre_groupdata = *leveldata.groupdata.at(pre_gi);
           pre.groupdatas.push_back(&pre_groupdata);
           pre.mfabs.push_back(pre_groupdata.mfab.at(tl).get());
-          if (do_accumulate_nvars) {
-            nvars += groupdata.numvars;
-            pre_groups.push_back(pre_gi);
-          }
         }
       }
       do_accumulate_nvars = false;
     });
-
-    {
-      std::sort(pre_groups.begin(), pre_groups.end());
-      const auto last = std::unique(pre_groups.begin(), pre_groups.end());
-      assert(last == pre_groups.end());
-    }
   }
 
   if (verbose)
@@ -969,15 +959,24 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   } else if (CCTK_EQUALS(method, "RKAB")) {
 
-    const CCTK_REAL c1 = 0.3736646857963324 * dt;
-    const CCTK_REAL c2 = 0.03127973625120939 * dt;
-    const CCTK_REAL c3 = -0.14797683066152537 * dt;
-    const CCTK_REAL c4 = 0.33238257148754524 * dt;
-    const CCTK_REAL c5 = -0.0010981891892632696 * dt;
-    const CCTK_REAL c6 = -0.0547559191353386 * dt;
-    const CCTK_REAL c7 = 2.754535159970365 * dt;
-    const CCTK_REAL c8 = 3.414713672966062 * dt;
-    const CCTK_REAL c9 = dt - c6 - c7 - c8;
+    const std::array<CCTK_REAL, 8> coeff_multipliers = {
+        0.3736646857963324,     // c1
+        0.03127973625120939,    // c2
+        -0.14797683066152537,   // c3
+        0.33238257148754524,    // c4
+        -0.0010981891892632696, // c5
+        -0.0547559191353386,    // c6
+        2.754535159970365,      // c7
+        3.414713672966062       // c8
+    };
+
+    // Precompute all coefficients by multiplying by dt
+    std::array<CCTK_REAL, 9> coeff; // We include c9 as well
+    for (int i = 0; i < 8; ++i) {
+      coeff[i] = dt * coeff_multipliers[i];
+    }
+    // Compute c9 (requires subtraction of c6, c7, and c8)
+    coeff[8] = dt - coeff[5] - coeff[6] - coeff[7]; // c9
 
     // y0
     const auto old = copy_state(var, make_valid_all());
@@ -991,20 +990,20 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&rhs},
                          make_valid_int());
     const auto k1 = copy_state(rhs, make_valid_int());
-    calcupdate(2, dt / 2, 0.0, reals<3>{1.0, c2, c1},
+    calcupdate(2, dt / 2, 0.0, reals<3>{1.0, coeff[1], coeff[0]},
                states<3>{&old, &k0, &k1});
-
 
     // calculate k2
     calcrhs(3);
     const auto k2 = copy_state(rhs, make_valid_int());
-    calcupdate(3, dt, 0.0, reals<4>{1.0, c5, c4, c3},
+    calcupdate(3, dt, 0.0, reals<4>{1.0, coeff[4], coeff[3], coeff[2]},
                states<4>{&old, &k0, &k1, &k2});
 
     // calculate k3
     calcrhs(4);
     const auto k3 = copy_state(rhs, make_valid_int());
-    calcupdate(4, dt, 0.0, reals<5>{1.0, c6, c7, c8, c9},
+    calcupdate(4, dt, 0.0,
+               reals<5>{1.0, coeff[5], coeff[6], coeff[7], coeff[8]},
                states<5>{&old, &k0, &k1, &k2, &k3});
 
   } else if (CCTK_EQUALS(method, "RKF78")) {
