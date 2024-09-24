@@ -1,0 +1,65 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    ODESolvers
+    TestRKAB
+"
+
+$ncells = 80
+$cfl = 0.50
+
+$itlast = 1
+$out_every = 1
+
+TestRKAB::initial_condition = "standing wave"
+TestRKAB::amplitude = 1.0
+TestRKAB::standing_wave_kx = 0.5
+TestRKAB::standing_wave_ky = 0.5
+TestRKAB::standing_wave_kz = 0.5
+
+CarpetX::poison_undefined_values = no
+CarpetX::verbose = no
+
+Cactus::cctk_show_schedule = yes
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::xmin = -1.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+
+CarpetX::xmax = +1.0
+CarpetX::ymax = +1.0
+CarpetX::zmax = +1.0
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::periodic_x = yes
+CarpetX::periodic_y = yes
+CarpetX::periodic_z = yes
+
+CarpetX::ghost_size = 3
+CarpetX::dtfac = $cfl
+
+CarpetX::blocking_factor_x = 2
+CarpetX::blocking_factor_y = 2
+CarpetX::blocking_factor_z = 2
+
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 5.0
+#Cactus::terminate = "iteration"
+#Cactus::cctk_itlast = $itlast
+
+ODESolvers::method = "RKAB"
+ODESolvers::verbose = yes
+
+IO::out_dir = $parfile
+IO::out_every = $out_every
+
+CarpetX::out_tsv_vars = ""
+
+CarpetX::out_silo_vars = "
+    TestRKAB::state
+    TestRKAB::error
+"
