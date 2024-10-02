@@ -6,8 +6,8 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-oneapi.dockerfile --tag einsteintoolkit/carpetx:oneapi-real32 .
 #     docker push einsteintoolkit/carpetx:oneapi-real32
 
-# FROM intel/oneapi-basekit:2024.2.0-1-devel-ubuntu22.04
-FROM intel/oneapi-basekit:2024.2.1-0-devel-ubuntu22.04
+# FROM amd64/intel/oneapi-basekit:2024.2.0-1-devel-ubuntu22.04
+FROM amd64/intel/oneapi-basekit:2024.2.1-0-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -262,10 +262,10 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.09.tar.gz && \
-    tar xzf 24.09.tar.gz && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.10.tar.gz && \
+    tar xzf 24.10.tar.gz && \
     rm -rf /opt/intel/oneapi/mpi && \
-    cd amrex-24.09 && \
+    cd amrex-24.10 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \

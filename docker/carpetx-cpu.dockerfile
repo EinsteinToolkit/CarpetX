@@ -7,8 +7,8 @@
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
 # noble is ubuntu:24.04
-# FROM ubuntu:noble-20240605
-FROM ubuntu:noble-20240801
+# FROM amd64/ubuntu:noble-20240801
+FROM amd64/ubuntu:noble-20240904.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -87,9 +87,9 @@ RUN apt-get update && \
 # Try to reuse build tools from Ubuntu, but do not use any libraries because HPC Toolkit is a bit iffy to install.
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/spack/spack/archive/refs/tags/v0.22.1.tar.gz && \
-    tar xzf v0.22.1.tar.gz && \
-    export SPACK_ROOT="$(pwd)/spack-0.22.1" && \
+    wget https://github.com/spack/spack/archive/refs/tags/v0.22.2.tar.gz && \
+    tar xzf v0.22.2.tar.gz && \
+    export SPACK_ROOT="$(pwd)/spack-0.22.2" && \
     mkdir -p "${HOME}/.spack" && \
     echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
     . ${SPACK_ROOT}/share/spack/setup-env.sh && \
@@ -296,9 +296,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.09.tar.gz && \
-    tar xzf 24.09.tar.gz && \
-    cd amrex-24.09 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.10.tar.gz && \
+    tar xzf 24.10.tar.gz && \
+    cd amrex-24.10 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
