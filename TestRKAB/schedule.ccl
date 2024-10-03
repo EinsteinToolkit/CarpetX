@@ -2,27 +2,21 @@
 
 STORAGE: state pre rhs
 
-
+# Init
 SCHEDULE TestRKAB_Initial AT initial
 {
   LANG: C
-  WRITES: state(interior)
-  SYNC: state
-} "Initialize scalar wave state"
+  WRITES: state(interior) pre(interior)
+  SYNC: state pre
+} "Initialize scalar wave state and previous state"
 
+# Step
 SCHEDULE TestRKAB_Sync AT postregrid
 {
   LANG: C
   OPTIONS: global
   SYNC: state
-} "Synchronize"
-
-SCHEDULE TestRKAB_Sync IN ODESolvers_PostStep
-{
-  LANG: C
-  OPTIONS: global
-  SYNC: state
-} "Synchronize"
+} "Synchronize state"
 
 SCHEDULE TestRKAB_RHS IN ODESolvers_RHS
 {
@@ -31,6 +25,14 @@ SCHEDULE TestRKAB_RHS IN ODESolvers_RHS
   WRITES: rhs(interior)
 } "Calculate scalar wave RHS"
 
+SCHEDULE TestRKAB_Sync IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Synchronize state"
+
+# Analysis
 SCHEDULE TestRKAB_Error IN ODESolvers_PostStep AFTER TestRKAB_Sync
 {
   LANG: C

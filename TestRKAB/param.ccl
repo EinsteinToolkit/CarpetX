@@ -14,17 +14,17 @@ CCTK_REAL amplitude "Initial amplitude"
 CCTK_REAL standing_wave_kx "kx for standing wave"
 {
   *:* :: ""
-} 0.5
+} 1.0
 
 CCTK_REAL standing_wave_ky "kz for standing wave"
 {
   *:* :: ""
-} 0.5
+} 1.0
 
 CCTK_REAL standing_wave_kz "ky for standing wave"
 {
   *:* :: ""
-} 0.5
+} 1.0
 
 CCTK_REAL gaussian_width "width of Gaussian"
 {
