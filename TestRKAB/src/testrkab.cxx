@@ -76,7 +76,6 @@ enum class fd_dir : std::size_t { x = 0, y = 1, z = 2 };
 template <fd_dir direction, typename T>
 static inline auto fd_c_1_4(const Loop::PointDesc &p,
                             const Loop::GF3D2<T> &gf) noexcept -> T {
-  // (1*f[i-2]-8*f[i-1]+8*f[i+1]-1*f[i+2])
   constexpr auto d{static_cast<size_t>(direction)};
   const auto num{gf(p.I - 2 * p.DI[d]) - 8.0 * gf(p.I - 1 * p.DI[d]) +
                  8.0 * gf(p.I + 1 * p.DI[d]) - 1.0 * gf(p.I + 2 * p.DI[d])};
@@ -182,6 +181,23 @@ extern "C" void TestRKAB_Error(CCTK_ARGUMENTS) {
   } else {
     CCTK_ERROR("Unknown initial condition");
   }
+}
+
+extern "C" void TestRKAB_Energy(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestRKAB_Energy;
+  DECLARE_CCTK_PARAMETERS;
+
+  grid.loop_int_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        const auto local_Pi{Pi(p.I)};
+        const auto local_Dx{Dx(p.I)};
+        const auto local_Dy{Dy(p.I)};
+        const auto local_Dz{Dz(p.I)};
+
+        energy_density(p.I) = 0.5 * (local_Pi * local_Pi + local_Dx * local_Dx +
+                                     local_Dy * local_Dy + local_Dz * local_Dz);
+      });
 }
 
 } // namespace TestRKAB

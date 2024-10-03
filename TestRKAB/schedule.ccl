@@ -40,3 +40,11 @@ SCHEDULE TestRKAB_Error IN ODESolvers_PostStep AFTER TestRKAB_Sync
   WRITES: error(interior)
   SYNC: error
 } "Calculate error in scalar wave state"
+
+SCHEDULE TestRKAB_Energy IN ODESolvers_PostStep AFTER TestRKAB_Sync
+{
+  LANG: C
+  READS: state(interior)
+  WRITES: energy(interior)
+  SYNC: energy
+} "Calculate the scalar wave energy measure"

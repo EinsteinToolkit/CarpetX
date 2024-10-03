@@ -45,5 +45,7 @@ CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
   Dz_err
 } "Error in scalar wave equation evolution"
 
-
-
+CCTK_REAL energy TYPE=gf TAGS='checkpoint="no"'
+{
+  energy_density
+} "Wave equation energy density"
