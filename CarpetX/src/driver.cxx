@@ -17,6 +17,7 @@
 
 #include <AMReX.H>
 #include <AMReX_BCRec.H>
+#include <AMReX_Interpolater.H>
 #include <AMReX_ParmParse.H>
 
 #include <omp.h>
@@ -542,7 +543,7 @@ amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
     hermite,
     natural,
     poly_cons3lfb,
-    poly_eno3lfb,
+    amrex_interp,
   };
   static interp_t interp = [&]() {
     if (CCTK_EQUALS(prolongation_type, "interpolate"))
@@ -559,11 +560,33 @@ amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
       return interp_t::natural;
     else if (CCTK_EQUALS(prolongation_type, "poly-cons3lfb"))
       return interp_t::poly_cons3lfb;
+    else if (CCTK_EQUALS(prolongation_type, "amrex-interp"))
+      return interp_t::amrex_interp;
     else
       assert(0);
   }();
 
   switch (interp) {
+  case interp_t::amrex_interp:
+
+    switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
+    case 0b000:
+      return &amrex::node_bilinear_interp;
+      break;
+    case 0b111:
+      return &amrex::cell_bilinear_interp;
+      break;
+    case 0b001:
+    case 0b010:
+    case 0b011:
+    case 0b100:
+    case 0b101:
+    case 0b110:
+      return &amrex::face_linear_interp;
+      break;
+    }
+    break;
+
   case interp_t::interpolate:
 
     switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
