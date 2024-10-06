@@ -437,6 +437,7 @@ KEYWORD prolongation_type "Prolongation type"
   "hermite" :: "Hermite-interpolate in vertex centred and conserve in cell centred directions"
   "natural" :: "interpolate in vertex centred and conserve in cell centred directions, using the same order"
   "poly-cons3lfb" :: "interpolate polynomially in vertex centred directions and conserve with 3rd order accuracy and a linear fallback in cell centred directions"
+  "grmhd-auto" :: "choose different prolongation operators for different staggered variables"
 } "natural"
 
 CCTK_INT prolongation_order "Prolongation order"
