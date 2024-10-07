@@ -575,11 +575,11 @@ amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
     case 0b000:
       switch (prolongation_order) {
       case 1:
-        return &prolongate_poly_cons3lfb_3d_rf2_c000_o1;
+        return &prolongate_hermite_3d_rf2_c000_o1;
       case 3:
-        return &prolongate_poly_cons3lfb_3d_rf2_c000_o3;
+        return &prolongate_hermite_3d_rf2_c000_o3;
       case 5:
-        return &prolongate_poly_cons3lfb_3d_rf2_c000_o5;
+        return &prolongate_hermite_3d_rf2_c000_o5;
       }
       break;
 
@@ -587,31 +587,31 @@ amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
     case 0b001:
       switch (prolongation_order) {
       case 1:
-        return &prolongate_poly_cons3lfb_3d_rf2_c001_o1;
+        return &prolongate_hermite_3d_rf2_c001_o1;
       case 3:
-        return &prolongate_poly_cons3lfb_3d_rf2_c001_o3;
+        return &prolongate_hermite_3d_rf2_c001_o3;
       case 5:
-        return &prolongate_poly_cons3lfb_3d_rf2_c001_o5;
+        return &prolongate_hermite_3d_rf2_c001_o5;
       }
       break;
     case 0b010:
       switch (prolongation_order) {
       case 1:
-        return &prolongate_poly_cons3lfb_3d_rf2_c010_o1;
+        return &prolongate_hermite_3d_rf2_c010_o1;
       case 3:
-        return &prolongate_poly_cons3lfb_3d_rf2_c010_o3;
+        return &prolongate_hermite_3d_rf2_c010_o3;
       case 5:
-        return &prolongate_poly_cons3lfb_3d_rf2_c010_o5;
+        return &prolongate_hermite_3d_rf2_c010_o5;
       }
       break;
     case 0b100:
       switch (prolongation_order) {
       case 1:
-        return &prolongate_poly_cons3lfb_3d_rf2_c100_o1;
+        return &prolongate_hermite_3d_rf2_c100_o1;
       case 3:
-        return &prolongate_poly_cons3lfb_3d_rf2_c100_o3;
+        return &prolongate_hermite_3d_rf2_c100_o3;
       case 5:
-        return &prolongate_poly_cons3lfb_3d_rf2_c100_o5;
+        return &prolongate_hermite_3d_rf2_c100_o5;
       }
       break;
 
