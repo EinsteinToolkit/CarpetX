@@ -2,7 +2,7 @@
 
 IMPLEMENTS: BoxInBox
 
-INHERITS: CarpetX
+INHERITS: CarpetXRegrid
 
 USES INCLUDE HEADER: defs.hxx
 USES INCLUDE HEADER: loop_device.hxx

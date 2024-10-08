@@ -1,11 +1,11 @@
 ActiveThorns = "
+    # SystemTopology
     ADMBaseX
     CarpetX
     ErrorEstimator
     Formaline
     IOUtil
     ODESolvers
-    # SystemTopology
     TimerReport
     TmunuBaseX
     Z4c
@@ -63,7 +63,7 @@ CarpetX::boundary_upper_z = "dirichlet"
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 0
-CarpetX::regrid_error_threshold = 2.0
+Driver::regrid_error_threshold = 2.0
 
 ErrorEstimator::region_shape = "cube"
 ErrorEstimator::scale_by_resolution = yes

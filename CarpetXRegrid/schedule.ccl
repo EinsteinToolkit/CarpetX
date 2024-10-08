@@ -1,0 +1,6 @@
+# Schedule definitions for thorn CarpetXRegrid
+SCHEDULE CarpetXRegrid_InitError AT basegrid
+{
+  LANG: C
+  WRITES: CarpetXRegrid::regrid_error(everywhere)
+} "Initialize regridding error to zero"

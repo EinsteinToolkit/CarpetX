@@ -51,6 +51,7 @@ CarpetX::dtfac = 0.5
 
 IO::out_dir = $parfile
 IO::out_every = 1
+IO::out_fileinfo = "axis labels"
 IO::parfile_write = no
 
 CarpetX::out_metadata = no

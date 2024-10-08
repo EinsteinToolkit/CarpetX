@@ -12,8 +12,9 @@ CarpetX::ncells_y = 32
 CarpetX::ncells_z = 32
 
 IO::out_dir = $parfile
-IO::parfile_write = "no"
 IO::out_every = 1
+IO::out_fileinfo = "axis labels"
+IO::parfile_write = no
 
 CarpetX::out_metadata = no
 CarpetX::out_tsv_vars = "CoordinatesX::cell_volume"

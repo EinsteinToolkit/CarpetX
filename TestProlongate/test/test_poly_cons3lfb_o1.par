@@ -44,7 +44,7 @@ CarpetX::boundary_upper_z = "dirichlet"
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 1
-CarpetX::regrid_error_threshold = 0.01
+Driver::regrid_error_threshold = 0.01
 
 CarpetX::dtfac = 0.5
 

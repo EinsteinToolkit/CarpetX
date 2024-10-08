@@ -1,9 +1,9 @@
 ActiveThorns = "
-    MovingBoxToy
     BoxInBox
     CarpetX
     CoordinatesX
     IOUtil
+    MovingBoxToy
 "
 
 Cactus::cctk_show_schedule = no
@@ -52,7 +52,7 @@ CarpetX::out_norm_vars = "all"
 CarpetX::out_norm_omit_unstable = yes
 
 CarpetX::out_silo_vars = "
-    CarpetX::regrid_error
+    CarpetXRegrid::regrid_error
     CoordinatesX::vertex_coords
     CoordinatesX::cell_coords
 "
