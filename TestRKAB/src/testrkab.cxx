@@ -79,12 +79,13 @@ static inline auto gaussian_phi(T A, T W, T t, T x, T y, T z) noexcept -> T {
   const auto r{sqrt(x * x + y * y + z * z)};
 
   if (r < tol) {
-    return (2 * A * exp(pow(t, 2) / (2. * pow(W, 2))) * t) / pow(W, 2);
+    return (2 * A * t) / (exp(pow(t, 2) / (2. * pow(W, 2))) * pow(W, 2));
   } else {
-    return (A * (exp(pow(t - sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)), 2) /
-                     (2. * pow(W, 2))) -
-                 exp(pow(t + sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)), 2) /
-                     (2. * pow(W, 2))))) /
+    return (A *
+            (exp(-0.5 * pow(t - sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)), 2) /
+                 pow(W, 2)) -
+             exp(-0.5 * pow(t + sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)), 2) /
+                 pow(W, 2)))) /
            sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
   }
 }
@@ -97,19 +98,18 @@ static inline auto gaussian_Pi(T A, T W, T t, T x, T y, T z) noexcept -> T {
   const auto r{sqrt(x * x + y * y + z * z)};
 
   if (r < tol) {
-    return (2 * A * exp(pow(t, 2) / (2. * pow(W, 2))) *
-            (pow(t, 2) + pow(W, 2))) /
-           pow(W, 4);
+    return (2 * A * (-t + W) * (t + W)) /
+           (exp(pow(t, 2) / (2. * pow(W, 2))) * pow(W, 4));
   } else {
-    return (-2 * A *
-            exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
-                (2. * pow(W, 2))) *
+    return (2 * A *
             (sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
                  cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)) +
+                      pow(W, 2)) -
              t * sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
                       pow(W, 2)))) /
-           (pow(W, 2) * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)));
+           (exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
+                (2. * pow(W, 2))) *
+            pow(W, 2) * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)));
   }
 }
 
@@ -123,17 +123,16 @@ static inline auto gaussian_Dx(T A, T W, T t, T x, T y, T z) noexcept -> T {
   if (r < tol) {
     return 0;
   } else {
-    return (-2 * A *
-            exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
-                (2. * pow(W, 2))) *
-            x *
-            (t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+    return (A * x *
+            (2 * t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
                  cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)) +
-             (-pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                      pow(W, 2)) -
+             2 * (pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
                  sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
                       pow(W, 2)))) /
-           (pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
+           (exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
+                (2. * pow(W, 2))) *
+            pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
   }
 }
 
@@ -147,15 +146,16 @@ static inline auto gaussian_Dy(T A, T W, T t, T x, T y, T z) noexcept -> T {
   if (r < tol) {
     return A;
   } else {
-    return (-2 * A *
-            exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
-                    (2. + pow(y, 2) + pow(z, 2)) *
-                    cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                         pow(W, 2)) +
-                (-pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
-                    sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                         pow(W, 2)))) /
-           (pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
+    return (A * y *
+            (2 * t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                 cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                      pow(W, 2)) -
+             2 * (pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                 sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                      pow(W, 2)))) /
+           (exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
+                (2. * pow(W, 2))) *
+            pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
   }
 }
 
@@ -169,17 +169,16 @@ static inline auto gaussian_Dz(T A, T W, T t, T x, T y, T z) noexcept -> T {
   if (r < tol) {
     return A;
   } else {
-    return (-2 * A *
-            exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
-                (2. * pow(W, 2))) *
-            z *
-            (t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+    return (A * z *
+            (2 * t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
                  cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)) +
-             (-pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                      pow(W, 2)) -
+             2 * (pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
                  sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
                       pow(W, 2)))) /
-           (pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
+           (exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
+                (2. * pow(W, 2))) *
+            pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
   }
 }
 
