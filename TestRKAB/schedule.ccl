@@ -1,6 +1,6 @@
 # Schedule definitions for thorn TestRKAB
 
-STORAGE: state pre rhs
+STORAGE: state pre rhs energy error
 
 # Init
 SCHEDULE TestRKAB_Initial AT initial
@@ -10,12 +10,14 @@ SCHEDULE TestRKAB_Initial AT initial
   SYNC: state pre
 } "Initialize scalar wave state and previous state"
 
+
+
 # Step
 SCHEDULE TestRKAB_Sync AT postregrid
 {
   LANG: C
   OPTIONS: global
-  SYNC: state
+  SYNC: state pre
 } "Synchronize state"
 
 SCHEDULE TestRKAB_RHS IN ODESolvers_RHS
@@ -29,8 +31,10 @@ SCHEDULE TestRKAB_Sync IN ODESolvers_PostStep
 {
   LANG: C
   OPTIONS: global
-  SYNC: state
+  SYNC: state pre
 } "Synchronize state"
+
+
 
 # Analysis
 SCHEDULE TestRKAB_Error IN ODESolvers_PostStep AFTER TestRKAB_Sync

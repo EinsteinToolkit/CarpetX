@@ -70,6 +70,119 @@ static inline auto sw_Dz(T A, T kx, T ky, T kz, T t, T x, T y,
          sin(2 * ky * pi * y) * cos(2 * kz * pi * z);
 }
 
+// Gaussian functions
+template <typename T>
+static inline auto gaussian_phi(T A, T W, T t, T x, T y, T z) noexcept -> T {
+  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
+
+  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
+  const auto r{sqrt(x * x + y * y + z * z)};
+
+  if (r < tol) {
+    return (2 * A * exp(pow(t, 2) / (2. * pow(W, 2))) * t) / pow(W, 2);
+  } else {
+    return (A * (exp(pow(t - sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)), 2) /
+                     (2. * pow(W, 2))) -
+                 exp(pow(t + sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)), 2) /
+                     (2. * pow(W, 2))))) /
+           sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+  }
+}
+
+template <typename T>
+static inline auto gaussian_Pi(T A, T W, T t, T x, T y, T z) noexcept -> T {
+  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
+
+  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
+  const auto r{sqrt(x * x + y * y + z * z)};
+
+  if (r < tol) {
+    return (2 * A * exp(pow(t, 2) / (2. * pow(W, 2))) *
+            (pow(t, 2) + pow(W, 2))) /
+           pow(W, 4);
+  } else {
+    return (-2 * A *
+            exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
+                (2. * pow(W, 2))) *
+            (sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                 cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                      pow(W, 2)) +
+             t * sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                      pow(W, 2)))) /
+           (pow(W, 2) * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)));
+  }
+}
+
+template <typename T>
+static inline auto gaussian_Dx(T A, T W, T t, T x, T y, T z) noexcept -> T {
+  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
+
+  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
+  const auto r{sqrt(x * x + y * y + z * z)};
+
+  if (r < tol) {
+    return 0;
+  } else {
+    return (-2 * A *
+            exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
+                (2. * pow(W, 2))) *
+            x *
+            (t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                 cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                      pow(W, 2)) +
+             (-pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                 sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                      pow(W, 2)))) /
+           (pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
+  }
+}
+
+template <typename T>
+static inline auto gaussian_Dy(T A, T W, T t, T x, T y, T z) noexcept -> T {
+  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
+
+  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
+  const auto r{sqrt(x * x + y * y + z * z)};
+
+  if (r < tol) {
+    return A;
+  } else {
+    return (-2 * A *
+            exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
+                    (2. + pow(y, 2) + pow(z, 2)) *
+                    cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                         pow(W, 2)) +
+                (-pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                    sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                         pow(W, 2)))) /
+           (pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
+  }
+}
+
+template <typename T>
+static inline auto gaussian_Dz(T A, T W, T t, T x, T y, T z) noexcept -> T {
+  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
+
+  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
+  const auto r{sqrt(x * x + y * y + z * z)};
+
+  if (r < tol) {
+    return A;
+  } else {
+    return (-2 * A *
+            exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
+                (2. * pow(W, 2))) *
+            z *
+            (t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                 cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                      pow(W, 2)) +
+             (-pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
+                 sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
+                      pow(W, 2)))) /
+           (pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
+  }
+}
+
 // Finite difference helpers
 enum class fd_dir : std::size_t { x = 0, y = 1, z = 2 };
 
@@ -83,6 +196,7 @@ static inline auto fd_c_1_4(const Loop::PointDesc &p,
   return den * num;
 }
 
+// Scheduled functions
 extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestRKAB_Initial;
   DECLARE_CCTK_PARAMETERS;
@@ -113,7 +227,28 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
-    CCTK_ERROR("Gaussian initial data not implemented yet");
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          const auto t{cctk_time};
+          const auto t_pre{t - cctk_delta_time};
+
+          const auto A{amplitude};
+          const auto W{gaussian_width};
+
+          phi(p.I) = gaussian_phi(A, W, t, p.x, p.y, p.z);
+          Pi(p.I) = gaussian_Pi(A, W, t, p.x, p.y, p.z);
+          Dx(p.I) = gaussian_Dx(A, W, t, p.x, p.y, p.z);
+          Dy(p.I) = gaussian_Dy(A, W, t, p.x, p.y, p.z);
+          Dz(p.I) = gaussian_Dz(A, W, t, p.x, p.y, p.z);
+
+          phi_pre(p.I) = gaussian_phi(A, W, t_pre, p.x, p.y, p.z);
+          Pi_pre(p.I) = gaussian_Pi(A, W, t_pre, p.x, p.y, p.z);
+          Dx_pre(p.I) = gaussian_Dx(A, W, t_pre, p.x, p.y, p.z);
+          Dy_pre(p.I) = gaussian_Dy(A, W, t_pre, p.x, p.y, p.z);
+          Dz_pre(p.I) = gaussian_Dz(A, W, t_pre, p.x, p.y, p.z);
+        });
+
   } else {
     CCTK_ERROR("Unknown initial condition");
   }
@@ -127,7 +262,7 @@ extern "C" void TestRKAB_RHS(CCTK_ARGUMENTS) {
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         phi_rhs(p.I) = Pi(p.I);
-        Pi_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Dx) + fd_c_1_4<fd_dir::y>(p, Dx) +
+        Pi_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Dx) + fd_c_1_4<fd_dir::y>(p, Dy) +
                       fd_c_1_4<fd_dir::z>(p, Dz);
         Dx_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Pi);
         Dy_rhs(p.I) = fd_c_1_4<fd_dir::y>(p, Pi);
@@ -144,7 +279,6 @@ extern "C" void TestRKAB_Error(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
-
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -177,7 +311,35 @@ extern "C" void TestRKAB_Error(CCTK_ARGUMENTS) {
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
-    CCTK_VERROR("Gaussian error not implemented yet");
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          using std::fabs;
+
+          const auto t{cctk_time};
+
+          const auto A{amplitude};
+          const auto W{gaussian_width};
+
+          const auto expected_phi{gaussian_phi(A, W, t, p.x, p.y, p.z)};
+          const auto expected_Pi{gaussian_Pi(A, W, t, p.x, p.y, p.z)};
+          const auto expected_Dx{gaussian_Dx(A, W, t, p.x, p.y, p.z)};
+          const auto expected_Dy{gaussian_Dy(A, W, t, p.x, p.y, p.z)};
+          const auto expected_Dz{gaussian_Dz(A, W, t, p.x, p.y, p.z)};
+
+          const auto actual_phi{phi(p.I)};
+          const auto actual_Pi{Pi(p.I)};
+          const auto actual_Dx{Dx(p.I)};
+          const auto actual_Dy{Dy(p.I)};
+          const auto actual_Dz{Dz(p.I)};
+
+          phi_err(p.I) = fabs(expected_phi - actual_phi);
+          Pi_err(p.I) = fabs(expected_Pi - actual_Pi);
+          Dx_err(p.I) = fabs(expected_Dx - actual_Dx);
+          Dy_err(p.I) = fabs(expected_Dy - actual_Dy);
+          Dz_err(p.I) = fabs(expected_Dz - actual_Dz);
+        });
+
   } else {
     CCTK_ERROR("Unknown initial condition");
   }

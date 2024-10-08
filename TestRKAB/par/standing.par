@@ -8,7 +8,7 @@ ActiveThorns = "
 $ncells = 80
 $cfl = 0.25
 
-$itlast = 1
+$itlast = 50
 $out_every = 1
 
 TestRKAB::initial_condition = "standing wave"
@@ -35,6 +35,7 @@ CarpetX::ncells_x = $ncells
 CarpetX::ncells_y = $ncells
 CarpetX::ncells_z = $ncells
 
+CarpetX::periodic = yes
 CarpetX::periodic_x = yes
 CarpetX::periodic_y = yes
 CarpetX::periodic_z = yes
@@ -46,10 +47,10 @@ CarpetX::blocking_factor_x = 2
 CarpetX::blocking_factor_y = 2
 CarpetX::blocking_factor_z = 2
 
-Cactus::terminate = "time"
-Cactus::cctk_final_time = 4.0
-#Cactus::terminate = "iteration"
-#Cactus::cctk_itlast = $itlast
+#Cactus::terminate = "time"
+#Cactus::cctk_final_time = 1.0
+Cactus::terminate = "iteration"
+Cactus::cctk_itlast = $itlast
 
 ODESolvers::method = "RKAB"
 ODESolvers::verbose = yes
