@@ -8,7 +8,7 @@ ActiveThorns = "
 $ncells = 80
 $cfl = 0.25
 
-$itlast = 50
+$itlast = 10
 $out_every = 1
 
 TestRKAB::initial_condition = "Gaussian"
@@ -60,5 +60,7 @@ CarpetX::out_tsv_vars = ""
 
 CarpetX::out_silo_vars = "
     TestRKAB::state
+    TestRKAB::pre
     TestRKAB::error
+    TestRKAB::energy
 "

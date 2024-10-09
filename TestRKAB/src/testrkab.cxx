@@ -248,6 +248,25 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
           Dz_pre(p.I) = gaussian_Dz(A, W, t_pre, p.x, p.y, p.z);
         });
 
+  } else if (CCTK_EQUALS(initial_condition, "time")) {
+    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+                                  [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                        const auto t{cctk_time};
+                                        const auto t_pre{t - cctk_delta_time};
+
+                                        phi(p.I) = t;
+                                        Pi(p.I) = t;
+                                        Dx(p.I) = t;
+                                        Dy(p.I) = t;
+                                        Dz(p.I) = t;
+
+                                        phi_pre(p.I) = t_pre;
+                                        Pi_pre(p.I) = t_pre;
+                                        Dx_pre(p.I) = t_pre;
+                                        Dy_pre(p.I) = t_pre;
+                                        Dz_pre(p.I) = t_pre;
+                                      });
   } else {
     CCTK_ERROR("Unknown initial condition");
   }
@@ -257,16 +276,28 @@ extern "C" void TestRKAB_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestRKAB_RHS;
   DECLARE_CCTK_PARAMETERS;
 
-  grid.loop_int_device<0, 0, 0>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        phi_rhs(p.I) = Pi(p.I);
-        Pi_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Dx) + fd_c_1_4<fd_dir::y>(p, Dy) +
-                      fd_c_1_4<fd_dir::z>(p, Dz);
-        Dx_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Pi);
-        Dy_rhs(p.I) = fd_c_1_4<fd_dir::y>(p, Pi);
-        Dz_rhs(p.I) = fd_c_1_4<fd_dir::z>(p, Pi);
-      });
+  if (CCTK_EQUALS(initial_condition, "time")) {
+    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+                                  [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                        phi_rhs(p.I) = 1.0;
+                                        Pi_rhs(p.I) = 1.0;
+                                        Dx_rhs(p.I) = 1.0;
+                                        Dy_rhs(p.I) = 1.0;
+                                        Dz_rhs(p.I) = 1.0;
+                                      });
+  } else {
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          phi_rhs(p.I) = Pi(p.I);
+          Pi_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Dx) +
+                        fd_c_1_4<fd_dir::y>(p, Dy) + fd_c_1_4<fd_dir::z>(p, Dz);
+          Dx_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Pi);
+          Dy_rhs(p.I) = fd_c_1_4<fd_dir::y>(p, Pi);
+          Dz_rhs(p.I) = fd_c_1_4<fd_dir::z>(p, Pi);
+        });
+  }
 }
 
 extern "C" void TestRKAB_Sync(CCTK_ARGUMENTS) {
@@ -338,6 +369,27 @@ extern "C" void TestRKAB_Error(CCTK_ARGUMENTS) {
           Dy_err(p.I) = fabs(expected_Dy - actual_Dy);
           Dz_err(p.I) = fabs(expected_Dz - actual_Dz);
         });
+
+  } else if (CCTK_EQUALS(initial_condition, "time")) {
+    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+                                  [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                        using std::fabs;
+
+                                        const auto t{cctk_time};
+
+                                        const auto actual_phi{phi(p.I)};
+                                        const auto actual_Pi{Pi(p.I)};
+                                        const auto actual_Dx{Dx(p.I)};
+                                        const auto actual_Dy{Dy(p.I)};
+                                        const auto actual_Dz{Dz(p.I)};
+
+                                        phi_err(p.I) = fabs(t - actual_phi);
+                                        Pi_err(p.I) = fabs(t - actual_Pi);
+                                        Dx_err(p.I) = fabs(t - actual_Dx);
+                                        Dy_err(p.I) = fabs(t - actual_Dy);
+                                        Dz_err(p.I) = fabs(t - actual_Dz);
+                                      });
 
   } else {
     CCTK_ERROR("Unknown initial condition");

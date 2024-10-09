@@ -11,11 +11,7 @@ $cfl = 0.25
 $itlast = 10
 $out_every = 1
 
-TestRKAB::initial_condition = "standing wave"
-TestRKAB::amplitude = 1.0
-TestRKAB::standing_wave_kx = 1.0
-TestRKAB::standing_wave_ky = 1.0
-TestRKAB::standing_wave_kz = 1.0
+TestRKAB::initial_condition = "time"
 
 CarpetX::poison_undefined_values = no
 CarpetX::verbose = no
