@@ -16,16 +16,7 @@ CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="error"'
   Dz
 } "Scalar wave equation state vector"
 
-CCTK_REAL pre TYPE=gf TAGS='checkpoint="no"'
-{
-  phi_pre
-  Pi_pre
-  Dx_pre
-  Dy_pre
-  Dz_pre
-} "Scalar wave equation previous state vector"
-
-CCTK_REAL rhs TYPE=gf TAGS='checkpoint="no"'
+CCTK_REAL rhs TYPE=gf TAGS='checkpoint="no"' timelevels=2
 {
   phi_rhs
   Pi_rhs

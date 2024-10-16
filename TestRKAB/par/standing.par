@@ -62,7 +62,6 @@ CarpetX::out_tsv_vars = ""
 
 CarpetX::out_silo_vars = "
     TestRKAB::state
-    TestRKAB::pre
     TestRKAB::error
     TestRKAB::energy
 "
