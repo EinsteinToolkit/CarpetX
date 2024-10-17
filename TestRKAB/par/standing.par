@@ -47,10 +47,10 @@ CarpetX::blocking_factor_x = 2
 CarpetX::blocking_factor_y = 2
 CarpetX::blocking_factor_z = 2
 
-#Cactus::terminate = "time"
-#Cactus::cctk_final_time = 1.0
-Cactus::terminate = "iteration"
-Cactus::cctk_itlast = $itlast
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 10.0
+#Cactus::terminate = "iteration"
+#Cactus::cctk_itlast = $itlast
 
 ODESolvers::method = "RKAB"
 ODESolvers::verbose = yes

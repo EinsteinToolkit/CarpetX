@@ -608,36 +608,6 @@ int get_group_rhs(const int gi) {
   return rhs;
 }
 
-inline int get_group_pre(const int gi) {
-  assert(gi >= 0);
-  const int tags = CCTK_GroupTagsTableI(gi);
-  assert(tags >= 0);
-  std::vector<char> rhs_buf(1000);
-  const int iret =
-      Util_TableGetString(tags, rhs_buf.size(), rhs_buf.data(), "rhs");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    rhs_buf[0] = '\0'; // default: empty (no RHS)
-  } else if (iret >= 0) {
-    // do nothing
-  } else {
-    assert(0);
-  }
-
-  std::string str(rhs_buf.data());
-  if (str.empty())
-    return -1; // No RHS specified
-  std::size_t pos = str.find("rhs");
-  str.replace(pos, 3, "pre");
-  const int pre = groupindex(gi, str);
-  if (pre < 0)
-    CCTK_VERROR("Variable group \"%s\" declares a PRE group \"%s\". "
-                "That group does not exist.",
-                CCTK_FullGroupName(gi), str.c_str());
-  assert(pre != gi);
-
-  return pre;
-}
-
 std::vector<int> get_group_dependents(const int gi) {
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
@@ -737,9 +707,17 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
 
         if (CCTK_EQUALS(method, "RKAB")) {
-          CCTK_VINFO("Group %s has %i timelevels",
-                     rhs_groupdata.groupname.c_str(),
-                     rhs_groupdata.mfab.size());
+          // Guarantee that there are 2 time levels for the RHS group
+          const auto num_time_levels{rhs_groupdata.mfab.size()};
+
+          if (num_time_levels != 2) {
+            CCTK_VERROR("When using RKAB, 2 time levels are required in each "
+                        "RHS group, but RHS group %s declares %lu time levels",
+                        rhs_groupdata.groupname.c_str(), num_time_levels);
+          }
+
+          rhs_pre.groupdatas.push_back(&rhs_groupdata);
+          rhs_pre.mfabs.push_back(rhs_groupdata.mfab.at(1).get());
         }
 
         if (do_accumulate_nvars) {
@@ -946,25 +924,74 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   } else if (CCTK_EQUALS(method, "RKAB")) {
 
-    // k1 = f(y0)
-    // k2 = f(y0 + h/2 k1)
-    // k3 = f(y0 - h k1 + 2 h k2)
-    // y1 = y0 + h/6 k1 + 2/3 h k2 + h/6 k3
+    // We bootstrap the method by doing a regular RK4 step
+    if (cctk_iteration <= 1) {
+      // k1 = f(y0)
+      // k2 = f(y0 + h/2 k1)
+      // k3 = f(y0 + h/2 k2)
+      // k4 = f(y0 + h k3)
+      // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
 
-    const auto old = copy_state(var, make_valid_all());
+      const auto old = copy_state(var, make_valid_all());
 
-    calcrhs(1);
-    const auto k1 = copy_state(rhs, make_valid_int());
-    calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&k1});
+      calcrhs(1);
+      const auto kaccum = copy_state(rhs, make_valid_int());
+      calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
 
-    calcrhs(2);
-    const auto k2 = copy_state(rhs, make_valid_int());
-    calcupdate(2, dt, 0.0, reals<3>{1.0, -dt, 2 * dt},
-               states<3>{&old, &k1, &k2});
+      calcrhs(2);
+      {
+        Interval interval_lincomb(timer_lincomb);
+        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
+                             make_valid_int());
+      }
+      calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
 
-    calcrhs(3);
-    calcupdate(3, dt, 0.0, reals<4>{1.0, dt / 6, 2 * dt / 3, dt / 6},
-               states<4>{&old, &k1, &k2, &rhs});
+      calcrhs(3);
+      {
+        Interval interval_lincomb(timer_lincomb);
+        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
+                             make_valid_int());
+      }
+      calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
+
+      calcrhs(4);
+      calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
+                 states<3>{&old, &kaccum, &rhs});
+    } else {
+      // k0 = f(y-1), the RHS on the previous time step
+      // k1 = f(y0)
+      // k2 = f(y0 + h (c1 k1 + c2 k0))
+      // k3 = f(y0 + h (c3 k2 + c4 k1 + c5 k0))
+      // yn = y0 + h (c6 k0 + c7 k1 + c8 k2 + c9 k3)
+
+      constexpr CCTK_REAL c1{0.3736646857963324};
+      constexpr CCTK_REAL c2{0.03127973625120939};
+      constexpr CCTK_REAL c3{-0.14797683066152537};
+      constexpr CCTK_REAL c4{0.33238257148754524};
+      constexpr CCTK_REAL c5{-0.0010981891892632696};
+      constexpr CCTK_REAL c6{-0.0547559191353386};
+      constexpr CCTK_REAL c7{2.754535159970365};
+      constexpr CCTK_REAL c8{3.41471367296606};
+      constexpr CCTK_REAL c9{1.0 - c6 - c7 - c8};
+
+      const auto old = copy_state(var, make_valid_all());
+
+      const auto k0 = copy_state(rhs_pre, make_valid_int());
+
+      calcrhs(1);
+      const auto k1 = copy_state(rhs, make_valid_int());
+      calcupdate(1, dt, 0.0, reals<3>{1.0, dt * c1, dt * c2},
+                 states<3>{&old, &k1, &k0});
+
+      calcrhs(2);
+      const auto k2 = copy_state(rhs, make_valid_int());
+      calcupdate(2, dt, 0.0, reals<4>{1.0, dt * c3, dt * c4, dt * c5},
+                 states<4>{&old, &k2, &k1, &k0});
+
+      calcrhs(3);
+      calcupdate(3, dt, 0.0, reals<5>{1.0, dt * c6, dt * c7, dt * c8, dt * c9},
+                 states<5>{&old, &k0, &k1, &k2, &rhs});
+    }
 
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
