@@ -7,7 +7,7 @@ ActiveThorns = "
 
 ###### Settings ######
 $final_time = 10.0
-$out_every_time = 0.5
+$out_every_time = 0.25
 
 $start = -1.0
 $end = 1.0
@@ -19,11 +19,11 @@ $cfl = 0.25
 $dx = ($end - $start)/$ncells
 $dt = $cfl * $dx
 
-$itlast = $final_time / $dt
-$out_every_it = $out_every_time / $dt
+$itlast = ceil($final_time / $dt)
+$out_every_it = ceil($out_every_time / $dt)
 
 TestRKAB::initial_condition = "Gaussian"
-TestRKAB::gaussian_width = 0.17677669529 # sqrt(2)*W = 0.25
+TestRKAB::gaussian_width = $cfl / sqrt(2)
 
 CarpetX::poison_undefined_values = no
 CarpetX::verbose = no

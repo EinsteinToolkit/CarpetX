@@ -1,5 +1,3 @@
-#include <cstddef>
-#include <iterator>
 #include <loop_device.hxx>
 
 #include <sum.hxx>
@@ -9,9 +7,6 @@
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
-#include <array>
-#include <cassert>
-#include <cmath>
 #include <limits>
 
 #include "standing_wave.hxx"
@@ -30,7 +25,7 @@ static inline auto fd_c_1_4(const Loop::PointDesc &p,
   const auto num{gf(p.I - 2 * p.DI[d]) - 8.0 * gf(p.I - 1 * p.DI[d]) +
                  8.0 * gf(p.I + 1 * p.DI[d]) - 1.0 * gf(p.I + 2 * p.DI[d])};
   const auto den{1.0 / (12.0 * p.DX[d])};
-  return den * num;
+  return num * den;
 }
 
 // Scheduled functions
