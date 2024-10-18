@@ -15,6 +15,7 @@
 #include <limits>
 
 #include "standing_wave.hxx"
+#include "gaussian.hxx"
 
 namespace TestRKAB {
 using namespace Arith;
@@ -55,8 +56,21 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
           Dz(p.I) = sw::Dz(A, kx, ky, kz, t, p.x, p.y, p.z);
         });
 
+  } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          const auto t{cctk_time};
+
+          phi(p.I) = gauss::phi(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Pi(p.I) = gauss::Pi(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dx(p.I) = gauss::Dx(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dy(p.I) = gauss::Dy(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dz(p.I) = gauss::Dz(amplitude, gaussian_width, t, p.x, p.y, p.z);
+        });
+
   } else {
-    CCTK_ERROR("Unknown initial condition");
+    CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }
 }
 
@@ -115,8 +129,40 @@ extern "C" void TestRKAB_Error(CCTK_ARGUMENTS) {
           Dy_err(p.I) = fabs(expected_Dy - actual_Dy);
           Dz_err(p.I) = fabs(expected_Dz - actual_Dz);
         });
+
+  } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          using std::fabs;
+
+          const auto t{cctk_time};
+
+          const auto expected_phi{
+              gauss::phi(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+          const auto expected_Pi{
+              gauss::Pi(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+          const auto expected_Dx{
+              gauss::Dx(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+          const auto expected_Dy{
+              gauss::Dy(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+          const auto expected_Dz{
+              gauss::Dz(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+
+          const auto actual_phi{phi(p.I)};
+          const auto actual_Pi{Pi(p.I)};
+          const auto actual_Dx{Dx(p.I)};
+          const auto actual_Dy{Dy(p.I)};
+          const auto actual_Dz{Dz(p.I)};
+
+          phi_err(p.I) = fabs(expected_phi - actual_phi);
+          Pi_err(p.I) = fabs(expected_Pi - actual_Pi);
+          Dx_err(p.I) = fabs(expected_Dx - actual_Dx);
+          Dy_err(p.I) = fabs(expected_Dy - actual_Dy);
+          Dz_err(p.I) = fabs(expected_Dz - actual_Dz);
+        });
   } else {
-    CCTK_ERROR("Unknown initial condition");
+    CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }
 }
 
