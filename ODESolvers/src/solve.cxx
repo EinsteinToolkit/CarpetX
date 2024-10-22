@@ -964,6 +964,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(y0 + h (c3 k2 + c4 k1 + c5 k0))
       // yn = y0 + h (c6 k0 + c7 k1 + c8 k2 + c9 k3)
 
+      // Coefficients
       constexpr CCTK_REAL c1{0.3736646857963324};
       constexpr CCTK_REAL c2{0.03127973625120939};
       constexpr CCTK_REAL c3{-0.14797683066152537};
@@ -974,21 +975,27 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       constexpr CCTK_REAL c8{3.41471367296606};
       constexpr CCTK_REAL c9{1.0 - c6 - c7 - c8};
 
+      // y0
       const auto old = copy_state(var, make_valid_all());
 
+      // k0 is the prev. RHS
       const auto k0 = copy_state(rhs_pre, make_valid_int());
 
+      // Compute k1
       calcrhs(1);
       const auto k1 = copy_state(rhs, make_valid_int());
-      calcupdate(1, 0.0, 1.0, reals<2>{dt * c1, dt * c2}, states<2>{&k1, &k0});
+      calcupdate(1, 0.0, 0.0, reals<3>{1.0, c2 * dt, c1 * dt},
+                 states<3>{&old, &k0, &k1});
 
+      // Compute k2
       calcrhs(2);
       const auto k2 = copy_state(rhs, make_valid_int());
-      calcupdate(2, 0.0, 0.0, reals<4>{1.0, dt * c3, dt * c4, dt * c5},
-                 states<4>{&old, &k2, &k1, &k0});
+      calcupdate(2, 0.0, 0.0, reals<4>{1.0, c5 * dt, c4 * dt, c3 * dt},
+                 states<4>{&old, &k0, &k1, &k2});
 
+      // Compute k3
       calcrhs(3);
-      calcupdate(3, dt, 0.0, reals<5>{1.0, dt * c6, dt * c7, dt * c8, dt * c9},
+      calcupdate(3, dt, 0.0, reals<5>{1.0, c6 * dt, c7 * dt, c8 * dt, c9 * dt},
                  states<5>{&old, &k0, &k1, &k2, &rhs});
     }
 
