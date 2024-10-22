@@ -980,12 +980,11 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
       calcrhs(1);
       const auto k1 = copy_state(rhs, make_valid_int());
-      calcupdate(1, dt, 0.0, reals<3>{1.0, dt * c1, dt * c2},
-                 states<3>{&old, &k1, &k0});
+      calcupdate(1, 0.0, 1.0, reals<2>{dt * c1, dt * c2}, states<2>{&k1, &k0});
 
       calcrhs(2);
       const auto k2 = copy_state(rhs, make_valid_int());
-      calcupdate(2, dt, 0.0, reals<4>{1.0, dt * c3, dt * c4, dt * c5},
+      calcupdate(2, 0.0, 0.0, reals<4>{1.0, dt * c3, dt * c4, dt * c5},
                  states<4>{&old, &k2, &k1, &k0});
 
       calcrhs(3);
