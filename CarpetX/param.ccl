@@ -69,18 +69,31 @@ CCTK_INT ncells_z "Number of grid cells"
 
 
 
-BOOLEAN periodic_x "Periodic"
-{
-} no
+RESTRICTED:
 
-BOOLEAN periodic_y "Periodic"
+BOOLEAN periodic "Periodic boundary conditions"
 {
-} no
+  "yes" :: "must be set for any periodic_x,y,z to be effective"
+  "no"  :: "no periodicity"
+} "no"
 
-BOOLEAN periodic_z "Periodic"
+BOOLEAN periodic_x "Periodic boundary conditions in x-direction"
 {
-} no
+  "yes" :: "periodic in x direction, requires periodic=yes as well"
+  "no"  :: "not periodic in x direction"
+} "yes"
 
+BOOLEAN periodic_y "Periodic boundary conditions in y-direction"
+{
+  "yes" :: "periodic in y direction, requires periodic=yes as well"
+  "no"  :: "not periodic in y direction"
+} "yes"
+
+BOOLEAN periodic_z "Periodic boundary conditions in z-direction"
+{
+  "yes" :: "periodic in z direction, requires periodic=yes as well"
+  "no"  :: "not periodic in z direction"
+} "yes"
 
 
 PRIVATE:
@@ -376,17 +389,15 @@ CCTK_INT max_num_levels "Maximum number of refinement levels"
   1:* :: ""
 } 1
 
-RESTRICTED:
 
+#TODO: move to CarpetRegridX
 CCTK_INT regrid_every "Regridding interval" STEERABLE=always
 {
   0 :: "never"
   1:* :: "every that many iterations"
 } 0
 
-
-PRIVATE:
-
+#TODO: eliminate in favor of regrid_error being a true/false field
 CCTK_REAL regrid_error_threshold "Regridding error threshold" STEERABLE=always
 {
   0.0:* :: ""

@@ -2,25 +2,34 @@
 #include <cctk_Parameters.h>
 #include <cctk_Arguments.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace TestODESolvers {
-using namespace std;
 
 extern "C" void TestODESolvers_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_TestODESolvers_Initial;
   DECLARE_CCTK_PARAMETERS;
 
+  using std::pow;
   const CCTK_REAL u0 = pow(1 + cctk_time, order);
+
+  const int imin = cctk_tile_min[0];
+  const int jmin = cctk_tile_min[1];
+  const int kmin = cctk_tile_min[2];
+
+  using std::min;
+  const int imax = min(cctk_lsh[0] - 1, cctk_tile_max[0]);
+  const int jmax = min(cctk_lsh[1] - 1, cctk_tile_max[1]);
+  const int kmax = min(cctk_lsh[2] - 1, cctk_tile_max[2]);
 
   const int di = 1;
   const int dj = di * (cctk_ash[0] - 1);
   const int dk = dj * (cctk_ash[1] - 1);
 
-  for (int k = 0; k < cctk_lsh[2] - 1; ++k) {
-    for (int j = 0; j < cctk_lsh[1] - 1; ++j) {
-#pragma omp simd
-      for (int i = 0; i < cctk_lsh[0] - 1; ++i) {
+  for (int k = kmin; k < kmax; ++k) {
+    for (int j = jmin; j < jmax; ++j) {
+      for (int i = imin; i < imax; ++i) {
         int ind = i * di + j * dj + k * dk;
         state[ind] = u0;
         state2[ind] = u0;
@@ -48,14 +57,22 @@ extern "C" void TestODESolvers_RHS(CCTK_ARGUMENTS) {
   // u(t) = (1+t)^p
   // d/dt u = p (1+t)^(p-1)
 
+  const int imin = cctk_tile_min[0];
+  const int jmin = cctk_tile_min[1];
+  const int kmin = cctk_tile_min[2];
+
+  using std::min;
+  const int imax = min(cctk_lsh[0] - 1, cctk_tile_max[0]);
+  const int jmax = min(cctk_lsh[1] - 1, cctk_tile_max[1]);
+  const int kmax = min(cctk_lsh[2] - 1, cctk_tile_max[2]);
+
   const int di = 1;
   const int dj = di * (cctk_ash[0] - 1);
   const int dk = dj * (cctk_ash[1] - 1);
 
-  for (int k = 0; k < cctk_lsh[2] - 1; ++k) {
-    for (int j = 0; j < cctk_lsh[1] - 1; ++j) {
-#pragma omp simd
-      for (int i = 0; i < cctk_lsh[0] - 1; ++i) {
+  for (int k = kmin; k < kmax; ++k) {
+    for (int j = jmin; j < jmax; ++j) {
+      for (int i = imin; i < imax; ++i) {
         int ind = i * di + j * dj + k * dk;
         // solving u(t) for (1 + t)^(order - 1) = u_inverse gives:
         const CCTK_REAL u_inverse =
@@ -84,16 +101,25 @@ extern "C" void TestODESolvers_Error(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_TestODESolvers_Error;
   DECLARE_CCTK_PARAMETERS;
 
+  using std::pow;
   const CCTK_REAL u0 = pow(1 + cctk_time, order);
+
+  const int imin = cctk_tile_min[0];
+  const int jmin = cctk_tile_min[1];
+  const int kmin = cctk_tile_min[2];
+
+  using std::min;
+  const int imax = min(cctk_lsh[0] - 1, cctk_tile_max[0]);
+  const int jmax = min(cctk_lsh[1] - 1, cctk_tile_max[1]);
+  const int kmax = min(cctk_lsh[2] - 1, cctk_tile_max[2]);
 
   const int di = 1;
   const int dj = di * (cctk_ash[0] - 1);
   const int dk = dj * (cctk_ash[1] - 1);
 
-  for (int k = 0; k < cctk_lsh[2] - 1; ++k) {
-    for (int j = 0; j < cctk_lsh[1] - 1; ++j) {
-#pragma omp simd
-      for (int i = 0; i < cctk_lsh[0] - 1; ++i) {
+  for (int k = kmin; k < kmax; ++k) {
+    for (int j = jmin; j < jmax; ++j) {
+      for (int i = imin; i < imax; ++i) {
         int ind = i * di + j * dj + k * dk;
         error[ind] = state[ind] - u0;
         error2[ind] = state2[ind] - u0;
@@ -102,6 +128,7 @@ extern "C" void TestODESolvers_Error(CCTK_ARGUMENTS) {
           // happens reliably at cctk_time == cctk_initial_time
           corder[ind] = 0;
         } else {
+          using std::abs, std::log;
           corder[ind] = log(abs(error2[ind] / error[ind])) / log(2.0);
         }
       }

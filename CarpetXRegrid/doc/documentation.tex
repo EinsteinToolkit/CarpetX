@@ -1,0 +1,210 @@
+% *======================================================================*
+%  Cactus Thorn template for ThornGuide documentation
+%  Author: Ian Kelley
+%  Date: Sun Jun 02, 2002
+%  $Header$
+%
+%  Thorn documentation in the latex file doc/documentation.tex
+%  will be included in ThornGuides built with the Cactus make system.
+%  The scripts employed by the make system automatically include
+%  pages about variables, parameters and scheduling parsed from the
+%  relevant thorn CCL files.
+%
+%  This template contains guidelines which help to assure that your
+%  documentation will be correctly added to ThornGuides. More
+%  information is available in the Cactus UsersGuide.
+%
+%  Guidelines:
+%   - Do not change anything before the line
+%       % START CACTUS THORNGUIDE",
+%     except for filling in the title, author, date, etc. fields.
+%        - Each of these fields should only be on ONE line.
+%        - Author names should be separated with a \\ or a comma.
+%   - You can define your own macros, but they must appear after
+%     the START CACTUS THORNGUIDE line, and must not redefine standard
+%     latex commands.
+%   - To avoid name clashes with other thorns, 'labels', 'citations',
+%     'references', and 'image' names should conform to the following
+%     convention:
+%       ARRANGEMENT_THORN_LABEL
+%     For example, an image wave.eps in the arrangement CactusWave and
+%     thorn WaveToyC should be renamed to CactusWave_WaveToyC_wave.eps
+%   - Graphics should only be included using the graphicx package.
+%     More specifically, with the "\includegraphics" command.  Do
+%     not specify any graphic file extensions in your .tex file. This
+%     will allow us to create a PDF version of the ThornGuide
+%     via pdflatex.
+%   - References should be included with the latex "\bibitem" command.
+%   - Use \begin{abstract}...\end{abstract} instead of \abstract{...}
+%   - Do not use \appendix, instead include any appendices you need as
+%     standard sections.
+%   - For the benefit of our Perl scripts, and for future extensions,
+%     please use simple latex.
+%
+% *======================================================================*
+%
+% Example of including a graphic image:
+%    \begin{figure}[ht]
+% 	\begin{center}
+%    	   \includegraphics[width=6cm]{MyArrangement_MyThorn_MyFigure}
+% 	\end{center}
+% 	\caption{Illustration of this and that}
+% 	\label{MyArrangement_MyThorn_MyLabel}
+%    \end{figure}
+%
+% Example of using a label:
+%   \label{MyArrangement_MyThorn_MyLabel}
+%
+% Example of a citation:
+%    \cite{MyArrangement_MyThorn_Author99}
+%
+% Example of including a reference
+%   \bibitem{MyArrangement_MyThorn_Author99}
+%   {J. Author, {\em The Title of the Book, Journal, or periodical}, 1 (1999),
+%   1--16. {\tt http://www.nowhere.com/}}
+%
+% *======================================================================*
+
+% If you are using CVS use this line to give version information
+% $Header$
+
+\documentclass{article}
+
+% Use the Cactus ThornGuide style file
+% (Automatically used from Cactus distribution, if you have a
+%  thorn without the Cactus Flesh download this from the Cactus
+%  homepage at www.cactuscode.org)
+\usepackage{../../../../doc/latex/cactus}
+
+\begin{document}
+
+% The author of the documentation
+\author{Steven R. Brandt \textless sbrandt@cct.lsu.edu\textgreater \\
+        Roland Haas \textless rhaas@illinois.edu\textgreater}
+
+% The title of the document (not necessarily the name of the Thorn)
+\title{CarpetXRegrid}
+
+% the date your document was last changed, if your document is in CVS,
+% please use:
+%    \date{$ $Date$ $}
+% when using git instead record the commit ID:
+%    \date{\gitrevision{<path-to-your-.git-directory>}}
+\date{July 30 2024}
+
+\maketitle
+
+% Do not delete next line
+% START CACTUS THORNGUIDE
+
+% Add all definitions used in this documentation here
+%   \def\mydef etc
+
+% Add an abstract for this thorn's documentation
+\begin{abstract}
+
+Provide a grid function, \code{regrid\_error}, to the \code{CarpetX} driver.
+This grid function is used by \code{CarpetX} and \code{AMReX} to determine
+where to refine the grid.
+
+\end{abstract}
+
+% The following sections are suggestive only.
+% Remove them or add your own.
+
+\section{Introduction}
+
+\code{AMReX}~\cite{CarpetX_CarpetXRegrid_AMReX_JOSS} and thus \code{CarpetX}
+implement Berger-Oliger~\cite{CarpetX_CarpetXRegrid_Berger:1984zza} type
+structured mesh refinement.  Grid \emph{cells} are tagged for refinement in
+\code{CarpetX} using the overloaded virtual function \code{AmrCore::ErrorEst}. 
+
+This thorn, in combination with \code{CarpetX}, provides a covenient way for
+\code{Cactus} thorns to label cells needed refinement via a cell centered
+grid function \code{regrid\_error} whose value controls if a cell is marked
+for refinement or not.
+
+A cell is marked for refinement if the value found in \code{regrid\_error}
+exceeds the threshold in parameter \code{CarpetX::regrid\_error\_threshold}
+and marked as not requiring refinement otherwise.
+
+A client thorn wishing to control refinement should schedule a function in
+schedule bins \code{POSTINITIAL} and \code{POSTSTEP}. See thorn
+\code{ErrorEstimator} for an example.
+
+\section{Numerical Implementation}
+
+This thorn only provides access to the tagging grid function
+\code{regrid\_error} and initializes it to zero at the beginning of the
+simulation.
+
+\section{Using This Thorn}
+
+To use this thorn, make sure to \texttt{inherit} from \code{CarpetXRegrid} to
+gain access to the public grid function \code{regrid\_error}. 
+A client thorn wishing to control refinement should then  schedule a function in
+schedule bins \code{POSTINITIAL} and \code{POSTSTEP} which should loop over
+the \texttt{interior} of cell centered grid function \code{regrid\_error}
+marking each cell for refinement or no refinement as needed. See thorn
+\code{ErrorEstimator} for an example.
+
+In the future, to allow multiple independent regridding criteria to contribute
+to mesh refinement, grid function \code{regrid\_error} may be interpreted as a
+boolean flag with true / false indicated by values of $1.0$ and $0.0$ (and all
+other values considered invalid). In the future this will require that a thorn
+should never reset non-zero value back to zero.
+
+\subsection{Obtaining This Thorn}
+
+This thorn is included in the \code{CarpetX} arrangement which is part of the
+Einstein Toolkit. 
+
+\subsection{Special Behaviour}
+
+This thorn will initialize the error estimator grid function
+\code{regrid\_error} to zero at the beginning of a simulation but does not
+change or use its values otherwise.
+
+In the future it may reset the error estimator grid function before client
+thorns mark cells for refinement.
+
+\subsection{Interaction With Other Thorns}
+
+This thorn only provides access to \code{regrid\_error}, while the actual
+regrid happens inside of \code{CarpetX} and \code{AMReX}. 
+
+\subsection{Examples}
+
+Please consult thorn \code{ErrorEstimator} for an example on how to use this
+thorn.
+
+\begin{verbatim}
+extern "C" void MyRegrid_EstError(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_MyRegrid_EstError;
+  DECLARE_CCTK_PARAMETERS;
+
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p)
+          CCTK_ATTRIBUTE_ALWAYS_INLINE {
+              regrid_error(p.I) = fabs(p.x) < 42. ? 1.0 : 0.0;
+      }
+  );
+}
+\end{verbatim}
+
+\subsection{Support and Feedback}
+
+For questions and bug reports please use the Einstein Toolkit users mailing
+list \url{users@einsteintoolkit.org} and bug tracker
+\url{https://trac.einsteintoolkit.org}.
+
+\begin{thebibliography}{9}
+\bibitem{CarpetX_CarpetXRegrid_AMReX_JOSS} Zhang, W., Almgren, A., Beckner, V., Bell, J., Blaschke, J., Chan, C., Day, M., Friesen, B., Gott, K., Graves, D., Katz, M., Myers, A., Nguyen, T., Nonaka, A., Rosso, M., Williams, S. \& Zingale, M. AMReX: a framework for block-structured adaptive mesh refinement. {\em Journal Of Open Source Software}. \textbf{4}, 1370 (2019,5), https://doi.org/10.21105/joss.01370
+\bibitem{CarpetX_CarpetXRegrid_Berger:1984zza} M.~J.~Berger and J.~Oliger, ``Adaptive Mesh Refinement for Hyperbolic Partial Differential Equations,'' J. Comput. Phys. \textbf{53} (1984), 484 doi:10.1016/0021-9991(84)90073-1
+\end{thebibliography}
+
+% Do not delete next line
+% END CACTUS THORNGUIDE
+
+\end{document}

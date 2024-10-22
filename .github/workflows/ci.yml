@@ -3,7 +3,8 @@ name: CI
 # Control when the workflow will run
 on:
   push:
-  pull_request:
+  # `pull_request` is disabled because we already build for all pushes
+  # pull_request:
   # Allow running this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -23,6 +24,8 @@ jobs:
         exclude:
           - {accelerator: rocm, real-precision: real32}
           - {accelerator: oneapi, real-precision: real32}
+          - {accelerator: oneapi, mode: debug} # uses too much disk space?
+          - {accelerator: rocm, mode: debug} # uses too much memory?
           - {real-precision: real32, mode: optimize}
     env:
       ACCELERATOR: ${{matrix.accelerator}}
@@ -38,12 +41,6 @@ jobs:
       # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
       - uses: actions/checkout@v4
 
-      # # Check out the documentation and test results
-      # - uses: actions/checkout@v3
-      #   with:
-      #     ref: gh-pages
-      #     path: gh-pages
-
       - name: Log the triggering commit
         run: echo ${{github.event.client_payload.trigger}}
 
@@ -52,16 +49,8 @@ jobs:
 
       - name: Build Cactus
         run: /bin/bash $GITHUB_WORKSPACE/scripts/build.sh
-        # The oneAPI setup does not build yet
-        continue-on-error: ${{matrix.accelerator == 'oneapi'}}
 
       - name: Test Cactus
-        # We cannot run on accelerators. Debug builds run too slowly.
-        if: ${{matrix.accelerator == 'cpu' && matrix.mode == 'optimize'}}
+        # We cannot run on accelerators. Single precision output is not accurate enough. Debug builds run too slowly.
+        if: ${{matrix.accelerator == 'cpu' && matrix.real-precision == 'real64' && matrix.mode == 'optimize'}}
         run: /bin/bash $GITHUB_WORKSPACE/scripts/test.sh
-
-      # Set exit code based on test status
-      - name: Set exit code
-        # Only look at the test results for `carpetx-cpu-real64` runs
-        if: ${{matrix.accelerator == 'cpu' && matrix.real-precision == 'real64' && matrix.mode == 'optimize' && env.TESTS_FAILED == 'True'}}
-        run: exit 1

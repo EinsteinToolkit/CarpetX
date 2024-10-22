@@ -206,6 +206,12 @@ constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T flipsign(const T &x,
   return copysign(T(1), y) * x;
 }
 
+// Return 1/x
+template <typename T>
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T inv(const T &x) {
+  return T(1) / x;
+}
+
 // A max function that returns nan when any argument is nan
 template <typename T>
 constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T max1(const T &x, const T &y) {

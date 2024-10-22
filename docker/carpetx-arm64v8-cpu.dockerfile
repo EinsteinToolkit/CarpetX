@@ -7,8 +7,8 @@
 #     docker push einsteintoolkit/carpetx:arm64v8-cpu-real32
 
 # noble is ubuntu:24.04
-# FROM arm64v8/ubuntu:noble-20240429
-FROM arm64v8/ubuntu:noble-20240530
+# FROM arm64v8/ubuntu:noble-20240801
+FROM arm64v8/ubuntu:noble-20240904.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -24,16 +24,20 @@ WORKDIR /cactus
 #        python2
 RUN apt-get update && \
     apt-get --yes --no-install-recommends install \
+        bzip2 \
         ca-certificates \
+        clang-format \
         cmake \
         cvs \
         diffutils \
+        elfutils \
         g++ \
         gcc \
         gdb \
         gfortran \
         git \
         hdf5-tools \
+        hwloc-nox \
         language-pack-en \
         less \
         libblosc-dev \
@@ -44,18 +48,24 @@ RUN apt-get update && \
         libgsl-dev \
         libhdf5-dev \
         libhwloc-dev \
+        libiberty-dev \
+        liblzma-dev \
         libopenblas-dev \
         libopenmpi-dev \
+        libpapi-dev \
         libpetsc-real-dev \
         libtool \
         libudev-dev \
         libyaml-cpp-dev \
+        libzstd-dev \
         locales \
         m4 \
         make \
         meson \
         ninja-build \
         numactl \
+        papi-tools \
+        patch \
         perl \
         pkgconf \
         python3 \
@@ -63,51 +73,54 @@ RUN apt-get update && \
         python3-requests \
         rsync \
         subversion \
+        tar \
         vim \
         wget \
         xz-utils \
         zlib1g-dev \
+        zstd \
         && \
     rm -rf /var/lib/apt/lists/*
 
-# # Install HPCToolkit
-# # Install this first because it is expensive to build
-# RUN mkdir src && \
-#     (cd src && \
-#     wget https://github.com/spack/spack/archive/refs/tags/v0.21.0.tar.gz && \
-#     tar xzf v0.21.0.tar.gz && \
-#     export SPACK_ROOT="$(pwd)/spack-0.21.0" && \
-#     mkdir -p "${HOME}/.spack" && \
-#     echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
-#     . ${SPACK_ROOT}/share/spack/setup-env.sh && \
-#     spack external find \
-#         autoconf \
-#         automake \
-#         cmake \
-#         diffutils \
-#         elfutils \
-#         gmake \
-#         libtool \
-#         m4 \
-#         meson \
-#         ninja \
-#         numactl \
-#         perl \
-#         pkgconf \
-#         python \
-#     && \
-#     spack install --fail-fast hpctoolkit ~viewer && \
-#     spack view --dependencies no hardlink /hpctoolkit hpctoolkit && \
-#     true) && \
-#     rm -rf src "${HOME}/.spack"
+# Install HPCToolkit
+# Install this first because it is expensive to build
+# Try to reuse build tools from Ubuntu, but do not use any libraries because HPC Toolkit is a bit iffy to install.
+RUN mkdir src && \
+    (cd src && \
+    wget https://github.com/spack/spack/archive/refs/tags/v0.22.2.tar.gz && \
+    tar xzf v0.22.2.tar.gz && \
+    export SPACK_ROOT="$(pwd)/spack-0.22.2" && \
+    mkdir -p "${HOME}/.spack" && \
+    echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
+    . ${SPACK_ROOT}/share/spack/setup-env.sh && \
+    spack external find \
+        autoconf \
+        automake \
+        cmake \
+        diffutils \
+        elfutils \
+        gmake \
+        libtool \
+        m4 \
+        meson \
+        ninja \
+        numactl \
+        perl \
+        pkgconf \
+        python \
+    && \
+    spack install --fail-fast hpctoolkit ~viewer && \
+    spack view --dependencies no hardlink /hpctoolkit hpctoolkit && \
+    true) && \
+    rm -rf src "${HOME}/.spack"
 
 # Install blosc2
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.14.4.tar.gz && \
-    tar xzf v2.14.4.tar.gz && \
-    cd c-blosc2-2.14.4 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.1.tar.gz && \
+    tar xzf v2.15.1.tar.gz && \
+    cd c-blosc2-2.15.1 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -265,10 +278,10 @@ RUN mkdir src && \
     tar xzf v1.5.2.tar.gz && \
     cd ssht-1.5.2 && \
     cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_INSTALL_PREFIX=/usr/local \
-            -DBUILD_TESTING=OFF \
-            && \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_TESTING=OFF \
+        && \
     cmake --build build && \
     cmake --install build && \
     true) && \
@@ -283,9 +296,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.06.tar.gz && \
-    tar xzf 24.06.tar.gz && \
-    cd amrex-24.06 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.10.tar.gz && \
+    tar xzf 24.10.tar.gz && \
+    cd amrex-24.10 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \

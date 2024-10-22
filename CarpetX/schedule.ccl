@@ -20,16 +20,6 @@ if (!CCTK_Equals(recover, "no") && *recover_file)
 
 
 
-# Error estimation
-
-SCHEDULE CarpetX_InitError AT basegrid
-{
-  LANG: C
-  WRITES: regrid_error(everywhere)
-} "Initialize regridding error to zero"
-
-
-
 # I/O
 
 SCHEDULE CarpetX_CheckpointInitial AT cpinitial

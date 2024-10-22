@@ -7,7 +7,7 @@ STORAGE: ddchi
 SCHEDULE TestDerivs_SetError AT postinitial
 {
   LANG: C
-  WRITES: CarpetX::regrid_error(interior)
+  WRITES: CarpetXRegrid::regrid_error(interior)
 } "Set up test grid"
 
 SCHEDULE TestDerivs_Set AT initial

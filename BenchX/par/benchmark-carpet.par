@@ -6,8 +6,8 @@ ActiveThorns = "
     CartGrid3D
     CoordBase
     Formaline
-    InitBase
     IOUtil
+    InitBase
     ML_WaveToy
     MoL
     ReflectionSymmetry

@@ -6,7 +6,6 @@ SCHEDULE SIMDWaveToyX_Initial AT initial
 {
   LANG: C
   WRITES: state(interior)
-  SYNC: state
 } "Initialize scalar wave state"
 
 SCHEDULE SIMDWaveToyX_RHS IN ODESolvers_RHS
@@ -14,10 +13,18 @@ SCHEDULE SIMDWaveToyX_RHS IN ODESolvers_RHS
   LANG: C
   READS: state(everywhere)
   WRITES: rhs(interior)
+  # Sync for test output
   SYNC: rhs
 } "Calculate scalar wave RHS"
 
-SCHEDULE SIMDWaveToyX_Energy IN ODESolvers_PostStep
+SCHEDULE SIMDWaveToyX_Boundaries IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Apply boundary conditions"
+
+SCHEDULE SIMDWaveToyX_Energy IN ODESolvers_PostStep AFTER SIMDWaveToyX_Boundaries
 {
   LANG: C
   READS: state(everywhere)

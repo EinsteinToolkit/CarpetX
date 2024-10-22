@@ -126,6 +126,7 @@
 
 % Add all definitions used in this documentation here
 \newcommand{\CarpetX}{\texttt{CarpetX}}
+\newcommand{\CarpetXRegridError}{\texttt{CarpetXRegridError}}
 \newcommand{\Cactus}{\texttt{Cactus}}
 \newcommand{\AMReX}{\texttt{AMReX}}
 \newcommand{\ETK}{\texttt{Einstein Toolkit}}
@@ -449,7 +450,7 @@ The API for writing loops in \CarpetX\space is provided by the \texttt{Loop} tho
 to the thorn's \texttt{configuration.ccl} file and
 %
 \begin{lstlisting}[language=Bash]
-    INHERITS: CarpetX   
+    INHERITS: CarpetXRegrid
     USES INCLUDE HEADER: loop_device.hxx
 \end{lstlisting}
 %
@@ -972,7 +973,7 @@ In lines 10 and 13, we read \texttt{BoxInBox} parameters for the initial positio
 \subsection{Advanced AMR}
 \label{sec:advanced_amr}
 
-\CarpetX\space supports non-fixed (adaptive) mesh refinement. For cell level control of AMR, \CarpetX\space provides user with a cell centered and non-checkpointed grid function called \texttt{regrid\_error}. Users are responsible for filling this grid function with real value however they see fit. Once it is filled, the configuration parameter \texttt{CarpetX::regrid\_error\_threshold} controls regridding: If the values stored in \texttt{regrid\_error} are larger than what is set in \texttt{regrid\_error\_threshold}, the region gets refined. Additionally, the configuration parameter \texttt{CarpetX::regrid\_every} controls how many iterations should pass before checking if the error threshold has been exceeded. The parameter \texttt{CarpetX::max\_num\_levels} controls the maximum number of allowed refinement levels.
+\CarpetX\space supports non-fixed (adaptive) mesh refinement. For cell level control of AMR, \CarpetXRegridError\space provides users with a cell centered and non-checkpointed grid function called \texttt{regrid\_error}. Users are responsible for filling this grid function with real value however they see fit. Once it is filled, the configuration parameter \texttt{CarpetX::regrid\_error\_threshold} controls regridding: If the values stored in \texttt{regrid\_error} are larger than what is set in \texttt{regrid\_error\_threshold}, the region gets refined. Additionally, the configuration parameter \texttt{CarpetX::regrid\_every} controls how many iterations should pass before checking if the error threshold has been exceeded. The parameter \texttt{CarpetX::max\_num\_levels} controls the maximum number of allowed refinement levels.
 
 Note that \CarpetX\space \textbf{does not} provide a ``standardized'' regrid error routine. This is because refinement criteria are highly specific to the problem being solved via AMR, and thus there is no one size fits all error criteria. This might seem inconvenient, but ultimately it allows for users to have higher degrees of customization in their AMR codes. For demonstration purposes, we shall now provide a routine that estimates the regrinding error as \todo{what? Provide a good starter example}. This implementation could be used as a starting point for codes that wish to use different error criteria in their AMR grids.
 
@@ -999,14 +1000,14 @@ Once defined, \texttt{EstimateError} should be scheduled in both the \texttt{pos
   {
     LANG: C
     READS: state(everywhere)
-    WRITES: CarpetX::regrid_error(interior)
+    WRITES: CarpetXRegrid::regrid_error(interior)
   } "Estimate error for regridding"
   
   SCHEDULE EstimateError AT poststep
   {
     LANG: C
     READS: state(everywhere)
-    WRITES: CarpetX::regrid_error(interior)
+    WRITES: CarpetXRegrid::regrid_error(interior)
   } "Estimate error for regridding"
 \end{lstlisting}
 
