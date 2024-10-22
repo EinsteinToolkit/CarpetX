@@ -5,14 +5,28 @@ ActiveThorns = "
     TestRKAB
 "
 
+###### Settings ######
+$final_time = 10.0
+$out_every_time = 0.25
+
+$start = -1.0
+$end = 1.0
+
 $ncells = 80
 $cfl = 0.25
+######################
 
-$itlast = 10
-$out_every = 1
+# We are using a 5 point centered stencil
+$ghost_size = 2
+
+$dx = ($end - $start)/$ncells
+$dt = $cfl * $dx
+
+$itlast = ceil($final_time / $dt)
+$out_every_it = ceil($out_every_time / $dt)
 
 TestRKAB::initial_condition = "Gaussian"
-TestRKAB::gaussian_width = 0.17677669529 # sqrt(2)*W = 0.25
+TestRKAB::gaussian_width = $cfl / sqrt(2)
 
 CarpetX::poison_undefined_values = no
 CarpetX::verbose = no
@@ -20,13 +34,13 @@ CarpetX::verbose = no
 Cactus::cctk_show_schedule = yes
 Cactus::presync_mode = "mixed-error"
 
-CarpetX::xmin = -1.0
-CarpetX::ymin = -1.0
-CarpetX::zmin = -1.0
+CarpetX::xmin = $start
+CarpetX::ymin = $start
+CarpetX::zmin = $start
 
-CarpetX::xmax = +1.0
-CarpetX::ymax = +1.0
-CarpetX::zmax = +1.0
+CarpetX::xmax = $end
+CarpetX::ymax = $end
+CarpetX::zmax = $end
 
 CarpetX::ncells_x = $ncells
 CarpetX::ncells_y = $ncells
@@ -37,15 +51,14 @@ CarpetX::periodic_x = yes
 CarpetX::periodic_y = yes
 CarpetX::periodic_z = yes
 
-#CarpetX::ghost_size = 3
+CarpetX::ghost_size = $ghost_size
+
 CarpetX::dtfac = $cfl
 
-CarpetX::blocking_factor_x = 2
-CarpetX::blocking_factor_y = 2
-CarpetX::blocking_factor_z = 2
+CarpetX::blocking_factor_x = 1
+CarpetX::blocking_factor_y = 1
+CarpetX::blocking_factor_z = 1
 
-#Cactus::terminate = "time"
-#Cactus::cctk_final_time = 1.0
 Cactus::terminate = "iteration"
 Cactus::cctk_itlast = $itlast
 
@@ -53,14 +66,13 @@ ODESolvers::method = "RKAB"
 ODESolvers::verbose = yes
 
 IO::out_dir = $parfile
-IO::out_every = $out_every
+IO::out_every = $out_every_it
 
 CarpetX::out_norm_vars = ""
 CarpetX::out_tsv_vars = ""
 
 CarpetX::out_silo_vars = "
     TestRKAB::state
-    TestRKAB::pre
     TestRKAB::error
     TestRKAB::energy
 "

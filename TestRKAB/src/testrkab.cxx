@@ -1,5 +1,3 @@
-#include <cstddef>
-#include <iterator>
 #include <loop_device.hxx>
 
 #include <sum.hxx>
@@ -9,178 +7,13 @@
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
-#include <array>
-#include <cassert>
-#include <cmath>
 #include <limits>
+
+#include "standing_wave.hxx"
+#include "gaussian.hxx"
 
 namespace TestRKAB {
 using namespace Arith;
-
-constexpr int dim = 3;
-
-// Standing wave functions
-template <typename T>
-static inline auto sw_phi(T A, T kx, T ky, T kz, T t, T x, T y,
-                          T z) noexcept -> T {
-  using std::sqrt, std::sin, std::cos;
-  const auto pi{acos(T{-1})};
-  const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
-  return A * cos(2 * omega * pi * t) * sin(2 * kx * pi * x) *
-         sin(2 * ky * pi * y) * sin(2 * kz * pi * z);
-}
-
-template <typename T>
-static inline auto sw_Pi(T A, T kx, T ky, T kz, T t, T x, T y,
-                         T z) noexcept -> T {
-  using std::sqrt, std::sin, std::cos;
-  const auto pi{acos(T{-1})};
-  const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
-  return -2 * A * omega * pi * sin(2 * omega * pi * t) * sin(2 * kx * pi * x) *
-         sin(2 * ky * pi * y) * sin(2 * kz * pi * z);
-}
-
-template <typename T>
-static inline auto sw_Dx(T A, T kx, T ky, T kz, T t, T x, T y,
-                         T z) noexcept -> T {
-  using std::sqrt, std::sin, std::cos;
-  const auto pi{acos(T{-1})};
-  const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
-  return 2 * A * kx * pi * cos(2 * omega * pi * t) * cos(2 * kx * pi * x) *
-         sin(2 * ky * pi * y) * sin(2 * kz * pi * z);
-}
-
-template <typename T>
-static inline auto sw_Dy(T A, T kx, T ky, T kz, T t, T x, T y,
-                         T z) noexcept -> T {
-  using std::sqrt, std::sin, std::cos;
-  const auto pi{acos(T{-1})};
-  const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
-  return 2 * A * ky * pi * cos(2 * omega * pi * t) * sin(2 * kx * pi * x) *
-         cos(2 * ky * pi * y) * sin(2 * kz * pi * z);
-}
-
-template <typename T>
-static inline auto sw_Dz(T A, T kx, T ky, T kz, T t, T x, T y,
-                         T z) noexcept -> T {
-  using std::sqrt, std::sin, std::cos;
-  const auto pi{acos(T{-1})};
-  const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
-  return 2 * A * kz * pi * cos(2 * omega * pi * t) * sin(2 * kx * pi * x) *
-         sin(2 * ky * pi * y) * cos(2 * kz * pi * z);
-}
-
-// Gaussian functions
-template <typename T>
-static inline auto gaussian_phi(T A, T W, T t, T x, T y, T z) noexcept -> T {
-  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
-
-  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
-  const auto r{sqrt(x * x + y * y + z * z)};
-
-  if (r < tol) {
-    return (2 * A * t) / (exp(pow(t, 2) / (2. * pow(W, 2))) * pow(W, 2));
-  } else {
-    return (A *
-            (exp(-0.5 * pow(t - sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)), 2) /
-                 pow(W, 2)) -
-             exp(-0.5 * pow(t + sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)), 2) /
-                 pow(W, 2)))) /
-           sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
-  }
-}
-
-template <typename T>
-static inline auto gaussian_Pi(T A, T W, T t, T x, T y, T z) noexcept -> T {
-  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
-
-  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
-  const auto r{sqrt(x * x + y * y + z * z)};
-
-  if (r < tol) {
-    return (2 * A * (-t + W) * (t + W)) /
-           (exp(pow(t, 2) / (2. * pow(W, 2))) * pow(W, 4));
-  } else {
-    return (2 * A *
-            (sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
-                 cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)) -
-             t * sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)))) /
-           (exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
-                (2. * pow(W, 2))) *
-            pow(W, 2) * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)));
-  }
-}
-
-template <typename T>
-static inline auto gaussian_Dx(T A, T W, T t, T x, T y, T z) noexcept -> T {
-  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
-
-  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
-  const auto r{sqrt(x * x + y * y + z * z)};
-
-  if (r < tol) {
-    return 0;
-  } else {
-    return (A * x *
-            (2 * t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
-                 cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)) -
-             2 * (pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
-                 sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)))) /
-           (exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
-                (2. * pow(W, 2))) *
-            pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
-  }
-}
-
-template <typename T>
-static inline auto gaussian_Dy(T A, T W, T t, T x, T y, T z) noexcept -> T {
-  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
-
-  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
-  const auto r{sqrt(x * x + y * y + z * z)};
-
-  if (r < tol) {
-    return A;
-  } else {
-    return (A * y *
-            (2 * t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
-                 cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)) -
-             2 * (pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
-                 sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)))) /
-           (exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
-                (2. * pow(W, 2))) *
-            pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
-  }
-}
-
-template <typename T>
-static inline auto gaussian_Dz(T A, T W, T t, T x, T y, T z) noexcept -> T {
-  using std::sqrt, std::exp, std::pow, std::sinh, std::cosh;
-
-  const auto tol{sqrt(std::numeric_limits<T>::epsilon())};
-  const auto r{sqrt(x * x + y * y + z * z)};
-
-  if (r < tol) {
-    return A;
-  } else {
-    return (A * z *
-            (2 * t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2)) *
-                 cosh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)) -
-             2 * (pow(W, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) *
-                 sinh((t * sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2))) /
-                      pow(W, 2)))) /
-           (exp((pow(t, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2)) /
-                (2. * pow(W, 2))) *
-            pow(W, 2) * pow(pow(x, 2) + pow(y, 2) + pow(z, 2), 1.5));
-  }
-}
 
 // Finite difference helpers
 enum class fd_dir : std::size_t { x = 0, y = 1, z = 2 };
@@ -192,7 +25,7 @@ static inline auto fd_c_1_4(const Loop::PointDesc &p,
   const auto num{gf(p.I - 2 * p.DI[d]) - 8.0 * gf(p.I - 1 * p.DI[d]) +
                  8.0 * gf(p.I + 1 * p.DI[d]) - 1.0 * gf(p.I + 2 * p.DI[d])};
   const auto den{1.0 / (12.0 * p.DX[d])};
-  return den * num;
+  return num * den;
 }
 
 // Scheduled functions
@@ -205,24 +38,17 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const auto t{cctk_time};
-          const auto t_pre{t - cctk_delta_time};
 
           const auto A{amplitude};
           const auto kx{standing_wave_kx};
           const auto ky{standing_wave_ky};
           const auto kz{standing_wave_kz};
 
-          phi(p.I) = sw_phi(A, kx, ky, kz, t, p.x, p.y, p.z);
-          Pi(p.I) = sw_Pi(A, kx, ky, kz, t, p.x, p.y, p.z);
-          Dx(p.I) = sw_Dx(A, kx, ky, kz, t, p.x, p.y, p.z);
-          Dy(p.I) = sw_Dy(A, kx, ky, kz, t, p.x, p.y, p.z);
-          Dz(p.I) = sw_Dz(A, kx, ky, kz, t, p.x, p.y, p.z);
-
-          phi_pre(p.I) = sw_phi(A, kx, ky, kz, t_pre, p.x, p.y, p.z);
-          Pi_pre(p.I) = sw_Pi(A, kx, ky, kz, t_pre, p.x, p.y, p.z);
-          Dx_pre(p.I) = sw_Dx(A, kx, ky, kz, t_pre, p.x, p.y, p.z);
-          Dy_pre(p.I) = sw_Dy(A, kx, ky, kz, t_pre, p.x, p.y, p.z);
-          Dz_pre(p.I) = sw_Dz(A, kx, ky, kz, t_pre, p.x, p.y, p.z);
+          phi(p.I) = sw::phi(A, kx, ky, kz, t, p.x, p.y, p.z);
+          Pi(p.I) = sw::Pi(A, kx, ky, kz, t, p.x, p.y, p.z);
+          Dx(p.I) = sw::Dx(A, kx, ky, kz, t, p.x, p.y, p.z);
+          Dy(p.I) = sw::Dy(A, kx, ky, kz, t, p.x, p.y, p.z);
+          Dz(p.I) = sw::Dz(A, kx, ky, kz, t, p.x, p.y, p.z);
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
@@ -230,45 +56,16 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const auto t{cctk_time};
-          const auto t_pre{t - cctk_delta_time};
 
-          const auto A{amplitude};
-          const auto W{gaussian_width};
-
-          phi(p.I) = gaussian_phi(A, W, t, p.x, p.y, p.z);
-          Pi(p.I) = gaussian_Pi(A, W, t, p.x, p.y, p.z);
-          Dx(p.I) = gaussian_Dx(A, W, t, p.x, p.y, p.z);
-          Dy(p.I) = gaussian_Dy(A, W, t, p.x, p.y, p.z);
-          Dz(p.I) = gaussian_Dz(A, W, t, p.x, p.y, p.z);
-
-          phi_pre(p.I) = gaussian_phi(A, W, t_pre, p.x, p.y, p.z);
-          Pi_pre(p.I) = gaussian_Pi(A, W, t_pre, p.x, p.y, p.z);
-          Dx_pre(p.I) = gaussian_Dx(A, W, t_pre, p.x, p.y, p.z);
-          Dy_pre(p.I) = gaussian_Dy(A, W, t_pre, p.x, p.y, p.z);
-          Dz_pre(p.I) = gaussian_Dz(A, W, t_pre, p.x, p.y, p.z);
+          phi(p.I) = gauss::phi(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Pi(p.I) = gauss::Pi(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dx(p.I) = gauss::Dx(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dy(p.I) = gauss::Dy(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dz(p.I) = gauss::Dz(amplitude, gaussian_width, t, p.x, p.y, p.z);
         });
 
-  } else if (CCTK_EQUALS(initial_condition, "time")) {
-    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
-                                  [=] CCTK_DEVICE(const Loop::PointDesc &p)
-                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                        const auto t{cctk_time};
-                                        const auto t_pre{t - cctk_delta_time};
-
-                                        phi(p.I) = t;
-                                        Pi(p.I) = t;
-                                        Dx(p.I) = t;
-                                        Dy(p.I) = t;
-                                        Dz(p.I) = t;
-
-                                        phi_pre(p.I) = t_pre;
-                                        Pi_pre(p.I) = t_pre;
-                                        Dx_pre(p.I) = t_pre;
-                                        Dy_pre(p.I) = t_pre;
-                                        Dz_pre(p.I) = t_pre;
-                                      });
   } else {
-    CCTK_ERROR("Unknown initial condition");
+    CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }
 }
 
@@ -276,28 +73,16 @@ extern "C" void TestRKAB_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestRKAB_RHS;
   DECLARE_CCTK_PARAMETERS;
 
-  if (CCTK_EQUALS(initial_condition, "time")) {
-    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
-                                  [=] CCTK_DEVICE(const Loop::PointDesc &p)
-                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                        phi_rhs(p.I) = 1.0;
-                                        Pi_rhs(p.I) = 1.0;
-                                        Dx_rhs(p.I) = 1.0;
-                                        Dy_rhs(p.I) = 1.0;
-                                        Dz_rhs(p.I) = 1.0;
-                                      });
-  } else {
-    grid.loop_int_device<0, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          phi_rhs(p.I) = Pi(p.I);
-          Pi_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Dx) +
-                        fd_c_1_4<fd_dir::y>(p, Dy) + fd_c_1_4<fd_dir::z>(p, Dz);
-          Dx_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Pi);
-          Dy_rhs(p.I) = fd_c_1_4<fd_dir::y>(p, Pi);
-          Dz_rhs(p.I) = fd_c_1_4<fd_dir::z>(p, Pi);
-        });
-  }
+  grid.loop_int_device<0, 0, 0>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        phi_rhs(p.I) = Pi(p.I);
+        Pi_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Dx) + fd_c_1_4<fd_dir::y>(p, Dy) +
+                      fd_c_1_4<fd_dir::z>(p, Dz);
+        Dx_rhs(p.I) = fd_c_1_4<fd_dir::x>(p, Pi);
+        Dy_rhs(p.I) = fd_c_1_4<fd_dir::y>(p, Pi);
+        Dz_rhs(p.I) = fd_c_1_4<fd_dir::z>(p, Pi);
+      });
 }
 
 extern "C" void TestRKAB_Sync(CCTK_ARGUMENTS) {
@@ -321,11 +106,11 @@ extern "C" void TestRKAB_Error(CCTK_ARGUMENTS) {
           const auto ky{standing_wave_ky};
           const auto kz{standing_wave_kz};
 
-          const auto expected_phi{sw_phi(A, kx, ky, kz, t, p.x, p.y, p.z)};
-          const auto expected_Pi{sw_Pi(A, kx, ky, kz, t, p.x, p.y, p.z)};
-          const auto expected_Dx{sw_Dx(A, kx, ky, kz, t, p.x, p.y, p.z)};
-          const auto expected_Dy{sw_Dy(A, kx, ky, kz, t, p.x, p.y, p.z)};
-          const auto expected_Dz{sw_Dz(A, kx, ky, kz, t, p.x, p.y, p.z)};
+          const auto expected_phi{sw::phi(A, kx, ky, kz, t, p.x, p.y, p.z)};
+          const auto expected_Pi{sw::Pi(A, kx, ky, kz, t, p.x, p.y, p.z)};
+          const auto expected_Dx{sw::Dx(A, kx, ky, kz, t, p.x, p.y, p.z)};
+          const auto expected_Dy{sw::Dy(A, kx, ky, kz, t, p.x, p.y, p.z)};
+          const auto expected_Dz{sw::Dz(A, kx, ky, kz, t, p.x, p.y, p.z)};
 
           const auto actual_phi{phi(p.I)};
           const auto actual_Pi{Pi(p.I)};
@@ -348,14 +133,16 @@ extern "C" void TestRKAB_Error(CCTK_ARGUMENTS) {
 
           const auto t{cctk_time};
 
-          const auto A{amplitude};
-          const auto W{gaussian_width};
-
-          const auto expected_phi{gaussian_phi(A, W, t, p.x, p.y, p.z)};
-          const auto expected_Pi{gaussian_Pi(A, W, t, p.x, p.y, p.z)};
-          const auto expected_Dx{gaussian_Dx(A, W, t, p.x, p.y, p.z)};
-          const auto expected_Dy{gaussian_Dy(A, W, t, p.x, p.y, p.z)};
-          const auto expected_Dz{gaussian_Dz(A, W, t, p.x, p.y, p.z)};
+          const auto expected_phi{
+              gauss::phi(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+          const auto expected_Pi{
+              gauss::Pi(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+          const auto expected_Dx{
+              gauss::Dx(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+          const auto expected_Dy{
+              gauss::Dy(amplitude, gaussian_width, t, p.x, p.y, p.z)};
+          const auto expected_Dz{
+              gauss::Dz(amplitude, gaussian_width, t, p.x, p.y, p.z)};
 
           const auto actual_phi{phi(p.I)};
           const auto actual_Pi{Pi(p.I)};
@@ -369,30 +156,8 @@ extern "C" void TestRKAB_Error(CCTK_ARGUMENTS) {
           Dy_err(p.I) = fabs(expected_Dy - actual_Dy);
           Dz_err(p.I) = fabs(expected_Dz - actual_Dz);
         });
-
-  } else if (CCTK_EQUALS(initial_condition, "time")) {
-    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
-                                  [=] CCTK_DEVICE(const Loop::PointDesc &p)
-                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                        using std::fabs;
-
-                                        const auto t{cctk_time};
-
-                                        const auto actual_phi{phi(p.I)};
-                                        const auto actual_Pi{Pi(p.I)};
-                                        const auto actual_Dx{Dx(p.I)};
-                                        const auto actual_Dy{Dy(p.I)};
-                                        const auto actual_Dz{Dz(p.I)};
-
-                                        phi_err(p.I) = fabs(t - actual_phi);
-                                        Pi_err(p.I) = fabs(t - actual_Pi);
-                                        Dx_err(p.I) = fabs(t - actual_Dx);
-                                        Dy_err(p.I) = fabs(t - actual_Dy);
-                                        Dz_err(p.I) = fabs(t - actual_Dz);
-                                      });
-
   } else {
-    CCTK_ERROR("Unknown initial condition");
+    CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }
 }
 
