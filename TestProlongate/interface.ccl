@@ -2,7 +2,7 @@
 
 IMPLEMENTS: TestProlongate
 
-INHERITS: CarpetX
+INHERITS: CarpetXRegrid
 
 USES INCLUDE HEADER: loop.hxx
 

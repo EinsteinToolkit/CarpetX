@@ -26,8 +26,9 @@ CarpetX::boundary_upper_y = "linear extrapolation"
 CarpetX::boundary_upper_z = "linear extrapolation"
 
 IO::out_dir = $parfile
-IO::parfile_write = "no"
 IO::out_every = 1
+IO::out_fileinfo = "axis labels"
+IO::parfile_write = no
 
 CarpetX::out_metadata = no
 

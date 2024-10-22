@@ -27,9 +27,9 @@ CarpetX::ncells_x = 16
 CarpetX::ncells_y = 16
 CarpetX::ncells_z = 16
 
-CarpetX::periodic_x = no
-CarpetX::periodic_y = no
-CarpetX::periodic_z = no
+Driver::periodic_x = no
+Driver::periodic_y = no
+Driver::periodic_z = no
 
 CarpetX::ghost_size = 1
 

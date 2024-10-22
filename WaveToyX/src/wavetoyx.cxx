@@ -113,22 +113,59 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_WaveToyX_RHS;
   DECLARE_CCTK_PARAMETERS;
 
+  for (int d = 0; d < dim; ++d)
+    if (cctk_nghostzones[d] < fd_order / 2)
+      CCTK_ERROR("Too few ghost zones");
+
   if (CCTK_EQUALS(boundary_condition, "CarpetX")) {
 
-    grid.loop_int_device<0, 0, 0>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          using std::pow;
-          CCTK_REAL ddu = 0;
-          for (int d = 0; d < dim; ++d)
-            ddu += (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
-                   pow(p.DX[d], 2);
+    switch (fd_order) {
 
-          u_rhs(p.I) = rho(p.I);
-          rho_rhs(p.I) = ddu;
-        });
+    case 2:
+      grid.loop_int_device<0, 0, 0>(
+          grid.nghostzones,
+          [=] CCTK_DEVICE(const Loop::PointDesc &p)
+              CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                using std::pow;
+                CCTK_REAL ddu = 0;
+                for (int d = 0; d < dim; ++d)
+                  ddu += (u(p.I - p.DI[d]) - 2 * u(p.I) + u(p.I + p.DI[d])) /
+                         pow(p.DX[d], 2);
+
+                u_rhs(p.I) = rho(p.I);
+                rho_rhs(p.I) = ddu;
+              });
+      break;
+
+    case 4:
+      grid.loop_int_device<0, 0, 0>(
+          grid.nghostzones,
+          [=] CCTK_DEVICE(const Loop::PointDesc &p)
+              CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                using std::pow;
+                CCTK_REAL ddu = 0;
+                for (int d = 0; d < dim; ++d)
+                  ddu += (-1 / CCTK_REAL(12) * u(p.I - 2 * p.DI[d]) +
+                          4 / CCTK_REAL(3) * u(p.I - p.DI[d]) -
+                          5 / CCTK_REAL(2) * u(p.I) +
+                          4 / CCTK_REAL(3) * u(p.I + p.DI[d]) -
+                          1 / CCTK_REAL(2) * u(p.I + 2 * p.DI[d])) /
+                         pow(p.DX[d], 2);
+
+                u_rhs(p.I) = rho(p.I);
+                rho_rhs(p.I) = ddu;
+              });
+      break;
+
+    default:
+      CCTK_ERROR("Unsupported finite differencing order");
+      break;
+    }
 
   } else if (CCTK_EQUALS(boundary_condition, "reflecting")) {
+
+    if (fd_order != 2)
+      CCTK_ERROR("Unsupported finite differencing order");
 
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
@@ -152,6 +189,9 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
         });
 
   } else if (CCTK_EQUALS(boundary_condition, "radiative")) {
+
+    if (fd_order != 2)
+      CCTK_ERROR("Unsupported finite differencing order");
 
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
@@ -251,18 +291,59 @@ extern "C" void WaveToyX_RHS(CCTK_ARGUMENTS) {
   }
 }
 
+extern "C" void WaveToyX_Boundaries(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_WaveToyX_Boundaries;
+  DECLARE_CCTK_PARAMETERS;
+
+  // Do nothing
+}
+
 extern "C" void WaveToyX_Energy(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_WaveToyX_Energy;
-  grid.loop_int_device<0, 0, 0>(
-      grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        using std::pow;
-        CCTK_REAL du2 = 0;
-        for (int d = 0; d < dim; ++d)
-          du2 += pow((u(p.I + p.DI[d]) - u(p.I + p.DI[d])) / (2 * p.DX[d]), 2);
+  DECLARE_CCTK_PARAMETERS;
 
-        eps(p.I) = (pow(rho(p.I), 2) + du2) / 2;
-      });
+  for (int d = 0; d < dim; ++d)
+    if (cctk_nghostzones[d] < fd_order / 2)
+      CCTK_ERROR("Too few ghost zones");
+
+  switch (fd_order) {
+
+  case 2:
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          using std::pow;
+          CCTK_REAL du2 = 0;
+          for (int d = 0; d < dim; ++d)
+            du2 +=
+                pow((u(p.I + p.DI[d]) - u(p.I - p.DI[d])) / (2 * p.DX[d]), 2);
+
+          eps(p.I) = (pow(rho(p.I), 2) + du2) / 2;
+        });
+    break;
+
+  case 4:
+    grid.loop_int_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          using std::pow;
+          CCTK_REAL du2 = 0;
+          for (int d = 0; d < dim; ++d)
+            du2 += pow((1 / CCTK_REAL(12) * u(p.I - 2 * p.DI[d]) -
+                        2 / CCTK_REAL(3) * u(p.I - p.DI[d]) +
+                        2 / CCTK_REAL(3) * u(p.I + p.DI[d]) -
+                        1 / CCTK_REAL(12) * u(p.I + 2 * p.DI[d])) /
+                           p.DX[d],
+                       2);
+
+          eps(p.I) = (pow(rho(p.I), 2) + du2) / 2;
+        });
+    break;
+
+  default:
+    CCTK_ERROR("Unsupported finite differencing order");
+    break;
+  }
 }
 
 extern "C" void WaveToyX_Error(CCTK_ARGUMENTS) {

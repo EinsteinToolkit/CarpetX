@@ -91,7 +91,8 @@ struct statecomp_t {
   template <size_t N>
   static void combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
                              const array<CCTK_REAL, N> &factors,
-                             const array<const statecomp_t *, N> &srcs);
+                             const array<const statecomp_t *, N> &srcs,
+                             const valid_t where);
   void check_valid(const valid_t required, const function<string()> &why) const;
   void check_valid(const valid_t required, const string &why) const {
     check_valid(required, [=]() { return why; });
@@ -189,7 +190,8 @@ void statecomp_t::set_valid(const valid_t valid) const {
 template <size_t N>
 void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
                                  const array<CCTK_REAL, N> &factors,
-                                 const array<const statecomp_t *, N> &srcs) {
+                                 const array<const statecomp_t *, N> &srcs,
+                                 const valid_t where) {
   const int ngroups = dst.groupdatas.size();
   for (const auto &src : srcs)
     assert(int(src->groupdatas.size()) == ngroups);
@@ -207,7 +209,7 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
     const int nvars = dstgroup->numvars;
     const int tl = 0;
     for (int vi = 0; vi < nvars; ++vi) {
-      valid_t valid = valid_t(true);
+      valid_t valid = where;
       bool did_set_valid = false;
       if (scale != 0) {
         valid &= dstgroup->valid.at(tl).at(vi).get();
@@ -255,26 +257,29 @@ statecomp_t statecomp_t::copy(const valid_t where) const {
   result.mfabs.reserve(size);
   for (size_t n = 0; n < size; ++n) {
     const auto groupdata = groupdatas.at(n);
-#ifdef CCTK_DEBUG
-    const auto &x = mfabs.at(n);
-    if (x->contains_nan())
-      CCTK_VERROR("statecomp_t::copy.x: Group %s contains nans",
-                  groupdata->groupname.c_str());
-#endif
+    // This global nan-check doesn't work since we don't care about the
+    // boundaries
+    // #ifdef CCTK_DEBUG
+    //     const auto &x = mfabs.at(n);
+    //     if (x->contains_nan())
+    //       CCTK_VERROR("statecomp_t::copy.x: Group %s contains nans",
+    //                   groupdata->groupname.c_str());
+    // #endif
     auto y = groupdata->alloc_tmp_mfab();
     result.groupdatas.push_back(groupdata);
     result.mfabs.push_back(y);
   }
   lincomb(result, 0, make_array(CCTK_REAL(1)), make_array(this), where);
-#ifdef CCTK_DEBUG
-  for (size_t n = 0; n < size; ++n) {
-    const auto groupdata = result.groupdatas.at(n);
-    const auto &y = result.mfabs.at(n);
-    if (y->contains_nan())
-      CCTK_VERROR("statecomp_t::copy.y: Group %s contains nans",
-                  groupdata->groupname.c_str());
-  }
-#endif
+  // This global nan-check doesn't work since we don't care about the boundaries
+  // #ifdef CCTK_DEBUG
+  //   for (size_t n = 0; n < size; ++n) {
+  //     const auto groupdata = result.groupdatas.at(n);
+  //     const auto &y = result.mfabs.at(n);
+  //     if (y->contains_nan())
+  //       CCTK_VERROR("statecomp_t::copy.y: Group %s contains nans",
+  //                   groupdata->groupname.c_str());
+  //   }
+  // #endif
   return result;
 }
 
@@ -300,7 +305,7 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
   for (size_t n = 0; n < N; ++n)
     assert(isfinite(factors[n]));
 
-  statecomp_t::combine_valids(dst, scale, factors, srcs);
+  statecomp_t::combine_valids(dst, scale, factors, srcs, where);
 
 #ifndef AMREX_USE_GPU
   vector<function<void()> > tasks;
@@ -417,29 +422,43 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
       if (!read_dst) {
 
-        amrex::launch(box, [=] CCTK_DEVICE(const amrex::Box &box)
-                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                 const int i = box.smallEnd()[0];
-                                 // const int j = box.smallEnd()[1];
-                                 // const int k = box.smallEnd()[2];
-                                 CCTK_REAL accum = 0;
-                                 for (size_t n = 0; n < N; ++n)
-                                   accum += factors[n] * srcptrs[n][i];
-                                 dstptr[i] = accum;
-                               });
+        amrex::launch(
+            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
+                     __always_inline__, __flatten__)) {
+              const int i = box.smallEnd()[0];
+              // const int j = box.smallEnd()[1];
+              // const int k = box.smallEnd()[2];
+              CCTK_REAL accum = 0;
+              // The ROCM 6.2 compiler can't handle `std::array::operator[]`, so
+              // we avoid it via pointers: for (size_t n = 0; n < N; ++n)
+              //   accum += factors[n] * srcptrs[n][i];
+              const CCTK_REAL *restrict const factors_ptr = factors.data();
+              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
+                  srcptrs.data();
+              for (size_t n = 0; n < N; ++n)
+                accum += factors_ptr[n] * srcptrs_ptr[n][i];
+              dstptr[i] = accum;
+            });
 
       } else {
 
-        amrex::launch(box, [=] CCTK_DEVICE(const amrex::Box &box)
-                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                 const int i = box.smallEnd()[0];
-                                 // const int j = box.smallEnd()[1];
-                                 // const int k = box.smallEnd()[2];
-                                 CCTK_REAL accum = scale1 * dstptr[i];
-                                 for (size_t n = 0; n < N; ++n)
-                                   accum += factors[n] * srcptrs[n][i];
-                                 dstptr[i] = accum;
-                               });
+        amrex::launch(
+            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
+                     __always_inline__, __flatten__)) {
+              const int i = box.smallEnd()[0];
+              // const int j = box.smallEnd()[1];
+              // const int k = box.smallEnd()[2];
+              CCTK_REAL accum = scale1 * dstptr[i];
+              // The ROCM 6.2 compiler can't handle `std::array::operator[]`, so
+              // we avoid it via pointers: for (size_t n = 0; n < N; ++n)
+              //   accum += factors[n] * srcptrs[n][i];
+              const CCTK_REAL *restrict const factors_ptr = factors.data();
+              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
+                  srcptrs.data();
+              for (size_t n = 0; n < N; ++n)
+                accum += factors_ptr[n] * srcptrs_ptr[n][i];
+              dstptr[i] = accum;
+            });
       }
 
 #endif
@@ -746,8 +765,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   static Timer timer_rhs("ODESolvers::Solve::rhs");
   static Timer timer_poststep("ODESolvers::Solve::poststep");
 
-  const auto copy_state = [](const auto &var) {
-    return var.copy(make_valid_int());
+  const auto copy_state = [](const auto &var, const valid_t where) {
+    return var.copy(where);
   };
   const auto calcrhs = [&](const int n) {
     Interval interval_rhs(timer_rhs);
@@ -801,7 +820,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // k2 = f(y0 + h/2 k1)
     // y1 = y0 + h k2
 
-    const auto old = copy_state(var);
+    const auto old = copy_state(var, make_valid_all());
 
     calcrhs(1);
     calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&rhs});
@@ -816,14 +835,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // k3 = f(y0 - h k1 + 2 h k2)
     // y1 = y0 + h/6 k1 + 2/3 h k2 + h/6 k3
 
-    const auto old = copy_state(var);
+    const auto old = copy_state(var, make_valid_all());
 
     calcrhs(1);
-    const auto k1 = copy_state(rhs);
+    const auto k1 = copy_state(rhs, make_valid_int());
     calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&k1});
 
     calcrhs(2);
-    const auto k2 = copy_state(rhs);
+    const auto k2 = copy_state(rhs, make_valid_int());
     calcupdate(2, dt, 0.0, reals<3>{1.0, -dt, 2 * dt},
                states<3>{&old, &k1, &k2});
 
@@ -838,14 +857,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // k3 = f(y0 + h/4 k1 + h/4 k2)
     // y1 = y0 + h/6 k1 + h/6 k2 + 2/3 h k3
 
-    const auto old = copy_state(var);
+    const auto old = copy_state(var, make_valid_all());
 
     calcrhs(1);
-    const auto k1 = copy_state(rhs);
+    const auto k1 = copy_state(rhs, make_valid_int());
     calcupdate(1, dt, 1.0, reals<1>{dt}, states<1>{&k1});
 
     calcrhs(2);
-    const auto k2 = copy_state(rhs);
+    const auto k2 = copy_state(rhs, make_valid_int());
     calcupdate(2, dt / 2, 0.0, reals<3>{1.0, dt / 4, dt / 4},
                states<3>{&old, &k1, &k2});
 
@@ -861,10 +880,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // k4 = f(y0 + h k3)
     // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
 
-    const auto old = copy_state(var);
+    const auto old = copy_state(var, make_valid_all());
 
     calcrhs(1);
-    const auto kaccum = copy_state(rhs);
+    const auto kaccum = copy_state(rhs, make_valid_int());
     calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
 
     calcrhs(2);
@@ -948,15 +967,15 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       assert(fabs(x - 1) <= 10 * numeric_limits<T>::epsilon());
     }
 
-    const auto old = copy_state(var);
+    const auto old = copy_state(var, make_valid_all());
 
     vector<statecomp_t> ks;
     ks.reserve(nsteps);
     for (size_t step = 0; step < nsteps; ++step) {
       // Skip the first state vector calculation, it is always trivial
       if (step > 0) {
-	const auto &c = get<0>(get<0>(tableau).at(step));
-	const auto &as = get<1>(get<0>(tableau).at(step));
+        const auto &c = get<0>(get<0>(tableau).at(step));
+        const auto &as = get<1>(get<0>(tableau).at(step));
 
         // Add scaled RHS to state vector
         vector<CCTK_REAL> factors;
@@ -976,7 +995,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
 
       calcrhs(step + 1);
-      ks.push_back(copy_state(rhs));
+      ks.push_back(copy_state(rhs, make_valid_int()));
     }
 
     // Calculate new state vector
@@ -1058,17 +1077,17 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       assert(fabs(x - 1) <= 10 * numeric_limits<T>::epsilon());
     }
 
-    const auto old = copy_state(var);
+    const auto old = copy_state(var, make_valid_all());
 
     vector<statecomp_t> ks;
     ks.reserve(nsteps);
     for (size_t step = 0; step < nsteps; ++step) {
       // Skip the first state vector calculation, it is always trivial
       if (step > 0) {
-	const auto &as = get<0>(tableau).at(step);
-	T c = 0;
-	for (const auto &a : as)
-	  c += a;
+        const auto &as = get<0>(tableau).at(step);
+        T c = 0;
+        for (const auto &a : as)
+          c += a;
 
         // Add scaled RHS to state vector
         vector<CCTK_REAL> factors;
@@ -1088,7 +1107,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
 
       calcrhs(step + 1);
-      ks.push_back(copy_state(rhs));
+      ks.push_back(copy_state(rhs, make_valid_int()));
     }
 
     // Calculate new state vector

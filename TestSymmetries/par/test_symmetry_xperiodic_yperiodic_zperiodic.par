@@ -19,9 +19,10 @@ CarpetX::ncells_x = 8
 CarpetX::ncells_y = 8
 CarpetX::ncells_z = 8
 
-CarpetX::periodic_x = yes
-CarpetX::periodic_y = yes
-CarpetX::periodic_z = yes
+Driver::periodic = "yes"
+Driver::periodic_x = yes
+Driver::periodic_y = yes
+Driver::periodic_z = yes
 
 CarpetX::reflection_x = no
 CarpetX::reflection_y = no

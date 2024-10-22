@@ -122,6 +122,13 @@ extern "C" void SIMDWaveToyX_RHS(CCTK_ARGUMENTS) {
       });
 }
 
+extern "C" void SIMDWaveToyX_Boundaries(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_SIMDWaveToyX_Boundaries;
+  DECLARE_CCTK_PARAMETERS;
+
+  // Do nothing
+}
+
 extern "C" void SIMDWaveToyX_Energy(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_SIMDWaveToyX_Energy;
 
