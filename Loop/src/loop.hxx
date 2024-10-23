@@ -1,14 +1,15 @@
 #ifndef CARPETX_LOOP_LOOP_HXX
 #define CARPETX_LOOP_LOOP_HXX
 
-#include <AMReX_FArrayBox.H>
-
 #include <simd.hxx>
 #include <vect.hxx>
 
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
+
+#include <AMReX_FArrayBox.H>
+#include <AMReX_REAL.H>
 
 #ifdef __HIPCC__
 #include <hip/hip_runtime.h>
