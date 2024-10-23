@@ -55,8 +55,6 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
     grid.loop_int_device<0, 0, 0>(grid.nghostzones,
                                   [&] CCTK_DEVICE(const Loop::PointDesc &p)
                                       CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                        const auto t{cctk_time};
-
                                         phi(p.I) = noise_distrib(noise_engine);
                                         Pi(p.I) = noise_distrib(noise_engine);
                                         Dx(p.I) = noise_distrib(noise_engine);
