@@ -28,6 +28,7 @@ $dt = $cfl * $dx
 $itlast = ceil($final_time / $dt)
 $out_every_it = ceil($out_every_time / $dt)
 
+TestRKAB::compute_error = yes
 TestRKAB::initial_condition = "standing wave"
 TestRKAB::amplitude = 1.0
 TestRKAB::standing_wave_kx = $wave_k

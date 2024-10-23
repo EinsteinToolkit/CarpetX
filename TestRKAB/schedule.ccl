@@ -37,13 +37,16 @@ SCHEDULE TestRKAB_Sync IN ODESolvers_PostStep
 
 
 # Analysis
-SCHEDULE TestRKAB_Error IN ODESolvers_PostStep AFTER TestRKAB_Sync
+if (CCTK_EQUALS(initial_condition, "Gaussian") || CCTK_EQUALS(initial_condition, "standing wave"))
 {
-  LANG: C
-  READS: state(interior)
-  WRITES: error(interior)
-  SYNC: error
-} "Calculate error in scalar wave state"
+  SCHEDULE TestRKAB_Error IN ODESolvers_PostStep AFTER TestRKAB_Sync
+  {
+    LANG: C
+    READS: state(interior)
+    WRITES: error(interior)
+    SYNC: error
+  } "Calculate error in scalar wave state"
+}
 
 SCHEDULE TestRKAB_Energy IN ODESolvers_PostStep AFTER TestRKAB_Sync
 {

@@ -6,13 +6,13 @@ ActiveThorns = "
 "
 
 ###### Settings ######
-$final_time = 10.0
+$final_time = 1.0
 $out_every_time = 0.25
 
 $start = -1.0
 $end = 1.0
 
-$ncells = 80
+$ncells = 160
 $cfl = 0.25
 ######################
 
@@ -25,9 +25,10 @@ $dt = $cfl * $dx
 $itlast = ceil($final_time / $dt)
 $out_every_it = ceil($out_every_time / $dt)
 
-TestRKAB::compute_error = yes
-TestRKAB::initial_condition = "Gaussian"
-TestRKAB::gaussian_width = $cfl / sqrt(2)
+TestRKAB::compute_error = no
+TestRKAB::initial_condition = "noise"
+TestRKAB::noise_seed = 100.0
+TestRKAB::noise_boundary = 1.0e-7
 
 CarpetX::poison_undefined_values = no
 CarpetX::verbose = no
@@ -74,6 +75,5 @@ CarpetX::out_tsv_vars = ""
 
 CarpetX::out_silo_vars = "
     TestRKAB::state
-    TestRKAB::error
     TestRKAB::energy
 "
