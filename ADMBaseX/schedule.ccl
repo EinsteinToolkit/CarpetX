@@ -1,18 +1,19 @@
 # Schedule definitions for thorn ADMBaseX
 
-SCHEDULE GROUP ADMBaseX_InitialData AT initial
-{
-} "Schedule group for calculating ADM initial data"
-
-SCHEDULE GROUP ADMBaseX_InitialGauge AT initial AFTER ADMBaseX_InitialData
-{
-} "Schedule group for the ADM initial gauge condition"
-
-SCHEDULE GROUP ADMBaseX_PostInitial AT initial AFTER (ADMBaseX_InitialData ADMBaseX_InitialGauge)
-{
-} "Schedule group for modifying the ADM initial data, such as e.g. adding noise"
-
 if (CCTK_IsThornActive("ODESolvers")) {
+
+  SCHEDULE GROUP ADMBaseX_InitialData IN ODESolvers_Initial
+  {
+  } "Schedule group for calculating ADM initial data"
+
+  SCHEDULE GROUP ADMBaseX_InitialGauge IN ODESolvers_Initial AFTER ADMBaseX_InitialData
+  {
+  } "Schedule group for the ADM initial gauge condition"
+
+  SCHEDULE GROUP ADMBaseX_PostInitial IN ODESolvers_Initial AFTER (ADMBaseX_InitialData ADMBaseX_InitialGauge)
+  {
+  } "Schedule group for modifying the ADM initial data, such as e.g. adding noise"
+
   SCHEDULE GROUP ADMBaseX_SetADMVars IN ODESolvers_PostStep
   {
   } "Set ADM variables in this group"
@@ -20,22 +21,41 @@ if (CCTK_IsThornActive("ODESolvers")) {
   SCHEDULE GROUP ADMBaseX_SetADMRHS IN ODESolvers_PostStep
   {
   } "Set ADM RHS variables in this group"  
+
 } else {
+
+  SCHEDULE GROUP ADMBaseX_SetADMVars AT post_recover_variables
+  {
+  } "Set ADM variables in this group"
+
+  SCHEDULE GROUP ADMBaseX_SetADMRHS AT post_recover_variables
+  {
+  } "Set ADM RHS variables in this group"
+
   SCHEDULE GROUP ADMBaseX_SetADMVars AT postregrid
   {
   } "Set ADM variables in this group"
+
+  SCHEDULE GROUP ADMBaseX_SetADMRHS AT postregrid
+  {
+  } "Set ADM RHS variables in this group"
+
+  SCHEDULE GROUP ADMBaseX_SetADMVars AT postrestrict
+  {
+  } "Set ADM variables in this group"
+  
+  SCHEDULE GROUP ADMBaseX_SetADMRHS AT postrestrict
+  {
+  } "Set ADM RHS variables in this group"  
 
   SCHEDULE GROUP ADMBaseX_SetADMVars AT poststep
   {
   } "Set ADM variables in this group"
   
-  SCHEDULE GROUP ADMBaseX_SetADMRHS AT postregrid
-  {
-  } "Set ADM RHS variables in this group"  
-  
   SCHEDULE GROUP ADMBaseX_SetADMRHS AT poststep
   {
   } "Set ADM RHS variables in this group"  
+
 }
 
 if (CCTK_EQUALS(initial_data, "Cartesian Minkowski")) {
