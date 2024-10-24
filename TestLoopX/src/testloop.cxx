@@ -1,9 +1,9 @@
 #include <cctk.h>
-#include "CarpetX/CarpetX/src/driver.hxx"
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 #include <loop.hxx>
 #include <loop_device.hxx>
+#include <driver.hxx>
 
 namespace TestLoopX {
 using namespace Loop;
