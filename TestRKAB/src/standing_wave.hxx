@@ -1,13 +1,15 @@
 #ifndef TEST_RKAB_STANDING_WAVE_HXX
 #define TEST_RKAB_STANDING_WAVE_HXX
 
+#include <cctk.h>
+
 #include <cmath>
 
 namespace TestRKAB::sw {
 
 template <typename T>
-static inline auto phi(T A, T kx, T ky, T kz, T t, T x, T y,
-                       T z) noexcept -> T {
+static inline auto CCTK_HOST CCTK_DEVICE phi(T A, T kx, T ky, T kz, T t, T x,
+                                             T y, T z) noexcept -> T {
   using std::sqrt, std::sin, std::cos, std::acos;
   const auto pi{acos(T{-1})};
   const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
@@ -16,7 +18,8 @@ static inline auto phi(T A, T kx, T ky, T kz, T t, T x, T y,
 }
 
 template <typename T>
-static inline auto Pi(T A, T kx, T ky, T kz, T t, T x, T y, T z) noexcept -> T {
+static inline auto CCTK_HOST CCTK_DEVICE Pi(T A, T kx, T ky, T kz, T t, T x,
+                                            T y, T z) noexcept -> T {
   using std::sqrt, std::sin, std::cos, std::acos;
   const auto pi{acos(T{-1})};
   const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
@@ -25,7 +28,8 @@ static inline auto Pi(T A, T kx, T ky, T kz, T t, T x, T y, T z) noexcept -> T {
 }
 
 template <typename T>
-static inline auto Dx(T A, T kx, T ky, T kz, T t, T x, T y, T z) noexcept -> T {
+static inline auto CCTK_HOST CCTK_DEVICE Dx(T A, T kx, T ky, T kz, T t, T x,
+                                            T y, T z) noexcept -> T {
   using std::sqrt, std::sin, std::cos, std::acos;
   const auto pi{acos(T{-1})};
   const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
@@ -34,7 +38,8 @@ static inline auto Dx(T A, T kx, T ky, T kz, T t, T x, T y, T z) noexcept -> T {
 }
 
 template <typename T>
-static inline auto Dy(T A, T kx, T ky, T kz, T t, T x, T y, T z) noexcept -> T {
+static inline auto CCTK_HOST CCTK_DEVICE Dy(T A, T kx, T ky, T kz, T t, T x,
+                                            T y, T z) noexcept -> T {
   using std::sqrt, std::sin, std::cos, std::acos;
   const auto pi{acos(T{-1})};
   const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};
@@ -43,7 +48,8 @@ static inline auto Dy(T A, T kx, T ky, T kz, T t, T x, T y, T z) noexcept -> T {
 }
 
 template <typename T>
-static inline auto Dz(T A, T kx, T ky, T kz, T t, T x, T y, T z) noexcept -> T {
+static inline auto CCTK_HOST CCTK_DEVICE Dz(T A, T kx, T ky, T kz, T t, T x,
+                                            T y, T z) noexcept -> T {
   using std::sqrt, std::sin, std::cos, std::acos;
   const auto pi{acos(T{-1})};
   const auto omega{sqrt(kx * kx + ky * ky + kz * kz)};

@@ -52,15 +52,15 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
                                                             noise_boundary};
     std::mt19937 noise_engine{noise_seed};
 
-    grid.loop_int_device<0, 0, 0>(grid.nghostzones,
-                                  [&] CCTK_DEVICE(const Loop::PointDesc &p)
-                                      CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                        phi(p.I) = noise_distrib(noise_engine);
-                                        Pi(p.I) = noise_distrib(noise_engine);
-                                        Dx(p.I) = noise_distrib(noise_engine);
-                                        Dy(p.I) = noise_distrib(noise_engine);
-                                        Dz(p.I) = noise_distrib(noise_engine);
-                                      });
+    grid.loop_int<0, 0, 0>(grid.nghostzones,
+                           [&] CCTK_HOST(const Loop::PointDesc &p)
+                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                 phi(p.I) = noise_distrib(noise_engine);
+                                 Pi(p.I) = noise_distrib(noise_engine);
+                                 Dx(p.I) = noise_distrib(noise_engine);
+                                 Dy(p.I) = noise_distrib(noise_engine);
+                                 Dz(p.I) = noise_distrib(noise_engine);
+                               });
   } else {
     CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }

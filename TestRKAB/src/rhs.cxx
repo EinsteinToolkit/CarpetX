@@ -12,8 +12,8 @@ using namespace Arith;
 enum class fd_dir : std::size_t { x = 0, y = 1, z = 2 };
 
 template <fd_dir direction, typename T>
-static inline auto fd_c_1_4(const Loop::PointDesc &p,
-                            const Loop::GF3D2<T> &gf) noexcept -> T {
+static inline auto CCTK_HOST CCTK_DEVICE
+fd_c_1_4(const Loop::PointDesc &p, const Loop::GF3D2<T> &gf) noexcept -> T {
   constexpr auto d{static_cast<size_t>(direction)};
   const auto num{gf(p.I - 2 * p.DI[d]) - 8.0 * gf(p.I - 1 * p.DI[d]) +
                  8.0 * gf(p.I + 1 * p.DI[d]) - 1.0 * gf(p.I + 2 * p.DI[d])};
