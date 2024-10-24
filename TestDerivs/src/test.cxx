@@ -117,7 +117,7 @@ extern "C" void TestDerivs_Set(CCTK_ARGUMENTS) {
         const CCTK_REAL z0 = p.z;
         chi.store(
             mask, p.I,
-            poly(kxx, kxy, kyz, Arith::cos(x0), std::sin(y0), std::sin(z0)));
+            poly(kxx, kxy, kyz, cos(x0), std::sin(y0), std::sin(z0)));
       });
 
   grid.loop_int_device<0, 0, 0>(
