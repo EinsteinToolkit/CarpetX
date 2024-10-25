@@ -82,6 +82,21 @@ template <typename T> struct coeffs1d<VC, POLY, /*order*/ 7, T> {
       +1225 / T(2048), -245 / T(2048), +49 / T(2048),  -5 / T(2048),
   };
 };
+template <typename T> struct coeffs1d<VC, POLY, /*order*/ 9, T> {
+  static constexpr std::array<T, 10> coeffs = {
+      35 / T(65536),    -405 / T(65536),  567 / T(16384),   -2205 / T(16384),
+      19845 / T(32768), 19845 / T(32768), -2205 / T(16384), 567 / T(16384),
+      -405 / T(65536),  35 / T(65536),
+  };
+};
+template <typename T> struct coeffs1d<VC, POLY, /*order*/ 11, T> {
+  static constexpr std::array<T, 12> coeffs = {
+      -63 / T(524288),    847 / T(524288),    -5445 / T(524288),
+      22869 / T(524288),  -38115 / T(262144), 160083 / T(262144),
+      160083 / T(262144), -38115 / T(262144), 22869 / T(524288),
+      -5445 / T(524288),  847 / T(524288),    -63 / T(524288),
+  };
+};
 
 template <typename T> struct coeffs1d<CC, POLY, /*order*/ 0, T> {
   static constexpr std::array<T, 1> coeffs = {
@@ -133,6 +148,42 @@ template <typename T> struct coeffs1d<CC, POLY, /*order*/ 7, T> {
       +5005 / T(262144),  -495 / T(262144),
   };
 };
+template <typename T> struct coeffs1d<CC, POLY, /*order*/ 8, T> {
+  static constexpr std::array<T, 9> coeffs = {
+      6435 / T(8388608),    -8151 / T(1048576),   77805 / T(2097152),
+      -122265 / T(1048576), 1426425 / T(4194304), 855855 / T(1048576),
+      -171171 / T(2097152), 13585 / T(1048576),   -9405 / T(8388608),
+  };
+};
+template <typename T> struct coeffs1d<CC, POLY, /*order*/ 9, T> {
+  static constexpr std::array<T, 10> coeffs = {
+      12155 / T(33554432),  -138567 / T(33554432), 188955 / T(8388608),
+      -692835 / T(8388608), 4849845 / T(16777216), 14549535 / T(16777216),
+      -969969 / T(8388608), 230945 / T(8388608),   -159885 / T(33554432),
+      13585 / T(33554432),
+  };
+};
+template <typename T> struct coeffs1d<CC, POLY, /*order*/ 10, T> {
+  static constexpr std::array<T, 11> coeffs = {
+      -46189 / T(268435456),    279565 / T(134217728),
+      -3187041 / T(268435456),  1448655 / T(33554432),
+      -15935205 / T(134217728), 22309287 / T(67108864),
+      111546435 / T(134217728), -3187041 / T(33554432),
+      5311735 / T(268435456),   -408595 / T(134217728),
+      62491 / T(268435456),
+  };
+};
+template <typename T> struct coeffs1d<CC, POLY, /*order*/ 11, T> {
+  static constexpr std::array<T, 12> coeffs = {
+      -88179 / T(1073741824),   1174173 / T(1073741824),
+      -7436429 / T(1073741824), 30421755 / T(1073741824),
+      -47805615 / T(536870912), 156165009 / T(536870912),
+      468495027 / T(536870912), -66927861 / T(536870912),
+      37182145 / T(1073741824), -8580495 / T(1073741824),
+      1312311 / T(1073741824),  -96577 / T(1073741824),
+
+  };
+};
 
 // Hermite interpolation (with matched first derivatives)
 
@@ -182,28 +233,6 @@ template <typename T> struct coeffs1d<VC, CONS, /*order*/ 1, T> {
       +1 / T(2),
   };
 };
-// template <typename T> struct coeffs1d<VC, CONS, /*order*/ 2, T> {
-//   static constexpr std::array<T, 3> coeffs0 = {
-//       -1 / T(32),
-//       +17 / T(16),
-//       -1 / T(32),
-//   };
-//   static constexpr std::array<T, 3> coeffs1 = {
-//       +13 / T(16),
-//       -5 / T(32),
-//       +11 / T(32),
-//   };
-// };
-// template <typename T> struct coeffs1d<VC, CONS, /*order*/ 4, T> {
-//   static constexpr std::array<T, 5> coeffs0 = {
-//       +7 / T(2048), -23 / T(512), +1109 / T(1024), -23 / T(512), +7 /
-//       T(2048),
-//   };
-//   static constexpr std::array<T, 5> coeffs1 = {
-//       +63 / T(2048), -103 / T(512), +781 / T(1024),
-//       +233 / T(512), -97 / T(2048),
-//   };
-// };
 
 template <typename T> struct coeffs1d<CC, CONS, /*order*/ 0, T> {
   static constexpr std::array<T, 1> coeffs = {
@@ -261,10 +290,32 @@ template <typename T> struct coeffs1d<CC, CONS, /*order*/ 8, T> {
       +949 / T(16384),  -185 / T(16384), +35 / T(32768),
   };
 };
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 9, T> {
+  static constexpr std::array<T, 10> coeffs = {
+      +63 / T(131072),   -707 / T(131072),  +937 / T(32768),  -3221 / T(32768),
+      +17813 / T(65536), +61567 / T(65536), -5599 / T(32768), +1331 / T(32768),
+      -913 / T(131072),  +77 / T(131072),
+  };
+};
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 10, T> {
+  static constexpr std::array<T, 11> coeffs = {
+      +63 / T(262144),    -49 / T(16384), +4661 / T(262144),  -569 / T(8192),
+      +29011 / T(131072), +1 / T(1),      -29011 / T(131072), +569 / T(8192),
+      -4661 / T(262144),  +49 / T(16384), -63 / T(262144),
+  };
+};
+template <typename T> struct coeffs1d<CC, CONS, /*order*/ 11, T> {
+  static constexpr std::array<T, 12> coeffs = {
+      +231 / T(2097152),    +3045 / T(2097152),   -18977 / T(2097152),
+      +75403 / T(2097152),  -110947 / T(1048576), +285449 / T(1048576),
+      +995215 / T(1048576), -193973 / T(1048576), +107549 / T(2097152),
+      -24583 / T(2097152),  +3731 / T(2097152),   -273 / T(2097152),
+  };
+};
 
 template <typename T> struct coeffs1d<CC, ENO, /*order*/ 0, T> {
   static constexpr std::array<std::array<T, 1>, 1> coeffs = {{
-      // centred
+      // stencil range [0, 0]
       {
           +1 / T(1),
       },
@@ -272,19 +323,19 @@ template <typename T> struct coeffs1d<CC, ENO, /*order*/ 0, T> {
 };
 template <typename T> struct coeffs1d<CC, ENO, /*order*/ 2, T> {
   static constexpr std::array<std::array<T, 3>, 3> coeffs = {{
-      // left
+      // stencil range [-2, 0]
       {
           -1 / T(8),
           +1 / T(2),
           +5 / T(8),
       },
-      // centred
+      // stencil range [-1, +1]
       {
           +1 / T(8),
           +1 / T(1),
           -1 / T(8),
       },
-      // right
+      // stencil range [0, +2]
       {
           +11 / T(8),
           -1 / T(2),
@@ -294,7 +345,6 @@ template <typename T> struct coeffs1d<CC, ENO, /*order*/ 2, T> {
 };
 template <typename T> struct coeffs1d<CC, ENO, /*order*/ 4, T> {
   static constexpr std::array<std::array<T, 5>, 5> coeffs = {{
-      // left 2 cells
       {
           -7 / T(128),
           +19 / T(64),
@@ -302,7 +352,6 @@ template <typename T> struct coeffs1d<CC, ENO, /*order*/ 4, T> {
           +61 / T(64),
           +63 / T(128),
       },
-      // left 1 cell
       {
           +3 / T(128),
           -9 / T(64),
@@ -310,7 +359,6 @@ template <typename T> struct coeffs1d<CC, ENO, /*order*/ 4, T> {
           +49 / T(64),
           -7 / T(128),
       },
-      // centred
       {
           -3 / T(128),
           +11 / T(64),
@@ -318,7 +366,6 @@ template <typename T> struct coeffs1d<CC, ENO, /*order*/ 4, T> {
           -11 / T(64),
           +3 / T(128),
       },
-      // right 1 cell
       {
           +7 / T(128),
           +79 / T(64),
@@ -326,7 +373,6 @@ template <typename T> struct coeffs1d<CC, ENO, /*order*/ 4, T> {
           +9 / T(64),
           -3 / T(128),
       },
-      // right 2 cells
       {
           +193 / T(128),
           -61 / T(64),
@@ -570,10 +616,10 @@ template <int ORDER> struct interp1d<VC, CONS, ORDER> {
       constexpr int i0 = (ORDER + 1) / 2 - 1;
       constexpr std::array<T, (ORDER + 1) / 2 * 2> cs =
           coeffs1d<VC, CONS, ORDER, T>::coeffs1;
-      // The ROCM 6.2 compiler can't handle `cs[i]`, so we avoid it via pointers:
-      // for (int i = 0; i < (ORDER + 1) / 2 * 2; ++i)
+      // The ROCM 6.2 compiler can't handle `cs[i]`, so we avoid it via
+      // pointers: for (int i = 0; i < (ORDER + 1) / 2 * 2; ++i)
       //   y += cs[i] * crse(i - i0);
-      const T* restrict const csptr = cs.data();
+      const T *restrict const csptr = cs.data();
       for (int i = 0; i < (ORDER + 1) / 2 * 2; ++i)
         y += csptr[i] * crse(i - i0);
     }
@@ -700,8 +746,8 @@ struct undivided_difference_1d {
 };
 
 template <int ORDER> struct undivided_difference_1d<CC, ENO, ORDER> {
+  static_assert(ORDER > 0);
   static_assert(ORDER % 2 == 0);
-  // The stencil size is ORDER / 2, and the stencil shift can be ORDER / 2
   // static constexpr int required_ghosts = ORDER;
   template <typename F, typename T = std::invoke_result_t<F, int> >
   CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
@@ -710,29 +756,14 @@ template <int ORDER> struct undivided_difference_1d<CC, ENO, ORDER> {
     constexpr std::array<int, N> ws = undivided_difference_weights<N>::weights;
     constexpr std::ptrdiff_t i0 = ORDER / 2;
 
-    T dd;
-    if constexpr (ORDER % 2 == 0) {
-      // Make use of symmetry in coefficients
-      dd = ws[ORDER / 2] * crse(0);
-      for (int i = 0; i < ORDER / 2; ++i) {
-        const int i1 = ORDER - i;
+    // Make use of symmetry in coefficients
+    T dd = ws[ORDER / 2] * crse(0);
+    for (int i = 0; i < ORDER / 2; ++i) {
+      const int i1 = ORDER - i;
 #ifdef CCTK_DEBUG
-        assert(ws[i1] == ws[i]);
+      assert(ws[i1] == ws[i]);
 #endif
-        dd += ws[i] * (crse(i - i0) + crse(i1 - i0));
-      }
-    } else {
-      // Make use of antisymmetry in coefficients
-      // TODO: implement this
-      assert(false);
-      dd = 0;
-      for (int i = 0; i < ORDER / 2; ++i) {
-        const int i1 = ORDER - i;
-#ifdef CCTK_DEBUG
-        assert(ws[i1] == -ws[i]);
-#endif
-        dd += ws[i] * (crse(i - i0) - crse(i1 - i0));
-      }
+      dd += ws[i] * (crse(i - i0) + crse(i1 - i0));
     }
     return dd;
   }
@@ -741,35 +772,52 @@ template <int ORDER> struct undivided_difference_1d<CC, ENO, ORDER> {
 // off=0: left sub-cell
 // off=1: right sub-cell
 template <int ORDER> struct interp1d<CC, ENO, ORDER> {
-  static_assert(ORDER % 2 == 0);
+  static_assert(ORDER > 0);
+  // p   required_ghosts
+  // 0   0
+  // 1   1
+  // 2   2
   static constexpr int required_ghosts = ORDER;
   CCTK_DEVICE
   CCTK_HOST constexpr
       __attribute__((__always_inline__, __flatten__)) std::array<int, 2>
       stencil_radius(const int shift, const int off) const {
 #ifdef CCTK_DEBUG
-    assert(-ORDER / 2 <= shift && shift <= +ORDER / 2);
     assert(off == 0 || off == 1);
+    // shift range:
+    //    p   off = 0   off = 1
+    //    0    0:0       0:0
+    //    2   -1:+1     -1:+1
+    //    4   -2:+2     -2:+2
+    assert(-(ORDER / 2) <= shift && shift <= +(ORDER / 2));
 #endif
     constexpr int N = ORDER + 1;
     const int i0 = N / 2 - shift;
+#ifdef CCTK_DEBUG
+    assert((ORDER - i0) - (0 - i0) == ORDER);
+#endif
     return {0 - i0, ORDER - i0};
   }
   template <typename F, typename T = std::invoke_result_t<F, int> >
   CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse, const int shift, const int off) const {
 #ifdef CCTK_DEBUG
-    assert(-ORDER / 2 <= shift && shift <= +ORDER / 2);
     assert(off == 0 || off == 1);
+    // See above in `stencil_radius`
+    assert(-(ORDER / 2) <= shift && shift <= +(ORDER / 2));
 #endif
     // For off=1, use the reversed stencil for the opposite shift
     // const std::array<T, ORDER + 1> cs =
-    //     coeffs1d<CC, ENO, ORDER, T>::coeffs[ORDER / 2 +
-    //                                         (off == 0 ? +1 : -1) * shift];
+    //     coeffs1d<CC, ENO, ORDER, T>::
+    //     coeffs[ORDER / 2 + (off == 0 ? +1 : -1) * shift];
     constexpr int N = ORDER + 1;
     const std::array<std::array<T, N>, N> css =
         coeffs1d<CC, ENO, ORDER, T>::coeffs;
-    const std::array<T, N> &cs = css[ORDER / 2 + (off == 0 ? +1 : -1) * shift];
+    const int m = off == 0 ? shift - (-(ORDER / 2)) : (+(ORDER / 2)) - shift;
+#ifdef CCTK_DEBUG
+    assert(m >= 0 && m < N);
+#endif
+    const std::array<T, N> &cs = css[m];
     const int i0 = N / 2 - shift;
 
 #ifdef CCTK_DEBUG
@@ -807,7 +855,9 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
     T *restrict const ys = &ysarr[i0];
 
     for (int order = 0; order <= ORDER; ++order) {
-      auto f = [&](T x) __attribute__((__always_inline__, __flatten__)) { return pown(x, order); };
+      auto f = [&](T x) __attribute__((__always_inline__, __flatten__)) {
+        return pown(x, order);
+      };
       for (int off = 0; off < 2; ++off) {
         const T rmin = stencil1d.stencil_radius(0, off)[0];
         const T rmax = stencil1d.stencil_radius(0, off)[1];
@@ -851,7 +901,9 @@ template <int ORDER, typename T> struct test_interp1d<VC, HERMITE, ORDER, T> {
     std::array<T, n + 2> ys;
 
     for (int order = 0; order <= ORDER; ++order) {
-      auto f = [&](T x) __attribute__((__always_inline__, __flatten__)) { return pown(x, order); };
+      auto f = [&](T x) __attribute__((__always_inline__, __flatten__)) {
+        return pown(x, order);
+      };
       for (int off = 0; off < 2; ++off) {
         const auto [rmin, rmax] = stencil1d.stencil_radius(0, off);
         assert(rmin >= -nghosts && rmax <= +nghosts);
@@ -867,7 +919,11 @@ template <int ORDER, typename T> struct test_interp1d<VC, HERMITE, ORDER, T> {
 
         T x = int(VC) / T(4) + off / T(2);
         T y = f(x);
-        T y1 = stencil1d([&](int i) __attribute__((__always_inline__, __flatten__)) { return ys[i0 + 1 + i]; }, 0, off);
+        T y1 = stencil1d(
+            [&](int i) __attribute__((__always_inline__, __flatten__)) {
+              return ys[i0 + 1 + i];
+            },
+            0, off);
         // We carefully choose the test problem so that round-off
         // cannot be a problem here
         assert(isfinite(y1));
@@ -890,51 +946,55 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
 
     for (int order = 0; order <= ORDER; ++order) {
       // Function f, a polynomial
-      // const auto f{[&](T x) __attribute__((__always_inline__, __flatten__)) { return (order + 1) * pown(x, order); }};
-      // Integral of f (antiderivative)
-      const auto fint{[&](T x) __attribute__((__always_inline__, __flatten__)) { return pown(x, order + 1); }};
-      std::array<T, 2> x1;
-      std::array<T, 2> y1;
-      for (int off = 0; off < 2; ++off) {
-        const T rmin = stencil1d.stencil_radius(0, off)[0];
-        const T rmax = stencil1d.stencil_radius(0, off)[1];
-        assert(rmin <= 0 && rmin >= -nghosts);
-        assert(rmax >= 0 && rmax <= +nghosts);
-        for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
-          if (i < rmin || i > rmax) {
-            xs[i] = 0 / T(0);
-            ys[i] = 0 / T(0);
-          } else {
-            T x = i + int(CC) / T(2);
-            // T y = f(x);
-            const T dx = 1;
-            const T xlo = x - dx / 2;
-            const T xhi = x + dx / 2;
-            const T y = fint(xhi) - fint(xlo); // average of f over cell
-            xs[i] = x;
-            ys[i] = y;
-          }
-        }
-
-        x1[off] = int(CC) / T(4) + off / T(2);
-        y1[off] = stencil1d(
-            [&](const int i) __attribute__((__always_inline__, __flatten__)) {
-              assert(i >= rmin);
-              assert(i <= rmax);
-              return ys[i];
-            },
-            0, off);
-        assert(isfinite(y1[off]));
-      } // for off
-      assert(y1[0] / 2 + y1[1] / 2 == ys[0]);
-      const T dx = x1[1] - x1[0];
-      const T xlo = x1[0] - dx / 2;
-      const T xhi = x1[1] + dx / 2;
-      const T yint = fint(xhi) - fint(xlo);
-      assert(y1[0] * dx + y1[1] * dx == yint);
+      // const auto f{[&](T x) __attribute__((__always_inline__, __flatten__)) {
+      // return (order + 1) * pown(x, order); }}; Integral of f (antiderivative)
+      const auto fint{[&](T x) __attribute__((__always_inline__, __flatten__)){
+          return pown(x, order + 1);
     }
-  }
-};
+  };
+  std::array<T, 2> x1;
+  std::array<T, 2> y1;
+  for (int off = 0; off < 2; ++off) {
+    const T rmin = stencil1d.stencil_radius(0, off)[0];
+    const T rmax = stencil1d.stencil_radius(0, off)[1];
+    assert(rmin <= 0 && rmin >= -nghosts);
+    assert(rmax >= 0 && rmax <= +nghosts);
+    for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
+      if (i < rmin || i > rmax) {
+        xs[i] = 0 / T(0);
+        ys[i] = 0 / T(0);
+      } else {
+        T x = i + int(CC) / T(2);
+        // T y = f(x);
+        const T dx = 1;
+        const T xlo = x - dx / 2;
+        const T xhi = x + dx / 2;
+        const T y = fint(xhi) - fint(xlo); // average of f over cell
+        xs[i] = x;
+        ys[i] = y;
+      }
+    }
+
+    x1[off] = int(CC) / T(4) + off / T(2);
+    y1[off] = stencil1d(
+        [&](const int i) __attribute__((__always_inline__, __flatten__)) {
+          assert(i >= rmin);
+          assert(i <= rmax);
+          return ys[i];
+        },
+        0, off);
+    assert(isfinite(y1[off]));
+  } // for off
+  assert(y1[0] / 2 + y1[1] / 2 == ys[0]);
+  const T dx = x1[1] - x1[0];
+  const T xlo = x1[0] - dx / 2;
+  const T xhi = x1[1] + dx / 2;
+  const T yint = fint(xhi) - fint(xlo);
+  assert(y1[0] * dx + y1[1] * dx == yint);
+}
+} // namespace CarpetX
+}
+;
 
 template <int ORDER, typename T> struct test_interp1d<VC, CONS, ORDER, T> {
   test_interp1d() {
@@ -959,45 +1019,55 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
     for (int shift = -ORDER / 2; shift <= +ORDER / 2; ++shift) {
       for (int order = 0; order <= ORDER; ++order) {
         // Function f, a polynomial
-        // const auto f{[&](T x) __attribute__((__always_inline__, __flatten__)) { return (order + 1) * pown(x, order); }};
-        // Integral of f (antiderivative)
-        const auto fint{[&](T x) __attribute__((__always_inline__, __flatten__)) { return pown(x, order + 1); }};
-        std::array<T, 2> x1;
-        std::array<T, 2> y1;
-        for (int off = 0; off < 2; ++off) {
-          const T rmin = stencil1d.stencil_radius(0, off)[0];
-          const T rmax = stencil1d.stencil_radius(0, off)[1];
-          assert(rmin >= -nghosts && rmax <= +nghosts);
-          for (int i = -1; i < n + 1; ++i) {
-            if (i - i0 < rmin || i - i0 > rmax) {
-              xs[i + 1] = 0 / T(0);
-              ys[i + 1] = 0 / T(0);
-            } else {
-              T x = (i - i0) + int(CC) / T(2);
-              // T y = f(x);
-              const T dx = 1;
-              const T xlo = x - dx / 2;
-              const T xhi = x + dx / 2;
-              const T y = fint(xhi) - fint(xlo); // average of f over cell
-              xs[i + 1] = x;
-              ys[i + 1] = y;
-            }
-          }
-
-          x1[off] = int(CC) / T(4) + off / T(2);
-          y1[off] = stencil1d([&](int i) __attribute__((__always_inline__, __flatten__)) { return ys[i0 + 1 + i]; }, 0, off);
-          assert(isfinite(y1[off]));
-        } // for off
-        assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
-        const T dx = x1[1] - x1[0];
-        const T xlo = x1[0] - dx / 2;
-        const T xhi = x1[1] + dx / 2;
-        const T yint = fint(xhi) - fint(xlo);
-        assert(y1[0] * dx + y1[1] * dx == yint);
+        // const auto f{[&](T x) __attribute__((__always_inline__, __flatten__))
+        // { return (order + 1) * pown(x, order); }}; Integral of f
+        // (antiderivative)
+        const auto fint{[&](T x) __attribute__((
+            __always_inline__, __flatten__)){return pown(x, order + 1);
       }
-    }
+    };
+    std::array<T, 2> x1;
+    std::array<T, 2> y1;
+    for (int off = 0; off < 2; ++off) {
+      const T rmin = stencil1d.stencil_radius(0, off)[0];
+      const T rmax = stencil1d.stencil_radius(0, off)[1];
+      assert(rmin >= -nghosts && rmax <= +nghosts);
+      assert(rmin == -(ORDER / 2) && rmax == +(ORDER / 2));
+      for (int i = -1; i < n + 1; ++i) {
+        if (i - i0 < rmin || i - i0 > rmax) {
+          xs[i + 1] = 0 / T(0);
+          ys[i + 1] = 0 / T(0);
+        } else {
+          T x = (i - i0) + int(CC) / T(2);
+          // T y = f(x);
+          const T dx = 1;
+          const T xlo = x - dx / 2;
+          const T xhi = x + dx / 2;
+          const T y = fint(xhi) - fint(xlo); // average of f over cell
+          xs[i + 1] = x;
+          ys[i + 1] = y;
+        }
+      }
+
+      x1[off] = int(CC) / T(4) + off / T(2);
+      y1[off] = stencil1d(
+          [&](int i) __attribute__((__always_inline__, __flatten__)) {
+            return ys[i0 + 1 + i];
+          },
+          0, off);
+      assert(isfinite(y1[off]));
+    } // for off
+    assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
+    const T dx = x1[1] - x1[0];
+    const T xlo = x1[0] - dx / 2;
+    const T xhi = x1[1] + dx / 2;
+    const T yint = fint(xhi) - fint(xlo);
+    assert(y1[0] * dx + y1[1] * dx == yint);
   }
-};
+}
+}
+}
+;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1010,8 +1080,10 @@ call_stencil_0d(const F &crse) {
 template <typename F, typename Si, typename T = std::invoke_result_t<F, int> >
 CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_1d(const F &crse, const Si &si) {
-  return si(
-      [&](const int i) __attribute__((__always_inline__, __flatten__)) { return call_stencil_0d([&]() __attribute__((__always_inline__, __flatten__)) { return crse(i); }); });
+  return si([&](const int i) __attribute__((__always_inline__, __flatten__)) {
+    return call_stencil_0d([&]() __attribute__((
+        __always_inline__, __flatten__)) { return crse(i); });
+  });
 }
 
 template <typename F, typename Si, typename Sj,
@@ -1019,7 +1091,11 @@ template <typename F, typename Si, typename Sj,
 CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_2d(const F &crse, const Si &si, const Sj &sj) {
   return sj([&](const int j) __attribute__((__always_inline__, __flatten__)) {
-    return call_stencil_1d([&](const int i) __attribute__((__always_inline__, __flatten__)) { return crse(i, j); }, si);
+    return call_stencil_1d(
+        [&](const int i) __attribute__((__always_inline__, __flatten__)) {
+          return crse(i, j);
+        },
+        si);
   });
 }
 
@@ -1029,7 +1105,9 @@ CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_3d(const F &crse, const Si &si, const Sj &sj, const Sk &sk) {
   return sk([&](const int k) __attribute__((__always_inline__, __flatten__)) {
     return call_stencil_2d(
-        [&](const int i, const int j) __attribute__((__always_inline__, __flatten__)) { return crse(i, j, k); }, si, sj);
+        [&](const int i, const int j) __attribute__((
+            __always_inline__, __flatten__)) { return crse(i, j, k); },
+        si, sj);
   });
 }
 
@@ -1367,18 +1445,27 @@ void prolongate_3d_rf2<
                 INTPJ == CONS || INTPJ == ENO ? 1 : ORDERJ;
             constexpr int LINORDERK =
                 INTPK == CONS || INTPK == ENO ? 1 : ORDERK;
+            constexpr interpolation_t LININTPI =
+                INTPI == CONS || INTPI == ENO ? CONS : INTPI;
+            constexpr interpolation_t LININTPJ =
+                INTPJ == CONS || INTPJ == ENO ? CONS : INTPJ;
+            constexpr interpolation_t LININTPK =
+                INTPK == CONS || INTPK == ENO ? CONS : INTPK;
             const CCTK_REAL val_lin = call_stencil_3d(
                 [&](const int di, const int dj, const int dk) {
                   return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTI, INTPI, LINORDERI>()(crse, 0, off[0]);
+                  return interp1d<CENTI, LININTPI, LINORDERI>()(crse, 0,
+                                                                off[0]);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTJ, INTPJ, LINORDERJ>()(crse, 0, off[1]);
+                  return interp1d<CENTJ, LININTPJ, LINORDERJ>()(crse, 0,
+                                                                off[1]);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTK, INTPK, LINORDERK>()(crse, 0, off[2]);
+                  return interp1d<CENTK, LININTPK, LINORDERK>()(crse, 0,
+                                                                off[2]);
                 });
 
             // Check whether we need to fall back
@@ -1773,16 +1860,21 @@ void prolongate_3d_rf2<
         std::array<CCTK_REAL, maxncomps> vals;
         for (int comp = 0; comp < ncomps; ++comp)
           vals[comp] = call_stencil_3d(
-              [&](const int di, const int dj, const int dk) __attribute__((__always_inline__, __flatten__)) {
-                return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk, comp);
-              },
-              [&](const auto &crse) __attribute__((__always_inline__, __flatten__)) {
+              [&](const int di, const int dj, const int dk)
+                  __attribute__((__always_inline__, __flatten__)) {
+                    return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                                comp);
+                  },
+              [&](const auto &crse) __attribute__((__always_inline__,
+                                                   __flatten__)) {
                 return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0], off[0]);
               },
-              [&](const auto &crse) __attribute__((__always_inline__, __flatten__)) {
+              [&](const auto &crse) __attribute__((__always_inline__,
+                                                   __flatten__)) {
                 return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1], off[1]);
               },
-              [&](const auto &crse) __attribute__((__always_inline__, __flatten__)) {
+              [&](const auto &crse) __attribute__((__always_inline__,
+                                                   __flatten__)) {
                 return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2], off[2]);
               });
 
