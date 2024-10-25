@@ -838,6 +838,42 @@ template <int ORDER> struct interp1d<CC, ENO, ORDER> {
   }
 };
 
+// off=0: left sub-cell
+// off=1: right sub-cell
+template <> struct interp1d<CC, MINMOD, 1> {
+  static constexpr int required_ghosts = 1;
+  CCTK_DEVICE
+  CCTK_HOST constexpr
+      __attribute__((__always_inline__, __flatten__)) std::array<int, 2>
+      stencil_radius(const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(off == 0 || off == 1);
+#endif
+    return {-1, +1};
+  }
+  template <typename F, typename T = std::invoke_result_t<F, int> >
+  CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
+  operator()(const F &crse, const int shift, const int off) const {
+#ifdef CCTK_DEBUG
+    assert(off == 0 || off == 1);
+#endif
+    // Inspired by Athena-K's prolongation operator; see
+    // <https://github.com/IAS-Astrophysics/athenak/blob/main/src/mesh/prolongation.hpp>
+    using std::copysign, std::fabs, std::fmin;
+    const T cval = crse(0);
+    const T cval_minus = crse(-1);
+    const T cval_plus = crse(+1);
+    const T delta_minus = cval - cval_minus;
+    const T delta_plus = cval_plus - cval;
+    // minmod / 4
+    const T delta =
+        (copysign(T(0.125), delta_minus) + copysign(T(0.125), delta_plus)) *
+        fmin(fabs(delta_minus), fabs(delta_plus));
+    const T sign = off == 0 ? -1 : +1;
+    return cval + sign * delta;
+  }
+};
+
 // Test 1d interpolators
 
 template <centering_t CENT, interpolation_t INTP, int ORDER, typename T>
@@ -948,53 +984,53 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
       // Function f, a polynomial
       // const auto f{[&](T x) __attribute__((__always_inline__, __flatten__)) {
       // return (order + 1) * pown(x, order); }}; Integral of f (antiderivative)
-      const auto fint{[&](T x) __attribute__((__always_inline__, __flatten__)){
-          return pown(x, order + 1);
-    }
-  };
-  std::array<T, 2> x1;
-  std::array<T, 2> y1;
-  for (int off = 0; off < 2; ++off) {
-    const T rmin = stencil1d.stencil_radius(0, off)[0];
-    const T rmax = stencil1d.stencil_radius(0, off)[1];
-    assert(rmin <= 0 && rmin >= -nghosts);
-    assert(rmax >= 0 && rmax <= +nghosts);
-    for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
-      if (i < rmin || i > rmax) {
-        xs[i] = 0 / T(0);
-        ys[i] = 0 / T(0);
-      } else {
-        T x = i + int(CC) / T(2);
-        // T y = f(x);
-        const T dx = 1;
-        const T xlo = x - dx / 2;
-        const T xhi = x + dx / 2;
-        const T y = fint(xhi) - fint(xlo); // average of f over cell
-        xs[i] = x;
-        ys[i] = y;
-      }
-    }
+      const auto fint = [&](T x)
+          __attribute__((__always_inline__, __flatten__)) {
+        return pown(x, order + 1);
+      };
+      std::array<T, 2> x1;
+      std::array<T, 2> y1;
+      for (int off = 0; off < 2; ++off) {
+        const T rmin = stencil1d.stencil_radius(0, off)[0];
+        const T rmax = stencil1d.stencil_radius(0, off)[1];
+        assert(rmin <= 0 && rmin >= -nghosts);
+        assert(rmax >= 0 && rmax <= +nghosts);
+        for (int i = -(nghosts + 1); i <= +(nghosts + 1); ++i) {
+          if (i < rmin || i > rmax) {
+            xs[i] = 0 / T(0);
+            ys[i] = 0 / T(0);
+          } else {
+            T x = i + int(CC) / T(2);
+            // T y = f(x);
+            const T dx = 1;
+            const T xlo = x - dx / 2;
+            const T xhi = x + dx / 2;
+            const T y = fint(xhi) - fint(xlo); // average of f over cell
+            xs[i] = x;
+            ys[i] = y;
+          }
+        }
 
-    x1[off] = int(CC) / T(4) + off / T(2);
-    y1[off] = stencil1d(
-        [&](const int i) __attribute__((__always_inline__, __flatten__)) {
-          assert(i >= rmin);
-          assert(i <= rmax);
-          return ys[i];
-        },
-        0, off);
-    assert(isfinite(y1[off]));
-  } // for off
-  assert(y1[0] / 2 + y1[1] / 2 == ys[0]);
-  const T dx = x1[1] - x1[0];
-  const T xlo = x1[0] - dx / 2;
-  const T xhi = x1[1] + dx / 2;
-  const T yint = fint(xhi) - fint(xlo);
-  assert(y1[0] * dx + y1[1] * dx == yint);
-}
-} // namespace CarpetX
-}
-;
+        x1[off] = int(CC) / T(4) + off / T(2);
+        y1[off] = stencil1d(
+            [&](const int i) __attribute__((__always_inline__, __flatten__)) {
+              assert(i >= rmin);
+              assert(i <= rmax);
+              return ys[i];
+            },
+            0, off);
+        assert(isfinite(y1[off]));
+      } // for off
+      // Ensure conservation
+      assert(y1[0] / 2 + y1[1] / 2 == ys[0]);
+      const T dx = x1[1] - x1[0];
+      const T xlo = x1[0] - dx / 2;
+      const T xhi = x1[1] + dx / 2;
+      const T yint = fint(xhi) - fint(xlo);
+      assert(y1[0] * dx + y1[1] * dx == yint);
+    }
+  } // namespace CarpetX
+};
 
 template <int ORDER, typename T> struct test_interp1d<VC, CONS, ORDER, T> {
   test_interp1d() {
@@ -1022,52 +1058,112 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
         // const auto f{[&](T x) __attribute__((__always_inline__, __flatten__))
         // { return (order + 1) * pown(x, order); }}; Integral of f
         // (antiderivative)
-        const auto fint{[&](T x) __attribute__((
-            __always_inline__, __flatten__)){return pown(x, order + 1);
-      }
-    };
-    std::array<T, 2> x1;
-    std::array<T, 2> y1;
-    for (int off = 0; off < 2; ++off) {
-      const T rmin = stencil1d.stencil_radius(0, off)[0];
-      const T rmax = stencil1d.stencil_radius(0, off)[1];
-      assert(rmin >= -nghosts && rmax <= +nghosts);
-      assert(rmin == -(ORDER / 2) && rmax == +(ORDER / 2));
-      for (int i = -1; i < n + 1; ++i) {
-        if (i - i0 < rmin || i - i0 > rmax) {
-          xs[i + 1] = 0 / T(0);
-          ys[i + 1] = 0 / T(0);
-        } else {
-          T x = (i - i0) + int(CC) / T(2);
-          // T y = f(x);
-          const T dx = 1;
-          const T xlo = x - dx / 2;
-          const T xhi = x + dx / 2;
-          const T y = fint(xhi) - fint(xlo); // average of f over cell
-          xs[i + 1] = x;
-          ys[i + 1] = y;
-        }
-      }
+        const auto fint = [&](T x)
+            __attribute__((__always_inline__, __flatten__)) {
+          return pown(x, order + 1);
+        };
+        std::array<T, 2> x1;
+        std::array<T, 2> y1;
+        for (int off = 0; off < 2; ++off) {
+          const T rmin = stencil1d.stencil_radius(0, off)[0];
+          const T rmax = stencil1d.stencil_radius(0, off)[1];
+          assert(rmin >= -nghosts && rmax <= +nghosts);
+          assert(rmin == -(ORDER / 2) && rmax == +(ORDER / 2));
+          for (int i = -1; i < n + 1; ++i) {
+            if (i - i0 < rmin || i - i0 > rmax) {
+              xs[i + 1] = 0 / T(0);
+              ys[i + 1] = 0 / T(0);
+            } else {
+              T x = (i - i0) + int(CC) / T(2);
+              // T y = f(x);
+              const T dx = 1;
+              const T xlo = x - dx / 2;
+              const T xhi = x + dx / 2;
+              const T y = fint(xhi) - fint(xlo); // average of f over cell
+              xs[i + 1] = x;
+              ys[i + 1] = y;
+            }
+          }
 
-      x1[off] = int(CC) / T(4) + off / T(2);
-      y1[off] = stencil1d(
-          [&](int i) __attribute__((__always_inline__, __flatten__)) {
-            return ys[i0 + 1 + i];
-          },
-          0, off);
-      assert(isfinite(y1[off]));
-    } // for off
-    assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
-    const T dx = x1[1] - x1[0];
-    const T xlo = x1[0] - dx / 2;
-    const T xhi = x1[1] + dx / 2;
-    const T yint = fint(xhi) - fint(xlo);
-    assert(y1[0] * dx + y1[1] * dx == yint);
+          x1[off] = int(CC) / T(4) + off / T(2);
+          y1[off] = stencil1d(
+              [&](int i) __attribute__((__always_inline__, __flatten__)) {
+                return ys[i0 + 1 + i];
+              },
+              0, off);
+          assert(isfinite(y1[off]));
+        } // for off
+        // Ensure conservation
+        assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
+        const T dx = x1[1] - x1[0];
+        const T xlo = x1[0] - dx / 2;
+        const T xhi = x1[1] + dx / 2;
+        const T yint = fint(xhi) - fint(xlo);
+        assert(y1[0] * dx + y1[1] * dx == yint);
+      }
+    }
+  } // namespace CarpetX
+};
+
+template <typename T> struct test_interp1d<CC, MINMOD, 1, T> {
+  test_interp1d() {
+    constexpr interp1d<CC, MINMOD, 1> stencil1d;
+    constexpr int nghosts = stencil1d.required_ghosts;
+    static_assert(nghosts == 1);
+    constexpr int n = 1 + 2 * nghosts;
+    constexpr int i0 = n / 2;
+    std::array<T, n + 2> xs, ys;
+
+    for (int order = 0; order <= 1; ++order) {
+      // Function f, a polynomial
+      // const auto f{[&](T x) __attribute__((__always_inline__, __flatten__))
+      // { return (order + 1) * pown(x, order); }}; Integral of f
+      // (antiderivative)
+      const auto fint = [&](T x)
+          __attribute__((__always_inline__, __flatten__)) {
+        return pown(x, order + 1);
+      };
+      std::array<T, 2> x1;
+      std::array<T, 2> y1;
+      for (int off = 0; off < 2; ++off) {
+        const T rmin = stencil1d.stencil_radius(0, off)[0];
+        const T rmax = stencil1d.stencil_radius(0, off)[1];
+        assert(rmin >= -nghosts && rmax <= +nghosts);
+        assert(rmin == -1 && rmax == +1);
+        for (int i = -1; i < n + 1; ++i) {
+          if (i - i0 < rmin || i - i0 > rmax) {
+            xs[i + 1] = 0 / T(0);
+            ys[i + 1] = 0 / T(0);
+          } else {
+            T x = (i - i0) + int(CC) / T(2);
+            // T y = f(x);
+            const T dx = 1;
+            const T xlo = x - dx / 2;
+            const T xhi = x + dx / 2;
+            const T y = fint(xhi) - fint(xlo); // average of f over cell
+            xs[i + 1] = x;
+            ys[i + 1] = y;
+          }
+        }
+
+        x1[off] = int(CC) / T(4) + off / T(2);
+        y1[off] = stencil1d(
+            [&](int i) __attribute__((__always_inline__, __flatten__)) {
+              return ys[i0 + 1 + i];
+            },
+            0, off);
+        assert(isfinite(y1[off]));
+      } // for off
+      // Ensure conservation
+      assert(y1[0] / 2 + y1[1] / 2 == ys[i0 + 1]);
+      const T dx = x1[1] - x1[0];
+      const T xlo = x1[0] - dx / 2;
+      const T xhi = x1[1] + dx / 2;
+      const T yint = fint(xhi) - fint(xlo);
+      assert(y1[0] * dx + y1[1] * dx == yint);
+    }
   }
-}
-}
-}
-;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 

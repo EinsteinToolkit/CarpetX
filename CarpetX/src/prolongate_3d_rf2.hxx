@@ -15,12 +15,13 @@ std::ostream &operator<<(std::ostream &os, centering_t cent);
 constexpr auto VC = centering_t::vertex;
 constexpr auto CC = centering_t::cell;
 
-enum class interpolation_t { poly, hermite, cons, eno };
+enum class interpolation_t { poly, hermite, cons, eno, minmod };
 std::ostream &operator<<(std::ostream &os, interpolation_t cent);
 constexpr auto POLY = interpolation_t::poly;
 constexpr auto HERMITE = interpolation_t::hermite;
 constexpr auto CONS = interpolation_t::cons;
 constexpr auto ENO = interpolation_t::eno;
+constexpr auto MINMOD = interpolation_t::minmod;
 
 enum class fallback_t { none, linear };
 std::ostream &operator<<(std::ostream &os, fallback_t fb);
@@ -39,16 +40,21 @@ class prolongate_3d_rf2 final : public amrex::Interpolater {
 
   // Conservative must be one of the possible choices
   static_assert(INTPI == POLY || INTPI == HERMITE || INTPI == CONS ||
-                INTPI == ENO);
+                INTPI == ENO || INTPI == MINMOD);
   static_assert(INTPJ == POLY || INTPJ == HERMITE || INTPJ == CONS ||
-                INTPJ == ENO);
+                INTPJ == ENO || INTPJ == MINMOD);
   static_assert(INTPK == POLY || INTPK == HERMITE || INTPK == CONS ||
-                INTPK == ENO);
+                INTPK == ENO || INTPK == MINMOD);
 
   // Order must be nonnegative
   static_assert(ORDERI >= 0);
   static_assert(ORDERJ >= 0);
   static_assert(ORDERK >= 0);
+
+  // Minmod is always linear
+  static_assert(INTPI == MINMOD ? ORDERI == 1 : true);
+  static_assert(INTPJ == MINMOD ? ORDERJ == 1 : true);
+  static_assert(INTPK == MINMOD ? ORDERK == 1 : true);
 
   // Fallback must be one of the possible choices
   static_assert(FB == FB_NONE || FB == FB_LINEAR);
@@ -400,6 +406,59 @@ extern prolongate_3d_rf2<CC, CC, VC, ENO, ENO, POLY, 2, 2, 5, FB_NONE>
     prolongate_eno_3d_rf2_c110_o5;
 extern prolongate_3d_rf2<CC, CC, CC, ENO, ENO, ENO, 2, 2, 2, FB_NONE>
     prolongate_eno_3d_rf2_c111_o5;
+
+// Minmod (tensor product) interpolation
+
+extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c000_o1;
+extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, MINMOD, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c001_o1;
+extern prolongate_3d_rf2<VC, CC, VC, POLY, MINMOD, POLY, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c010_o1;
+extern prolongate_3d_rf2<VC, CC, CC, POLY, MINMOD, MINMOD, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c011_o1;
+extern prolongate_3d_rf2<CC, VC, VC, MINMOD, POLY, POLY, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c100_o1;
+extern prolongate_3d_rf2<CC, VC, CC, MINMOD, POLY, MINMOD, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c101_o1;
+extern prolongate_3d_rf2<CC, CC, VC, MINMOD, MINMOD, POLY, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c110_o1;
+extern prolongate_3d_rf2<CC, CC, CC, MINMOD, MINMOD, MINMOD, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c111_o1;
+
+extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 3, 3, 3, FB_NONE>
+    prolongate_minmod_3d_rf2_c000_o3;
+extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, MINMOD, 3, 3, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c001_o3;
+extern prolongate_3d_rf2<VC, CC, VC, POLY, MINMOD, POLY, 3, 1, 3, FB_NONE>
+    prolongate_minmod_3d_rf2_c010_o3;
+extern prolongate_3d_rf2<VC, CC, CC, POLY, MINMOD, MINMOD, 3, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c011_o3;
+extern prolongate_3d_rf2<CC, VC, VC, MINMOD, POLY, POLY, 1, 3, 3, FB_NONE>
+    prolongate_minmod_3d_rf2_c100_o3;
+extern prolongate_3d_rf2<CC, VC, CC, MINMOD, POLY, MINMOD, 1, 3, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c101_o3;
+extern prolongate_3d_rf2<CC, CC, VC, MINMOD, MINMOD, POLY, 1, 1, 3, FB_NONE>
+    prolongate_minmod_3d_rf2_c110_o3;
+extern prolongate_3d_rf2<CC, CC, CC, MINMOD, MINMOD, MINMOD, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c111_o3;
+
+extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 5, 5, 5, FB_NONE>
+    prolongate_minmod_3d_rf2_c000_o5;
+extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, MINMOD, 5, 5, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c001_o5;
+extern prolongate_3d_rf2<VC, CC, VC, POLY, MINMOD, POLY, 5, 1, 5, FB_NONE>
+    prolongate_minmod_3d_rf2_c010_o5;
+extern prolongate_3d_rf2<VC, CC, CC, POLY, MINMOD, MINMOD, 5, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c011_o5;
+extern prolongate_3d_rf2<CC, VC, VC, MINMOD, POLY, POLY, 1, 5, 5, FB_NONE>
+    prolongate_minmod_3d_rf2_c100_o5;
+extern prolongate_3d_rf2<CC, VC, CC, MINMOD, POLY, MINMOD, 1, 5, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c101_o5;
+extern prolongate_3d_rf2<CC, CC, VC, MINMOD, MINMOD, POLY, 1, 1, 5, FB_NONE>
+    prolongate_minmod_3d_rf2_c110_o5;
+extern prolongate_3d_rf2<CC, CC, CC, MINMOD, MINMOD, MINMOD, 1, 1, 1, FB_NONE>
+    prolongate_minmod_3d_rf2_c111_o5;
 
 // Hermite interpolation
 

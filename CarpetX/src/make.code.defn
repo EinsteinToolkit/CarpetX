@@ -47,6 +47,7 @@ SRCS =							\
 	prolongate_3d_rf2_impl_ddf.cxx			\
 	prolongate_3d_rf2_impl_eno.cxx			\
 	prolongate_3d_rf2_impl_hermite.cxx		\
+	prolongate_3d_rf2_impl_minmod.cxx		\
 	prolongate_3d_rf2_impl_natural.cxx		\
 	prolongate_3d_rf2_impl_poly.cxx			\
 	prolongate_3d_rf2_impl_poly_cons3lfb.cxx	\
