@@ -115,9 +115,8 @@ extern "C" void TestDerivs_Set(CCTK_ARGUMENTS) {
         const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
         const CCTK_REAL y0 = p.y;
         const CCTK_REAL z0 = p.z;
-        chi.store(
-            mask, p.I,
-            poly(kxx, kxy, kyz, cos(x0), std::sin(y0), std::sin(z0)));
+        chi.store(mask, p.I,
+                  poly(kxx, kxy, kyz, cos(x0), std::sin(y0), std::sin(z0)));
       });
 
   grid.loop_int_device<0, 0, 0>(
@@ -200,51 +199,78 @@ extern "C" void TestDerivs_CalcDerivs(CCTK_ARGUMENTS) {
   typedef Arith::simdl<CCTK_REAL> vbool;
   constexpr size_t vsize = std::tuple_size_v<vreal>;
 
-  vreal (*calc_deriv_upwind)(const GF3D2<const CCTK_REAL> &, const vbool &,
-                             const Arith::vect<int, dim> &,
-                             const Arith::vect<CCTK_REAL, dim> &,
-                             const Arith::vec<vreal, dim> &);
-  vreal (*calc_diss)(const GF3D2<const CCTK_REAL> &, const vbool &,
-                     const Arith::vect<int, dim> &,
-                     const Arith::vect<CCTK_REAL, dim> &);
-
   switch (deriv_order) {
   case 2: {
-    calc_deriv_upwind = &Derivs::calc_deriv_upwind<2>;
-    calc_diss = &Derivs::calc_diss<2>;
+    grid.loop_int_device<0, 0, 0, vsize>(
+        grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
+          const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
+          const GF3D2index index2(layout2, p.I);
+          const GF3D5index index5(layout5, p.I);
+          gf_dchi.store(mask, index2, t5_dchi(mask, index5));
+          gf_ddchi.store(mask, index2, t5_ddchi(mask, index5));
+          gf_chi_diss.store(mask, index2,
+                            Derivs::calc_diss<2>(gf2_chi, mask, p.I, dx));
+          gf_chi_upwind.store(
+              mask, index2,
+              Derivs::calc_deriv_upwind<2>(gf2_chi, mask, p.I, dx,
+                                           gf_beta(mask, index2)));
+        });
     break;
   }
   case 4: {
-    calc_deriv_upwind = &Derivs::calc_deriv_upwind<4>;
-    calc_diss = &Derivs::calc_diss<4>;
+    grid.loop_int_device<0, 0, 0, vsize>(
+        grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
+          const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
+          const GF3D2index index2(layout2, p.I);
+          const GF3D5index index5(layout5, p.I);
+          gf_dchi.store(mask, index2, t5_dchi(mask, index5));
+          gf_ddchi.store(mask, index2, t5_ddchi(mask, index5));
+          gf_chi_diss.store(mask, index2,
+                            Derivs::calc_diss<4>(gf2_chi, mask, p.I, dx));
+          gf_chi_upwind.store(
+              mask, index2,
+              Derivs::calc_deriv_upwind<4>(gf2_chi, mask, p.I, dx,
+                                           gf_beta(mask, index2)));
+        });
     break;
   }
   case 6: {
-    calc_deriv_upwind = &Derivs::calc_deriv_upwind<6>;
-    calc_diss = &Derivs::calc_diss<6>;
+    grid.loop_int_device<0, 0, 0, vsize>(
+        grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
+          const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
+          const GF3D2index index2(layout2, p.I);
+          const GF3D5index index5(layout5, p.I);
+          gf_dchi.store(mask, index2, t5_dchi(mask, index5));
+          gf_ddchi.store(mask, index2, t5_ddchi(mask, index5));
+          gf_chi_diss.store(mask, index2,
+                            Derivs::calc_diss<6>(gf2_chi, mask, p.I, dx));
+          gf_chi_upwind.store(
+              mask, index2,
+              Derivs::calc_deriv_upwind<6>(gf2_chi, mask, p.I, dx,
+                                           gf_beta(mask, index2)));
+        });
     break;
   }
   case 8: {
-    calc_deriv_upwind = &Derivs::calc_deriv_upwind<8>;
-    calc_diss = &Derivs::calc_diss<8>;
+    grid.loop_int_device<0, 0, 0, vsize>(
+        grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
+          const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
+          const GF3D2index index2(layout2, p.I);
+          const GF3D5index index5(layout5, p.I);
+          gf_dchi.store(mask, index2, t5_dchi(mask, index5));
+          gf_ddchi.store(mask, index2, t5_ddchi(mask, index5));
+          gf_chi_diss.store(mask, index2,
+                            Derivs::calc_diss<8>(gf2_chi, mask, p.I, dx));
+          gf_chi_upwind.store(
+              mask, index2,
+              Derivs::calc_deriv_upwind<8>(gf2_chi, mask, p.I, dx,
+                                           gf_beta(mask, index2)));
+        });
     break;
   }
   default:
     assert(0);
   }
-
-  grid.loop_int_device<0, 0, 0, vsize>(
-      grid.nghostzones, [=] ARITH_DEVICE(const PointDesc &p) ARITH_INLINE {
-        const vbool mask = Arith::mask_for_loop_tail<vbool>(p.i, p.imax);
-        const GF3D2index index2(layout2, p.I);
-        const GF3D5index index5(layout5, p.I);
-        gf_dchi.store(mask, index2, t5_dchi(mask, index5));
-        gf_ddchi.store(mask, index2, t5_ddchi(mask, index5));
-        gf_chi_diss.store(mask, index2, calc_diss(gf2_chi, mask, p.I, dx));
-        gf_chi_upwind.store(
-            mask, index2,
-            calc_deriv_upwind(gf2_chi, mask, p.I, dx, gf_beta(mask, index2)));
-      });
 
 #if CCTK_DEBUG
   grid.loop_int_device<0, 0, 0>(
