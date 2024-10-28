@@ -61,7 +61,7 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take account of ghost points
+          // Take ghost points into account
           const vbool mask1 =
               mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
@@ -77,7 +77,7 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take account of ghost points
+          // Take ghost points into account
           const vbool mask1 =
               mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
@@ -93,7 +93,7 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take account of ghost points
+          // Take ghost points into account
           const vbool mask1 =
               mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
@@ -109,7 +109,7 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take account of ghost points
+          // Take ghost points into account
           const vbool mask1 =
               mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
@@ -166,7 +166,7 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take account of ghost points
+          // Take ghost points into account
           const vbool mask1 =
               mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
@@ -184,7 +184,7 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take account of ghost points
+          // Take ghost points into account
           const vbool mask1 =
               mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
@@ -202,7 +202,7 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take account of ghost points
+          // Take ghost points into account
           const vbool mask1 =
               mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
@@ -220,7 +220,7 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take account of ghost points
+          // Take ghost points into account
           const vbool mask1 =
               mask_for_loop_tail<vbool>(p.i, p.imax + deriv_order / 2);
           const GF3D5index index(layout, p.I);
