@@ -26,7 +26,7 @@ CCTK_REAL chi_diss TYPE=gf CENTERING={VVV} TAGS='checkpoint="no"' "dissipation t
 CCTK_REAL beta TYPE=gf CENTERING={VVV}
 {
   betax, betay, betaz
-}"velocity function used for calculating upwind term"
+} "velocity function used for calculating upwind term"
 
 CCTK_REAL chi_upwind TYPE=gf CENTERING={VVV} TAGS='checkpoint="no"' "upwind term"
 
