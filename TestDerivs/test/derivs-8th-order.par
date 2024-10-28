@@ -25,9 +25,10 @@ CarpetX::xmax = 0.1234567+$pi
 CarpetX::ymax = 0.2345678+$pi
 CarpetX::zmax = 0.3456789+$pi
 
-CarpetX::periodic_x = "yes"
-CarpetX::periodic_y = "yes"
-CarpetX::periodic_z = "yes"
+Driver::periodic = "yes"
+Driver::periodic_x = "yes"
+Driver::periodic_y = "yes"
+Driver::periodic_z = "yes"
 
 CarpetX::ncells_x = $ncells
 CarpetX::ncells_y = $ncells
@@ -39,7 +40,7 @@ CarpetX::blocking_factor_z = $blocking_factor
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 1
-CarpetX::regrid_error_threshold = 0.01
+Driver::regrid_error_threshold = 0.01
 
 CarpetX::dtfac = 0.5
 
