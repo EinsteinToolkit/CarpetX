@@ -198,11 +198,11 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
   static Timer timer("OutputADIOS2");
   Interval interval(timer);
 
-  if (io_verbose)
-    CCTK_VINFO("OutputADIOS2...");
-
   if (std::count(output_group.begin(), output_group.end(), true) == 0)
     return;
+
+  if (io_verbose)
+    CCTK_VINFO("OutputADIOS2...");
 
   try {
 
