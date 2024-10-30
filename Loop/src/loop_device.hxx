@@ -57,8 +57,8 @@ public:
     static_assert(CI == 0 || CI == 1);
     static_assert(CJ == 0 || CJ == 1);
     static_assert(CK == 0 || CK == 1);
-    static_assert(N >= 0);
     static_assert(VS > 0);
+    static_assert(N >= 0);
     static_assert(NT > 0);
 
     static_assert(VS == 1, "Only vector size 1 is supported on GPUs");
@@ -120,7 +120,7 @@ public:
   // Loop over all points
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_all_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
@@ -132,7 +132,7 @@ public:
   // Loop over all interior points
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_int_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
@@ -145,7 +145,7 @@ public:
   // then faces, then edges, then corners.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_there_device(const vect<int, dim> &group_nghostzones,
                     const vect<vect<vect<bool, dim>, dim>, dim> &there,
                     const F &f) const {
@@ -208,7 +208,7 @@ public:
   // then edges, then corners.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_bnd_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
@@ -273,7 +273,7 @@ public:
   // loop_bnd_device.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_outermost_int_device(const vect<int, dim> &group_nghostzones,
                             const F &f) const {
     // boundary_box sets bnd_min and bnd_max
@@ -376,7 +376,7 @@ public:
   // non-ghost faces. Loop over faces first, then edges, then corners.
   template <int CI, int CJ, int CK, int N = 1, int VS = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_ghosts_inclusive_device(const vect<int, dim> &group_nghostzones,
                                const F &f) const {
     constexpr vect<int, dim> offset{CI, CJ, CK};
@@ -438,7 +438,7 @@ public:
   // non-ghost faces. Loop over faces first, then edges, then corners.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_ghosts_device(const vect<int, dim> &group_nghostzones,
                      const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
@@ -495,40 +495,36 @@ public:
   }
 
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-      std::enable_if_t<(where == where_t::everywhere), void>
-      loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL std::enable_if_t<(where == where_t::everywhere), void>
+  loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_all_device<CI, CJ, CK>(group_nghostzones, f);
   }
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-      std::enable_if_t<(where == where_t::interior), void>
-      loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL std::enable_if_t<(where == where_t::interior), void>
+  loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_int_device<CI, CJ, CK>(group_nghostzones, f);
   }
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-      std::enable_if_t<(where == where_t::boundary), void>
-      loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL std::enable_if_t<(where == where_t::boundary), void>
+  loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_bnd_device<CI, CJ, CK>(group_nghostzones, f);
   }
 #if 0
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+  inline CCTK_KERNEL
       std::enable_if_t<(where == where_t::ghosts_inclusive), void>
       loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_ghosts_inclusive_device<CI, CJ, CK>(group_nghostzones, f);
   }
 #endif
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-      std::enable_if_t<(where == where_t::ghosts), void>
-      loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL std::enable_if_t<(where == where_t::ghosts), void>
+  loop_device(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_ghosts_device<CI, CJ, CK>(group_nghostzones, f);
   }
 
   template <typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_there_device_idx(const vect<int, dim> &indextype,
                         const vect<vect<vect<bool, dim>, dim>, dim> &there,
                         const vect<int, dim> &group_nghostzones,
@@ -572,7 +568,7 @@ public:
   }
 
   template <where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_device_idx(const vect<int, dim> &indextype,
                   const vect<int, dim> &group_nghostzones, const F &f) const {
     switch (indextype[0] + 2 * indextype[1] + 4 * indextype[2]) {
@@ -607,7 +603,7 @@ public:
 };
 
 template <where_t where, typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+inline CCTK_KERNEL void
 loop_device_idx(const cGH *cctkGH, const vect<int, dim> &indextype,
                 const vect<int, dim> &nghostzones, const F &f) {
   GridDescBaseDevice(cctkGH).loop_device_idx<where>(indextype, nghostzones, f);
