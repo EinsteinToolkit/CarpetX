@@ -48,19 +48,25 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         });
 
   } else if (CCTK_EQUALS(initial_condition, "noise")) {
-    std::uniform_real_distribution<CCTK_REAL> noise_distrib{-noise_boundary,
-                                                            noise_boundary};
-    std::mt19937 noise_engine{noise_seed};
+    // Make sure our RNG structures are initialized only once, regardless of the
+    // number of threads used.
+    static std::mt19937_64 noise_engine{noise_seed};
+    static std::uniform_real_distribution<CCTK_REAL> noise_distrib{
+        -noise_boundary, noise_boundary};
 
-    grid.loop_int<0, 0, 0>(grid.nghostzones,
-                           [&] CCTK_HOST(const Loop::PointDesc &p)
-                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                 phi(p.I) = noise_distrib(noise_engine);
-                                 Pi(p.I) = noise_distrib(noise_engine);
-                                 Dx(p.I) = noise_distrib(noise_engine);
-                                 Dy(p.I) = noise_distrib(noise_engine);
-                                 Dz(p.I) = noise_distrib(noise_engine);
-                               });
+    grid.loop_int<0, 0, 0>(
+        grid.nghostzones,
+        [&] CCTK_HOST(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#pragma omp critical
+          {
+            const auto value{noise_distrib(noise_engine)};
+            phi(p.I) = value;
+            Pi(p.I) = value;
+            Dx(p.I) = value;
+            Dy(p.I) = value;
+            Dz(p.I) = value;
+          }
+        });
   } else {
     CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }

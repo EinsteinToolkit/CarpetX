@@ -36,10 +36,10 @@ CCTK_REAL gaussian_width "width of Gaussian"
   (0:* :: ""
 } 1.0
 
-CCTK_REAL noise_seed "Seed of the RNG for noise initial data"
+CCTK_INT noise_seed "Seed of the RNG for noise initial data"
 {
   *:* :: ""
-} 100.0
+} 100
 
 CCTK_REAL noise_boundary "Nois will be generated in the [-noise_boundary, noise_boundary] range"
 {
