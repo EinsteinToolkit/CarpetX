@@ -26,6 +26,8 @@
 #define CCTK_DEVICE AMREX_GPU_DEVICE
 #define CCTK_HOST AMREX_GPU_HOST
 
+#define CCTK_KERNEL __attribute__((__always_inline__, __flatten__))
+
 namespace Loop {
 
 using Arith::vect;
