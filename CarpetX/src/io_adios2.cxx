@@ -321,7 +321,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
           } // for gi
 
         } // for leveldata
-      }   // for patchdata
+      } // for patchdata
 
     } // if !adios2_state
 
