@@ -590,7 +590,7 @@ BOOLEAN out_norm_omit_sumloc_for_backward_compatibility "Omit sumloc norms" STEE
 KEYWORD openpmd_format "openPMD file format" STEERABLE=always
 {
   "HDF5" :: ""
-  "ADIOS1" :: ""
+  "ADIOS1" :: "requires openPMD_api <0.16"
   "ADIOS2_auto" :: "Choose ADIOS2 format automatically (either ADIOS2_BP5 or ADIOS2_BP4)"
   "ADIOS2" :: "requires openPMD_api <0.15"
   "ADIOS2_BP" :: "requires openPMD_api >=0.15"
@@ -599,6 +599,8 @@ KEYWORD openpmd_format "openPMD file format" STEERABLE=always
   "ADIOS2_SST" :: ""
   "ADIOS2_SSC" :: ""
   "JSON" :: ""
+  "TOML" :: "requires openPMD_api >=0.16"
+  "GENERIC" :: "requires openPMD_api >=0.16"
 } "ADIOS2_auto"
 
 STRING out_openpmd_vars "Variables to output in openPMD format" STEERABLE=always

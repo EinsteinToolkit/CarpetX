@@ -65,8 +65,11 @@ openPMD::Format get_format() {
   DECLARE_CCTK_PARAMETERS;
   if (CCTK_EQUALS(openpmd_format, "HDF5"))
     return openPMD::Format::HDF5;
+#if OPENPMDAPI_VERSION_GE(0, 16, 0)
+#else
   if (CCTK_EQUALS(openpmd_format, "ADIOS1"))
     return openPMD::Format::ADIOS1;
+#endif
   if (CCTK_EQUALS(openpmd_format, "ADIOS2_auto"))
 #if OPENPMDAPI_VERSION_GE(0, 15, 0)
     return openPMD::Format::ADIOS2_BP5;
@@ -90,6 +93,14 @@ openPMD::Format get_format() {
     return openPMD::Format::ADIOS2_SSC;
   if (CCTK_EQUALS(openpmd_format, "JSON"))
     return openPMD::Format::JSON;
+#if OPENPMDAPI_VERSION_GE(0, 16, 0)
+  if (CCTK_EQUALS(openpmd_format, "TOML"))
+    return openPMD::Format::TOML;
+#endif
+#if OPENPMDAPI_VERSION_GE(0, 16, 0)
+  if (CCTK_EQUALS(openpmd_format, "GENERIC"))
+    return openPMD::Format::GENERIC;
+#endif
   CCTK_VERROR("The openPMD format \"%s\" is not supported in version %d.%d.%d "
               "of the openPMD_api library",
               openpmd_format, OPENPMDAPI_VERSION_MAJOR,
