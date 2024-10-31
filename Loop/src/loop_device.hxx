@@ -270,7 +270,9 @@ public:
   // AMReX), these do not belong in the outer boundary, but rather the interior.
   // This excludes ghost faces, but includes ghost edges/corners on non-ghost
   // faces. Loop over faces first, then edges, then corners. Modified from
-  // loop_bnd_device.
+  // loop_bnd_device. The additional argument is_sym_bnd is used to indicate
+  // whether each boundary is a symmetry boundary. This symmetry information can
+  // be provided by the PatchData object in the CarpetX driver.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
