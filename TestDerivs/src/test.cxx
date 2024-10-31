@@ -106,6 +106,7 @@ extern "C" void TestDerivs_Set(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestDerivs_Set;
   DECLARE_CCTK_PARAMETERS;
 
+  using std::sin;
   using vreal = Arith::simd<CCTK_REAL>;
   using vbool = Arith::simdl<CCTK_REAL>;
   constexpr std::size_t vsize = std::tuple_size_v<vreal>;
