@@ -117,8 +117,7 @@ extern "C" void TestDerivs_Set(CCTK_ARGUMENTS) {
         const vreal x0 = p.x + Arith::iota<vreal>() * p.dx;
         const CCTK_REAL y0 = p.y;
         const CCTK_REAL z0 = p.z;
-        chi.store(mask, p.I,
-                  poly(kxx, kxy, kyz, cos(x0), std::sin(y0), std::sin(z0)));
+        chi.store(mask, p.I, poly(kxx, kxy, kyz, cos(x0), sin(y0), sin(z0)));
       });
 
   grid.loop_int_device<0, 0, 0>(
