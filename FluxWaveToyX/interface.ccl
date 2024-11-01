@@ -14,21 +14,21 @@ CCTK_REAL state TYPE=gf CENTERING={ccc} TAGS='parities={+1 +1 +1   +1 +1 +1   -1
   fx fy fz
 } "State vector"
 
-CCTK_REAL flux_x TYPE=gf CENTERING={vcc} TAGS='parities={-1 +1 +1   -1 +1 +1   +1 +1 +1   -1 -1 +1   -1 +1 -1} dependents="rhs"'
+CCTK_REAL flux_x TYPE=gf CENTERING={vcc} TAGS='parities={-1 +1 +1   -1 +1 +1   +1 +1 +1   -1 -1 +1   -1 +1 -1} dependents="rhs" checkpoint="no"'
 {
   u_flux_x
   ft_flux_x
   fx_flux_x fy_flux_x fz_flux_x
 } "Flux in x direction"
 
-CCTK_REAL flux_y TYPE=gf CENTERING={cvc} TAGS='parities={+1 -1 +1   +1 -1 +1   -1 -1 +1   +1 +1 +1   +1 -1 -1} dependents="rhs"'
+CCTK_REAL flux_y TYPE=gf CENTERING={cvc} TAGS='parities={+1 -1 +1   +1 -1 +1   -1 -1 +1   +1 +1 +1   +1 -1 -1} dependents="rhs" checkpoint="no"'
 {
   u_flux_y
   ft_flux_y
   fx_flux_y fy_flux_y fz_flux_y
 } "Flux in y direction"
 
-CCTK_REAL flux_z TYPE=gf CENTERING={ccv} TAGS='parities={+1 +1 -1   +1 +1 -1   -1 +1 -1   +1 -1 -1   +1 +1 +1} dependents="rhs"'
+CCTK_REAL flux_z TYPE=gf CENTERING={ccv} TAGS='parities={+1 +1 -1   +1 +1 -1   -1 +1 -1   +1 -1 -1   +1 +1 +1} dependents="rhs" checkpoint="no"'
 {
   u_flux_z
   ft_flux_z

@@ -1,8 +1,9 @@
 #include "driver.hxx"
-#include "loop_device.hxx"
 #include "schedule.hxx"
 #include "timer.hxx"
 #include "valid.hxx"
+
+#include <loop_device.hxx>
 
 #include <cctk.h>
 #include <cctk_Parameters.h>
@@ -169,6 +170,9 @@ void poison_invalid_gf(const active_levels_t &active_levels, const int gi,
   static Timer timer("poison_invalid<GF>");
   Interval interval(timer);
 
+  CCTK_REAL poison;
+  std::memcpy(&poison, &ipoison, sizeof poison);
+
   active_levels.loop_parallel([&](const int patch, const int level,
                                   const int index, const int component,
                                   const cGH *restrict const cctkGH) {
@@ -179,9 +183,6 @@ void poison_invalid_gf(const active_levels_t &active_levels, const int gi,
     const valid_t &valid = groupdata.valid.at(tl).at(vi).get();
     if (valid.valid_all())
       return;
-
-    CCTK_REAL poison;
-    std::memcpy(&poison, &ipoison, sizeof poison);
 
     const Loop::GridDescBaseDevice grid(cctkGH);
     const Loop::GF3D2layout layout(cctkGH, groupdata.indextype);
@@ -212,6 +213,8 @@ void poison_invalid_gf(const active_levels_t &active_levels, const int gi,
                 CCTK_ATTRIBUTE_ALWAYS_INLINE { gf(p.I) = poison; });
     }
   });
+
+  // Synchronize because we access GPU memory on the CPU
   synchronize();
 }
 
@@ -256,13 +259,38 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
   if (!poison_undefined_values)
     return;
 
-#warning "TODO"
-  const nan_handling_t nan_handling = nan_handling_t::forbid_nans;
-
   static Timer timer("check_valid<GF>");
   Interval interval(timer);
 
-  bool nan_found = false;
+#warning "TODO"
+  constexpr nan_handling_t nan_handling = nan_handling_t::forbid_nans;
+
+  const auto is_poison = [] CCTK_DEVICE CCTK_HOST(
+                             const CCTK_REAL val) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#if defined CCTK_REAL_PRECISION_4
+    std::uint32_t ival;
+#elif defined CCTK_REAL_PRECISION_8
+    std::uint64_t ival;
+#endif
+    std::memcpy(&ival, &val, sizeof ival);
+    if (ival == ipoison)
+      return true;
+    using std::isnan;
+    if (nan_handling != nan_handling_t::allow_nans && isnan(val))
+      return true;
+    return false;
+  };
+
+  amrex::FArrayBox poison_found(
+      amrex::Box(amrex::IntVect(0, 0, 0), amrex::IntVect(0, 0, 0)), 1,
+      amrex::The_Async_Arena());
+#ifdef AMREX_USE_GPU
+  constexpr auto run_on = amrex::RunOn::Device;
+#else
+  constexpr auto run_on = amrex::RunOn::Host;
+#endif
+  poison_found.operator= <run_on>(0.0);
+  CCTK_REAL *restrict const poison_found_ptr = poison_found.dataPtr();
 
   active_levels.loop_parallel([&](const int patch, const int level,
                                   const int index, const int component,
@@ -275,49 +303,38 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
     if (!valid.valid_any())
       return;
 
-    CCTK_REAL poison;
-    std::memcpy(&poison, &ipoison, sizeof poison);
-
     const Loop::GridDescBaseDevice grid(cctkGH);
     const Loop::GF3D2layout layout(cctkGH, groupdata.indextype);
     const Loop::GF3D2<const CCTK_REAL> gf(
         layout, static_cast<const CCTK_REAL *>(CCTK_VarDataPtrI(
                     cctkGH, tl, groupdata.firstvarindex + vi)));
 
-    const auto point_is_nan = [&](const Loop::PointDesc &p) {
-      using std::isnan;
-      return CCTK_BUILTIN_EXPECT(
-          nan_handling == nan_handling_t::allow_nans
-              ? std::memcmp(&gf(p.I), &poison, sizeof gf(p.I)) == 0
-              : isnan(gf(p.I)),
-          false);
-    };
-
-    const auto update_nan_found = [&](const Loop::PointDesc &p) {
-      if (!point_is_nan(p))
-        return;
+    const auto update_poison_found =
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          if (CCTK_BUILTIN_EXPECT(!is_poison(gf(p.I)), true))
+            return;
 #pragma omp atomic write
-      nan_found = true;
-    };
+          *poison_found_ptr = 0.0 / 0.0;
+        };
 
     if (valid.valid_all()) {
-      grid.loop_idx(where_t::everywhere, groupdata.indextype,
-                    groupdata.nghostzones, update_nan_found);
+      grid.loop_device_idx<where_t::everywhere>(
+          groupdata.indextype, groupdata.nghostzones, update_poison_found);
     } else {
       if (valid.valid_int)
-        grid.loop_idx(where_t::interior, groupdata.indextype,
-                      groupdata.nghostzones, update_nan_found);
+        grid.loop_device_idx<where_t::interior>(
+            groupdata.indextype, groupdata.nghostzones, update_poison_found);
       if (valid.valid_outer)
-        grid.loop_idx(where_t::boundary, groupdata.indextype,
-                      groupdata.nghostzones, update_nan_found);
+        grid.loop_device_idx<where_t::boundary>(
+            groupdata.indextype, groupdata.nghostzones, update_poison_found);
       if (valid.valid_ghosts)
-        grid.loop_idx(where_t::ghosts, groupdata.indextype,
-                      groupdata.nghostzones, update_nan_found);
+        grid.loop_device_idx<where_t::ghosts>(
+            groupdata.indextype, groupdata.nghostzones, update_poison_found);
     }
   });
   synchronize();
 
-  if (!nan_found)
+  if (!poison_found.contains_nan<run_on>())
     return;
 
   std::size_t nan_count{0};
@@ -350,27 +367,15 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
     if (!valid.valid_any())
       return;
 
-    CCTK_REAL poison;
-    std::memcpy(&poison, &ipoison, sizeof poison);
-
     const Loop::GridDescBaseDevice grid(cctkGH);
     const Loop::GF3D2layout layout(cctkGH, groupdata.indextype);
     const Loop::GF3D2<const CCTK_REAL> gf(
         layout, static_cast<const CCTK_REAL *>(CCTK_VarDataPtrI(
                     cctkGH, tl, groupdata.firstvarindex + vi)));
 
-    const auto point_is_nan = [&](const Loop::PointDesc &p) {
-      using std::isnan;
-      return CCTK_BUILTIN_EXPECT(
-          nan_handling == nan_handling_t::allow_nans
-              ? std::memcmp(&gf(p.I), &poison, sizeof gf(p.I)) == 0
-              : isnan(gf(p.I)),
-          false);
-    };
-
     const auto update_nan_count = [&](const Loop::PointDesc &p,
                                       const where_t where) {
-      if (!point_is_nan(p))
+      if (CCTK_BUILTIN_EXPECT(!is_poison(gf(p.I)), true))
         return;
 
       ++nan_count;

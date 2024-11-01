@@ -11,19 +11,26 @@ SCHEDULE TestODESolvers_Initial AT initial
   WRITES: state2(everywhere)
 } "Initialize state vector"
 
-SCHEDULE TestODESolvers_RHS IN ODESolvers_RHS
-{
-  LANG: C
-  READS: state(everywhere), state2(everywhere)
-  WRITES: rhs(everywhere), rhs2(everywhere)
-} "RHS function"
-
 SCHEDULE TestODESolvers_PostStep IN ODESolvers_PostStep
 {
   LANG: C
   OPTIONS: global
   SYNC: state state2
 } "Synchronize"
+
+SCHEDULE TestODESolvers_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: state(everywhere), state2(everywhere)
+  WRITES: rhs(everywhere), rhs2(everywhere)
+} "Calculate RHS"
+
+SCHEDULE TestODESolvers_RHS AT analysis
+{
+  LANG: C
+  READS: state(everywhere), state2(everywhere)
+  WRITES: rhs(everywhere), rhs2(everywhere)
+} "Calculate RHS for output"
 
 SCHEDULE TestODESolvers_Error AT analysis
 {

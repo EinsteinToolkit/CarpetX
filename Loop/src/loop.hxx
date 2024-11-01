@@ -1,14 +1,15 @@
 #ifndef CARPETX_LOOP_LOOP_HXX
 #define CARPETX_LOOP_LOOP_HXX
 
-#include <AMReX_FArrayBox.H>
-
 #include <simd.hxx>
 #include <vect.hxx>
 
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
+
+#include <AMReX_FArrayBox.H>
+#include <AMReX_REAL.H>
 
 #ifdef __HIPCC__
 #include <hip/hip_runtime.h>
@@ -24,6 +25,8 @@
 
 #define CCTK_DEVICE AMREX_GPU_DEVICE
 #define CCTK_HOST AMREX_GPU_HOST
+
+#define CCTK_KERNEL __attribute__((__always_inline__, __flatten__))
 
 namespace Loop {
 
@@ -54,7 +57,7 @@ std::ostream &operator<<(std::ostream &os, const where_t where);
 struct GridDescBase;
 
 template <typename T, int D> struct units_t {
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST Arith::vect<T, D>
+  constexpr CCTK_KERNEL CCTK_DEVICE CCTK_HOST Arith::vect<T, D>
   operator[](const int d) const {
     return Arith::vect<T, D>::unit(d);
   }
@@ -94,7 +97,7 @@ struct PointDesc {
   PointDesc &operator=(const PointDesc &) = default;
   PointDesc &operator=(PointDesc &&) = default;
 
-  CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
+  CCTK_KERNEL CCTK_DEVICE CCTK_HOST
   PointDesc(const int level, const int patch, const int component,
             const vect<int, dim> &I, const int iter, const vect<int, dim> &NI,
             const vect<int, dim> &I0, const vect<int, dim> &BI,
@@ -140,7 +143,7 @@ public:
 
   GridDescBase(const cGH *cctkGH);
 
-  CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST PointDesc
+  CCTK_KERNEL CCTK_DEVICE CCTK_HOST PointDesc
   point_desc(const vect<bool, dim> &CI, const vect<int, dim> &I, const int iter,
              const vect<int, dim> &NI, const vect<int, dim> &I0,
              const vect<int, dim> &BI, const vect<int, dim> &bnd_min,
@@ -253,8 +256,8 @@ public:
 
   // Loop over all points
   template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_all(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL void loop_all(const vect<int, dim> &group_nghostzones,
+                                   const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
@@ -264,8 +267,8 @@ public:
 
   // Loop over all interior points
   template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_int(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL void loop_int(const vect<int, dim> &group_nghostzones,
+                                   const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> imin, imax;
@@ -276,7 +279,7 @@ public:
   // Loop over a part of the domain. Loop over the interior first,
   // then faces, then edges, then corners.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_there(const vect<int, dim> &group_nghostzones,
              const vect<vect<vect<bool, dim>, dim>, dim> &there,
              const F &f) const {
@@ -337,8 +340,8 @@ public:
   // includes ghost edges/corners on non-ghost faces. Loop over faces first,
   // then edges, then corners.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_bnd(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL void loop_bnd(const vect<int, dim> &group_nghostzones,
+                                   const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> all_min, all_max, int_min, int_max;
@@ -396,7 +399,7 @@ public:
   // Loop over all outer ghost points. This includes ghost edges/corners on
   // non-ghost faces. Loop over faces first, then edges, then corners.
   template <int CI, int CJ, int CK, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_ghosts_inclusive(const vect<int, dim> &group_nghostzones,
                         const F &f) const {
     constexpr vect<int, dim> offset{CI, CJ, CK};
@@ -477,8 +480,8 @@ public:
   // Loop over all outer ghost points. This excludes ghost edges/corners on
   // non-ghost faces. Loop over faces first, then edges, then corners.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop_ghosts(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL void loop_ghosts(const vect<int, dim> &group_nghostzones,
+                                      const F &f) const {
     vect<int, dim> bnd_min, bnd_max;
     boundary_box<CI, CJ, CK>(group_nghostzones, bnd_min, bnd_max);
     vect<int, dim> all_min, all_max, int_min, int_max;
@@ -539,7 +542,7 @@ public:
   // faces. Loop over faces first, then edges, then corners. Modified from
   // loop_bnd.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_outermost_int(const vect<int, dim> &group_nghostzones,
                      const F &f) const {
     // boundary_box sets bnd_min and bnd_max
@@ -637,42 +640,38 @@ public:
   }
 
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-      std::enable_if_t<(where == where_t::everywhere), void>
-      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL std::enable_if_t<(where == where_t::everywhere), void>
+  loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_all<CI, CJ, CK>(group_nghostzones, f);
   }
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-      std::enable_if_t<(where == where_t::interior), void>
-      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL std::enable_if_t<(where == where_t::interior), void>
+  loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_int<CI, CJ, CK>(group_nghostzones, f);
   }
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-      std::enable_if_t<(where == where_t::boundary), void>
-      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL std::enable_if_t<(where == where_t::boundary), void>
+  loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_bnd<CI, CJ, CK>(group_nghostzones, f);
   }
 #if 0
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
+  inline CCTK_KERNEL
       std::enable_if_t<(where == where_t::ghosts_inclusive), void>
       loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_ghosts_inclusive<CI, CJ, CK>(group_nghostzones, f);
   }
 #endif
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE
-      std::enable_if_t<(where == where_t::ghosts), void>
-      loop(const vect<int, dim> &group_nghostzones, const F &f) const {
+  inline CCTK_KERNEL std::enable_if_t<(where == where_t::ghosts), void>
+  loop(const vect<int, dim> &group_nghostzones, const F &f) const {
     loop_ghosts<CI, CJ, CK>(group_nghostzones, f);
   }
 
   template <int CI, int CJ, int CK, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-  loop(where_t where, const vect<int, dim> &group_nghostzones,
-       const F &f) const {
+  inline CCTK_KERNEL void loop(where_t where,
+                               const vect<int, dim> &group_nghostzones,
+                               const F &f) const {
     switch (where) {
     case where_t::everywhere:
       return noinline([&] {
@@ -703,18 +702,17 @@ public:
   }
 
   template <int CI, int CJ, int CK, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop(where_t where,
-                                                const F &f) const {
+  inline CCTK_KERNEL void loop(where_t where, const F &f) const {
     loop<CI, CJ, CK>(where, nghostzones, f);
   }
 
   template <int CI, int CJ, int CK, where_t where, typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop(const F &f) const {
+  inline CCTK_KERNEL void loop(const F &f) const {
     loop<CI, CJ, CK, where>(nghostzones, f);
   }
 
   template <typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_idx(where_t where, const vect<int, dim> &indextype,
            const vect<int, dim> &group_nghostzones, const F &f) const {
     switch (indextype[0] + 2 * indextype[1] + 4 * indextype[2]) {
@@ -748,67 +746,61 @@ public:
   }
 
   template <typename F>
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  inline CCTK_KERNEL void
   loop_idx(where_t where, const vect<int, dim> &indextype, const F &f) const {
     loop_idx(where, indextype, nghostzones, f);
   }
 };
 
 template <typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+inline CCTK_KERNEL void
 loop_idx(const cGH *cctkGH, where_t where, const vect<int, dim> &indextype,
          const vect<int, dim> &nghostzones, const F &f) {
   GridDescBase(cctkGH).loop_idx(where, indextype, nghostzones, f);
 }
 
 template <typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
-loop_idx(const cGH *cctkGH, where_t where, const vect<int, dim> &indextype,
-         const F &f) {
+inline CCTK_KERNEL void loop_idx(const cGH *cctkGH, where_t where,
+                                 const vect<int, dim> &indextype, const F &f) {
   GridDescBase(cctkGH).loop_idx(where, indextype, f);
 }
 
 template <int CI, int CJ, int CK, where_t where, typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop(const cGH *cctkGH, const F &f) {
+inline CCTK_KERNEL void loop(const cGH *cctkGH, const F &f) {
   GridDescBase(cctkGH).loop<CI, CJ, CK, where>(f);
 }
 
 template <int CI, int CJ, int CK, typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop(const cGH *cctkGH, where_t where,
-                                              const F &f) {
+inline CCTK_KERNEL void loop(const cGH *cctkGH, where_t where, const F &f) {
   GridDescBase(cctkGH).loop<CI, CJ, CK>(where, f);
 }
 
 // Keep these for convenience
 template <int CI, int CJ, int CK, typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop_all(const cGH *cctkGH,
-                                                  const F &f) {
+inline CCTK_KERNEL void loop_all(const cGH *cctkGH, const F &f) {
   loop<CI, CJ, CK, where_t::everywhere>(cctkGH, f);
 }
 
 template <int CI, int CJ, int CK, typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop_int(const cGH *cctkGH,
-                                                  const F &f) {
+inline CCTK_KERNEL void loop_int(const cGH *cctkGH, const F &f) {
   loop<CI, CJ, CK, where_t::interior>(cctkGH, f);
 }
 
 template <int CI, int CJ, int CK, typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop_bnd(const cGH *cctkGH,
-                                                  const F &f) {
+inline CCTK_KERNEL void loop_bnd(const cGH *cctkGH, const F &f) {
   loop<CI, CJ, CK, where_t::boundary>(cctkGH, f);
 }
 
 #if 0
 template <int CI, int CJ, int CK, typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void
+inline CCTK_KERNEL void
 loop_ghosts_inclusive(const cGH *cctkGH, const F &f) {
   loop<CI, CJ, CK, where_t::ghosts_inclusive>(cctkGH, f);
 }
 #endif
 
 template <int CI, int CJ, int CK, typename F>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE void loop_ghosts(const cGH *cctkGH,
-                                                     const F &f) {
+inline CCTK_KERNEL void loop_ghosts(const cGH *cctkGH, const F &f) {
   loop<CI, CJ, CK, where_t::ghosts>(cctkGH, f);
 }
 
@@ -823,7 +815,7 @@ template <typename T, int CI, int CJ, int CK> struct GF3D {
   const int dj, dk, np;
   const int ni, nj, nk;
   T *restrict const ptr;
-  static constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE vect<int, dim> indextype() {
+  static constexpr CCTK_KERNEL vect<int, dim> indextype() {
     return {CI, CJ, CK};
   }
   GF3D() = delete;
@@ -836,7 +828,7 @@ template <typename T, int CI, int CJ, int CK> struct GF3D {
         dk(dj * (cctkGH->cctk_ash[1] - CJ)),
         np(dk * (cctkGH->cctk_ash[2] - CK)), ni(cctkGH->cctk_lsh[0] - CI),
         nj(cctkGH->cctk_lsh[1] - CJ), nk(cctkGH->cctk_lsh[2] - CK), ptr(ptr) {}
-  inline CCTK_ATTRIBUTE_ALWAYS_INLINE int offset(int i, int j, int k) const {
+  inline CCTK_KERNEL int offset(int i, int j, int k) const {
     // These index checks prevent vectorization. We thus only enable
     // them in debug mode.
 #ifdef CCTK_DEBUG

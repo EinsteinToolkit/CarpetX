@@ -38,6 +38,9 @@ CarpetX::out_norm_omit_sumloc_for_backward_compatibility = yes
 
 CarpetX::out_tsv_vars = "
     FluxWaveToyX::state
+    FluxWaveToyX::flux_x
+    FluxWaveToyX::flux_y
+    FluxWaveToyX::flux_z
     FluxWaveToyX::rhs
     FluxWaveToyX::energy
     FluxWaveToyX::error

@@ -198,11 +198,11 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
   static Timer timer("OutputADIOS2");
   Interval interval(timer);
 
-  if (io_verbose)
-    CCTK_VINFO("OutputADIOS2...");
-
   if (std::count(output_group.begin(), output_group.end(), true) == 0)
     return;
+
+  if (io_verbose)
+    CCTK_VINFO("OutputADIOS2...");
 
   try {
 
@@ -252,6 +252,16 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
       // io.SetEngine("BP5");
       engine = io.Open(filename, adios2::Mode::Write);
 
+      const adios2::Operator compressor =
+          adios.DefineOperator("Blosc2Compressor", adios2::ops::LosslessBlosc);
+      // Use a high compression rate and a byteshuffle filter
+      const adios2::Params compressor_options{
+          {adios2::ops::blosc::key::clevel,
+           adios2::ops::blosc::value::clevel_9},
+          {adios2::ops::blosc::key::doshuffle,
+           adios2::ops::blosc::value::doshuffle_shuffle},
+      };
+
       if (io_verbose)
         CCTK_VINFO("  Defining variables...");
 
@@ -300,8 +310,10 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
                     if (io_verbose)
                       CCTK_VINFO("      Defining variable %s...",
                                  varname.c_str());
-                    // const adios2::Variable<CCTK_REAL> var =
-                    io.DefineVariable<CCTK_REAL>(varname, {}, {}, {1, 1, 1});
+                    adios2::Variable<CCTK_REAL> var =
+                        io.DefineVariable<CCTK_REAL>(varname, {}, {},
+                                                     {1, 1, 1});
+                    var.AddOperation(compressor, compressor_options);
                   } // for local_component
 
                 } else { // if combine_components
@@ -321,7 +333,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
           } // for gi
 
         } // for leveldata
-      }   // for patchdata
+      } // for patchdata
 
     } // if !adios2_state
 
