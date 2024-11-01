@@ -15,13 +15,26 @@ SCHEDULE FluxWaveToyX_Fluxes IN ODESolvers_RHS
   WRITES: flux_x(interior)
   WRITES: flux_y(interior)
   WRITES: flux_z(interior)
-  # Sync for test output
-  SYNC: flux_x
-  SYNC: flux_y
-  SYNC: flux_z
 } "Calculate scalar wave fluxes"
 
 SCHEDULE FluxWaveToyX_RHS IN ODESolvers_RHS AFTER FluxWaveToyX_Fluxes
+{
+  LANG: C
+  READS: state(interior)
+  READS: flux_x(interior)
+  READS: flux_y(interior)
+  READS: flux_z(interior)
+  WRITES: rhs(interior)
+} "Calculate scalar wave RHS"
+
+SCHEDULE FluxWaveToyX_Boundaries IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Apply boundary conditions"
+
+SCHEDULE FluxWaveToyX_RHS AT analysis
 {
   LANG: C
   READS: state(interior)
@@ -33,14 +46,7 @@ SCHEDULE FluxWaveToyX_RHS IN ODESolvers_RHS AFTER FluxWaveToyX_Fluxes
   SYNC: rhs
 } "Calculate scalar wave RHS"
 
-SCHEDULE FluxWaveToyX_Boundaries IN ODESolvers_PostStep
-{
-  LANG: C
-  OPTIONS: global
-  SYNC: state
-} "Apply boundary conditions"
-
-SCHEDULE FluxWaveToyX_Constraints IN ODESolvers_PostStep AFTER FluxWaveToyX_Boundaries
+SCHEDULE FluxWaveToyX_Constraints AT analysis
 {
   LANG: C
   READS: state(everywhere)
@@ -48,7 +54,7 @@ SCHEDULE FluxWaveToyX_Constraints IN ODESolvers_PostStep AFTER FluxWaveToyX_Boun
   SYNC: cons
 } "Calculate scalar wave constraints"
 
-SCHEDULE FluxWaveToyX_Energy IN ODESolvers_PostStep AFTER FluxWaveToyX_Boundaries
+SCHEDULE FluxWaveToyX_Energy AT analysis
 {
   LANG: C
   READS: state(everywhere)
@@ -56,7 +62,7 @@ SCHEDULE FluxWaveToyX_Energy IN ODESolvers_PostStep AFTER FluxWaveToyX_Boundarie
   SYNC: energy
 } "Calculate scalar wave energy density"
 
-SCHEDULE FluxWaveToyX_Error IN ODESolvers_PostStep
+SCHEDULE FluxWaveToyX_Error AT analysis
 {
   LANG: C
   READS: state(interior)
