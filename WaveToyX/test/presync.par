@@ -39,4 +39,5 @@ CarpetX::out_tsv_vars = "
     WaveToyX::state
     WaveToyX::energy
     WaveToyX::error
+    WaveToyX::rhs
 "
