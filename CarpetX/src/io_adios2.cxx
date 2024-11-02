@@ -252,6 +252,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
       // io.SetEngine("BP5");
       engine = io.Open(filename, adios2::Mode::Write);
 
+#ifdef ADIOS2_HAVE_BLOSC2
       const adios2::Operator compressor =
           adios.DefineOperator("Blosc2Compressor", adios2::ops::LosslessBlosc);
       // Use a high compression rate and a byteshuffle filter
@@ -261,6 +262,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
           {adios2::ops::blosc::key::doshuffle,
            adios2::ops::blosc::value::doshuffle_shuffle},
       };
+#endif
 
       if (io_verbose)
         CCTK_VINFO("  Defining variables...");
@@ -313,7 +315,9 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
                     adios2::Variable<CCTK_REAL> var =
                         io.DefineVariable<CCTK_REAL>(varname, {}, {},
                                                      {1, 1, 1});
+#ifdef ADIOS2_HAVE_BLOSC2
                     var.AddOperation(compressor, compressor_options);
+#endif
                   } // for local_component
 
                 } else { // if combine_components
