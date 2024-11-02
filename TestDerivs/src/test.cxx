@@ -302,7 +302,7 @@ extern "C" void TestDerivs_CalcDerivs(CCTK_ARGUMENTS) {
           printf("ddyz = %f\n", ddchi(1, 2) - gf_ddchi(1, 2)(p.I));
           printf("ddzz = %f\n", ddchi(2, 2) - gf_ddchi(2, 2)(p.I));
 #endif
-          abort();
+          assert(0);
         }
       });
 #endif
