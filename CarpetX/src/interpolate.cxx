@@ -229,9 +229,9 @@ template <typename T, int order, int centering> struct interpolator {
     // const auto x1 = x0 + (grid.lsh - 1 - indextype) * grid.dx;
     const auto dx = grid.dx;
 
-    assert(vars.end.x - vars.begin.x == grid.lsh[0]);
-    assert(vars.end.y - vars.begin.y == grid.lsh[1]);
-    assert(vars.end.z - vars.begin.z == grid.lsh[2]);
+    assert(vars.end.x - vars.begin.x == grid.lsh[0] - indextype[0]);
+    assert(vars.end.y - vars.begin.y == grid.lsh[1] - indextype[1]);
+    assert(vars.end.z - vars.begin.z == grid.lsh[2] - indextype[2]);
 
     // We assume that the input is synchronized, i.e. that all ghost
     // zones are valid, but all outer boundaries are invalid.
