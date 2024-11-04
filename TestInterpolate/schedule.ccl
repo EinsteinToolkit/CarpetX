@@ -4,10 +4,22 @@ STORAGE: results_interpolate
 STORAGE: results_driver_interpolate
 STORAGE: reference
 
-SCHEDULE TestInterpolate_test_interpolation AT poststep
-{
-  LANG: C
-  OPTIONS: global
-  READS: CoordinatesX::vertex_coords(everywhere)
-  WRITES: results_interpolate, results_driver_interpolate, reference
-} "Test interpolation operators"
+if (test_cell_interpolation) {
+  SCHEDULE TestInterpolate_test_vertex_interpolation AT poststep
+  {
+    LANG: C
+    OPTIONS: global
+    READS: CoordinatesX::vertex_coords(everywhere)
+    WRITES: results_interpolate, results_driver_interpolate, reference
+  } "Test vertex interpolation operators"
+}
+
+if (test_vertex_interpolation) {
+  SCHEDULE TestInterpolate_test_cell_interpolation AT poststep
+  {
+    LANG: C
+    OPTIONS: global
+    READS: CoordinatesX::cell_coords(everywhere)
+    WRITES: results_interpolate, results_driver_interpolate, reference
+  } "Test cell interpolation operators"
+}

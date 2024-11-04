@@ -1,1 +1,9 @@
 # Parameter definitions for thorn TestInterpolate
+
+BOOLEAN test_cell_interpolation "Test cell interpolation"
+{
+} "no"
+
+BOOLEAN test_vertex_interpolation "Test vertex interpolation"
+{
+} "no"
