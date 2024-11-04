@@ -20,6 +20,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <set>
@@ -33,9 +34,6 @@ namespace {
 
 // Interpolate a grid function at one point, dimensionally recursive
 template <typename T, int order, int centering> struct interpolator {
-  // TODO: `centering` is not used; remove it
-  // TODO: remove `dx` in favour of `x1`?
-
   static constexpr vect<bool, dim> indextype{(centering & 0b100) != 0,
                                              (centering & 0b010) != 0,
                                              (centering & 0b001) != 0};
@@ -73,12 +71,9 @@ template <typename T, int order, int centering> struct interpolator {
         for (int b = -1; b <= +1; ++b)
           for (int a = -1; a <= +1; ++a)
             if (vars.contains(j[0] + a, j[1] + b, j[2] + c))
-              // std::cerr << "  val[" << a << "," << b << "," << c
-              //           << "]=" << vars(j[0] + a, j[1] + b, j[2] + c, vi) <<
-              //           "\n";
-              std::fprintf(stderr, "val[%d,%d,%d]=%.17g\n", j[0] + a, j[1] + b,
-                           j[2] + c,
-                           double(vars(j[0] + a, j[1] + b, j[2] + c, vi)));
+              std::cerr << "  val[" << a << "," << b << "," << c
+                        << "]=" << vars(j[0] + a, j[1] + b, j[2] + c, vi)
+                        << "\n";
     }
     assert(isfinite(val));
 #endif
