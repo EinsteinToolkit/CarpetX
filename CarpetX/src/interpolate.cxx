@@ -481,7 +481,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   std::vector<CCTK_REAL> posy(npoints);
   std::vector<CCTK_REAL> posz(npoints);
   for (int n = 0; n < npoints; ++n) {
-    const int patch = patches[n];
+    const int patch = patches.at(n);
     const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
     const CCTK_REAL *restrict const xmin = geom.ProbLo();
     const CCTK_REAL *restrict const xmax = geom.ProbHi();
@@ -531,8 +531,9 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
   // Send particles to interpolation points
   for (auto &container : containers) {
-    const int patch = int(&container - containers.data());
 #ifdef CCTK_DEBUG
+    const int patch = int(&container - containers.data());
+
     std::size_t old_nparticles = 0;
     std::set<int> oldids;
     {
