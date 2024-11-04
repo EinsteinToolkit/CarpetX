@@ -1,25 +1,45 @@
 # Schedule definitions for thorn HydroBaseX
 
-SCHEDULE GROUP HydroBaseX_InitialData AT initial
-{
-} "Schedule group for calculating hydro initial data"
-
-SCHEDULE GROUP HydroBaseX_PostInitial AT initial AFTER HydroBaseX_InitialData
-{
-} "Schedule group for modifying the hydro initial data, such as e.g. adding noise"
-
 if (CCTK_IsThornActive("ODESolvers")) {
+
+  SCHEDULE GROUP HydroBaseX_InitialData IN ODESolvers_Initial
+  {
+  } "Schedule group for calculating hydro initial data"
+
+  SCHEDULE GROUP HydroBaseX_PostInitial IN ODESolvers_Initial AFTER HydroBaseX_InitialData
+  {
+  } "Schedule group for modifying the hydro initial data, such as e.g. adding noise"
+
   SCHEDULE GROUP HydroBaseX_SetHydroVars IN ODESolvers_PostStep
   {
   } "Set hydro variables in this group, or before this group"
+
 } else {
+
+  SCHEDULE GROUP HydroBaseX_InitialData AT initial
+  {
+  } "Schedule group for calculating hydro initial data"
+
+  SCHEDULE GROUP HydroBaseX_PostInitial AT initial AFTER HydroBaseX_InitialData
+  {
+  } "Schedule group for modifying the hydro initial data, such as e.g. adding noise"
+
+  SCHEDULE GROUP HydroBaseX_SetHydroVars AT post_recover_variables
+  {
+  } "Set hydro variables in this group, or before this group"
+
   SCHEDULE GROUP HydroBaseX_SetHydroVars AT postregrid
+  {
+  } "Set hydro variables in this group, or before this group"
+
+  SCHEDULE GROUP HydroBaseX_SetHydroVars AT postrestrict
   {
   } "Set hydro variables in this group, or before this group"
 
   SCHEDULE GROUP HydroBaseX_SetHydroVars AT poststep
   {
   } "Set hydro variables in this group, or before this group"
+
 }
 
 

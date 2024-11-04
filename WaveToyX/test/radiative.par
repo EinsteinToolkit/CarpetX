@@ -41,7 +41,7 @@ CarpetX::out_norm_omit_sumloc_for_backward_compatibility = yes
 
 CarpetX::out_tsv_vars = "
     WaveToyX::state
-    WaveToyX::rhs
     WaveToyX::energy
     WaveToyX::error
+    WaveToyX::rhs
 "

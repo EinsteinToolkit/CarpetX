@@ -22,15 +22,6 @@ SCHEDULE WaveToyX_Initial AT initial
 #   WRITES: CarpetXRegrid::regrid_error(interior)
 # } "Estimate error for regridding"
 
-SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
-{
-  LANG: C
-  READS: state(everywhere)
-  WRITES: rhs(interior)
-  # Sync for test output
-  SYNC: rhs
-} "Calculate scalar wave RHS"
-
 SCHEDULE WaveToyX_Boundaries IN ODESolvers_PostStep
 {
   LANG: C
@@ -38,7 +29,23 @@ SCHEDULE WaveToyX_Boundaries IN ODESolvers_PostStep
   SYNC: state
 } "Apply boundary conditions"
 
-SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep AFTER WaveToyX_Boundaries
+SCHEDULE WaveToyX_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: rhs(interior)
+} "Calculate scalar wave RHS"
+
+SCHEDULE WaveToyX_RHS AT analysis
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: rhs(interior)
+  # Sync for test output
+  SYNC: rhs
+} "Calculate scalar wave RHS (so that it can be output)"
+
+SCHEDULE WaveToyX_Energy at analysis
 {
   LANG: C
   READS: state(everywhere)
@@ -46,7 +53,7 @@ SCHEDULE WaveToyX_Energy IN ODESolvers_PostStep AFTER WaveToyX_Boundaries
   SYNC: energy
 } "Calculate scalar wave energy density"
 
-SCHEDULE WaveToyX_Error IN ODESolvers_PostStep
+SCHEDULE WaveToyX_Error at analysis
 {
   LANG: C
   READS: state(interior)

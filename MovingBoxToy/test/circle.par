@@ -58,4 +58,3 @@ CarpetX::out_tsv_vars = "
     CoordinatesX::vertex_coords
     CoordinatesX::cell_coords
 "
-

@@ -11,7 +11,30 @@ SCHEDULE StaggeredWaveToyX_Initial AT initial
   WRITES: fzstate(interior)
 } "Initialize scalar wave state"
 
+SCHEDULE StaggeredWaveToyX_Boundaries IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: ustate
+  SYNC: fxstate
+  SYNC: fystate
+  SYNC: fzstate
+} "Apply boundary conditions to scalar wave state"
+
 SCHEDULE StaggeredWaveToyX_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: ustate(everywhere)
+  READS: fxstate(everywhere)
+  READS: fystate(everywhere)
+  READS: fzstate(everywhere)
+  WRITES: urhs(interior)
+  WRITES: fxrhs(interior)
+  WRITES: fyrhs(interior)
+  WRITES: fzrhs(interior)
+} "Calculate scalar wave RHS"
+
+SCHEDULE StaggeredWaveToyX_RHS AT analysis
 {
   LANG: C
   READS: ustate(everywhere)
@@ -27,19 +50,9 @@ SCHEDULE StaggeredWaveToyX_RHS IN ODESolvers_RHS
   SYNC: fxrhs
   SYNC: fyrhs
   SYNC: fzrhs
-} "Calculate scalar wave RHS"
+} "Calculate scalar wave RHS for output"
 
-SCHEDULE StaggeredWaveToyX_Boundaries IN ODESolvers_PostStep
-{
-  LANG: C
-  OPTIONS: global
-  SYNC: ustate
-  SYNC: fxstate
-  SYNC: fystate
-  SYNC: fzstate
-} "Apply boundary conditions to scalar wave state"
-
-SCHEDULE StaggeredWaveToyX_Constraints IN ODESolvers_PostStep
+SCHEDULE StaggeredWaveToyX_Constraints AT analysis
 {
   LANG: C
   READS: fxstate(interior)
@@ -53,7 +66,7 @@ SCHEDULE StaggeredWaveToyX_Constraints IN ODESolvers_PostStep
   SYNC: curlfz
 } "Calculate scalar wave constraints"
 
-SCHEDULE StaggeredWaveToyX_Energy IN ODESolvers_PostStep
+SCHEDULE StaggeredWaveToyX_Energy AT analysis
 {
   LANG: C
   READS: ustate(interior)
@@ -64,7 +77,7 @@ SCHEDULE StaggeredWaveToyX_Energy IN ODESolvers_PostStep
   SYNC: energy
 } "Calculate scalar wave energy density"
 
-SCHEDULE StaggeredWaveToyX_Error IN ODESolvers_PostStep
+SCHEDULE StaggeredWaveToyX_Error AT analysis
 {
   LANG: C
   READS: ustate(interior)
