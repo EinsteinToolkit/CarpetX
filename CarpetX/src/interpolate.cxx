@@ -440,13 +440,14 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
                               patches.data(), localsx.data(), localsy.data(),
                               localsz.data());
   } else {
-    // TODO: Don't copy
-    for (int n = 0; n < npoints; ++n) {
-      patches[n] = 0;
-      localsx[n] = globalsx[n];
-      localsy[n] = globalsy[n];
-      localsz[n] = globalsz[n];
-    }
+    for (int n = 0; n < npoints; ++n)
+      patches.at(n) = 0;
+    for (int n = 0; n < npoints; ++n)
+      localsx.at(n) = globalsx[n];
+    for (int n = 0; n < npoints; ++n)
+      localsy.at(n) = globalsy[n];
+    for (int n = 0; n < npoints; ++n)
+      localsz.at(n) = globalsz[n];
   }
 
   // Apply symmetries to coordinates
