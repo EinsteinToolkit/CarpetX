@@ -6,14 +6,14 @@ ActiveThorns = "
 "
 
 ###### Settings ######
-$final_time = 1.0
-$out_every_time = 0.25
+$final_time = 100.0
+$out_every_time = 1.0
 
 $start = -1.0
 $end = 1.0
 
-$ncells = 160
-$cfl = 0.25
+$ncells = 128
+$cfl = 0.9
 ######################
 
 # We are using a 5 point centered stencil
@@ -27,8 +27,6 @@ $out_every_it = ceil($out_every_time / $dt)
 
 TestRKAB::compute_error = no
 TestRKAB::initial_condition = "noise"
-TestRKAB::noise_seed = 100.0
-TestRKAB::noise_boundary = 1.0e-7
 
 CarpetX::poison_undefined_values = no
 CarpetX::verbose = no

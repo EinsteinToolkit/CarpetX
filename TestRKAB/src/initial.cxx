@@ -48,28 +48,38 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         });
 
   } else if (CCTK_EQUALS(initial_condition, "noise")) {
-    // Make sure our RNG structures are initialized only once, regardless of the
-    // number of threads used.
-    static std::mt19937_64 noise_engine{noise_seed};
-    static std::uniform_real_distribution<CCTK_REAL> noise_distrib{
-        -noise_boundary, noise_boundary};
-
     grid.loop_int<0, 0, 0>(
         grid.nghostzones,
         [&] CCTK_HOST(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-#pragma omp critical
-          {
-            const auto value{noise_distrib(noise_engine)};
-            phi(p.I) = value;
-            Pi(p.I) = value;
-            Dx(p.I) = value;
-            Dy(p.I) = value;
-            Dz(p.I) = value;
-          }
+          using std::cos;
+
+          const auto noise_func{cos(10.0 * p.x / p.dx) *
+                                cos(10.0 * p.y / p.dy) *
+                                cos(10.0 * p.z / p.dz)};
+
+          const auto noise_value{noise_boundary *
+                                 (noise_func > 0 ? 1.0 : -1.0)};
+
+          phi(p.I) = noise_value;
+          Pi(p.I) = noise_value;
+          Dx(p.I) = noise_value;
+          Dy(p.I) = noise_value;
+          Dz(p.I) = noise_value;
         });
   } else {
     CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }
+
+  // Regardless of ID choice, we initialize the previous RHS with zeros
+  grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+                                [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                    CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                      phi_pre(p.I) = 0.0;
+                                      Pi_pre(p.I) = 0.0;
+                                      Dx_pre(p.I) = 0.0;
+                                      Dy_pre(p.I) = 0.0;
+                                      Dz_pre(p.I) = 0.0;
+                                    });
 }
 
 } // namespace TestRKAB
