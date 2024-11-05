@@ -684,7 +684,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   static Timer timer_setup("ODESolvers::Solve::setup");
   std::optional<Interval> interval_setup(timer_setup);
 
-  statecomp_t var, rhs;
+  statecomp_t var, rhs, pre;
   std::vector<int> var_groups, rhs_groups, dep_groups;
   int nvars = 0;
   bool do_accumulate_nvars = true;
@@ -705,6 +705,18 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         var.mfabs.push_back(groupdata.mfab.at(tl).get());
         rhs.groupdatas.push_back(&rhs_groupdata);
         rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
+
+        const auto num_rhs_time_levels{rhs_groupdata.mfab.size()};
+
+        if (CCTK_EQUALS(method, "RKAB4") && num_rhs_time_levels != 2) {
+          CCTK_VERROR("Method RKAB4 requires 1 time level in the RHS group %s, "
+                      "but %lu time levels were provided ",
+                      rhs_groupdata.groupname.c_str(), num_rhs_time_levels);
+        } else {
+          pre.groupdatas.push_back(&rhs_groupdata);
+          pre.mfabs.push_back(rhs_groupdata.mfab.at(1).get());
+        }
+
         if (do_accumulate_nvars) {
           nvars += groupdata.numvars;
           var_groups.push_back(groupdata.groupindex);
@@ -1125,6 +1137,80 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
     }
     calcupdate(nsteps, dt, 0.0, factors, srcs);
+
+  } else if (CCTK_EQUALS(method, "RKAB4")) {
+
+    //  Bootstrap the method with RK4
+    if (cctkGH->cctk_iteration <= 1) {
+      // k1 = f(y0)
+      // k2 = f(y0 + h/2 k1)
+      // k3 = f(y0 + h/2 k2)
+      // k4 = f(y0 + h k3)
+      // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
+
+      const auto old = copy_state(var, make_valid_all());
+
+      calcrhs(1);
+      const auto k1 = copy_state(rhs, make_valid_int());
+      calcupdate(1, dt / 2.0, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &k1});
+
+      calcrhs(2);
+      const auto k2 = copy_state(rhs, make_valid_int());
+      calcupdate(2, dt / 2.0, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &k2});
+
+      calcrhs(3);
+      const auto k3 = copy_state(rhs, make_valid_int());
+      calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &k3});
+
+      calcrhs(4);
+      calcupdate(4, dt, 0.0,
+                 reals<5>{1.0, dt / 6.0, dt / 3.0, dt / 3.0, dt / 6.0},
+                 states<5>{&old, &k1, &k2, &k3, &rhs});
+
+      // Make sure that we store the correct RHS in the current time level
+      statecomp_t::lincomb(rhs, 0.0, reals<1>{1.0}, states<1>{&k1},
+                           make_valid_int());
+    } else {
+
+      // k1 = f(y(t - h))
+      // k2 = f(y0)
+      // k3 = f(y0 + h (c1 k2 + c2 k1))
+      // k4 = f(y0 + h (c3 k3 + c4 k2 + c5 k1))
+      // yn = y0 + h (c6 k1 + c7 k2 + c8 k3 + c9 k4);
+
+      constexpr auto c1{0.3736646857963324};
+      constexpr auto c2{0.03127973625120939};
+      constexpr auto c3{-0.14797683066152537};
+      constexpr auto c4{0.33238257148754524};
+      constexpr auto c5{-0.0010981891892632696};
+      constexpr auto c6{-0.0547559191353386};
+      constexpr auto c7{2.754535159970365};
+      constexpr auto c8{3.414713672966062};
+      constexpr auto c9{1.0 - c6 - c7 - c8};
+
+      const auto old = copy_state(var, make_valid_all());
+
+      const auto k1 = copy_state(pre, make_valid_all());
+      calcupdate(1, dt, 0.0, reals<1>{1.0}, states<1>{&old});
+
+      calcrhs(2);
+      const auto k2 = copy_state(rhs, make_valid_int());
+      calcupdate(2, dt, 0.0, reals<3>{1.0, dt * c1, dt * c2},
+                 states<3>{&old, &k2, &k1});
+
+      calcrhs(3);
+      const auto k3 = copy_state(rhs, make_valid_int());
+      calcupdate(3, dt, 0.0, reals<4>{1.0, dt * c3, dt * c4, dt * c5},
+                 states<4>{&old, &k3, &k2, &k1});
+
+      calcrhs(4);
+      calcupdate(4, dt, 0.0, reals<5>{1.0, dt * c6, dt * c7, dt * c8, dt * c9},
+                 states<5>{&old, &k1, &k2, &k3, &rhs});
+
+      // Make sure that we store the correct RHS in the current time level
+      statecomp_t::lincomb(rhs, 0.0, reals<1>{1.0}, states<1>{&k2},
+                           make_valid_int());
+    }
 
   } else if (CCTK_EQUALS(method, "Implicit Euler")) {
 

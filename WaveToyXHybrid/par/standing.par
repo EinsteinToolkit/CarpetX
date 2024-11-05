@@ -1,0 +1,44 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    ODESolvers
+    TimerReport
+    WaveToyXHybrid
+"
+
+$out_every = 64
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::poison_undefined_values = no
+
+Driver::periodic = "yes"
+Driver::periodic_x = yes
+Driver::periodic_y = yes
+Driver::periodic_z = yes
+
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 10.0
+
+WaveToyXHybrid::initial_condition = "standing wave"
+
+ODESolvers::method = "RKAB4"
+
+IO::out_dir = $parfile
+IO::out_every = $out_every
+
+CarpetX::out_norm_vars = ""
+CarpetX::out_tsv_vars = ""
+
+CarpetX::out_silo_vars = "
+    WaveToyXHybrid::state
+    WaveToyXHybrid::rhs
+    WaveToyXHybrid::energy
+    WaveToyXHybrid::error
+"
+
+TimerReport::out_every = $out_every
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers = 100

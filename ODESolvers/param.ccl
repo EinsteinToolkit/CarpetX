@@ -11,6 +11,8 @@ KEYWORD method "ODE solver method" STEERABLE=always
   "RK4" :: "classic RK4"
   "RKF78" :: "Runge-Kutta-Fehlberg 7(8)"
   "DP87" :: "Dormand & Prince 8(7)"
+  
+  "RKAB4" :: "4-th order Runge-Kutta Adams-Bashforth hybrid integrator"
 
   "Implicit Euler" :: "implicit Euler"
 } "RK2"

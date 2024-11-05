@@ -1,0 +1,62 @@
+# Schedule definitions for thorn WaveToyX
+
+STORAGE: state rhs[2]
+
+SCHEDULE WaveToyXHybrid_Initial AT initial
+{
+  LANG: C
+  WRITES: state(interior)
+} "Initialize scalar wave state"
+
+# SCHEDULE WaveToyXHybrid_EstimateError AT postinitial
+# {
+#   LANG: C
+#   READS: state(everywhere)
+#   WRITES: CarpetXRegrid::regrid_error(interior)
+# } "Estimate error for regridding"
+# 
+# SCHEDULE WaveToyXHybrid_EstimateError AT poststep
+# {
+#   LANG: C
+#   READS: state(everywhere)
+#   WRITES: CarpetXRegrid::regrid_error(interior)
+# } "Estimate error for regridding"
+
+SCHEDULE WaveToyXHybrid_Boundaries IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Apply boundary conditions"
+
+SCHEDULE WaveToyXHybrid_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: rhs(interior)
+} "Calculate scalar wave RHS"
+
+SCHEDULE WaveToyXHybrid_RHS AT analysis
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: rhs(interior)
+  # Sync for test output
+  SYNC: rhs
+} "Calculate scalar wave RHS (so that it can be output)"
+
+SCHEDULE WaveToyXHybrid_Energy at analysis
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: energy(interior)
+  SYNC: energy
+} "Calculate scalar wave energy density"
+
+SCHEDULE WaveToyXHybrid_Error at analysis
+{
+  LANG: C
+  READS: state(interior)
+  WRITES: error(interior)
+  SYNC: error
+} "Calculate error in scalar wave state"

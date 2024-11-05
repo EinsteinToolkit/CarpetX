@@ -1,0 +1,43 @@
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    ODESolvers
+    WaveToyX
+"
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "presync-only"
+
+CarpetX::poison_undefined_values = yes
+
+CarpetX::ncells_x = 8
+CarpetX::ncells_y = 8
+CarpetX::ncells_z = 8
+
+Driver::periodic = "yes"
+Driver::periodic_x = yes
+Driver::periodic_y = yes
+Driver::periodic_z = yes
+
+Cactus::cctk_itlast = 10
+
+WaveToyX::initial_condition = "standing wave"
+
+ODESolvers::method = "RK3"
+
+IO::out_dir = $parfile
+IO::out_every = 10
+IO::out_fileinfo = "axis labels"
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+CarpetX::out_norm_vars = "all"
+CarpetX::out_norm_omit_unstable = yes
+CarpetX::out_norm_omit_sumloc_for_backward_compatibility = yes
+
+CarpetX::out_tsv_vars = "
+    WaveToyX::state
+    WaveToyX::energy
+    WaveToyX::error
+    WaveToyX::rhs
+"
