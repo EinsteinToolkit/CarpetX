@@ -138,14 +138,16 @@ template <> struct nan<double> {
 
 // An explicitly unrolled for loop
 
-template <int imin, int imax, int istep = 1, typename F,
-          enable_if_t<(istep > 0 ? imin >= imax : imin <= imax)> * = nullptr>
+template <
+    int imin, int imax, int istep = 1, typename F,
+    std::enable_if_t<(istep > 0 ? imin >= imax : imin <= imax)> * = nullptr>
 constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST void unroll_for(const F &f) {
   // done: do nothing
 }
 
-template <int imin, int imax, int istep = 1, typename F,
-          enable_if_t<!(istep > 0 ? imin >= imax : imin <= imax)> * = nullptr>
+template <
+    int imin, int imax, int istep = 1, typename F,
+    std::enable_if_t<!(istep > 0 ? imin >= imax : imin <= imax)> * = nullptr>
 constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST void unroll_for(const F &f) {
   f(imin);
   unroll_for<imin + istep, imax, istep>(f);

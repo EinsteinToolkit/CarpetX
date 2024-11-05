@@ -3,6 +3,7 @@
 IMPLEMENTS: TestSymmetries
 
 USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: vect.hxx
 
 CCTK_REAL var_vvv_ppp TYPE=gf CENTERING={vvv} TAGS="parities={+1 +1 +1}" "var_vvv_ppp"
 CCTK_REAL var_vvc_ppp TYPE=gf CENTERING={vvc} TAGS="parities={+1 +1 +1}" "var_vvc_ppp"

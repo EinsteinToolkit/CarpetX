@@ -1,16 +1,19 @@
 #include <loop_device.hxx>
 
+#include <vect.hxx>
+
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
-#include <array>
 #include <cassert>
 #include <cmath>
 #include <limits>
 #include <string>
 
 namespace TestSymmetries {
+
+using Arith::vect;
 
 bool get_parameter(const std::string &name, const std::string &thorn) {
   int type;
@@ -23,21 +26,21 @@ bool get_parameter(const std::string &name, const std::string &thorn) {
 
 template <int CI, int CJ, int CK, Loop::where_t where, typename F>
 void map_centering_parity(const cGH *restrict const cctkGH,
-                          const std::array<int, 3> &parity, const F &f) {
+                          const vect<int, 3> &parity, const F &f) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
-  const std::array<bool, 3> periodic{
+  const vect<bool, 3> periodic{
       get_parameter("periodic_x", "CarpetX"),
       get_parameter("periodic_y", "CarpetX"),
       get_parameter("periodic_z", "CarpetX"),
   };
-  const std::array<bool, 3> reflection_lower{
+  const vect<bool, 3> reflection_lower{
       get_parameter("reflection_x", "CarpetX"),
       get_parameter("reflection_y", "CarpetX"),
       get_parameter("reflection_z", "CarpetX"),
   };
-  const std::array<bool, 3> reflection_upper{
+  const vect<bool, 3> reflection_upper{
       get_parameter("reflection_upper_x", "CarpetX"),
       get_parameter("reflection_upper_y", "CarpetX"),
       get_parameter("reflection_upper_z", "CarpetX"),
@@ -46,7 +49,7 @@ void map_centering_parity(const cGH *restrict const cctkGH,
   // We assume the domain is [-1; +1]
 
   const auto makevalue =
-      [=] CCTK_DEVICE CCTK_HOST(const std::array<CCTK_REAL, Loop::dim> &x)
+      [=] CCTK_DEVICE CCTK_HOST(const vect<CCTK_REAL, Loop::dim> &x)
           CCTK_ATTRIBUTE_ALWAYS_INLINE {
             using std::acos, std::cos, std::sin;
             const CCTK_REAL pi = acos(CCTK_REAL(-1));
@@ -89,9 +92,9 @@ void map_centering_parity(const cGH *restrict const cctkGH,
     for (int k = -3; k <= 3; ++k) {
       for (int j = -3; j <= 3; ++j) {
         for (int i = -3; i <= 3; ++i) {
-          const std::array<CCTK_REAL, 3> x{
-              CCTK_REAL(0.5) * i, CCTK_REAL(0.5) * j, CCTK_REAL(0.5) * k};
-          std::array<CCTK_REAL, 3> x0 = x;
+          const vect<CCTK_REAL, 3> x{CCTK_REAL(0.5) * i, CCTK_REAL(0.5) * j,
+                                     CCTK_REAL(0.5) * k};
+          vect<CCTK_REAL, 3> x0 = x;
           CCTK_REAL f = makevalue(x);
           // map f back into the domain
           for (int d = 0; d < 3; ++d) {
@@ -129,15 +132,15 @@ void map_centering_parity(const cGH *restrict const cctkGH,
                    10 * std::numeric_limits<CCTK_REAL>::epsilon());
           }
         } // for i
-      }   // for j
-    }     // for k
+      } // for j
+    } // for k
     // Test that the function is not just zero
     for (int k = -5; k <= 5; ++k) {
       for (int j = -5; j <= 5; ++j) {
         for (int i = -5; i <= 5; ++i) {
           if (abs(i) >= 3 && abs(j) >= 3 && abs(k) >= 3) {
-            const std::array<CCTK_REAL, 3> x{
-                CCTK_REAL(0.25) * i, CCTK_REAL(0.25) * j, CCTK_REAL(0.25) * k};
+            const vect<CCTK_REAL, 3> x{CCTK_REAL(0.25) * i, CCTK_REAL(0.25) * j,
+                                       CCTK_REAL(0.25) * k};
             const CCTK_REAL f = makevalue(x);
             const bool want_zero =
                 (parity[0] < 0 && reflection_lower[0] && i == -4) ||
@@ -160,9 +163,9 @@ void map_centering_parity(const cGH *restrict const cctkGH,
     }
   }
 
-  constexpr std::array<int, Loop::dim> centering{CI, CJ, CK};
+  constexpr vect<int, Loop::dim> centering{CI, CJ, CK};
   const Loop::GF3D2layout layout(cctkGH, centering);
-  const std::array<std::array<CCTK_REAL *, 8>, 2> gfptrs{{
+  const vect<vect<CCTK_REAL *, 8>, 2> gfptrs{{
       {{
           var_vvv_mmm,
           var_vvc_mmm,
@@ -202,7 +205,7 @@ void map_centering_all_parities(const cGH *restrict const cctkGH, const F &f) {
   for (int pk = -1; pk <= +1; pk += 2) {
     for (int pj = -1; pj <= +1; pj += 2) {
       for (int pi = -1; pi <= +1; pi += 2) {
-        const std::array<int, 3> parity{pi, pj, pk};
+        const vect<int, 3> parity{pi, pj, pk};
 
         // Other parities are not (yet?) implemented and tested
         if (!((pi < 0 && pj < 0 && pk < 0) || (pi > 0 && pj > 0 && pk > 0)))

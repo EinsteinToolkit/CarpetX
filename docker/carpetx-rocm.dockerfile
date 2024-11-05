@@ -6,8 +6,9 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real32 .
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
-# FROM amd64/rocm/dev-ubuntu-22.04:6.1.2
-FROM amd64/rocm/dev-ubuntu-24.04:6.2
+# FROM rocm/dev-ubuntu-22.04:6.1.2
+# FROM rocm/dev-ubuntu-24.04:6.2
+FROM rocm/dev-ubuntu-24.04:6.2
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -49,6 +50,7 @@ RUN apt-get update && \
         libopenblas-dev \
         libopenmpi-dev \
         libpetsc-real-dev \
+        libprotobuf-dev \
         libtool \
         libudev-dev \
         libyaml-cpp-dev \
@@ -60,6 +62,7 @@ RUN apt-get update && \
         numactl \
         perl \
         pkgconf \
+        protobuf-compiler \
         python3 \
         python3-pip \
         python3-requests \
@@ -126,13 +129,36 @@ RUN mkdir src && \
     true) && \
     rm -rf src
 
-# Install ADIOS2
-# ADIOS2 is a parallel I/O library, comparable to HDF5
+# Install MGARD
+# MGARD is a lossy compression library
+# Note: -DMGARD_ENABLE_HIP=ON doesn't work
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.10.1.tar.gz && \
-    tar xzf v2.10.1.tar.gz && \
-    cd ADIOS2-2.10.1 && \
+    wget https://github.com/CODARcode/MGARD/archive/refs/tags/1.5.2.tar.gz && \
+    tar xzf 1.5.2.tar.gz && \
+    cd MGARD-1.5.2 && \
+    cmake -B build -G Ninja \
+        -DBUILD_TESTING=OFF \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DCMAKE_PREFIX_PATH=/usr/local \
+        -DMGARD_ENABLE_OPENMP=ON \
+        -DMGARD_ENABLE_SERIAL=ON \
+        && \
+    cmake --build build && \
+    cmake --install build && \
+    true) && \
+    rm -rf src
+
+# Install ADIOS2
+# ADIOS2 is a parallel I/O library, comparable to HDF5
+# - depends on blosc2
+# - depends on MGARD
+RUN mkdir src && \
+    (cd src && \
+    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.10.2.tar.gz && \
+    tar xzf v2.10.2.tar.gz && \
+    cd ADIOS2-2.10.2 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -142,6 +168,7 @@ RUN mkdir src && \
         -DADIOS2_Blosc2_PREFER_SHARED=ON \
         -DADIOS2_USE_Blosc2=ON \
         -DADIOS2_USE_Fortran=OFF \
+        -DADIOS2_USE_MGARD=ON \
         && \
     cmake --build build && \
     cmake --install build && \
@@ -189,9 +216,9 @@ RUN mkdir src && \
 # - depends on ADIOS2
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.15.2.tar.gz && \
-    tar xzf 0.15.2.tar.gz && \
-    cd openPMD-api-0.15.2 && \
+    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.16.0.tar.gz && \
+    tar xzf 0.16.0.tar.gz && \
+    cd openPMD-api-0.16.0 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -286,9 +313,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.10.tar.gz && \
-    tar xzf 24.10.tar.gz && \
-    cd amrex-24.10 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.11.tar.gz && \
+    tar xzf 24.11.tar.gz && \
+    cd amrex-24.11 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \

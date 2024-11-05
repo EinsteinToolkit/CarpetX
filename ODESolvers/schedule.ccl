@@ -89,6 +89,34 @@ SCHEDULE ODESolvers_Solve AT evol
 
 
 
+# Define all groups without scheduling them
+
+  SCHEDULE GROUP ODESolvers_BaseGrid
+  {
+  } "Set up constants (e.g. coordinates) everywhere on the grid"
+  
+  SCHEDULE GROUP ODESolvers_Initial
+  {
+  } "Set up initial conditions on interior of state vector"
+  
+  SCHEDULE GROUP ODESolvers_PostStep
+  {
+  } "Apply boundary conditions to state vector, and project if necessary"
+  
+  SCHEDULE GROUP ODESolvers_RHS
+  {
+  } "Evaluate RHS for of state vector everywhere on the grid"
+
+  SCHEDULE GROUP ODESolvers_EstimateError
+  {
+  } "Estimate discretization error (for regridding)"
+
+  SCHEDULE GROUP ODESolvers_Analysis
+  {
+  } "Calculate analysis quantities everywhere"
+
+
+
 # Initialization
 
   SCHEDULE GROUP ODESolvers_BaseGrid AT basegrid
@@ -103,25 +131,45 @@ SCHEDULE ODESolvers_Solve AT evol
   {
   } "Apply boundary conditions to state vector, and project if necessary"
   
-  SCHEDULE GROUP ODESolvers_RHS AT postinitial AFTER ODESolvers_PostStep
-  {
-  } "Evaluate RHS for of state vector everywhere on the grid"
-  
+  # SCHEDULE GROUP ODESolvers_RHS AT postinitial AFTER ODESolvers_PostStep
+  # {
+  # } "Evaluate RHS for of state vector everywhere on the grid"
+
   SCHEDULE GROUP ODESolvers_EstimateError AT postinitial AFTER (ODESolvers_PostStep, ODESolvers_RHS)
   {
   } "Estimate discretization error (for regridding)"
 
-# Time evolution
+# Recovering
 
-  # This group will also be scheduled dynamically from ODESolvers_solve
-  SCHEDULE GROUP ODESolvers_PostStep AT poststep
+  SCHEDULE GROUP ODESolvers_PostStep AT post_recover_variables
   {
   } "Apply boundary conditions to state vector, and project if necessary"
-  
-  # This group will also be scheduled dynamically from ODESolvers_solve
-  SCHEDULE GROUP ODESolvers_RHS AT poststep AFTER ODESolvers_PostStep
+
+  # SCHEDULE GROUP ODESolvers_RHS AT post_recover_variables AFTER ODESolvers_PostStep
+  # {
+  # } "Evaluate RHS for of state vector everywhere on the grid"
+
+  SCHEDULE GROUP ODESolvers_EstimateError AT post_recover_variables AFTER (ODESolvers_PostStep, ODESolvers_RHS)
   {
-  } "Evaluate the RHS for of state vector everywhere on the grid"
+  } "Estimate discretization error (for regridding)"
+
+# Regridding
+
+  SCHEDULE GROUP ODESolvers_PostStep AT postregrid
+  {
+  } "Apply boundary conditions to state vector, and project if necessary"
+
+# Time evolution
+
+  # # This group will also be scheduled dynamically from ODESolvers_solve
+  # SCHEDULE GROUP ODESolvers_PostStep AT poststep
+  # {
+  # } "Apply boundary conditions to state vector, and project if necessary"
+  
+  # # This group will also be scheduled dynamically from ODESolvers_solve
+  # SCHEDULE GROUP ODESolvers_RHS AT poststep AFTER ODESolvers_PostStep
+  # {
+  # } "Evaluate the RHS for of state vector everywhere on the grid"
   
   # # This group will also be scheduled dynamically from ODESolvers_solve
   # SCHEDULE GROUP ODESolvers_ImplicitStep AT poststep AFTER ODESolvers_PostStep
@@ -131,12 +179,6 @@ SCHEDULE ODESolvers_Solve AT evol
   SCHEDULE GROUP ODESolvers_EstimateError AT poststep AFTER (ODESolvers_PostStep, ODESolvers_RHS)
   {
   } "Estimate discretization error (for regridding)"
-
-# Regridding
-
-  SCHEDULE GROUP ODESolvers_PostStep AT postregrid
-  {
-  } "Apply boundary conditions to state vector, and project if necessary"
 
 # Restricting
 
