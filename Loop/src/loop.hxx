@@ -187,8 +187,9 @@ public:
             // Outward boundary normal (if on outermost interior point), else 0
             const vect<int, dim> BI =
                 vect<int, dim>(I == bnd_max - 1) - vect<int, dim>(I == bnd_min);
+            const vect<bool, dim> CI1{CI, CJ, CK};
             const PointDesc p =
-                point_desc({CI, CJ, CK}, I, iter, NI, I0, BI, bnd_min, bnd_max,
+                point_desc(CI1, I, iter, NI, I0, BI, bnd_min, bnd_max,
                            loop_min, loop_max);
             f(p);
           }
