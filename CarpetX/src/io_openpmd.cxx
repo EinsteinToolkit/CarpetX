@@ -121,6 +121,9 @@ const std::string options = R"EOS(
     "adios2": {
       "dataset": {
         "operators": [
+)EOS"
+#ifdef ADIOS2_HAVE_BLOSC2
+R"EOS(
           {
             "type": "blosc",
             "parameters": {
@@ -128,6 +131,9 @@ const std::string options = R"EOS(
               "doshuffle": "BLOSC_SHUFFLE"
             }
           }
+)EOS"
+#endif
+R"EOS(
         ]
       }
     }
