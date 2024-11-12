@@ -17,6 +17,7 @@ USES INCLUDE HEADER: loop_device.hxx
 INCLUDES HEADER: driver.hxx IN driver.hxx
 INCLUDES HEADER: schedule.hxx IN schedule.hxx
 INCLUDES HEADER: reduction.hxx IN reduction.hxx
+INCLUDES HEADER: timer.hxx IN timer.hxx
 
 
 
