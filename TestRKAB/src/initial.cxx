@@ -53,13 +53,9 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         [&] CCTK_HOST(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           using std::cos;
 
-          const auto noise_func{cos(10.0 * p.x / p.dx) *
-                                cos(10.0 * p.y / p.dy) *
-                                cos(10.0 * p.z / p.dz)};
-
-          const auto noise_value{noise_boundary *
-                                 (noise_func > 0 ? 1.0 : -1.0)};
-
+          const auto noise_value{noise_boundary * cos(10.0 * p.x / p.dx) *
+                                 cos(10.0 * p.y / p.dy) *
+                                 cos(10.0 * p.z / p.dz)};
           phi(p.I) = noise_value;
           Pi(p.I) = noise_value;
           Dx(p.I) = noise_value;
