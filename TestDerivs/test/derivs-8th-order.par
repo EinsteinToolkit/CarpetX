@@ -46,15 +46,15 @@ CarpetX::dtfac = 0.5
 
 CarpetX::prolongation_type = "ddf"
 CarpetX::prolongation_order = 7
-CarpetX::ghost_size = 4  # 1 extra for diss operator
+CarpetX::ghost_size = 5  # 1 extra for diss operator
 
-TestDerivs::deriv_order = 6
+TestDerivs::deriv_order = 8
 TestDerivs::kxx = 1.0
 TestDerivs::kxy = 1.0
 TestDerivs::kyz = 1.0
 
 IO::out_dir = $parfile
-IO::out_fileinfo = "axis labels"
+IO::out_fileinfo = "none"
 IO::parfile_write = "no"
 IO::out_every = 1
 
