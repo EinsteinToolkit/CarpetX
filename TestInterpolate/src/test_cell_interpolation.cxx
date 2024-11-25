@@ -6,17 +6,17 @@ namespace TestInterpolate {
 
 #define DIM(v) ((int)(sizeof(v)/sizeof((v)[0])))
 
-extern "C" void TestInterpolate_test_interpolation(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_TestInterpolate_test_interpolation;
+extern "C" void TestInterpolate_test_cell_interpolation(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_TestInterpolate_test_cell_interpolation;
 
   constexpr CCTK_INT N_dims = 3;
 
   const CCTK_INT all_operations[1 + N_dims + N_dims*(N_dims-1)] = {0, 1, 2, 3, 11, 12, 13, 22, 23, 33};
 
   const CCTK_INT all_varinds[N_dims] = {
-      CCTK_VarIndex("CoordinatesX::vcoordx"),
-      CCTK_VarIndex("CoordinatesX::vcoordy"),
-      CCTK_VarIndex("CoordinatesX::vcoordz"),
+      CCTK_VarIndex("CoordinatesX::ccoordx"),
+      CCTK_VarIndex("CoordinatesX::ccoordy"),
+      CCTK_VarIndex("CoordinatesX::ccoordz"),
   };
 
   constexpr int nvars = DIM(all_varinds) * DIM(all_operations);

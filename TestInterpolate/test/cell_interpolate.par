@@ -35,6 +35,8 @@ Driver::regrid_error_threshold = 5.0
 
 CarpetX::prolongation_type = "ddf"
 
+TestInterpolate::test_cell_interpolation = yes
+
 IO::out_dir = $parfile
 IO::out_fileinfo = "axis labels"
 IO::parfile_write = "no"
