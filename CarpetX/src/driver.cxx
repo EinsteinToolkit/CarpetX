@@ -2310,12 +2310,21 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml,
   return yaml;
 }
 
+YAML::Emitter &operator<<(YAML::Emitter &yaml, const CCTK_COMPLEX &cval) {
+  yaml << YAML::Flow << YAML::BeginSeq << cval.real() << cval.imag()
+       << YAML::EndSeq;
+  return yaml;
+};
+
 YAML::Emitter &
 operator<<(YAML::Emitter &yaml,
            const GHExt::GlobalData::AnyTypeVector &anytypevector) {
   yaml << YAML::BeginSeq;
   for (size_t i = 0; i < anytypevector.size(); ++i) {
     switch (anytypevector.type()) {
+    case CCTK_VARIABLE_COMPLEX:
+      yaml << *(CCTK_COMPLEX *)anytypevector.data_at(i);
+      break;
     case CCTK_VARIABLE_REAL:
       yaml << *(CCTK_REAL *)anytypevector.data_at(i);
       break;
