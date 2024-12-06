@@ -1,5 +1,6 @@
 #include "driver.hxx"
 
+#include "backtrace.hxx"
 #include "boundaries.hxx"
 #include "fillpatch.hxx"
 #include "interp.hxx"
@@ -2074,7 +2075,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
         check_valid_gf(active_levels, gi, vi, tl, nan_handling,
                        []() { return "RemakeLevel before prolongation"; });
       } // for vi
-    } // for tl
+    }   // for tl
 
   } // for gi
 
@@ -2490,6 +2491,8 @@ extern "C" int CarpetX_Startup() {
   iret = CCTK_InterpRegisterOpLocalUniform(InterpLocalUniform, "CarpetX",
                                            CCTK_THORNSTRING);
   assert(!iret && "CCTK_InterpRegisterOpLocalUniform failed");
+
+  request_backtraces(); // do this only after CCTK_MyProc has been overloaded
 
   return 0;
 }

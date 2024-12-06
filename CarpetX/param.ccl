@@ -19,6 +19,10 @@ STRING amrex_parameters[100] "Additional AMReX parameters"
 } ""
 
 
+BOOLEAN test_backtrace "Kill yourself to test the backtrace mechanism"
+{
+} "no"
+
 
 CCTK_REAL xmin "Domain size (location of vertices)"
 {

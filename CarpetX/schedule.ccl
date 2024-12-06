@@ -18,7 +18,12 @@ if (!CCTK_Equals(recover, "no") && *recover_file)
   } "Recover parameters"
 }
 
-
+if (test_backtrace) {
+  SCHEDULE CarpetX_BacktraceTest AT basegrid
+  {
+    LANG: C
+  } "Test stack backtraces"
+}
 
 # I/O
 
