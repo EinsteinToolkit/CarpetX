@@ -1206,8 +1206,11 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                 constexpr std::uint64_t ipoison =
                     0xfff8000000000000ULL + 0xdeadbeef;
 #endif
-                char poison[CCTK_VarTypeSize(cgroup.vartype)];
-                std::memcpy(&poison, &ipoison, sizeof(poison));
+                const size_t typesize = size_t(CCTK_VarTypeSize(cgroup.vartype));
+                std::vector<char> poison(typesize);
+                // for int: deadbeef for little endian machines
+                for (size_t i = 0; i < typesize; i += sizeof poison)
+                  std::memcpy(&poison[i], &ipoison, std::min(poison.size(), typesize - i));
                 for (int k = extbox.lo[2]; k < extbox.hi[2]; ++k) {
                   for (int j = extbox.lo[1]; j < extbox.hi[1]; ++j) {
                     for (int i = extbox.lo[0]; i < extbox.hi[0]; ++i) {
@@ -1216,7 +1219,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                         memcpy(cactus_ptr->data_at(cactus_di * i +
                                                    cactus_dj * j +
                                                    cactus_dk * k),
-                               poison, sizeof(poison));
+                               poison.data(), poison.size());
                     }
                   }
                 }
