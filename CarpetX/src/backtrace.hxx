@@ -1,10 +1,10 @@
-#ifndef BACKTRACE_HH
-#define BACKTRACE_HH
+#ifndef CARPETX_CARPETX_BACKTRACE_HXX
+#define CARPETX_CARPETX_BACKTRACE_HXX
 
-namespace CarpetLib {
+namespace CarpetX {
 
 void request_backtraces();
 
-} // namespace CarpetLib
+} // namespace CarpetX
 
-#endif // #ifndef BACKTRACE_HH
+#endif // #ifndef CARPETX_CARPETX_BACKTRACE_HXX

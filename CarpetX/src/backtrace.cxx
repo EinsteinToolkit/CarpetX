@@ -7,15 +7,18 @@
 // needed for dladdr, best at the top to avoid inconsistent includes
 #define _GNU_SOURCE 1
 
-#include "backtrace.hh"
-#include "dist.hh"
+#include "backtrace.hxx"
 
 #include <cctk.h>
+#include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <ostream>
+
+#include <signal.h>
 
 // These are used for backtraces. HAVE_XXX requires cctk.h
 #include <sys/types.h>
@@ -34,7 +37,7 @@
 
 using namespace std;
 
-namespace CarpetLib {
+namespace CarpetX {
 
 // Generate a stack backtrace and send it to the given output
 // stream
@@ -42,8 +45,8 @@ void generate_backtrace(ostream &stacktrace) {
   const int MAXSTACK = 100;
   static void *addresses[MAXSTACK];
 
-  stacktrace << "Backtrace from rank " << dist::rank() << " pid " << getpid()
-             << ":" << endl;
+  stacktrace << "Backtrace from rank " << CCTK_MyProc(NULL) << " pid "
+             << getpid() << ":" << endl;
 
   int n = 0;
 #ifdef HAVE_BACKTRACE
@@ -87,7 +90,7 @@ void generate_backtrace(ostream &stacktrace) {
 #ifdef HAVE_BACKTRACE_SYMBOLS
                    << names[i]
 #else
-		   << addresses[i]
+                   << addresses[i]
 #endif
                    << "]" << '\n';
         free(demangled);
@@ -96,7 +99,7 @@ void generate_backtrace(ostream &stacktrace) {
 #ifdef HAVE_BACKTRACE_SYMBOLS
                    << names[i]
 #else
-		   << addresses[i]
+                   << addresses[i]
 #endif
                    << '\n';
       }
@@ -119,7 +122,7 @@ void write_backtrace_file(void) {
   stringstream ss;
 
   ss << out_dir << "/"
-     << "backtrace." << dist::rank() << ".txt";
+     << "backtrace." << CCTK_MyProc(NULL) << ".txt";
   string filename = ss.str();
 
   cerr << "Writing backtrace to " << filename << endl;
@@ -134,18 +137,12 @@ void write_backtrace_file(void) {
   myfile.close();
 }
 
-} // namespace CarpetLib
-
 //////////////////////////////////////////////////////////////////////////////
-
-#include <signal.h>
-
-namespace CarpetLib {
 
 void signal_handler(int const signum) {
   pid_t const pid = getpid();
 
-  cerr << "Rank " << dist::rank() << " with PID " << pid << " "
+  cerr << "Rank " << CCTK_MyProc(NULL) << " with PID " << pid << " "
        << "received signal " << signum << endl;
   // Restore the default signal handler
   signal(signum, SIG_DFL);
@@ -165,18 +162,11 @@ void request_backtraces() {
   signal(SIGSEGV, signal_handler);
 }
 
-} // namespace CarpetLib
-
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <cctk.h>
-#include <cctk_Arguments.h>
-
-namespace CarpetLib {
-
-extern "C" void CarpetLib_BacktraceTest(CCTK_ARGUMENTS) {
+extern "C" void CarpetX_BacktraceTest(CCTK_ARGUMENTS) {
   CCTK_INFO("Generating backtrace...");
   kill(0, SIGABRT);
   CCTK_WARN(CCTK_WARN_ABORT, "Backtrace test failed");
 }
-}
+} // namespace CarpetX
