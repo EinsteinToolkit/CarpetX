@@ -167,14 +167,15 @@ struct GHExt {
       // Noncopyable for now
       AnyTypeVector(const AnyTypeVector &) = delete;
       AnyTypeVector &operator=(const AnyTypeVector &) = delete;
-      AnyTypeVector &operator=(const AnyTypeVector &&other) {
-        this->_type = other._type;
-        this->_data = other._data;
-        this->_count = other._count;
+      AnyTypeVector &operator=(AnyTypeVector &&other) {
+        swap(other);
         return *this;
       }
-      AnyTypeVector(AnyTypeVector &&other)
-          : _type(other._type), _data(other._data), _count(other._count) {}
+      AnyTypeVector(AnyTypeVector &&other) : _type(other._type), _data(other._data), _count(other._count) {
+        other._type = -1;
+        other._data = nullptr;
+        other._count = 0;
+      }
       void swap(AnyTypeVector &other) {
         std::swap(this->_type, other._type);
         std::swap(this->_data, other._data);
