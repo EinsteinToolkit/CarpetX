@@ -233,7 +233,11 @@ struct GHExt {
       int type() const { return _type; };
       int typesize() const { return _typesize; };
 
-      void *data_at(size_t i) const {
+      const void *data_at(size_t i) const {
+        return (char *)_data + i * _typesize;
+      };
+
+      void *data_at(size_t i) {
         return (char *)_data + i * _typesize;
       };
 
