@@ -7,7 +7,7 @@ USES INCLUDE HEADER: vect.hxx
 
 
 
-CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="error"'
+CCTK_REAL state TYPE=gf TAGS='rhs="rhs" p_rhs="p_rhs" edependents="error"'
 {
   phi
   Pi
@@ -15,15 +15,6 @@ CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="error"'
   Dy
   Dz
 } "Scalar wave equation state vector"
-
-CCTK_REAL pre TYPE=gf TAGS='checkpoint="no"'
-{
-  phi_pre
-  Pi_pre
-  Dx_pre
-  Dy_pre
-  Dz_pre
-} "Scalar wave equation previous state vector"
 
 CCTK_REAL rhs TYPE=gf TAGS='checkpoint="no"'
 {
@@ -33,6 +24,15 @@ CCTK_REAL rhs TYPE=gf TAGS='checkpoint="no"'
   Dy_rhs
   Dz_rhs
 } "RHS of scalar wave equation"
+
+CCTK_REAL p_rhs TYPE=gf TAGS='checkpoint="no"'
+{
+  phi_p_rhs
+  Pi_p_rhs
+  Dx_p_rhs
+  Dy_p_rhs
+  Dz_p_rhs
+} "Scalar wave equation previous state vector"
 
 CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
 {

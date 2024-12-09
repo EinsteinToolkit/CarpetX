@@ -6,13 +6,14 @@ ActiveThorns = "
 "
 
 ###### Settings ######
-$final_time = 100.0
-$out_every_time = 1.0
+$final_time = 1000.0
+$out_every_time = 100.0
 
-$start = -1.0
-$end = 1.0
+$start = -0.5
+$end = 0.5
 
-$ncells = 128
+$rho = 1 # 1, 2, 4
+$ncells = 50 * $rho
 $cfl = 0.9
 ######################
 
@@ -27,6 +28,7 @@ $out_every_it = ceil($out_every_time / $dt)
 
 TestRKAB::compute_error = no
 TestRKAB::initial_condition = "noise"
+TestRKAB::noise_boundary = 1.0e-10 / ($rho * $rho)
 
 CarpetX::poison_undefined_values = no
 CarpetX::verbose = no
@@ -42,9 +44,11 @@ CarpetX::xmax = $end
 CarpetX::ymax = $end
 CarpetX::zmax = $end
 
+# In the y and z directions, We use the min. ammount of points required for non
+# trivial finite differences with our stencil
 CarpetX::ncells_x = $ncells
-CarpetX::ncells_y = $ncells
-CarpetX::ncells_z = $ncells
+CarpetX::ncells_y = 5
+CarpetX::ncells_z = 5
 
 CarpetX::periodic = yes
 CarpetX::periodic_x = yes
@@ -62,13 +66,23 @@ CarpetX::blocking_factor_z = 1
 Cactus::terminate = "iteration"
 Cactus::cctk_itlast = $itlast
 
-ODESolvers::method = "RKAB"
+ODESolvers::method = "BMS422"
 ODESolvers::verbose = yes
 
 IO::out_dir = $parfile
 IO::out_every = $out_every_it
 
-CarpetX::out_norm_vars = ""
+CarpetX::out_metadata = no
+CarpetX::out_metadata_every = 0
+
+CarpetX::out_performance = no
+CarpetX::out_performance_every = 0
+
+CarpetX::out_norm_vars = "
+  TestRKAB::energy
+"
+
+CarpetX::out_tsv = no
 CarpetX::out_tsv_vars = ""
 
 CarpetX::out_silo_vars = "

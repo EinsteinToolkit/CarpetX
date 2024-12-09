@@ -43,10 +43,10 @@ using namespace std;
 namespace details {
 template <class> struct is_ref_wrapper : std::false_type {};
 template <class T>
-struct is_ref_wrapper<std::reference_wrapper<T>> : std::true_type {};
+struct is_ref_wrapper<std::reference_wrapper<T> > : std::true_type {};
 
 template <class T>
-using not_ref_wrapper = std::negation<is_ref_wrapper<std::decay_t<T>>>;
+using not_ref_wrapper = std::negation<is_ref_wrapper<std::decay_t<T> > >;
 
 template <class D, class...> struct return_type_helper {
   using type = D;
@@ -308,7 +308,7 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
   statecomp_t::combine_valids(dst, scale, factors, srcs, where);
 
 #ifndef AMREX_USE_GPU
-  vector<function<void()>> tasks;
+  vector<function<void()> > tasks;
 #endif
 
   for (size_t m = 0; m < size; ++m) {
@@ -608,34 +608,64 @@ int get_group_rhs(const int gi) {
   return rhs;
 }
 
-inline int get_group_pre(const int gi) {
+int get_group_p_rhs(const int gi) {
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
   assert(tags >= 0);
-  std::vector<char> rhs_buf(1000);
-  const int iret =
-      Util_TableGetString(tags, rhs_buf.size(), rhs_buf.data(), "rhs");
+
+  std::array<char, 1024> table_buffer{};
+  const int iret = Util_TableGetString(tags, table_buffer.size(),
+                                       table_buffer.data(), "p_rhs");
   if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    rhs_buf[0] = '\0'; // default: empty (no RHS)
+    table_buffer[0] = '\0'; // default: empty (no P_RHS)
   } else if (iret >= 0) {
     // do nothing
   } else {
     assert(0);
   }
 
-  std::string str(rhs_buf.data());
+  const std::string str(table_buffer.data());
   if (str.empty())
-    return -1; // No RHS specified
-  std::size_t pos = str.find("rhs");
-  str.replace(pos, 3, "pre");
-  const int pre = groupindex(gi, str);
-  if (pre < 0)
-    CCTK_VERROR("Variable group \"%s\" declares a PRE group \"%s\". "
+    return -1; // No P_RHS specified
+
+  const int p_rhs = groupindex(gi, str);
+  if (p_rhs < 0)
+    CCTK_VERROR("Variable group \"%s\" declares a P_RHS group \"%s\". "
                 "That group does not exist.",
                 CCTK_FullGroupName(gi), str.c_str());
-  assert(pre != gi);
+  assert(p_rhs != gi);
 
-  return pre;
+  return p_rhs;
+}
+
+int get_group_pp_rhs(const int gi) {
+  assert(gi >= 0);
+  const int tags = CCTK_GroupTagsTableI(gi);
+  assert(tags >= 0);
+
+  std::array<char, 1024> table_buffer{};
+  const int iret = Util_TableGetString(tags, table_buffer.size(),
+                                       table_buffer.data(), "pp_rhs");
+  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
+    table_buffer[0] = '\0'; // default: empty (no PP_RHS)
+  } else if (iret >= 0) {
+    // do nothing
+  } else {
+    assert(0);
+  }
+
+  const std::string str(table_buffer.data());
+  if (str.empty())
+    return -1; // No PP_RHS specified
+
+  const int pp_rhs = groupindex(gi, str);
+  if (pp_rhs < 0)
+    CCTK_VERROR("Variable group \"%s\" declares a PP_RHS group \"%s\". "
+                "That group does not exist.",
+                CCTK_FullGroupName(gi), str.c_str());
+  assert(pp_rhs != gi);
+
+  return pp_rhs;
 }
 
 std::vector<int> get_group_dependents(const int gi) {
@@ -714,7 +744,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   static Timer timer_setup("ODESolvers::Solve::setup");
   std::optional<Interval> interval_setup(timer_setup);
 
-  statecomp_t var, rhs, pre;
+  statecomp_t var, rhs, p_rhs, pp_rhs;
   std::vector<int> var_groups, rhs_groups, dep_groups;
   int nvars = 0;
   bool do_accumulate_nvars = true;
@@ -727,6 +757,9 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
       auto &groupdata = *groupdataptr;
       const int rhs_gi = get_group_rhs(groupdata.groupindex);
+      const int p_rhs_gi = get_group_p_rhs(groupdata.groupindex);
+      const int pp_rhs_gi = get_group_pp_rhs(groupdata.groupindex);
+
       if (rhs_gi >= 0) {
         assert(rhs_gi != groupdata.groupindex);
         auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
@@ -735,6 +768,46 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         var.mfabs.push_back(groupdata.mfab.at(tl).get());
         rhs.groupdatas.push_back(&rhs_groupdata);
         rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
+
+        // Make sure that the correct number of pre states are available if BMS
+        // methods are selected
+        // Two step methods are handled here
+        if (CCTK_EQUALS(method, "BMS422")) {
+          if (p_rhs_gi >= 0) {
+            assert(p_rhs_gi != groupdata.groupindex);
+            auto &p_rhs_groupdata = *leveldata.groupdata.at(p_rhs_gi);
+            p_rhs.groupdatas.push_back(&p_rhs_groupdata);
+            p_rhs.mfabs.push_back(p_rhs_groupdata.mfab.at(tl).get());
+          } else {
+            CCTK_VERROR("Method %s was selectd but no p_rhs group was provided",
+                        method);
+          }
+        }
+
+        // Three step methods are handled here
+        if (CCTK_EQUALS(method, "BMS431")) {
+          if (p_rhs_gi >= 0) {
+            assert(p_rhs_gi != groupdata.groupindex);
+            auto &p_rhs_groupdata = *leveldata.groupdata.at(p_rhs_gi);
+            p_rhs.groupdatas.push_back(&p_rhs_groupdata);
+            p_rhs.mfabs.push_back(p_rhs_groupdata.mfab.at(tl).get());
+          } else {
+            CCTK_VERROR("Method %s was selectd but no p_rhs group was provided",
+                        method);
+          }
+
+          if (pp_rhs_gi >= 0) {
+            assert(pp_rhs_gi != groupdata.groupindex);
+            auto &pp_rhs_groupdata = *leveldata.groupdata.at(pp_rhs_gi);
+            pp_rhs.groupdatas.push_back(&pp_rhs_groupdata);
+            pp_rhs.mfabs.push_back(pp_rhs_groupdata.mfab.at(tl).get());
+          } else {
+            CCTK_VERROR(
+                "Method %s was selectd but no pp_rhs group was provided",
+                method);
+          }
+        }
+
         if (do_accumulate_nvars) {
           nvars += groupdata.numvars;
           var_groups.push_back(groupdata.groupindex);
@@ -747,26 +820,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     }
     do_accumulate_nvars = false;
   });
-
-  if (CCTK_EQUALS(method, "RKAB")) {
-    CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
-      for (const auto &groupdataptr : leveldata.groupdata) {
-        // TODO: add support for evolving grid scalars
-        if (groupdataptr == nullptr)
-          continue;
-
-        auto &groupdata = *groupdataptr;
-        const int pre_gi = get_group_pre(groupdata.groupindex);
-        if (pre_gi >= 0) {
-          assert(pre_gi != groupdata.groupindex);
-          auto &pre_groupdata = *leveldata.groupdata.at(pre_gi);
-          pre.groupdatas.push_back(&pre_groupdata);
-          pre.mfabs.push_back(pre_groupdata.mfab.at(tl).get());
-        }
-      }
-      do_accumulate_nvars = false;
-    });
-  }
 
   if (verbose)
     CCTK_VINFO("  Integrating %d variables", nvars);
@@ -957,14 +1010,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
                states<3>{&old, &kaccum, &rhs});
 
-  } else if (CCTK_EQUALS(method, "RKAB")) {
+  } else if (CCTK_EQUALS(method, "BMS422")) {
 
+    // RK4 Bootstrapping
     if (cctkGH->cctk_iteration <= 1) {
-
       const auto old = copy_state(var, make_valid_all());
 
       calcrhs(1);
-      statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&rhs},
+      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
                            make_valid_int());
       const auto kaccum = copy_state(rhs, make_valid_int());
       calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
@@ -1014,12 +1067,12 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const auto old = copy_state(var, make_valid_all());
 
       // copy k0 from pre
-      const auto k0 = copy_state(pre, make_valid_int());
+      const auto k0 = copy_state(p_rhs, make_valid_int());
       calcupdate(1, dt / 2, 0.0, reals<1>{1.0}, states<1>{&old});
 
       // calculate k1
       calcrhs(2);
-      statecomp_t::lincomb(pre, 0.0, reals<1>{1.0}, states<1>{&rhs},
+      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
                            make_valid_int());
       const auto k1 = copy_state(rhs, make_valid_int());
       calcupdate(2, dt / 2, 0.0, reals<3>{1.0, coeff[1], coeff[0]},
@@ -1043,7 +1096,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     typedef CCTK_REAL T;
     const auto R = [](T x, T y) { return x / y; };
-    const tuple<vector<tuple<T, vector<T>>>, vector<T>> tableau{
+    const tuple<vector<tuple<T, vector<T> > >, vector<T> > tableau{
         {
             {/* 1 */ 0, {}},                                           //
             {/* 2 */ R(2, 27), {R(2, 27)}},                            //
@@ -1155,7 +1208,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // CactusNumerical/MoL, file RK87.c, written by Peter Diener,
     // following P. J. Prince and J. R. Dormand, Journal of
     // Computational and Applied Mathematics, volume 7, no 1, 1981
-    const tuple<vector<vector<T>>, vector<T>> tableau{
+    const tuple<vector<vector<T> >, vector<T> > tableau{
         {
             {/*1*/},                                    //
             {/*2*/ R(1, 18)},                           //

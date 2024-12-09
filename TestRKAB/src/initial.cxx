@@ -70,11 +70,11 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
   grid.loop_int_device<0, 0, 0>(grid.nghostzones,
                                 [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                      phi_pre(p.I) = 0.0;
-                                      Pi_pre(p.I) = 0.0;
-                                      Dx_pre(p.I) = 0.0;
-                                      Dy_pre(p.I) = 0.0;
-                                      Dz_pre(p.I) = 0.0;
+                                      phi_p_rhs(p.I) = 0.0;
+                                      Pi_p_rhs(p.I) = 0.0;
+                                      Dx_p_rhs(p.I) = 0.0;
+                                      Dy_p_rhs(p.I) = 0.0;
+                                      Dz_p_rhs(p.I) = 0.0;
                                     });
 }
 
