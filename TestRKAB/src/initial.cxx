@@ -75,6 +75,12 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
                                       Dx_p_rhs(p.I) = 0.0;
                                       Dy_p_rhs(p.I) = 0.0;
                                       Dz_p_rhs(p.I) = 0.0;
+
+                                      phi_pp_rhs(p.I) = 0.0;
+                                      Pi_pp_rhs(p.I) = 0.0;
+                                      Dx_pp_rhs(p.I) = 0.0;
+                                      Dy_pp_rhs(p.I) = 0.0;
+                                      Dz_pp_rhs(p.I) = 0.0;
                                     });
 }
 

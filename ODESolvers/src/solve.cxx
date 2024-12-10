@@ -803,7 +803,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
             pp_rhs.mfabs.push_back(pp_rhs_groupdata.mfab.at(tl).get());
           } else {
             CCTK_VERROR(
-                "Method %s was selectd but no pp_rhs group was provided",
+                "Method %s was selected but no pp_rhs group was provided",
                 method);
           }
         }
@@ -1014,6 +1014,12 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     // RK4 Bootstrapping
     if (cctkGH->cctk_iteration <= 1) {
+      // k1 = f(y0)
+      // k2 = f(y0 + h/2 k1)
+      // k3 = f(y0 + h/2 k2)
+      // k4 = f(y0 + h k3)
+      // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
+
       const auto old = copy_state(var, make_valid_all());
 
       calcrhs(1);
@@ -1043,55 +1049,139 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                  states<3>{&old, &kaccum, &rhs});
 
     } else {
+      // k0 = f(y(t - h))
+      // k1 = f(y(t))
+      // k2 = f(y(t) + h * (a20 * k0 + a21 * k1))
+      // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
+      // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const std::array<CCTK_REAL, 8> coeff_multipliers = {
-          0.3736646857963324,     // c1
-          0.03127973625120939,    // c2
-          -0.14797683066152537,   // c3
-          0.33238257148754524,    // c4
-          -0.0010981891892632696, // c5
-          -0.0547559191353386,    // c6
-          2.754535159970365,      // c7
-          3.414713672966062       // c8
-      };
+      const CCTK_REAL b0{-0.05475591913533874 * dt};
+      const CCTK_REAL b1{2.754535159970365 * dt};
+      const CCTK_REAL b2{3.414713672966061 * dt};
+      const CCTK_REAL b3{-5.114492913801088 * dt};
+      const CCTK_REAL a20{0.03127973625120939 * dt};
+      const CCTK_REAL a21{0.3736646857963324 * dt};
+      const CCTK_REAL a30{-0.001098189189263279 * dt};
+      const CCTK_REAL a31{0.3323825714875453 * dt};
+      const CCTK_REAL a32{-0.1479768306615254 * dt};
 
-      // Precompute all coefficients by multiplying by dt
-      std::array<CCTK_REAL, 9> coeff; // We include c9 as well
-      for (int i = 0; i < 8; ++i) {
-        coeff[i] = dt * coeff_multipliers[i];
-      }
-      // Compute c9 (requires subtraction of c6, c7, and c8)
-      coeff[8] = dt - coeff[5] - coeff[6] - coeff[7]; // c9
-
-      // y0
+      // y(t)
       const auto old = copy_state(var, make_valid_all());
 
-      // copy k0 from pre
+      // k0
       const auto k0 = copy_state(p_rhs, make_valid_int());
-      calcupdate(1, dt / 2, 0.0, reals<1>{1.0}, states<1>{&old});
+      calcupdate(0, dt / 2, 0.0, reals<1>{1.0}, states<1>{&old});
 
-      // calculate k1
-      calcrhs(2);
+      // k1
+      calcrhs(1);
+
+      // cycle current RHS to previous
       statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
                            make_valid_int());
+
       const auto k1 = copy_state(rhs, make_valid_int());
-      calcupdate(2, dt / 2, 0.0, reals<3>{1.0, coeff[1], coeff[0]},
+      calcupdate(1, dt / 2, 0.0, reals<3>{1.0, a20, a21},
                  states<3>{&old, &k0, &k1});
 
-      // calculate k2
-      calcrhs(3);
+      // k2
+      calcrhs(2);
       const auto k2 = copy_state(rhs, make_valid_int());
-      calcupdate(3, dt, 0.0, reals<4>{1.0, coeff[4], coeff[3], coeff[2]},
+      calcupdate(2, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
                  states<4>{&old, &k0, &k1, &k2});
 
-      // calculate k3
-      calcrhs(4);
+      // k3
+      calcrhs(3);
       const auto k3 = copy_state(rhs, make_valid_int());
-      calcupdate(4, dt, 0.0,
-                 reals<5>{1.0, coeff[5], coeff[6], coeff[7], coeff[8]},
+      calcupdate(3, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
                  states<5>{&old, &k0, &k1, &k2, &k3});
     }
 
+  } else if (CCTK_EQUALS(method, "BMS431")) {
+
+    // RK4 Bootstrapping
+    if (cctkGH->cctk_iteration <= 2) {
+      // k1 = f(y0)
+      // k2 = f(y0 + h/2 k1)
+      // k3 = f(y0 + h/2 k2)
+      // k4 = f(y0 + h k3)
+      // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
+
+      const auto old = copy_state(var, make_valid_all());
+
+      calcrhs(1);
+
+      //  Cycle RHS storage
+      statecomp_t::lincomb(pp_rhs, 0.0, reals<1>{1.0}, states<1>{&p_rhs},
+                           make_valid_int());
+      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
+                           make_valid_int());
+
+      const auto kaccum = copy_state(rhs, make_valid_int());
+      calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
+
+      calcrhs(2);
+      {
+        Interval interval_lincomb(timer_lincomb);
+        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
+                             make_valid_int());
+      }
+      calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
+
+      calcrhs(3);
+      {
+        Interval interval_lincomb(timer_lincomb);
+        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
+                             make_valid_int());
+      }
+      calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
+
+      calcrhs(4);
+      calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
+                 states<3>{&old, &kaccum, &rhs});
+    } else {
+      // k0 = f(y(t - 2 * h))
+      // k1 = f(y(t - h))
+      // k2 = f(y(t))
+      // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
+      // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
+
+      const CCTK_REAL b0{-0.05571392188996792 * dt};
+      const CCTK_REAL b1{0.2952672041556790 * dt};
+      const CCTK_REAL b2{-1.031800004468798 * dt};
+      const CCTK_REAL b3{1.792246722203087 * dt};
+      const CCTK_REAL a30{0.04565392216561449 * dt};
+      const CCTK_REAL a31{-0.1640996685552935 * dt};
+      const CCTK_REAL a32{0.5000000000000000 * dt};
+
+      // y(t)
+      const auto old = copy_state(var, make_valid_all());
+
+      // k0
+      const auto k0 = copy_state(pp_rhs, make_valid_int());
+
+      // k1
+      const auto k1 = copy_state(p_rhs, make_valid_int());
+      calcupdate(0, dt / 2, 0.0, reals<1>{1.0}, states<1>{&old});
+
+      // k2
+      calcrhs(1);
+
+      // Cycle RHS storage
+      statecomp_t::lincomb(pp_rhs, 0.0, reals<1>{1.0}, states<1>{&p_rhs},
+                           make_valid_int());
+      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
+                           make_valid_int());
+
+      const auto k2 = copy_state(rhs, make_valid_int());
+      calcupdate(1, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
+                 states<4>{&old, &k0, &k1, &k2});
+
+      // k3
+      calcrhs(2);
+      const auto k3 = copy_state(rhs, make_valid_int());
+      calcupdate(2, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
+                 states<5>{&old, &k0, &k1, &k2, &k3});
+    }
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
     typedef CCTK_REAL T;
@@ -1121,7 +1211,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
             //  41),
             //   R(6, 41)}}, //
             // {/* 13 */ 1,
-            //  {R(-1777, 4100), 0, 0, R(-341, 164), R(4496, 1025), R(-289, 82),
+            //  {R(-1777, 4100), 0, 0, R(-341, 164), R(4496, 1025), R(-289,
+            //  82),
             //   R(2193, 4100), R(51, 82), R(33, 164), R(12, 41), 0, 1}}, //
         },
         {
