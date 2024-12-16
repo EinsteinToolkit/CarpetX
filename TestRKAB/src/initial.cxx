@@ -48,20 +48,27 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         });
 
   } else if (CCTK_EQUALS(initial_condition, "noise")) {
-    grid.loop_int<0, 0, 0>(
-        grid.nghostzones,
-        [&] CCTK_HOST(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          using std::cos;
 
-          const auto noise_value{noise_boundary * cos(10.0 * p.x / p.dx) *
-                                 cos(10.0 * p.y / p.dy) *
-                                 cos(10.0 * p.z / p.dz)};
-          phi(p.I) = noise_value;
-          Pi(p.I) = noise_value;
-          Dx(p.I) = noise_value;
-          Dy(p.I) = noise_value;
-          Dz(p.I) = noise_value;
-        });
+    static std::mt19937_64 engine(100);
+    static std::uniform_real_distribution<CCTK_REAL> distrib(-noise_boundary,
+                                                             noise_boundary);
+
+    grid.loop_int<0, 0, 0>(grid.nghostzones,
+                           [&] CCTK_HOST(const Loop::PointDesc &p)
+                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                 using std::cos;
+
+                                 // const auto noise_value{noise_boundary *
+                                 // cos(10.0 * p.x / p.dx) *cos(10.0 * p.y /
+                                 // p.dy) *cos(10.0 * p.z / p.dz)};
+                                 const auto noise_value{distrib(engine)};
+
+                                 phi(p.I) = noise_value;
+                                 Pi(p.I) = noise_value;
+                                 Dx(p.I) = noise_value;
+                                 Dy(p.I) = noise_value;
+                                 Dz(p.I) = noise_value;
+                               });
   } else {
     CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }

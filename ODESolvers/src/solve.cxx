@@ -1145,13 +1145,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const CCTK_REAL b0{-0.05571392188996792 * dt};
-      const CCTK_REAL b1{0.2952672041556790 * dt};
-      const CCTK_REAL b2{-1.031800004468798 * dt};
-      const CCTK_REAL b3{1.792246722203087 * dt};
-      const CCTK_REAL a30{0.04565392216561449 * dt};
-      const CCTK_REAL a31{-0.1640996685552935 * dt};
-      const CCTK_REAL a32{0.5000000000000000 * dt};
+      const CCTK_REAL b0{-0.03349358040167437 * dt};
+      const CCTK_REAL b1{0.1675571395584433 * dt};
+      const CCTK_REAL b2{-0.3373452246536155 * dt};
+      const CCTK_REAL b3{1.2032816654968466 * dt};
+      const CCTK_REAL a30{0.08300000000000000 * dt};
+      const CCTK_REAL a31{-0.2905554237119609 * dt};
+      const CCTK_REAL a32{0.7066654791345319 * dt};
 
       // y(t)
       const auto old = copy_state(var, make_valid_all());
@@ -1165,22 +1165,21 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
       // k2
       calcrhs(1);
+      const auto k2 = copy_state(rhs, make_valid_int());
 
       // Cycle RHS storage
       statecomp_t::lincomb(pp_rhs, 0.0, reals<1>{1.0}, states<1>{&p_rhs},
                            make_valid_int());
-      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
+      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&k2},
                            make_valid_int());
 
-      const auto k2 = copy_state(rhs, make_valid_int());
       calcupdate(1, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
                  states<4>{&old, &k0, &k1, &k2});
 
       // k3
       calcrhs(2);
-      const auto k3 = copy_state(rhs, make_valid_int());
       calcupdate(2, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
-                 states<5>{&old, &k0, &k1, &k2, &k3});
+                 states<5>{&old, &k0, &k1, &k2, &rhs});
     }
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
