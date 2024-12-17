@@ -1145,13 +1145,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const CCTK_REAL b0{-0.03349358040167437 * dt};
-      const CCTK_REAL b1{0.1675571395584433 * dt};
-      const CCTK_REAL b2{-0.3373452246536155 * dt};
-      const CCTK_REAL b3{1.2032816654968466 * dt};
-      const CCTK_REAL a30{0.08300000000000000 * dt};
-      const CCTK_REAL a31{-0.2905554237119609 * dt};
-      const CCTK_REAL a32{0.7066654791345319 * dt};
+      const CCTK_REAL b0{-0.03330134318968933 * dt};
+      const CCTK_REAL b1{0.1664889520688155 * dt};
+      const CCTK_REAL b2{-0.3325338070929823 * dt};
+      const CCTK_REAL b3{1.199346198213856 * dt};
+      const CCTK_REAL a30{0.08340000000000000 * dt};
+      const CCTK_REAL a31{-0.2918888836226473 * dt};
+      const CCTK_REAL a32{0.7086666192779788 * dt};
 
       // y(t)
       const auto old = copy_state(var, make_valid_all());
