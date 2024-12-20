@@ -779,8 +779,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
             p_rhs.groupdatas.push_back(&p_rhs_groupdata);
             p_rhs.mfabs.push_back(p_rhs_groupdata.mfab.at(tl).get());
           } else {
-            CCTK_VERROR("Method %s was selectd but no p_rhs group was provided",
-                        method);
+            CCTK_VERROR("Group %s provides no \"p_rhs\" tag for storing the "
+                        "previous RHS evaluations. This is required when using "
+                        "%s for time integration",
+                        groupdata.groupname.c_str(), method);
           }
         }
 
@@ -792,8 +794,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
             p_rhs.groupdatas.push_back(&p_rhs_groupdata);
             p_rhs.mfabs.push_back(p_rhs_groupdata.mfab.at(tl).get());
           } else {
-            CCTK_VERROR("Method %s was selectd but no p_rhs group was provided",
-                        method);
+            CCTK_VERROR("Group %s provides no \"p_rhs\" tag for storing the "
+                        "previous RHS evaluations. This is required when using "
+                        "%s for time integration",
+                        groupdata.groupname.c_str(), method);
           }
 
           if (pp_rhs_gi >= 0) {
@@ -802,9 +806,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
             pp_rhs.groupdatas.push_back(&pp_rhs_groupdata);
             pp_rhs.mfabs.push_back(pp_rhs_groupdata.mfab.at(tl).get());
           } else {
-            CCTK_VERROR(
-                "Method %s was selected but no pp_rhs group was provided",
-                method);
+            CCTK_VERROR("Group %s provides no \"pp_rhs\" tag for storing the "
+                        "previous-previous RHS evaluations. This is required "
+                        "when using %s for time integration",
+                        groupdata.groupname.c_str(), method);
           }
         }
 
