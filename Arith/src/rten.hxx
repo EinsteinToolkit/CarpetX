@@ -177,7 +177,7 @@ public:
   template <typename F, typename... Args>
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST void
   fmap_(const F &f, const rten &x, const rten<Args, D> &...args) {
-    fmap_(f, x.args, args.elts...);
+    fmap_(f, x.elts, args.elts...);
   }
 
   template <
