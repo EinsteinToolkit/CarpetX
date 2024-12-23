@@ -1369,12 +1369,6 @@ int Initialise(tFleshConfig *config) {
 bool EvolutionIsDone(cGH *restrict const cctkGH) {
   DECLARE_CCTK_PARAMETERS;
 
-  if (terminate_next || CCTK_TerminationReached(cctkGH))
-    return true;
-
-  if (CCTK_Equals(terminate, "never"))
-    return false;
-
   const bool max_iteration_reached = cctkGH->cctk_iteration >= cctk_itlast;
 
   const bool max_simulation_time_reached =
@@ -1382,28 +1376,38 @@ bool EvolutionIsDone(cGH *restrict const cctkGH) {
           ? cctkGH->cctk_time >= cctk_final_time
           : cctkGH->cctk_time <= cctk_final_time;
 
-  int runtime = CCTK_RunTime();
-  MPI_Bcast(&runtime, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  const int runtime = CCTK_RunTime();
   const bool max_runtime_reached = runtime >= 60 * max_runtime;
 
-  if (CCTK_Equals(terminate, "iteration"))
-    return max_iteration_reached;
-  if (CCTK_Equals(terminate, "time"))
-    return max_simulation_time_reached;
-  if (CCTK_Equals(terminate, "runtime"))
-    return max_runtime_reached;
-  if (CCTK_Equals(terminate, "any"))
-    return max_iteration_reached || max_simulation_time_reached ||
-           max_runtime_reached;
-  if (CCTK_Equals(terminate, "all"))
-    return max_iteration_reached && max_simulation_time_reached &&
-           max_runtime_reached;
-  if (CCTK_Equals(terminate, "either"))
-    return max_iteration_reached || max_simulation_time_reached;
-  if (CCTK_Equals(terminate, "both"))
-    return max_iteration_reached && max_simulation_time_reached;
+  bool we_are_done;
+  if (terminate_next || CCTK_TerminationReached(cctkGH))
+    we_are_done = true;
+  else if (CCTK_Equals(terminate, "never"))
+    we_are_done = false;
+  else if (CCTK_Equals(terminate, "iteration"))
+    we_are_done = max_iteration_reached;
+  else if (CCTK_Equals(terminate, "time"))
+    we_are_done = max_simulation_time_reached;
+  else if (CCTK_Equals(terminate, "runtime"))
+    we_are_done = max_runtime_reached;
+  else if (CCTK_Equals(terminate, "any"))
+    we_are_done = max_iteration_reached || max_simulation_time_reached ||
+                  max_runtime_reached;
+  else if (CCTK_Equals(terminate, "all"))
+    we_are_done = max_iteration_reached && max_simulation_time_reached &&
+                  max_runtime_reached;
+  else if (CCTK_Equals(terminate, "either"))
+    we_are_done = max_iteration_reached || max_simulation_time_reached;
+  else if (CCTK_Equals(terminate, "both"))
+    we_are_done = max_iteration_reached && max_simulation_time_reached;
+  else
+    CCTK_ERROR("internal error");
 
-  assert(0);
+  // Ensure all processes make the same decision
+  MPI_Allreduce(MPI_IN_PLACE, &we_are_done, 1, MPI_CXX_BOOL, MPI_LOR,
+                MPI_COMM_WORLD);
+
+  return we_are_done;
 }
 
 void InvalidateTimelevels(cGH *restrict const cctkGH) {
