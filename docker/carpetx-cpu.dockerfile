@@ -7,9 +7,8 @@
 #     docker push einsteintoolkit/carpetx:cpu-real32
 
 # noble is ubuntu:24.04
-# FROM amd64/ubuntu:noble-20240801
-# FROM amd64/ubuntu:noble-20240904.1
-FROM amd64/ubuntu:noble-20241011
+# FROM amd64/ubuntu:noble-20241015
+FROM amd64/ubuntu:noble-20241118.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -29,6 +28,7 @@ RUN apt-get update && \
         ca-certificates \
         clang-format \
         cmake \
+        curl \
         cvs \
         diffutils \
         elfutils \
@@ -37,6 +37,7 @@ RUN apt-get update && \
         gdb \
         gfortran \
         git \
+        hdf5-filter-plugin-zfp-serial \
         hdf5-tools \
         hwloc-nox \
         language-pack-en \
@@ -59,6 +60,7 @@ RUN apt-get update && \
         libtool \
         libudev-dev \
         libyaml-cpp-dev \
+        libzfp-dev \
         libzstd-dev \
         locales \
         m4 \
@@ -90,9 +92,9 @@ RUN apt-get update && \
 # Try to reuse build tools from Ubuntu, but do not use any libraries because HPC Toolkit is a bit iffy to install.
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/spack/spack/archive/refs/tags/v0.22.2.tar.gz && \
-    tar xzf v0.22.2.tar.gz && \
-    export SPACK_ROOT="$(pwd)/spack-0.22.2" && \
+    wget https://github.com/spack/spack/archive/refs/tags/v0.23.0.tar.gz && \
+    tar xzf v0.23.0.tar.gz && \
+    export SPACK_ROOT="$(pwd)/spack-0.23.0" && \
     mkdir -p "${HOME}/.spack" && \
     echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
     . ${SPACK_ROOT}/share/spack/setup-env.sh && \
@@ -100,6 +102,7 @@ RUN mkdir src && \
         autoconf \
         automake \
         cmake \
+        curl \
         diffutils \
         elfutils \
         gmake \
@@ -121,9 +124,9 @@ RUN mkdir src && \
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.1.tar.gz && \
-    tar xzf v2.15.1.tar.gz && \
-    cd c-blosc2-2.15.1 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.2.tar.gz && \
+    tar xzf v2.15.2.tar.gz && \
+    cd c-blosc2-2.15.2 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -174,9 +177,12 @@ RUN mkdir src && \
         -DBUILD_TESTING=OFF \
         -DADIOS2_BUILD_EXAMPLES=OFF \
         -DADIOS2_Blosc2_PREFER_SHARED=ON \
+        -DADIOS2_USE_BZip2=ON \
         -DADIOS2_USE_Blosc2=ON \
         -DADIOS2_USE_Fortran=OFF \
+        -DADIOS2_USE_HDF5=ON \
         -DADIOS2_USE_MGARD=ON \
+        -DADIOS2_USE_ZFP=ON \
         && \
     cmake --build build && \
     cmake --install build && \
@@ -321,9 +327,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.11.tar.gz && \
-    tar xzf 24.11.tar.gz && \
-    cd amrex-24.11 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.12.tar.gz && \
+    tar xzf 24.12.tar.gz && \
+    cd amrex-24.12 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
