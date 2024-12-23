@@ -192,6 +192,8 @@ RUN mkdir src && \
     true) && \
     rm -rf src
 
+COPY patches/openPMD-api.patch /cactus/patches/
+
 # Install openPMD-api
 # openPMD-api defines a standard for laying out AMR data in a file
 # - depends on ADIOS2
@@ -200,6 +202,8 @@ RUN mkdir src && \
     wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.16.0.tar.gz && \
     tar xzf 0.16.0.tar.gz && \
     cd openPMD-api-0.16.0 && \
+    patch -p1 </cactus/patches/openPMD-api.patch && \
+    rm /cactus/patches/openPMD-api.patch && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
