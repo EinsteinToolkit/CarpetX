@@ -336,8 +336,7 @@ extern "C" void TestDerivs_CalcError(CCTK_ARGUMENTS) {
 
         const int diss_order = deriv_order + 2;
         const CCTK_REAL diss =
-            Arith::pown(-1, diss_order / 2 - 1) /
-            Arith::pown(2, diss_order) *
+            Arith::pown(-1, diss_order / 2 - 1) / Arith::pown(2, diss_order) *
             poly_diss(kxx, kxy, kyz, p.x, p.y, p.z, diss_order, dx);
         chi_diss_error(p.I) = diss - chi_diss(p.I);
 
