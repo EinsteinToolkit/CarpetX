@@ -234,10 +234,12 @@ struct GHExt {
       int typesize() const { return _typesize; };
 
       const void *data_at(size_t i) const {
+        assert(i < _count);
         return (char *)_data + i * _typesize;
       };
 
       void *data_at(size_t i) {
+        assert(i < _count);
         return (char *)_data + i * _typesize;
       };
 
