@@ -155,11 +155,11 @@ struct GHExt {
     class AnyTypeVector {
     private:
       int _type, _typesize;
-      void *_data;
       size_t _count;
+      void *_data;
 
     public:
-      AnyTypeVector() : _type(-1), _typesize(-1), _data(nullptr), _count(0){};
+      AnyTypeVector() : _type(-1), _typesize(-1), _count(0), _data(nullptr){};
       AnyTypeVector(int type_, size_t count_) : _type(type_), _count(count_) {
         assert(type_ == CCTK_VARIABLE_INT || type_ == CCTK_VARIABLE_REAL ||
                type_ == CCTK_VARIABLE_COMPLEX);
@@ -174,17 +174,17 @@ struct GHExt {
         swap(other);
         return *this;
       }
-      AnyTypeVector(AnyTypeVector &&other) : _type(other._type), _typesize(other._typesize), _data(other._data), _count(other._count) {
+      AnyTypeVector(AnyTypeVector &&other) : _type(other._type), _typesize(other._typesize), _count(other._count), _data(other._data) {
         other._type = -1;
         other._typesize = -1;
-        other._data = nullptr;
         other._count = 0;
+        other._data = nullptr;
       }
       void swap(AnyTypeVector &other) {
         std::swap(this->_type, other._type);
         std::swap(this->_typesize, other._typesize);
-        std::swap(this->_data, other._data);
         std::swap(this->_count, other._count);
+        std::swap(this->_data, other._data);
       }
 
       ~AnyTypeVector() {
@@ -194,12 +194,13 @@ struct GHExt {
           amrex::The_Arena()->free(_data);
           _type = -1;
           _typesize = -1;
-          _data = nullptr;
           _count = 0;
+          _data = nullptr;
         }
-        assert(_data == nullptr);
         assert(_type == -1);
+        assert(_typesize == -1);
         assert(_count == 0);
+        assert(_data == nullptr);
       };
 
       void alloc(int type_, size_t count_) {
@@ -208,14 +209,14 @@ struct GHExt {
 
         assert(_type == -1);
         assert(_typesize == -1);
-        assert(_data == nullptr);
         assert(_count == 0);
+        assert(_data == nullptr);
 
         _type = type_;
         _typesize = CCTK_VarTypeSize(_type);
         assert(_typesize > 0);
-        _data = amrex::The_Arena()->alloc(_typesize * _count);
         _count = count_;
+        _data = amrex::The_Arena()->alloc(_typesize * _count);
       }
 
       void free() {
@@ -225,8 +226,8 @@ struct GHExt {
         amrex::The_Arena()->free(_data);
         _type = -1;
         _typesize = -1;
-        _data = nullptr;
         _count = 0;
+        _data = nullptr;
       }
 
       int type() const { return _type; };
