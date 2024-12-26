@@ -160,12 +160,12 @@ struct GHExt {
 
     public:
       AnyTypeVector() : _type(-1), _typesize(-1), _count(0), _data(nullptr){};
-      AnyTypeVector(int type_, size_t count_) : _type(type_), _count(count_) {
-        assert(type_ == CCTK_VARIABLE_INT || type_ == CCTK_VARIABLE_REAL ||
-               type_ == CCTK_VARIABLE_COMPLEX);
-        _typesize = CCTK_VarTypeSize(_type);
-        assert(_typesize > 0);
-        _data = amrex::The_Arena()->alloc(_typesize * _count);
+      AnyTypeVector(int type_, size_t count_) : _type(-1), _typesize(-1), _count(0), _data(nullptr) {
+        alloc(type_, count_);
+        assert(_type == type_);
+        assert(_typesize != -1);
+        assert(_count == count_);
+        assert(_data != nullptr);
       };
       // Noncopyable for now
       AnyTypeVector(const AnyTypeVector &) = delete;
