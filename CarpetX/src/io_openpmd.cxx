@@ -1003,16 +1003,9 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                             contig_ptr[contig_di * i + contig_dj * j +
                                        contig_dk * k];
                   if (poison_undefined_values) {
-                    // TODO: Get this from `valid.cxx`
-#if defined CCTK_REAL_PRECISION_4
-                    constexpr std::uint32_t ipoison = 0xffc00000UL + 0xdead;
-#elif defined CCTK_REAL_PRECISION_8
-                    constexpr std::uint64_t ipoison =
-                        0xfff8000000000000ULL + 0xdeadbeef;
-#endif
-                    static_assert(sizeof ipoison == sizeof(CCTK_REAL));
                     CCTK_REAL poison;
-                    std::memcpy(&poison, &ipoison, sizeof poison);
+                    poison_value_t<CCTK_REAL> poison_value;
+                    poison_value.set_to_poison(poison);
                     for (int k = extbox.lo[2]; k < extbox.hi[2]; ++k) {
                       for (int j = extbox.lo[1]; j < extbox.hi[1]; ++j) {
                         for (int i = extbox.lo[0]; i < extbox.hi[0]; ++i) {
@@ -1179,6 +1172,9 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
             }
           } else {
             auto cactus_ptr = &groupdata.data.at(tl);
+            char *const cactus_var_ptr =
+                static_cast<char *>(cactus_ptr->data_at(vi * cactus_np));
+            const int vartypesize = CCTK_VarTypeSize(cgroup.vartype);
             const Arith::vect<int, 3> contig_shape = box.shape();
             constexpr int contig_di = 1;
             const int contig_dj = contig_di * contig_shape[0];
@@ -1192,41 +1188,51 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                 for (int j = 0; j < contig_shape[1]; ++j)
                   for (int i = 0; i < contig_shape[0]; ++i)
                     // TODO: copy whole contiguous strip at once
-                    memcpy(cactus_ptr->data_at(cactus_di * i + cactus_dj * j +
-                                               cactus_dk * k + cactus_np * vi),
-                           cactus_ptr->data_at(contig_di * i + contig_dj * j +
-                                               contig_dk * k + contig_offset +
-                                               cactus_np * vi),
-                           CCTK_VarTypeSize(cgroup.vartype));
+                    memcpy(cactus_var_ptr +
+                               (cactus_di * i + cactus_dj * j + cactus_dk * k) *
+                                   vartypesize,
+                           cactus_var_ptr + (contig_di * i + contig_dj * j +
+                                             contig_dk * k + contig_offset) *
+                                                vartypesize,
+                           vartypesize);
               if (poison_undefined_values) {
-                // TODO: Get this from `valid.cxx`
-#if defined CCTK_REAL_PRECISION_4
-                constexpr std::uint32_t ipoison = 0xffc00000UL + 0xdead;
-#elif defined CCTK_REAL_PRECISION_8
-                constexpr std::uint64_t ipoison =
-                    0xfff8000000000000ULL + 0xdeadbeef;
-#endif
                 const size_t typesize =
                     size_t(CCTK_VarTypeSize(cgroup.vartype));
                 std::vector<char> poison(typesize);
-                // for int: deadbeef for little endian machines
-                for (size_t i = 0; i < typesize; i += sizeof poison)
-                  std::memcpy(&poison[i], &ipoison,
-                              std::min(poison.size(), typesize - i));
+                assert(cgroup.vartype == CCTK_VARIABLE_REAL ||
+                       cgroup.vartype == CCTK_VARIABLE_INT ||
+                       cgroup.vartype == CCTK_VARIABLE_COMPLEX);
+                switch (cgroup.vartype) {
+                case CCTK_VARIABLE_REAL: {
+                  poison_value_t<CCTK_REAL> poison_value;
+                  poison_value.set_to_poison(poison.data(), 1);
+                } break;
+                case CCTK_VARIABLE_INT: {
+                  poison_value_t<CCTK_INT> poison_value;
+                  poison_value.set_to_poison(poison.data(), 1);
+                } break;
+                case CCTK_VARIABLE_COMPLEX: {
+                  poison_value_t<CCTK_COMPLEX> poison_value;
+                  poison_value.set_to_poison(poison.data(), 1);
+                } break;
+                }
                 for (int k = extbox.lo[2]; k < extbox.hi[2]; ++k) {
                   for (int j = extbox.lo[1]; j < extbox.hi[1]; ++j) {
                     for (int i = extbox.lo[0]; i < extbox.hi[0]; ++i) {
                       const Arith::vect<int, dim> I{i, j, k};
                       if (any(I < box.lo || I >= box.hi))
-                        memcpy(cactus_ptr->data_at(cactus_di * i +
-                                                   cactus_dj * j +
-                                                   cactus_dk * k),
+                        memcpy(cactus_var_ptr + (cactus_di * i + cactus_dj * j +
+                                                 cactus_dk * k) *
+                                                    vartypesize,
                                poison.data(), poison.size());
                     }
                   }
                 }
               }
             };
+            assert(cgroup.vartype == CCTK_VARIABLE_REAL ||
+                   cgroup.vartype == CCTK_VARIABLE_INT ||
+                   cgroup.vartype == CCTK_VARIABLE_COMPLEX);
             switch (cgroup.vartype) {
             case CCTK_VARIABLE_REAL:
               record_components.at(vi).loadChunk(
@@ -1258,8 +1264,6 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                       }),
                   start, count);
               break;
-            default:
-              assert(0 && "Unexpected variable type");
             }
           }
 
