@@ -249,7 +249,7 @@ struct GHExt {
       size_t size() const { return _count; };
 
       friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
-                                       const AnyTypeVector &commongroupdata);
+                                       const AnyTypeVector &anytypevector);
     };
 
     // For subcycling in time, there really should be one copy of each
