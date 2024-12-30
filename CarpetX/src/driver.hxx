@@ -160,7 +160,8 @@ struct GHExt {
 
     public:
       AnyTypeVector() : _type(-1), _typesize(-1), _count(0), _data(nullptr){};
-      AnyTypeVector(int type_, size_t count_) : _type(-1), _typesize(-1), _count(0), _data(nullptr) {
+      AnyTypeVector(int type_, size_t count_)
+          : _type(-1), _typesize(-1), _count(0), _data(nullptr) {
         alloc(type_, count_);
         assert(_type == type_);
         assert(_typesize != -1);
@@ -174,7 +175,9 @@ struct GHExt {
         swap(other);
         return *this;
       }
-      AnyTypeVector(AnyTypeVector &&other) : _type(other._type), _typesize(other._typesize), _count(other._count), _data(other._data) {
+      AnyTypeVector(AnyTypeVector &&other)
+          : _type(other._type), _typesize(other._typesize),
+            _count(other._count), _data(other._data) {
         other._type = -1;
         other._typesize = -1;
         other._count = 0;
@@ -246,7 +249,7 @@ struct GHExt {
       size_t size() const { return _count; };
 
       friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
-                                       const AnyTypeVector &commongroupdata);
+                                       const AnyTypeVector &anytypevector);
     };
 
     // For subcycling in time, there really should be one copy of each
