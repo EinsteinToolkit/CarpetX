@@ -168,23 +168,9 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const std::string &filename,
   // Output data
   file << cctkGH->cctk_iteration << sep << cctkGH->cctk_time;
   const int tl = 0;
+  const auto &data = arraygroupdata.data.at(tl);
   for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
-    switch (cgroup.vartype) {
-    case CCTK_VARIABLE_REAL:
-      file << sep << *(const CCTK_REAL *)arraygroupdata.data.at(tl).data_at(vi);
-      break;
-    case CCTK_VARIABLE_INT:
-      file << sep << *(const CCTK_INT *)arraygroupdata.data.at(tl).data_at(vi);
-      break;
-    case CCTK_VARIABLE_COMPLEX: {
-      CCTK_COMPLEX value =
-          *(const CCTK_COMPLEX *)arraygroupdata.data.at(tl).data_at(vi);
-      file << sep << value.real() << sep << value.imag();
-    } break;
-    default:
-      assert(0 && "Unexpected variable type");
-      break;
-    }
+    file << sep << data[vi];
   file << "\n";
 }
 
@@ -243,28 +229,9 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
     for (int dir = 0; dir < arraygroupdata.dimension; ++dir)
       file << sep << (dir == out_dir ? i : 0);
     const int tl = 0;
+    const auto &data = arraygroupdata.data.at(tl);
     for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
-      switch (cgroup.vartype) {
-      case CCTK_VARIABLE_REAL:
-        file << sep
-             << *(const CCTK_REAL *)arraygroupdata.data.at(tl).data_at(
-                    np * vi + DI[out_dir] * i);
-        break;
-      case CCTK_VARIABLE_INT:
-        file << sep
-             << *(const CCTK_INT *)arraygroupdata.data.at(tl).data_at(
-                    np * vi + DI[out_dir] * i);
-        break;
-      case CCTK_VARIABLE_COMPLEX: {
-        CCTK_COMPLEX value =
-            *(const CCTK_COMPLEX *)arraygroupdata.data.at(tl).data_at(
-                np * vi + DI[out_dir] * i);
-        file << sep << value.real() << sep << value.imag();
-      } break;
-      default:
-        assert(0 && "Unexpected variable type");
-        break;
-      }
+      file << sep << data[np * vi + DI[out_dir] * i];
     file << "\n";
   }
 }

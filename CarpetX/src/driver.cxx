@@ -2289,6 +2289,28 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml, const amrex::AmrCore &amrcore) {
 } // namespace amrex
 namespace CarpetX {
 
+std::ostream &
+operator<<(std::ostream &os,
+           const GHExt::GlobalData::AnyTypeVector::AnyTypeScalarRef &scalar) {
+  const char sep = '\t';
+  switch (scalar._vect.type()) {
+  case CCTK_VARIABLE_REAL:
+    os << *(CCTK_REAL *)scalar._vect.data_at(scalar._idx);
+    break;
+  case CCTK_VARIABLE_INT:
+    os << *(CCTK_INT *)scalar._vect.data_at(scalar._idx);
+    break;
+  case CCTK_VARIABLE_COMPLEX: {
+    CCTK_COMPLEX value = *(CCTK_COMPLEX *)scalar._vect.data_at(scalar._idx);
+    os << value.real() << sep << value.imag();
+  } break;
+  default:
+    assert(0 && "Unexpected variable type");
+    break;
+  }
+  return os;
+}
+
 YAML::Emitter &operator<<(YAML::Emitter &yaml,
                           const GHExt::CommonGroupData &commongroupdata) {
   yaml << YAML::LocalTag("commongroupdata-1.0.0");
@@ -2318,25 +2340,35 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml, const CCTK_COMPLEX &cval) {
 
 YAML::Emitter &
 operator<<(YAML::Emitter &yaml,
+           const GHExt::GlobalData::AnyTypeVector::AnyTypeScalarRef
+               &anytypescalarref) {
+  switch (anytypescalarref._vect.type()) {
+  case CCTK_VARIABLE_COMPLEX:
+    yaml << *(const CCTK_COMPLEX *)anytypescalarref._vect.data_at(
+        anytypescalarref._idx);
+    break;
+  case CCTK_VARIABLE_REAL:
+    yaml << *(const CCTK_REAL *)anytypescalarref._vect.data_at(
+        anytypescalarref._idx);
+    break;
+  case CCTK_VARIABLE_INT:
+    yaml << *(const CCTK_INT *)anytypescalarref._vect.data_at(
+        anytypescalarref._idx);
+    break;
+  default:
+    // missed to implement a type
+    CCTK_VERROR("Cannot handle type %d", anytypescalarref._vect.type());
+    break;
+  }
+  return yaml;
+}
+
+YAML::Emitter &
+operator<<(YAML::Emitter &yaml,
            const GHExt::GlobalData::AnyTypeVector &anytypevector) {
   yaml << YAML::BeginSeq;
-  for (size_t i = 0; i < anytypevector.size(); ++i) {
-    switch (anytypevector.type()) {
-    case CCTK_VARIABLE_COMPLEX:
-      yaml << *(const CCTK_COMPLEX *)anytypevector.data_at(i);
-      break;
-    case CCTK_VARIABLE_REAL:
-      yaml << *(const CCTK_REAL *)anytypevector.data_at(i);
-      break;
-    case CCTK_VARIABLE_INT:
-      yaml << *(const CCTK_INT *)anytypevector.data_at(i);
-      break;
-    default:
-      // missed to implement a type
-      CCTK_VERROR("Cannot handle type %d", anytypevector.type());
-      break;
-    }
-  }
+  for (size_t i = 0; i < anytypevector.size(); ++i)
+    yaml << anytypevector[i];
   yaml << YAML::EndSeq;
   return yaml;
 }
