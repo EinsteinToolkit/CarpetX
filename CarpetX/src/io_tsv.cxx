@@ -171,14 +171,14 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const std::string &filename,
   for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
     switch (cgroup.vartype) {
     case CCTK_VARIABLE_REAL:
-      file << sep << *(CCTK_REAL *)arraygroupdata.data.at(tl).data_at(vi);
+      file << sep << *(const CCTK_REAL *)arraygroupdata.data.at(tl).data_at(vi);
       break;
     case CCTK_VARIABLE_INT:
-      file << sep << *(CCTK_INT *)arraygroupdata.data.at(tl).data_at(vi);
+      file << sep << *(const CCTK_INT *)arraygroupdata.data.at(tl).data_at(vi);
       break;
     case CCTK_VARIABLE_COMPLEX: {
       CCTK_COMPLEX value =
-          *(CCTK_COMPLEX *)arraygroupdata.data.at(tl).data_at(vi);
+          *(const CCTK_COMPLEX *)arraygroupdata.data.at(tl).data_at(vi);
       file << sep << value.real() << sep << value.imag();
     } break;
     default:
@@ -247,17 +247,17 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
       switch (cgroup.vartype) {
       case CCTK_VARIABLE_REAL:
         file << sep
-             << *(CCTK_REAL *)arraygroupdata.data.at(tl).data_at(
+             << *(const CCTK_REAL *)arraygroupdata.data.at(tl).data_at(
                     np * vi + DI[out_dir] * i);
         break;
       case CCTK_VARIABLE_INT:
         file << sep
-             << *(CCTK_INT *)arraygroupdata.data.at(tl).data_at(
+             << *(const CCTK_INT *)arraygroupdata.data.at(tl).data_at(
                     np * vi + DI[out_dir] * i);
         break;
       case CCTK_VARIABLE_COMPLEX: {
         CCTK_COMPLEX value =
-            *(CCTK_COMPLEX *)arraygroupdata.data.at(tl).data_at(
+            *(const CCTK_COMPLEX *)arraygroupdata.data.at(tl).data_at(
                 np * vi + DI[out_dir] * i);
         file << sep << value.real() << sep << value.imag();
       } break;
