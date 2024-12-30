@@ -236,6 +236,7 @@ void poison_invalid_ga(const int gi, const int vi, const int tl) {
     int n_elems = 1;
     for (int i = 0; i < dimension; i++)
       n_elems *= gsh[i];
+    // TODO: use AnyScalarTypeRef for this?
     assert(group.vartype == CCTK_VARIABLE_COMPLEX ||
            group.vartype == CCTK_VARIABLE_REAL ||
            group.vartype == CCTK_VARIABLE_INT);
@@ -506,6 +507,7 @@ void check_valid_ga(const int gi, const int vi, const int tl,
   int n_elems = 1;
   for (int i = 0; i < dimension; i++)
     n_elems *= gsh[i];
+  // TODO: use AnyScalarTypeRef for this?
   switch (group.vartype) {
   case CCTK_VARIABLE_COMPLEX: {
     const poison_value_t<CCTK_COMPLEX> poison_value;
