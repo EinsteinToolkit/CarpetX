@@ -2323,13 +2323,13 @@ operator<<(YAML::Emitter &yaml,
   for (size_t i = 0; i < anytypevector.size(); ++i) {
     switch (anytypevector.type()) {
     case CCTK_VARIABLE_COMPLEX:
-      yaml << *(CCTK_COMPLEX *)anytypevector.data_at(i);
+      yaml << *(const CCTK_COMPLEX *)anytypevector.data_at(i);
       break;
     case CCTK_VARIABLE_REAL:
-      yaml << *(CCTK_REAL *)anytypevector.data_at(i);
+      yaml << *(const CCTK_REAL *)anytypevector.data_at(i);
       break;
     case CCTK_VARIABLE_INT:
-      yaml << *(CCTK_INT *)anytypevector.data_at(i);
+      yaml << *(const CCTK_INT *)anytypevector.data_at(i);
       break;
     default:
       // missed to implement a type
