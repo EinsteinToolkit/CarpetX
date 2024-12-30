@@ -153,12 +153,26 @@ struct GHExt {
     // all data that exists on all levels
 
     class AnyTypeVector {
-    private:
-      int _type, _typesize;
-      size_t _count;
-      void *_data;
 
     public:
+      // access to a single element of a AnyTypeVector
+      class AnyTypeScalarRef {
+      public:
+        AnyTypeScalarRef() = delete;
+        AnyTypeScalarRef(const AnyTypeVector &vect_, size_t idx_)
+            : _vect(vect_), _idx(idx_) {}
+
+      private:
+        const AnyTypeVector &_vect;
+        const size_t _idx;
+
+        friend YAML::Emitter &
+        operator<<(YAML::Emitter &yaml,
+                   const AnyTypeScalarRef &anytypescalarref);
+        friend std::ostream &operator<<(std::ostream &os,
+                                        const AnyTypeScalarRef &scalar);
+      };
+
       AnyTypeVector() : _type(-1), _typesize(-1), _count(0), _data(nullptr) {};
       AnyTypeVector(int type_, size_t count_)
           : _type(-1), _typesize(-1), _count(0), _data(nullptr) {
@@ -246,10 +260,19 @@ struct GHExt {
         return (char *)_data + i * _typesize;
       };
 
+      AnyTypeScalarRef operator[](size_t idx) const {
+        return AnyTypeScalarRef(*this, idx);
+      }
+
       size_t size() const { return _count; };
 
       friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
                                        const AnyTypeVector &anytypevector);
+
+    private:
+      int _type, _typesize;
+      size_t _count;
+      void *_data;
     };
 
     // For subcycling in time, there really should be one copy of each

@@ -1198,6 +1198,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
               if (poison_undefined_values) {
                 const size_t typesize =
                     size_t(CCTK_VarTypeSize(cgroup.vartype));
+                // TODO: Use AnyTypeScalarRef for this?
                 std::vector<char> poison(typesize);
                 assert(cgroup.vartype == CCTK_VARIABLE_REAL ||
                        cgroup.vartype == CCTK_VARIABLE_INT ||
