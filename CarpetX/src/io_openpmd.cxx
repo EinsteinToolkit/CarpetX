@@ -1237,7 +1237,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
             case CCTK_VARIABLE_REAL:
               record_components.at(vi).loadChunk(
                   std::shared_ptr<CCTK_REAL>(
-                      static_cast<CCTK_REAL *const>(
+                      static_cast<CCTK_REAL *>(
                           cactus_ptr->data_at(contig_offset + cactus_np * vi)),
                       [=](CCTK_REAL *const ptr) {
                         expand_box(static_cast<void *>(ptr));
@@ -1250,7 +1250,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                       static_cast<CCTK_INT *>(
                           cactus_ptr->data_at(contig_offset + cactus_np * vi)),
                       [=](CCTK_INT *const ptr) {
-                        expand_box(static_cast<void *const>(ptr));
+                        expand_box(static_cast<void *>(ptr));
                       }),
                   start, count);
               break;
@@ -1260,7 +1260,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                       static_cast<CCTK_COMPLEX *>(
                           cactus_ptr->data_at(contig_offset + cactus_np * vi)),
                       [=](CCTK_COMPLEX *const ptr) {
-                        expand_box(static_cast<void *const>(ptr));
+                        expand_box(static_cast<void *>(ptr));
                       }),
                   start, count);
               break;
@@ -1843,16 +1843,15 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             switch (cgroup.vartype) {
             case CCTK_VARIABLE_REAL:
               record_components.at(vi).storeChunkRaw(
-                  static_cast<CCTK_REAL const *const>(var_ptr), start, count);
+                  static_cast<CCTK_REAL const *>(var_ptr), start, count);
               break;
             case CCTK_VARIABLE_INT:
               record_components.at(vi).storeChunkRaw(
-                  static_cast<CCTK_INT const *const>(var_ptr), start, count);
+                  static_cast<CCTK_INT const *>(var_ptr), start, count);
               break;
             case CCTK_VARIABLE_COMPLEX:
               record_components.at(vi).storeChunkRaw(
-                  static_cast<CCTK_COMPLEX const *const>(var_ptr), start,
-                  count);
+                  static_cast<CCTK_COMPLEX const *>(var_ptr), start, count);
               break;
             default:
               assert(0 && "Unexpected variable type");
@@ -1880,21 +1879,21 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             case CCTK_VARIABLE_REAL:
               record_components.at(vi).storeChunk(
                   std::shared_ptr<CCTK_REAL>(
-                      static_cast<CCTK_REAL *const>(contig_ptr->data_at(0)),
-                      [=](CCTK_REAL *const) { delete contig_ptr; }),
+                      static_cast<CCTK_REAL *>(contig_ptr->data_at(0)),
+                      [=](CCTK_REAL *) { delete contig_ptr; }),
                   start, count);
               break;
             case CCTK_VARIABLE_INT:
               record_components.at(vi).storeChunk(
                   std::shared_ptr<CCTK_INT>(
-                      static_cast<CCTK_INT *const>(contig_ptr->data_at(0)),
+                      static_cast<CCTK_INT *>(contig_ptr->data_at(0)),
                       [=](CCTK_INT *const) { delete contig_ptr; }),
                   start, count);
               break;
             case CCTK_VARIABLE_COMPLEX:
               record_components.at(vi).storeChunk(
                   std::shared_ptr<CCTK_COMPLEX>(
-                      static_cast<CCTK_COMPLEX *const>(contig_ptr->data_at(0)),
+                      static_cast<CCTK_COMPLEX *>(contig_ptr->data_at(0)),
                       [=](CCTK_COMPLEX *const) { delete contig_ptr; }),
                   start, count);
               break;
