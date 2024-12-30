@@ -1,3 +1,4 @@
+#pragma GCC optimize("O0")
 #include "driver.hxx"
 
 #include "boundaries.hxx"

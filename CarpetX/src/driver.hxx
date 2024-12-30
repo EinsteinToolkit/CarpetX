@@ -251,11 +251,21 @@ struct GHExt {
       int typesize() const { return _typesize; };
 
       const void *data_at(size_t i) const {
+#ifdef CCTK_DEBUG
+        if (i >= _count) {
+          CCTK_VERROR("invalid index %zd exceeds %zd", i, _count);
+        }
+#endif
         assert(i < _count);
         return (char *)_data + i * _typesize;
       };
 
       void *data_at(size_t i) {
+#ifdef CCTK_DEBUG
+        if (i >= _count) {
+          CCTK_VERROR("invalid index %zu exceeds %zu", i, _count);
+        }
+#endif
         assert(i < _count);
         return (char *)_data + i * _typesize;
       };
