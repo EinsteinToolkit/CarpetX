@@ -4,7 +4,23 @@ SCHEDULE ODESolvers_Solve AT evol
 {
   LANG: C
   OPTIONS: level
+  READS: refill_prev_rhss
+  WRITES: refill_prev_rhss
 } "Solve ODEs"
+
+SCHEDULE ODESolvers_SetRefillPrevRHSS AT initial
+{
+  LANG: C
+  OPTIONS: global
+  WRITES: refill_prev_rhss
+} "Sets refill_prev_rhss to true, thus having previous RHS information recomputed via standard RK methods"
+
+SCHEDULE ODESolvers_SetRefillPrevRHSS AT postregrid
+{
+  LANG: C
+  OPTIONS: global
+  WRITES: refill_prev_rhss
+} "Sets refill_prev_rhss to true, thus having previous RHS information recomputed via standard RK methods"
 
 
 

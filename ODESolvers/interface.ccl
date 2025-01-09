@@ -10,3 +10,5 @@ void FUNCTION CallScheduleGroup(
   CCTK_POINTER IN cctkGH,
   CCTK_STRING IN groupname)
 REQUIRES FUNCTION CallScheduleGroup
+
+CCTK_REAL refill_prev_rhss TYPE=scalar "If true and using hybrid methods, this variable causes the stored prev. RHS to be refilled via regular RK step"

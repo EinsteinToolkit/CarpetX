@@ -727,7 +727,7 @@ void mark_invalid(const std::vector<int> &groups) {
 ///////////////////////////////////////////////////////////////////////////////
 
 extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ODESolvers_Solve;
+  DECLARE_CCTK_ARGUMENTSX_ODESolvers_Solve;
   DECLARE_CCTK_PARAMETERS;
 
   static bool did_output = false;
@@ -1018,7 +1018,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   } else if (CCTK_EQUALS(method, "BMS422")) {
 
     // RK4 Bootstrapping
-    if (cctkGH->cctk_iteration <= 1) {
+    if (static_cast<CCTK_INT>(*refill_prev_rhss) != 0) {
+      if (verbose) {
+        CCTK_VINFO("  Taking RK4 step to fill prev. RHS");
+      }
+
+      *refill_prev_rhss -= -1;
+
       // k1 = f(y0)
       // k2 = f(y0 + h/2 k1)
       // k3 = f(y0 + h/2 k2)
@@ -1052,8 +1058,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       calcrhs(4);
       calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
                  states<3>{&old, &kaccum, &rhs});
-
     } else {
+
       // k0 = f(y(t - h))
       // k1 = f(y(t))
       // k2 = f(y(t) + h * (a20 * k0 + a21 * k1))
@@ -1104,7 +1110,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   } else if (CCTK_EQUALS(method, "BMS431")) {
 
     // RK4 Bootstrapping
-    if (cctkGH->cctk_iteration <= 2) {
+    if (static_cast<CCTK_INT>(*refill_prev_rhss) != 0) {
+      if (verbose) {
+        CCTK_VINFO("  Taking RK4 step to fill prev. RHS");
+      }
+
+      *refill_prev_rhss -= -1;
+
       // k1 = f(y0)
       // k2 = f(y0 + h/2 k1)
       // k3 = f(y0 + h/2 k2)
@@ -1482,6 +1494,19 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = saved_time;
 
   // TODO: Update time here, and not during time level cycling in the driver
+}
+
+extern "C" void ODESolvers_SetRefillPrevRHSS(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_ODESolvers_SetRefillPrevRHSS;
+  DECLARE_CCTK_PARAMETERS;
+
+  if (CCTK_EQUALS(method, "BMS422")) {
+    *refill_prev_rhss = 1;
+  } else if (CCTK_EQUALS(method, "BMS431")) {
+    *refill_prev_rhss = 2;
+  } else {
+    *refill_prev_rhss = 0;
+  }
 }
 
 } // namespace ODESolvers
