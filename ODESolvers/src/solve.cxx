@@ -1023,7 +1023,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         CCTK_VINFO("  Taking RK4 step to fill prev. RHS");
       }
 
-      *refill_prev_rhss -= -1;
+      *refill_prev_rhss -= 1;
 
       // k1 = f(y0)
       // k2 = f(y0 + h/2 k1)
@@ -1115,7 +1115,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         CCTK_VINFO("  Taking RK4 step to fill prev. RHS");
       }
 
-      *refill_prev_rhss -= -1;
+      *refill_prev_rhss -= 1;
 
       // k1 = f(y0)
       // k2 = f(y0 + h/2 k1)
