@@ -20,6 +20,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <set>
@@ -33,9 +34,6 @@ namespace {
 
 // Interpolate a grid function at one point, dimensionally recursive
 template <typename T, int order, int centering> struct interpolator {
-  // TODO: `centering` is not used; remove it
-  // TODO: remove `dx` in favour of `x1`?
-
   static constexpr vect<bool, dim> indextype{(centering & 0b100) != 0,
                                              (centering & 0b010) != 0,
                                              (centering & 0b001) != 0};
@@ -73,12 +71,9 @@ template <typename T, int order, int centering> struct interpolator {
         for (int b = -1; b <= +1; ++b)
           for (int a = -1; a <= +1; ++a)
             if (vars.contains(j[0] + a, j[1] + b, j[2] + c))
-              // std::cerr << "  val[" << a << "," << b << "," << c
-              //           << "]=" << vars(j[0] + a, j[1] + b, j[2] + c, vi) <<
-              //           "\n";
-              std::fprintf(stderr, "val[%d,%d,%d]=%.17g\n", j[0] + a, j[1] + b,
-                           j[2] + c,
-                           double(vars(j[0] + a, j[1] + b, j[2] + c, vi)));
+              std::cerr << "  val[" << a << "," << b << "," << c
+                        << "]=" << vars(j[0] + a, j[1] + b, j[2] + c, vi)
+                        << "\n";
     }
     assert(isfinite(val));
 #endif
@@ -229,9 +224,9 @@ template <typename T, int order, int centering> struct interpolator {
     // const auto x1 = x0 + (grid.lsh - 1 - indextype) * grid.dx;
     const auto dx = grid.dx;
 
-    assert(vars.end.x - vars.begin.x == grid.lsh[0]);
-    assert(vars.end.y - vars.begin.y == grid.lsh[1]);
-    assert(vars.end.z - vars.begin.z == grid.lsh[2]);
+    assert(vars.end.x - vars.begin.x == grid.lsh[0] - indextype[0]);
+    assert(vars.end.y - vars.begin.y == grid.lsh[1] - indextype[1]);
+    assert(vars.end.z - vars.begin.z == grid.lsh[2] - indextype[2]);
 
     // We assume that the input is synchronized, i.e. that all ghost
     // zones are valid, but all outer boundaries are invalid.
@@ -445,13 +440,14 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
                               patches.data(), localsx.data(), localsy.data(),
                               localsz.data());
   } else {
-    // TODO: Don't copy
-    for (int n = 0; n < npoints; ++n) {
-      patches[n] = 0;
-      localsx[n] = globalsx[n];
-      localsy[n] = globalsy[n];
-      localsz[n] = globalsz[n];
-    }
+    for (int n = 0; n < npoints; ++n)
+      patches.at(n) = 0;
+    for (int n = 0; n < npoints; ++n)
+      localsx.at(n) = globalsx[n];
+    for (int n = 0; n < npoints; ++n)
+      localsy.at(n) = globalsy[n];
+    for (int n = 0; n < npoints; ++n)
+      localsz.at(n) = globalsz[n];
   }
 
   // Apply symmetries to coordinates
@@ -485,7 +481,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   std::vector<CCTK_REAL> posy(npoints);
   std::vector<CCTK_REAL> posz(npoints);
   for (int n = 0; n < npoints; ++n) {
-    const int patch = patches[n];
+    const int patch = patches.at(n);
     const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
     const CCTK_REAL *restrict const xmin = geom.ProbLo();
     const CCTK_REAL *restrict const xmax = geom.ProbHi();
@@ -535,8 +531,9 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
   // Send particles to interpolation points
   for (auto &container : containers) {
-    const int patch = int(&container - containers.data());
 #ifdef CCTK_DEBUG
+    const int patch = int(&container - containers.data());
+
     std::size_t old_nparticles = 0;
     std::set<int> oldids;
     {

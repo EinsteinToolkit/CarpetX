@@ -1,7 +1,7 @@
 # Main make.code.defn file for thorn TestInterpolate
 
 # Source files in this directory
-SRCS = test_interpolation.cxx
+SRCS = test_cell_interpolation.cxx test_vertex_interpolation.cxx
 
 # Subdirectories containing source files
 SUBDIRS =

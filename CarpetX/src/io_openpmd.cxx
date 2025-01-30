@@ -16,6 +16,10 @@
 
 #include <openPMD/openPMD.hpp>
 
+#ifdef HAVE_CAPABILITY_ADIOS2
+#include <adios2.h>
+#endif
+
 #if defined _OPENMP
 #include <omp.h>
 #elif defined __HIPCC__
@@ -116,6 +120,7 @@ constexpr openPMD::IterationEncoding iterationEncoding =
     openPMD::IterationEncoding::fileBased;
 
 // TODO: Set number of threads?
+#ifdef ADIOS2_HAVE_BLOSC2
 const std::string options = R"EOS(
   {
     "adios2": {
@@ -133,6 +138,18 @@ const std::string options = R"EOS(
     }
   }
 )EOS";
+#else
+const std::string options = R"EOS(
+  {
+    "adios2": {
+      "dataset": {
+        "operators": [
+        ]
+      }
+    }
+  }
+)EOS";
+#endif
 
 constexpr bool input_ghosts = false;
 constexpr bool output_ghosts = false;
