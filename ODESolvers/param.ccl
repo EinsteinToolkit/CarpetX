@@ -20,3 +20,25 @@ KEYWORD method "ODE solver method" STEERABLE=always
 BOOLEAN verbose "Verbose output" STEERABLE=always
 {
 } "no"
+
+# TODO: These are temporary parameters used only duringthe parameter tuning phase
+# of hybrid methods and will be removed in production
+CCTK_INT bms422_sol "Which solution to use for RK422"
+{
+  *:* :: ""
+} 1
+
+CCTK_REAL bms422_a20 "a20 coefficient for RK422"
+{
+  *:* :: ""
+} 0.03127973625120939
+
+CCTK_REAL bms422_a21 "a21 coefficient for RK422"
+{
+  *:* :: ""
+} 0.3736646857963324
+
+CCTK_REAL bms431_a30 "a30 coefficient for RK431"
+{
+  *:* :: ""
+} 0.0834

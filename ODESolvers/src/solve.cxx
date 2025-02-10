@@ -3,6 +3,11 @@
 #include "../../CarpetX/src/schedule.hxx"
 #include "../../CarpetX/src/timer.hxx"
 
+// TODO: These are temporary includes used only duringthe parameter tuning phase
+// of hybrid methods and will be removed in production
+#include "rk422.hpp"
+#include "rk431.hpp"
+
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
@@ -730,6 +735,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_ODESolvers_Solve;
   DECLARE_CCTK_PARAMETERS;
 
+  // TODO: This is temporary used only duringthe parameter tuning phase
+  // of hybrid methods and will be removed in production
+  using namespace HybridMethods;
+
   static bool did_output = false;
   if (verbose || !did_output)
     CCTK_VINFO("Integrator is %s", method);
@@ -1066,15 +1075,17 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const CCTK_REAL b0{-0.05475591913533874 * dt};
-      const CCTK_REAL b1{2.754535159970365 * dt};
-      const CCTK_REAL b2{3.414713672966061 * dt};
-      const CCTK_REAL b3{-5.114492913801088 * dt};
-      const CCTK_REAL a20{0.03127973625120939 * dt};
-      const CCTK_REAL a21{0.3736646857963324 * dt};
-      const CCTK_REAL a30{-0.001098189189263279 * dt};
-      const CCTK_REAL a31{0.3323825714875453 * dt};
-      const CCTK_REAL a32{-0.1479768306615254 * dt};
+      // clang-format off
+      const auto a20{bms422_a20 * dt};
+      const auto a21{bms422_a21 * dt};
+      const auto b0 {(bms422_sol == 1 ? rk422_sol_1_b0(a20, a21) :  rk422_sol_2_b0(a20, a21)) * dt};
+      const auto b1 {(bms422_sol == 1 ? rk422_sol_1_b1(a20, a21) :  rk422_sol_2_b1(a20, a21)) * dt};
+      const auto b2 {(bms422_sol == 1 ? rk422_sol_1_b2(a20, a21) :  rk422_sol_2_b2(a20, a21)) * dt};
+      const auto b3 {(bms422_sol == 1 ? rk422_sol_1_b3(a20, a21) :  rk422_sol_2_b3(a20, a21)) * dt};
+      const auto a30{(bms422_sol == 1 ? rk422_sol_1_a30(a20, a21) : rk422_sol_2_a30(a20, a21)) * dt};
+      const auto a31{(bms422_sol == 1 ? rk422_sol_1_a31(a20, a21) : rk422_sol_2_a31(a20, a21)) * dt};
+      const auto a32{(bms422_sol == 1 ? rk422_sol_1_a32(a20, a21) : rk422_sol_2_a32(a20, a21)) * dt};
+      // clang-format on
 
       // y(t)
       const auto old = copy_state(var, make_valid_all());
@@ -1162,13 +1173,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const CCTK_REAL b0{-0.03330134318968933 * dt};
-      const CCTK_REAL b1{0.1664889520688155 * dt};
-      const CCTK_REAL b2{-0.3325338070929823 * dt};
-      const CCTK_REAL b3{1.199346198213856 * dt};
-      const CCTK_REAL a30{0.08340000000000000 * dt};
-      const CCTK_REAL a31{-0.2918888836226473 * dt};
-      const CCTK_REAL a32{0.7086666192779788 * dt};
+      const auto a30{bms431_a30 * dt};
+      const auto b0{rk431_sol_1_b0(a30) * dt};
+      const auto b1{rk431_sol_1_b1(a30) * dt};
+      const auto b2{rk431_sol_1_b2(a30) * dt};
+      const auto b3{rk431_sol_1_b3(a30) * dt};
+      const auto a31{rk431_sol_1_a31(a30) * dt};
+      const auto a32{rk431_sol_1_a32(a30) * dt};
 
       // y(t)
       const auto old = copy_state(var, make_valid_all());
