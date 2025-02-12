@@ -1202,7 +1202,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const auto b0_pure{hrk432_sol_1_b0(b3_pure)};
       const auto b1_pure{hrk432_sol_1_b1(b3_pure)};
       const auto b2_pure{hrk432_sol_1_b2(b3_pure)};
-      const auto a30_pure{hrk432_sol_1_a31(b3_pure)};
+      const auto a30_pure{hrk432_sol_1_a30(b3_pure)};
       const auto a31_pure{hrk432_sol_1_a31(b3_pure)};
       const auto a32_pure{hrk432_sol_1_a32(b3_pure)};
 
