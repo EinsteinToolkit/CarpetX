@@ -6,7 +6,7 @@
 // TODO: These are temporary includes used only duringthe parameter tuning phase
 // of hybrid methods and will be removed in production
 #include "rk422.hpp"
-#include "rk431.hpp"
+#include "hrk432.hpp"
 
 #include <cctk.h>
 #include <cctk_Arguments.h>
@@ -778,10 +778,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         rhs.groupdatas.push_back(&rhs_groupdata);
         rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
 
-        // Make sure that the correct number of pre states are available if BMS
+        // Make sure that the correct number of pre states are available if HRK
         // methods are selected
         // Two step methods are handled here
-        if (CCTK_EQUALS(method, "BMS422")) {
+        if (CCTK_EQUALS(method, "HRK423")) {
           if (p_rhs_gi >= 0) {
             assert(p_rhs_gi != groupdata.groupindex);
             auto &p_rhs_groupdata = *leveldata.groupdata.at(p_rhs_gi);
@@ -796,7 +796,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         }
 
         // Three step methods are handled here
-        if (CCTK_EQUALS(method, "BMS431")) {
+        if (CCTK_EQUALS(method, "HRK432")) {
           if (p_rhs_gi >= 0) {
             assert(p_rhs_gi != groupdata.groupindex);
             auto &p_rhs_groupdata = *leveldata.groupdata.at(p_rhs_gi);
@@ -1024,7 +1024,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
                states<3>{&old, &kaccum, &rhs});
 
-  } else if (CCTK_EQUALS(method, "BMS422")) {
+  } else if (CCTK_EQUALS(method, "HRK423")) {
 
     // RK4 Bootstrapping
     if (static_cast<CCTK_INT>(*refill_prev_rhss) != 0) {
@@ -1076,15 +1076,15 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
       // clang-format off
-      const auto a20_pure{bms422_a20};
-      const auto a21_pure{bms422_a21};
-      const auto b0_pure {bms422_sol == 1 ? rk422_sol_1_b0 (a20_pure, a21_pure) : rk422_sol_2_b0 (a20_pure, a21_pure)};
-      const auto b1_pure {bms422_sol == 1 ? rk422_sol_1_b1 (a20_pure, a21_pure) : rk422_sol_2_b1 (a20_pure, a21_pure)};
-      const auto b2_pure {bms422_sol == 1 ? rk422_sol_1_b2 (a20_pure, a21_pure) : rk422_sol_2_b2 (a20_pure, a21_pure)};
-      const auto b3_pure {bms422_sol == 1 ? rk422_sol_1_b3 (a20_pure, a21_pure) : rk422_sol_2_b3 (a20_pure, a21_pure)};
-      const auto a30_pure{bms422_sol == 1 ? rk422_sol_1_a30(a20_pure, a21_pure) : rk422_sol_2_a30(a20_pure, a21_pure)};
-      const auto a31_pure{bms422_sol == 1 ? rk422_sol_1_a31(a20_pure, a21_pure) : rk422_sol_2_a31(a20_pure, a21_pure)};
-      const auto a32_pure{bms422_sol == 1 ? rk422_sol_1_a32(a20_pure, a21_pure) : rk422_sol_2_a32(a20_pure, a21_pure)};
+      const auto a20_pure{HRK423_a20};
+      const auto a21_pure{HRK423_a21};
+      const auto b0_pure {HRK423_sol == 1 ? rk422_sol_1_b0 (a20_pure, a21_pure) : rk422_sol_2_b0 (a20_pure, a21_pure)};
+      const auto b1_pure {HRK423_sol == 1 ? rk422_sol_1_b1 (a20_pure, a21_pure) : rk422_sol_2_b1 (a20_pure, a21_pure)};
+      const auto b2_pure {HRK423_sol == 1 ? rk422_sol_1_b2 (a20_pure, a21_pure) : rk422_sol_2_b2 (a20_pure, a21_pure)};
+      const auto b3_pure {HRK423_sol == 1 ? rk422_sol_1_b3 (a20_pure, a21_pure) : rk422_sol_2_b3 (a20_pure, a21_pure)};
+      const auto a30_pure{HRK423_sol == 1 ? rk422_sol_1_a30(a20_pure, a21_pure) : rk422_sol_2_a30(a20_pure, a21_pure)};
+      const auto a31_pure{HRK423_sol == 1 ? rk422_sol_1_a31(a20_pure, a21_pure) : rk422_sol_2_a31(a20_pure, a21_pure)};
+      const auto a32_pure{HRK423_sol == 1 ? rk422_sol_1_a32(a20_pure, a21_pure) : rk422_sol_2_a32(a20_pure, a21_pure)};
       // clang-format on
 
       const auto b0{b0_pure * dt};
@@ -1143,7 +1143,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                  states<5>{&old, &k0, &k1, &k2, &k3});
     }
 
-  } else if (CCTK_EQUALS(method, "BMS431")) {
+  } else if (CCTK_EQUALS(method, "HRK432")) {
 
     // RK4 Bootstrapping
     if (static_cast<CCTK_INT>(*refill_prev_rhss) != 0) {
@@ -1198,13 +1198,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const auto a30_pure{bms431_a30};
-      const auto b0_pure{rk431_sol_1_b0(a30_pure)};
-      const auto b1_pure{rk431_sol_1_b1(a30_pure)};
-      const auto b2_pure{rk431_sol_1_b2(a30_pure)};
-      const auto b3_pure{rk431_sol_1_b3(a30_pure)};
-      const auto a31_pure{rk431_sol_1_a31(a30_pure)};
-      const auto a32_pure{rk431_sol_1_a32(a30_pure)};
+      const auto b3_pure{HRK432_b3};
+      const auto b0_pure{hrk432_sol_1_b0(b3_pure)};
+      const auto b1_pure{hrk432_sol_1_b1(b3_pure)};
+      const auto b2_pure{hrk432_sol_1_b2(b3_pure)};
+      const auto a30_pure{hrk432_sol_1_a31(b3_pure)};
+      const auto a31_pure{hrk432_sol_1_a31(b3_pure)};
+      const auto a32_pure{hrk432_sol_1_a32(b3_pure)};
 
       const auto b0{b0_pure * dt};
       const auto b1{b1_pure * dt};
@@ -1557,9 +1557,9 @@ extern "C" void ODESolvers_SetRefillPrevRHSS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_ODESolvers_SetRefillPrevRHSS;
   DECLARE_CCTK_PARAMETERS;
 
-  if (CCTK_EQUALS(method, "BMS422")) {
+  if (CCTK_EQUALS(method, "HRK423")) {
     *refill_prev_rhss = 1;
-  } else if (CCTK_EQUALS(method, "BMS431")) {
+  } else if (CCTK_EQUALS(method, "HRK432")) {
     *refill_prev_rhss = 2;
   } else {
     *refill_prev_rhss = 0;

@@ -9,8 +9,8 @@ KEYWORD method "ODE solver method" STEERABLE=always
   "RK3" :: "Kutta's third-order method"
   "SSPRK3" :: "third-order Strong Stability Preserving Runge-Kutta (SSPRK3)"
   "RK4" :: "classic RK4"
-  "BMS422" :: "Fourth order two step, two stage method"
-  "BMS431" :: "Fourth order three step, two stage method"
+  "HRK423" :: "Hybrid two step, three stage fourth order Runge-Kutta method"
+  "HRK432" :: "Hybrid three step, two stage fourth order Runge-Kutta method"
   "RKF78" :: "Runge-Kutta-Fehlberg 7(8)"
   "DP87" :: "Dormand & Prince 8(7)"
 
@@ -23,22 +23,22 @@ BOOLEAN verbose "Verbose output" STEERABLE=always
 
 # TODO: These are temporary parameters used only duringthe parameter tuning phase
 # of hybrid methods and will be removed in production
-CCTK_INT bms422_sol "Which solution to use for RK422"
+CCTK_INT HRK423_sol "Which solution to use for HRK423"
 {
   *:* :: ""
 } 1
 
-CCTK_REAL bms422_a20 "a20 coefficient for RK422"
+CCTK_REAL HRK423_a20 "a20 coefficient for HRK423"
 {
   *:* :: ""
 } 0.03127973625120939
 
-CCTK_REAL bms422_a21 "a21 coefficient for RK422"
+CCTK_REAL HRK423_a21 "a21 coefficient for HRK423"
 {
   *:* :: ""
 } 0.3736646857963324
 
-CCTK_REAL bms431_a30 "a30 coefficient for RK431"
+CCTK_REAL HRK432_b3 "b3 coefficient for HRK432"
 {
   *:* :: ""
-} 0.0834
+} 0.84

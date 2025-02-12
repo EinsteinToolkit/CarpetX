@@ -11,6 +11,7 @@ $out_every_time = 1.0
 
 $ncells = 80
 $cfl = 0.25
+$method = "HRK423"
 ######################
 
 # We are using a 5 point centered stencil
@@ -69,7 +70,7 @@ CarpetX::blocking_factor_z = 1
 Cactus::terminate = "iteration"
 Cactus::cctk_itlast = $itlast
 
-ODESolvers::method = "BMS422"
+ODESolvers::method = $method
 ODESolvers::verbose = yes
 
 IO::out_dir = $parfile
