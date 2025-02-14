@@ -2,6 +2,6 @@
 
 IMPLEMENTS: NoiseX
 
-USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: loop.hxx
 
 INCLUDE HEADER: noisex.hxx in noisex.hxx

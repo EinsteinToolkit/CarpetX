@@ -1,6 +1,6 @@
 #include <cctk.h>
 
-#include <loop_device.hxx>
+#include <loop.hxx>
 
 namespace NoiseX {
 
