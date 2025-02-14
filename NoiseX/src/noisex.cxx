@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <random>
+#include <memory>
 
 namespace NoiseX {
 
@@ -17,24 +18,31 @@ struct NoiseData {
   std::uniform_real_distribution<CCTK_REAL> distrib{};
 };
 
-static NoiseData noise_data{};
+std::unique_ptr<NoiseData> g_noise_data{};
 
 extern "C" int NoiseX_setup_globals() {
   DECLARE_CCTK_PARAMETERS;
 
   if (CCTK_EQUALS(seed_type, "hardware random device")) {
     std::random_device device{};
-    noise_data.default_engine = std::default_random_engine(device());
-    noise_data.mt_engine = std::mt19937(device());
+    const auto random_seed{device()};
+
+    g_noise_data = std::make_unique<NoiseData>(
+        NoiseData{.default_engine = std::default_random_engine(random_seed),
+                  .mt_engine = std::mt19937(random_seed),
+                  .distrib = std::uniform_real_distribution<CCTK_REAL>(
+                      -noise_amplitude, noise_amplitude)});
+
   } else if (CCTK_EQUALS(seed_type, "fixed")) {
-    noise_data.default_engine = std::default_random_engine(fixed_seed_value);
-    noise_data.mt_engine = std::mt19937(fixed_seed_value);
+    g_noise_data = std::make_unique<NoiseData>(NoiseData{
+        .default_engine = std::default_random_engine(fixed_seed_value),
+        .mt_engine = std::mt19937(fixed_seed_value),
+        .distrib = std::uniform_real_distribution<CCTK_REAL>(-noise_amplitude,
+                                                             noise_amplitude)});
+
   } else {
     CCTK_VERROR("Unrecognized seed type \"%s\"", seed_type);
   }
-
-  noise_data.distrib = std::uniform_real_distribution<CCTK_REAL>(
-      -noise_amplitude, noise_amplitude);
 
   return 0;
 }
@@ -47,18 +55,18 @@ void add(const cGH *restrict const cctkGH, Loop::GF3D2<CCTK_REAL> var) {
 
   if (CCTK_EQUALS(random_engine, "default")) {
     grid.loop_int<0, 0, 0>(grid.nghostzones,
-                           [&] CCTK_DEVICE CCTK_HOST(const Loop::PointDesc &p)
+                           [=] CCTK_DEVICE CCTK_HOST(const Loop::PointDesc &p)
                                CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                 var(p.I) += noise_data.distrib(
-                                     noise_data.default_engine);
+                                 var(p.I) += g_noise_data->distrib(
+                                     g_noise_data->default_engine);
                                });
 
   } else if (CCTK_EQUALS(random_engine, "mersenne twister")) {
     grid.loop_int<0, 0, 0>(grid.nghostzones,
-                           [&] CCTK_DEVICE CCTK_HOST(const Loop::PointDesc &p)
+                           [=] CCTK_DEVICE CCTK_HOST(const Loop::PointDesc &p)
                                CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                 var(p.I) +=
-                                     noise_data.distrib(noise_data.mt_engine);
+                                 var(p.I) += g_noise_data->distrib(
+                                     g_noise_data->mt_engine);
                                });
 
   } else if (CCTK_EQUALS(random_engine, "sine wave")) {
