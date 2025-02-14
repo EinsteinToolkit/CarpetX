@@ -83,7 +83,6 @@ std::optional<active_levels_t> active_levels;
 void Reflux(const cGH *cctkGH, int level);
 void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups);
 void Restrict(const cGH *cctkGH, int level);
-void SyncAfterRestrict(const cGH *cctkGH);
 
 namespace {
 // Convert a (direction, face) pair to an AMReX Orientation
@@ -1355,7 +1354,6 @@ int Initialise(tFleshConfig *config) {
         Restrict(cctkGH, leveldata.level);
     });
     // Prolongation
-    SyncAfterRestrict(cctkGH);
     CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
   }
 
@@ -1806,7 +1804,6 @@ int Evolve(tFleshConfig *config) {
             Restrict(cctkGH, leveldata.level);
         });
         // Prolongation
-        SyncAfterRestrict(cctkGH);
         CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
       }
 
@@ -2821,24 +2818,6 @@ void Restrict(const cGH *cctkGH, int level) {
     }
   }
   Restrict(cctkGH, level, groups);
-}
-
-void SyncAfterRestrict(const cGH *cctkGH) {
-  const int numgroups = CCTK_NumGroups();
-  vector<int> groups;
-  groups.reserve(numgroups);
-  const auto &patchdata0 = ghext->patchdata.at(0);
-  const auto &leveldata0 = patchdata0.leveldata.at(0);
-  for (const auto &groupdataptr : leveldata0.groupdata) {
-    // Sync only grid functions
-    if (groupdataptr) {
-      auto &restrict groupdata = *groupdataptr;
-      // Sync only evolved grid functions
-      if (groupdata.do_checkpoint)
-        groups.push_back(groupdata.groupindex);
-    }
-  }
-  SyncGroupsByDirI(cctkGH, groups.size(), groups.data(), nullptr);
 }
 
 // storage handling
