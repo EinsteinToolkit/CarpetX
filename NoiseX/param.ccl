@@ -2,15 +2,15 @@
 
 KEYWORD seed_type "The type of seed to use"
 {
-  "hardware random device" :: "Uses the hardware random device to generate a seed"
+  "random" :: "Uses the hardware random device to generate a seed"
   "fixed" :: "A fixed integer value is used as sseed"
-} "hardware random device"
+} "random"
 
 KEYWORD random_engine "The random engine to use"
 {
-    "default" :: "Uses C++'s default random engine"
-    "mersenne twister" :: "32-bit Mersenne Twister by Matsumoto and Nishimura, 1998"
-    "sine wave" :: "Uses the values of a high frequency sine wave to create pseudo-randomness"
+  "default" :: "Uses C++'s default random engine"
+  "mersenne twister" :: "32-bit Mersenne Twister by Matsumoto and Nishimura, 1998"
+  "sine wave" :: "Uses the values of a high frequency sine wave to create pseudo-randomness"
 } "default"
 
 INT fixed_seed_value "The value of the fixed seed to use"

@@ -22,7 +22,7 @@ static NoiseData noise_data{};
 extern "C" int NoiseX_setup_globals() {
   DECLARE_CCTK_PARAMETERS;
 
-  if (CCTK_EQUALS(seed_type, "hardware random device")) {
+  if (CCTK_EQUALS(seed_type, "random")) {
     std::random_device device{};
     const auto random_seed_value{device()};
     noise_data.default_engine = std::default_random_engine(random_seed_value);
