@@ -270,11 +270,14 @@ public:
   // AMReX), these do not belong in the outer boundary, but rather the interior.
   // This excludes ghost faces, but includes ghost edges/corners on non-ghost
   // faces. Loop over faces first, then edges, then corners. Modified from
-  // loop_bnd_device.
+  // loop_bnd_device. The additional argument is_sym_bnd is used to indicate
+  // whether each boundary is a symmetry boundary. This symmetry information can
+  // be provided by the PatchData object in the CarpetX driver.
   template <int CI, int CJ, int CK, int VS = 1, int N = 1,
             int NT = AMREX_GPU_MAX_THREADS, typename F>
   inline CCTK_KERNEL void
   loop_outermost_int_device(const vect<int, dim> &group_nghostzones,
+                            const vect<vect<bool, dim>, 2> &is_sym_bnd,
                             const F &f) const {
     // boundary_box sets bnd_min and bnd_max
     vect<int, dim> bnd_min, bnd_max;
@@ -329,9 +332,12 @@ public:
               // True when point is on left/right boundary,
               // and vector is not parallel to a {face,corner,edge}
               // In either of the 3 directions
-              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0]) ||
-                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1]) ||
-                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2])) {
+              if ((ni != 0 && bbox[ni < 0 ? 0 : 1][0] &&
+                   !is_sym_bnd[ni < 0 ? 0 : 1][0]) ||
+                  (nj != 0 && bbox[nj < 0 ? 0 : 1][1] &&
+                   !is_sym_bnd[nj < 0 ? 0 : 1][1]) ||
+                  (nk != 0 && bbox[nk < 0 ? 0 : 1][2] &&
+                   !is_sym_bnd[nk < 0 ? 0 : 1][2])) {
 
                 const vect<int, dim> inormal{ni, nj, nk}; // normal vector
 
