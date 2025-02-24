@@ -27,6 +27,7 @@ USES FUNCTION MultiPatch_GetSystemSpecification
 # Overall size of the domain
 CCTK_INT FUNCTION MultiPatch_GetPatchSpecification( \
   CCTK_INT IN patch, \
+  CCTK_INT OUT is_cartesian, \
   CCTK_INT IN size, \
   CCTK_INT OUT ARRAY ncells, \
   CCTK_REAL OUT ARRAY xmin, \

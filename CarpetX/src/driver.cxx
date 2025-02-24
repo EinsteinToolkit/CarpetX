@@ -1357,8 +1357,8 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   if (CCTK_IsFunctionAliased("MultiPatch_GetPatchSpecification")) {
     CCTK_INT ncells1[dim];
     CCTK_REAL xmin1[dim], xmax1[dim];
-    const int ierr =
-        MultiPatch_GetPatchSpecification(patch, dim, ncells1, xmin1, xmax1);
+    const int ierr = MultiPatch_GetPatchSpecification(patch, nullptr, dim,
+                                                      ncells1, xmin1, xmax1);
     assert(!ierr);
     for (int d = 0; d < dim; ++d)
       ncells[d] = ncells1[d];
