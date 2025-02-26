@@ -36,7 +36,7 @@ using namespace std::experimental;
 #include <memory>
 #include <mutex>
 #include <regex>
-// #include <set>
+#include <set>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -74,17 +74,16 @@ struct db_datatype<double> : std::integral_constant<int, DB_DOUBLE> {};
 template <typename T>
 constexpr inline int db_datatype_v = db_datatype<T>::value;
 
-// struct mesh_props_t {
-//   amrex::IntVect ngrow; // nghosts
-//
-//   auto to_tuple() const { return make_tuple(ngrow); }
-//   friend bool operator==(const mesh_props_t &p, const mesh_props_t &q) {
-//     return p.to_tuple() == q.to_tuple();
-//   }
-//   friend bool operator<(const mesh_props_t &p, const mesh_props_t &q) {
-//     return p.to_tuple() < q.to_tuple();
-//   }
-// };
+struct mesh_props_t {
+  std::array<int, dim> nghosts;
+
+  friend bool operator==(const mesh_props_t &p, const mesh_props_t &q) {
+    return p.nghosts == q.nghosts;
+  }
+  friend bool operator<(const mesh_props_t &p, const mesh_props_t &q) {
+    return p.nghosts < q.nghosts;
+  }
+};
 
 std::string make_subdirname(const std::string &file_name, const int iteration) {
   std::ostringstream buf;
@@ -115,16 +114,24 @@ int match_filename(const std::string &file_name) {
   return std::stoi(sm.str(1));
 }
 
-std::string make_meshname(const int patch = -1, const int reflevel = -1,
+std::string make_meshname(const std::array<int, dim> &nghosts,
+                          const int patch = -1, const int reflevel = -1,
                           const int component = -1) {
   assert((patch == -1) == (reflevel == -1));
   assert((patch == -1) == (component == -1));
   std::ostringstream buf;
-  if (patch < 0)
-    buf << "gh";
+  if (patch >= 0)
+    buf << "box";
   else
-    buf << "box"                                        //
-        << ".m" << setw(2) << setfill('0') << patch     //
+    buf << "gh";
+  buf << ".ghosts";
+  for (int d = 0; d < dim; ++d) {
+    if (d > 0)
+      buf << "_";
+    buf << setw(2) << setfill('0') << nghosts[d];
+  }
+  if (patch >= 0)
+    buf << ".m" << setw(2) << setfill('0') << patch     //
         << ".rl" << setw(2) << setfill('0') << reflevel //
         << ".c" << setw(8) << setfill('0') << component;
   return DB::legalize_name(buf.str());
@@ -531,15 +538,15 @@ void InputSilo(const cGH *restrict const cctkGH,
         const int tl = 0;
         amrex::MultiFab &mfab = *groupdata.mfab[tl];
         const amrex::IndexType &indextype = mfab.ixType();
-        // const amrex::IntVect &ngrow = mfab.nGrowVect();
         const amrex::DistributionMapping &dm = mfab.DistributionMap();
 
+        const std::array<int, dim> &nghosts = groupdata.nghostzones;
         // const mesh_props_t mesh_props{ngrow};
         // const bool have_mesh = have_meshes.count(mesh_props);
 
         // Loop over components (AMReX boxes)
-        const int nfabs = dm.size();
-        for (int component = 0; component < nfabs; ++component) {
+        const int ncomponents = dm.size();
+        for (int component = 0; component < ncomponents; ++component) {
           if (io_verbose)
             CCTK_VINFO("    Reading component %d", component);
 
@@ -588,8 +595,8 @@ void InputSilo(const cGH *restrict const cctkGH,
             static Timer timer_var("InputSilo.var");
             Interval interval_var(timer_var);
 
-            const std::string meshname =
-                make_meshname(leveldata.patch, leveldata.level, component);
+            const std::string meshname = make_meshname(
+                nghosts, leveldata.patch, leveldata.level, component);
 
             const int centering = [&]() {
               const int rank = indextype.cellCentered(0) +
@@ -808,8 +815,20 @@ void OutputSilo(const cGH *restrict const cctkGH,
       // Loop over levels
       for (const auto &leveldata : patchdata.leveldata) {
 
+        const amrex::DistributionMapping &dm = leveldata.fab->DistributionMap();
+        const int ncomponents = dm.size();
+
+        if (!patch_is_cartesian) {
+          coordinate_minima.at(patchdata.patch)
+              .at(leveldata.level)
+              .resize(ncomponents);
+          coordinate_maxima.at(patchdata.patch)
+              .at(leveldata.level)
+              .resize(ncomponents);
+        }
+
         // Loop over groups
-        // std::set<mesh_props_t> have_meshes;
+        std::set<mesh_props_t> have_meshes;
         for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
           if (!output_group.at(gi))
             continue;
@@ -823,21 +842,11 @@ void OutputSilo(const cGH *restrict const cctkGH,
           const int tl = 0;
           const amrex::MultiFab &mfab = *groupdata.mfab[tl];
           const amrex::IndexType &indextype = mfab.ixType();
-          const amrex::IntVect &ngrow = mfab.nGrowVect();
           const amrex::DistributionMapping &dm = mfab.DistributionMap();
-          const int ncomponents = dm.size();
 
-          // const mesh_props_t mesh_props{ngrow};
-          // const bool have_mesh = have_meshes.count(mesh_props);
-
-          if (!patch_is_cartesian) {
-            coordinate_minima.at(patchdata.patch)
-                .at(leveldata.level)
-                .resize(ncomponents);
-            coordinate_maxima.at(patchdata.patch)
-                .at(leveldata.level)
-                .resize(ncomponents);
-          }
+          const std::array<int, dim> &nghosts = groupdata.nghostzones;
+          const mesh_props_t mesh_props{nghosts};
+          const bool have_mesh = have_meshes.count(mesh_props);
 
           // Loop over components (AMReX boxes)
           for (int component = 0; component < ncomponents; ++component) {
@@ -859,13 +868,12 @@ void OutputSilo(const cGH *restrict const cctkGH,
               zonecount *= dims[d];
             assert(zonecount >= 0 && zonecount <= INT_MAX);
 
-            // if (write_file && !have_mesh) {
-            if (write_file) {
+            if (write_file && !have_mesh) {
               static Timer timer_mesh("OutputSilo.mesh");
               Interval interval_mesh(timer_mesh);
 
-              const std::string meshname =
-                  make_meshname(leveldata.patch, leveldata.level, component);
+              const std::string meshname = make_meshname(
+                  nghosts, leveldata.patch, leveldata.level, component);
 
               std::array<int, ndims> dims_vc;
               for (int d = 0; d < ndims; ++d)
@@ -895,6 +903,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 // the network. We don't do this yet, so assert that
                 // we actually have the coordinates stored locally.
                 assert(send_this_fab && write_this_fab);
+                assert(leveldata.groupdata.at(coordinate_group)->nghostzones ==
+                       groupdata.nghostzones);
                 const auto &coord_mfab =
                     *leveldata.groupdata.at(coordinate_group)->mfab.at(0);
                 const auto &coord_fabbox = coord_mfab[component];
@@ -932,8 +942,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
               std::array<int, ndims> min_index, max_index;
               for (int d = 0; d < ndims; ++d) {
-                min_index[d] = ngrow[d];
-                max_index[d] = ngrow[d];
+                min_index[d] = nghosts[d];
+                max_index[d] = nghosts[d];
               }
               ierr =
                   DBAddOption(optlist.get(), DBOPT_LO_OFFSET, min_index.data());
@@ -968,7 +978,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                    optlist.get());
               assert(!ierr);
 
-              // have_meshes.insert(mesh_props);
+              have_meshes.insert(mesh_props);
             } // if write mesh
 
             // Communicate variable
@@ -1001,8 +1011,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
               static Timer timer_var("OutputSilo.var");
               Interval interval_var(timer_var);
 
-              const std::string meshname =
-                  make_meshname(leveldata.patch, leveldata.level, component);
+              const std::string meshname = make_meshname(
+                  nghosts, leveldata.patch, leveldata.level, component);
 
               const int centering = [&]() {
                 const int rank = indextype.cellCentered(0) +
@@ -1133,7 +1143,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
     }
 
     // Loop over groups
-    // std::set<mesh_props_t> have_meshes;
+    std::set<mesh_props_t> have_meshes;
     for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
       if (!output_group.at(gi))
         continue;
@@ -1148,24 +1158,21 @@ void OutputSilo(const cGH *restrict const cctkGH,
       const int tl = 0;
       const amrex::MultiFab &mfab0 = *groupdata0.mfab[tl];
       const amrex::IndexType &indextype = mfab0.ixType();
-      // const amrex::IntVect &ngrow = mfab0.nGrowVect();
 
-      // const mesh_props_t mesh_props{ngrow};
-      // const bool have_mesh = have_meshes.count(mesh_props);
+      const std::array<int, dim> &nghosts = groupdata0.nghostzones;
+      const mesh_props_t mesh_props{nghosts};
+      const bool have_mesh = have_meshes.count(mesh_props);
 
-      // if (!have_mesh) {
-      if (true) {
-
-        const std::string multimeshname = make_meshname();
+      if (!have_mesh) {
+        const std::string multimeshname = make_meshname(nghosts);
 
         // Count components per level
         const int nlevels = ghext->num_levels();
         std::vector<int> ncomps_level(nlevels, 0);
         for (const auto &patchdata : ghext->patchdata) {
           for (const auto &leveldata : patchdata.leveldata) {
-            const auto &groupdata = *leveldata.groupdata.at(gi);
-            const amrex::MultiFab &mfab = *groupdata.mfab[tl];
-            const amrex::DistributionMapping &dm = mfab.DistributionMap();
+            const amrex::DistributionMapping &dm =
+                leveldata.fab->DistributionMap();
             const int ncomponents = dm.size();
             ncomps_level.at(leveldata.level) += ncomponents;
           }
@@ -1564,7 +1571,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                 proc / ioproc_every);
               const std::string meshname =
                   proc_filename + ":" +
-                  make_meshname(leveldata.patch, leveldata.level, c);
+                  make_meshname(nghosts, leveldata.patch, leveldata.level, c);
               meshnames.push_back(meshname);
             }
           }
@@ -1650,12 +1657,12 @@ void OutputSilo(const cGH *restrict const cctkGH,
                               nullptr, optlist.get());
         assert(!ierr);
 
-        // have_meshes.insert(mesh_props);
+        have_meshes.insert(mesh_props);
       } // if write multimesh
 
       // Write multivar
       {
-        const std::string multimeshname = make_meshname();
+        const std::string multimeshname = make_meshname(nghosts);
 
         const DB::ptr<DBoptlist> optlist = DB::make(DBMakeOptlist(10));
         assert(optlist);
