@@ -36,7 +36,7 @@ using namespace std::experimental;
 #include <memory>
 #include <mutex>
 #include <regex>
-#include <set>
+// #include <set>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -74,17 +74,17 @@ struct db_datatype<double> : std::integral_constant<int, DB_DOUBLE> {};
 template <typename T>
 constexpr inline int db_datatype_v = db_datatype<T>::value;
 
-struct mesh_props_t {
-  amrex::IntVect ngrow;
-
-  auto to_tuple() const { return make_tuple(ngrow); }
-  friend bool operator==(const mesh_props_t &p, const mesh_props_t &q) {
-    return p.to_tuple() == q.to_tuple();
-  }
-  friend bool operator<(const mesh_props_t &p, const mesh_props_t &q) {
-    return p.to_tuple() < q.to_tuple();
-  }
-};
+// struct mesh_props_t {
+//   amrex::IntVect ngrow; // nghosts
+//
+//   auto to_tuple() const { return make_tuple(ngrow); }
+//   friend bool operator==(const mesh_props_t &p, const mesh_props_t &q) {
+//     return p.to_tuple() == q.to_tuple();
+//   }
+//   friend bool operator<(const mesh_props_t &p, const mesh_props_t &q) {
+//     return p.to_tuple() < q.to_tuple();
+//   }
+// };
 
 std::string make_subdirname(const std::string &file_name, const int iteration) {
   std::ostringstream buf;
@@ -526,6 +526,7 @@ void InputSilo(const cGH *restrict const cctkGH,
           CCTK_VINFO("  Reading group %s", CCTK_FullGroupName(gi));
 
         auto &groupdata = *leveldata.groupdata.at(gi);
+        // TODO: Check that group has the default number of ghost zones
         const int numvars = groupdata.numvars;
         const int tl = 0;
         amrex::MultiFab &mfab = *groupdata.mfab[tl];
@@ -668,7 +669,7 @@ void InputSilo(const cGH *restrict const cctkGH,
 
       } // for gi
     } // for leveldata
-  } // write data
+  } // read data
 
   interval_data = nullptr;
 }
@@ -718,7 +719,6 @@ void OutputSilo(const cGH *restrict const cctkGH,
   assert((myioproc == myproc) == write_file);
   // If process 1 exists and if it is not an I/O process, then output
   // metadata there. Else output metadata on process 0.
-
   const int metafile_ioproc = nprocs == 1 || ioproc_every == 1 ? 0 : 1;
   const bool write_metafile = myproc == metafile_ioproc;
 
@@ -736,6 +736,10 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
   static Timer timer_data("OutputSilo.data");
   auto interval_data = std::make_unique<Interval>(timer_data);
+
+  // Global coordinate extents for each component
+  std::vector<std::vector<std::vector<std::array<CCTK_REAL, dim> > > >
+      coordinate_minima, coordinate_maxima;
 
   // Write data
   {
@@ -785,17 +789,27 @@ void OutputSilo(const cGH *restrict const cctkGH,
       }
     }
 
+    coordinate_minima.resize(ghext->patchdata.size());
+    coordinate_maxima.resize(ghext->patchdata.size());
+
     // Loop over patches
     for (const auto &patchdata : ghext->patchdata) {
 
       // TODO: Correct this condition
-      const bool patch_is_cartesian = patchdata.patch == 0;
+      const bool patch_is_cartesian = false; // patchdata.patch == 0;
+
+      if (!patch_is_cartesian) {
+        coordinate_minima.at(patchdata.patch)
+            .resize(patchdata.leveldata.size());
+        coordinate_maxima.at(patchdata.patch)
+            .resize(patchdata.leveldata.size());
+      }
 
       // Loop over levels
       for (const auto &leveldata : patchdata.leveldata) {
 
         // Loop over groups
-        std::set<mesh_props_t> have_meshes;
+        // std::set<mesh_props_t> have_meshes;
         for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
           if (!output_group.at(gi))
             continue;
@@ -804,19 +818,29 @@ void OutputSilo(const cGH *restrict const cctkGH,
             continue;
 
           const auto &groupdata = *leveldata.groupdata.at(gi);
+          // TODO: Check that group has the default number of ghost zones
           const int numvars = groupdata.numvars;
           const int tl = 0;
           const amrex::MultiFab &mfab = *groupdata.mfab[tl];
           const amrex::IndexType &indextype = mfab.ixType();
           const amrex::IntVect &ngrow = mfab.nGrowVect();
           const amrex::DistributionMapping &dm = mfab.DistributionMap();
+          const int ncomponents = dm.size();
 
-          const mesh_props_t mesh_props{ngrow};
-          const bool have_mesh = have_meshes.count(mesh_props);
+          // const mesh_props_t mesh_props{ngrow};
+          // const bool have_mesh = have_meshes.count(mesh_props);
+
+          if (!patch_is_cartesian) {
+            coordinate_minima.at(patchdata.patch)
+                .at(leveldata.level)
+                .resize(ncomponents);
+            coordinate_maxima.at(patchdata.patch)
+                .at(leveldata.level)
+                .resize(ncomponents);
+          }
 
           // Loop over components (AMReX boxes)
-          const int nfabs = dm.size();
-          for (int component = 0; component < nfabs; ++component) {
+          for (int component = 0; component < ncomponents; ++component) {
             const int proc = dm[component];
             const int ioproc = proc / ioproc_every * ioproc_every;
             const bool send_this_fab = proc == myproc;
@@ -835,7 +859,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
               zonecount *= dims[d];
             assert(zonecount >= 0 && zonecount <= INT_MAX);
 
-            if (write_file && !have_mesh) {
+            // if (write_file && !have_mesh) {
+            if (write_file) {
               static Timer timer_mesh("OutputSilo.mesh");
               Interval interval_mesh(timer_mesh);
 
@@ -872,11 +897,24 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 assert(send_this_fab && write_this_fab);
                 const auto &coord_mfab =
                     *leveldata.groupdata.at(coordinate_group)->mfab.at(0);
-                const auto &coord_fabbox = mfab[component];
+                const auto &coord_fabbox = coord_mfab[component];
                 for (int d = 0; d < ndims; ++d) {
                   coord_ptrs[d] = coord_fabbox.dataPtr(d);
                   assert(coord_ptrs[d]);
                 }
+
+                std::array<CCTK_REAL, dim> xmin, xmax;
+                for (int d = 0; d < dim; ++d) {
+                  const auto xminmax = coord_fabbox.minmax(d);
+                  xmin[d] = xminmax.first;
+                  xmax[d] = xminmax.second;
+                }
+                coordinate_minima.at(patchdata.patch)
+                    .at(leveldata.level)
+                    .at(component) = xmin;
+                coordinate_maxima.at(patchdata.patch)
+                    .at(leveldata.level)
+                    .at(component) = xmax;
               }
 
               const DB::ptr<DBoptlist> optlist = DB::make(DBMakeOptlist(10));
@@ -929,6 +967,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                    db_datatype_v<CCTK_REAL>, coordtype,
                                    optlist.get());
               assert(!ierr);
+
+              // have_meshes.insert(mesh_props);
             } // if write mesh
 
             // Communicate variable
@@ -1038,6 +1078,26 @@ void OutputSilo(const cGH *restrict const cctkGH,
     } // for patchdata
   } // write data
 
+  for (const auto &patchdata : ghext->patchdata) {
+    for (const auto &leveldata : patchdata.leveldata) {
+      const bool patch_is_cartesian = false; // patchdata.patch == 0;
+      if (!patch_is_cartesian) {
+        const int patch = patchdata.patch;
+        const int level = leveldata.level;
+        auto &minima = coordinate_minima.at(patch).at(level);
+        auto &maxima = coordinate_maxima.at(patch).at(level);
+        if (!minima.empty()) {
+          MPI_Reduce(MPI_IN_PLACE, minima.data(), dim * minima.size(),
+                     mpi_datatype<CCTK_REAL>::value, MPI_MIN, metafile_ioproc,
+                     mpi_comm);
+          MPI_Reduce(MPI_IN_PLACE, maxima.data(), dim * maxima.size(),
+                     mpi_datatype<CCTK_REAL>::value, MPI_MAX, metafile_ioproc,
+                     mpi_comm);
+        }
+      }
+    }
+  }
+
   interval_data = nullptr;
 
   static Timer timer_meta("OutputSilo.meta");
@@ -1073,7 +1133,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
     }
 
     // Loop over groups
-    std::set<mesh_props_t> have_meshes;
+    // std::set<mesh_props_t> have_meshes;
     for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
       if (!output_group.at(gi))
         continue;
@@ -1088,12 +1148,13 @@ void OutputSilo(const cGH *restrict const cctkGH,
       const int tl = 0;
       const amrex::MultiFab &mfab0 = *groupdata0.mfab[tl];
       const amrex::IndexType &indextype = mfab0.ixType();
-      const amrex::IntVect &ngrow = mfab0.nGrowVect();
+      // const amrex::IntVect &ngrow = mfab0.nGrowVect();
 
-      const mesh_props_t mesh_props{ngrow};
-      const bool have_mesh = have_meshes.count(mesh_props);
+      // const mesh_props_t mesh_props{ngrow};
+      // const bool have_mesh = have_meshes.count(mesh_props);
 
-      if (!have_mesh) {
+      // if (!have_mesh) {
+      if (true) {
 
         const std::string multimeshname = make_meshname();
 
@@ -1105,8 +1166,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const auto &groupdata = *leveldata.groupdata.at(gi);
             const amrex::MultiFab &mfab = *groupdata.mfab[tl];
             const amrex::DistributionMapping &dm = mfab.DistributionMap();
-            const int nfabs = dm.size();
-            ncomps_level.at(leveldata.level) += nfabs;
+            const int ncomponents = dm.size();
+            ncomps_level.at(leveldata.level) += ncomponents;
           }
         }
         std::vector<int> firstcomp_level(nlevels, 0);
@@ -1372,24 +1433,45 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const auto &groupdata = *leveldata.groupdata.at(gi);
             const int tl = 0;
             const amrex::MultiFab &mfab = *groupdata.mfab[tl];
-            const amrex::Geometry &geom =
-                patchdata.amrcore->Geom(leveldata.level);
-            const amrex::Real *const x0 = geom.ProbLo();
-            const amrex::Real *const dx = geom.CellSize();
-            const int nfabs = mfab.size();
-            for (int c = 0; c < nfabs; ++c) {
-              const amrex::Box &fabbox = mfab.fabbox(c); // exterior
-              iextent_t iextent;
-              extent_t extent;
-              for (int d = 0; d < ndims; ++d) {
-                iextent[0][d] = fabbox.smallEnd(d);
-                iextent[1][d] = fabbox.bigEnd(d);
-                extent[0][d] = x0[d] + fabbox.smallEnd(d) * dx[d];
-                extent[1][d] = x0[d] + fabbox.bigEnd(d) * dx[d];
+            const int ncomponents = mfab.size();
+            const bool patch_is_cartesian = false; // patchdata.patch == 0;
+            if (patch_is_cartesian) {
+              const amrex::Geometry &geom =
+                  patchdata.amrcore->Geom(leveldata.level);
+              const amrex::Real *const x0 = geom.ProbLo();
+              const amrex::Real *const dx = geom.CellSize();
+              for (int c = 0; c < ncomponents; ++c) {
+                const amrex::Box &fabbox = mfab.fabbox(c); // exterior
+                iextent_t iextent;
+                extent_t extent;
+                for (int d = 0; d < ndims; ++d) {
+                  iextent[0][d] = fabbox.smallEnd(d);
+                  iextent[1][d] = fabbox.bigEnd(d);
+                  extent[0][d] = x0[d] + fabbox.smallEnd(d) * dx[d];
+                  extent[1][d] = x0[d] + fabbox.bigEnd(d) * dx[d];
+                }
+                iextents.push_back(iextent);
+                extents.push_back(extent);
               }
-              iextents.push_back(iextent);
-              extents.push_back(extent);
-            }
+            } else { // if !patch_is_cartesian)
+              const auto &minima =
+                  coordinate_minima.at(patchdata.patch).at(leveldata.level);
+              const auto &maxima =
+                  coordinate_maxima.at(patchdata.patch).at(leveldata.level);
+              for (int c = 0; c < ncomponents; ++c) {
+                const amrex::Box &fabbox = mfab.fabbox(c); // exterior
+                iextent_t iextent;
+                extent_t extent;
+                for (int d = 0; d < ndims; ++d) {
+                  iextent[0][d] = fabbox.smallEnd(d);
+                  iextent[1][d] = fabbox.bigEnd(d);
+                  extent[0][d] = minima.at(c)[d];
+                  extent[1][d] = maxima.at(c)[d];
+                }
+                iextents.push_back(iextent);
+                extents.push_back(extent);
+              }
+            } // if !patch_is_cartesian)
           }
         }
 
@@ -1473,8 +1555,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const auto &groupdata = *leveldata.groupdata.at(gi);
             const amrex::MultiFab &mfab = *groupdata.mfab[tl];
             const amrex::DistributionMapping &dm = mfab.DistributionMap();
-            const int nfabs = dm.size();
-            for (int c = 0; c < nfabs; ++c) {
+            const int ncomponents = dm.size();
+            for (int c = 0; c < ncomponents; ++c) {
               const int proc = dm[c];
               const std::string proc_filename =
                   make_subdirname(output_file, cctk_iteration) + "/" +
@@ -1541,8 +1623,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const auto &groupdata = *leveldata.groupdata.at(gi);
             const int tl = 0;
             const amrex::MultiFab &mfab = *groupdata.mfab[tl];
-            const int nfabs = mfab.size();
-            for (int c = 0; c < nfabs; ++c) {
+            const int ncomponents = mfab.size();
+            for (int c = 0; c < ncomponents; ++c) {
               const amrex::Box &fabbox = mfab.fabbox(c); // exterior
               std::array<int, ndims> dims_vc;
               for (int d = 0; d < ndims; ++d)
@@ -1568,7 +1650,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                               nullptr, optlist.get());
         assert(!ierr);
 
-        have_meshes.insert(mesh_props);
+        // have_meshes.insert(mesh_props);
       } // if write multimesh
 
       // Write multivar
@@ -1611,8 +1693,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
               const int tl = 0;
               const amrex::MultiFab &mfab = *groupdata.mfab[tl];
               const amrex::DistributionMapping &dm = mfab.DistributionMap();
-              const int nfabs = dm.size();
-              for (int c = 0; c < nfabs; ++c) {
+              const int ncomponents = dm.size();
+              for (int c = 0; c < ncomponents; ++c) {
                 const int proc = dm[c];
                 const std::string proc_filename =
                     make_subdirname(output_file, cctk_iteration) + "/" +
@@ -1662,16 +1744,16 @@ void OutputSilo(const cGH *restrict const cctkGH,
       // Write FabArrayBase (component positions and shapes)
       for (const auto &leveldata : patchdata.leveldata) {
         const amrex::FabArrayBase &fab = *leveldata.fab;
-        const int nfabs = fab.size();
-        std::vector<int> boxes(2 * ndims * nfabs);
-        for (int component = 0; component < nfabs; ++component) {
+        const int ncomponents = fab.size();
+        std::vector<int> boxes(2 * ndims * ncomponents);
+        for (int component = 0; component < ncomponents; ++component) {
           const amrex::Box &fabbox = fab.box(component); // valid region
           for (int d = 0; d < ndims; ++d)
             boxes[d + 2 * ndims * component] = fabbox.smallEnd(d);
           for (int d = 0; d < ndims; ++d)
             boxes[d + ndims + 2 * ndims * component] = fabbox.bigEnd(d);
         }
-        const int dims[2] = {nfabs, 2 * ndims};
+        const int dims[2] = {ncomponents, 2 * ndims};
         const std::string varname =
             dirname + "/" +
             make_fabarraybasename(leveldata.patch, leveldata.level);
