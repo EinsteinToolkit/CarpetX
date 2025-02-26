@@ -915,7 +915,12 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
                 std::array<CCTK_REAL, dim> xmin, xmax;
                 for (int d = 0; d < dim; ++d) {
-                  const auto xminmax = coord_fabbox.minmax(d);
+#ifdef AMREX_USE_GPU
+                  constexpr auto run_on = amrex::RunOn::Device;
+#else
+                  constexpr auto run_on = amrex::RunOn::Host;
+#endif
+                  const auto xminmax = coord_fabbox.minmax<run_on>(d);
                   xmin[d] = xminmax.first;
                   xmax[d] = xminmax.second;
                 }
