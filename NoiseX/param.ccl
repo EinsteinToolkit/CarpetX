@@ -1,0 +1,29 @@
+# Parameter definitions for thorn NoiseX
+
+KEYWORD seed_type "The type of seed to use"
+{
+  "random" :: "Uses the hardware random device to generate a seed"
+  "fixed" :: "A fixed integer value is used as sseed"
+} "random"
+
+KEYWORD random_engine "The random engine to use"
+{
+  "default" :: "Uses C++'s default random engine"
+  "mersenne twister" :: "32-bit Mersenne Twister by Matsumoto and Nishimura, 1998"
+  "sine wave" :: "Uses the values of a high frequency sine wave to create pseudo-randomness"
+} "default"
+
+INT fixed_seed_value "The value of the fixed seed to use"
+{
+  0:* :: "Positive integer"
+} 100
+
+REAL noise_amplitude "The value of the noise amplitude to use"
+{
+  0.0:* :: "Positive real"
+} 1.0e-10
+
+REAL noise_frequency "The value of the noise frenquecy to use with the sine wave engie"
+{
+  0.0:* :: "Positive real"
+} 5.0

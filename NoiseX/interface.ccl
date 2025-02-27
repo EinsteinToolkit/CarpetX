@@ -1,0 +1,7 @@
+# Interface definition for thorn NoiseX
+
+IMPLEMENTS: NoiseX
+
+USES INCLUDE HEADER: loop.hxx
+
+INCLUDE HEADER: noisex.hxx in noisex.hxx
