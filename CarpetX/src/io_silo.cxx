@@ -71,8 +71,7 @@ template <>
 struct db_datatype<float> : std::integral_constant<int, DB_FLOAT> {};
 template <>
 struct db_datatype<double> : std::integral_constant<int, DB_DOUBLE> {};
-template <typename T>
-constexpr inline int db_datatype_v = db_datatype<T>::value;
+template <typename T> constexpr int db_datatype_v = db_datatype<T>::value;
 
 struct mesh_props_t {
   std::array<int, dim> nghosts;
@@ -581,7 +580,7 @@ void InputSilo(const cGH *restrict const cctkGH,
             amrex::FArrayBox &fab = mfab[component];
             assert(numvars * zonecount <= INT_MAX);
             MPI_Irecv(fab.dataPtr(), numvars * zonecount,
-                      mpi_datatype<CCTK_REAL>::value, ioproc, mpi_tag, mpi_comm,
+                      mpi_datatype_v<CCTK_REAL>, ioproc, mpi_tag, mpi_comm,
                       &mpi_req);
           } else {
             buffer.resize(numvars * zonecount);
@@ -664,7 +663,7 @@ void InputSilo(const cGH *restrict const cctkGH,
             buffer.resize(numvars * zonecount);
             assert(numvars * zonecount <= INT_MAX);
             MPI_Send(buffer.data(), numvars * zonecount,
-                     mpi_datatype<CCTK_REAL>::value, proc, mpi_tag, mpi_comm);
+                     mpi_datatype_v<CCTK_REAL>, proc, mpi_tag, mpi_comm);
           }
           if (recv_this_fab)
             for (int vi = 0; vi < numvars; ++vi)
@@ -999,13 +998,12 @@ void OutputSilo(const cGH *restrict const cctkGH,
               const amrex::FArrayBox &fab = mfab[component];
               assert(numvars * zonecount <= INT_MAX);
               MPI_Send(fab.dataPtr(), numvars * zonecount,
-                       mpi_datatype<CCTK_REAL>::value, ioproc, mpi_tag,
-                       mpi_comm);
+                       mpi_datatype_v<CCTK_REAL>, ioproc, mpi_tag, mpi_comm);
             } else {
               buffer.resize(numvars * zonecount);
               assert(numvars * zonecount <= INT_MAX);
               MPI_Recv(buffer.data(), numvars * zonecount,
-                       mpi_datatype<CCTK_REAL>::value, proc, mpi_tag, mpi_comm,
+                       mpi_datatype_v<CCTK_REAL>, proc, mpi_tag, mpi_comm,
                        MPI_STATUS_IGNORE);
               data = buffer.data();
             }
@@ -1102,11 +1100,18 @@ void OutputSilo(const cGH *restrict const cctkGH,
         auto &minima = coordinate_minima.at(patch).at(level);
         auto &maxima = coordinate_maxima.at(patch).at(level);
         if (!minima.empty()) {
-          MPI_Reduce(MPI_IN_PLACE, minima.data(), dim * minima.size(),
-                     mpi_datatype<CCTK_REAL>::value, MPI_MIN, metafile_ioproc,
+          const bool isroot = myproc == metafile_ioproc;
+          const void *const minima_sendptr =
+              isroot ? MPI_IN_PLACE : minima.data();
+          void *const minima_recvptr = isroot ? minima.data() : nullptr;
+          MPI_Reduce(minima_sendptr, minima_recvptr, dim * minima.size(),
+                     mpi_datatype_v<CCTK_REAL>, MPI_MIN, metafile_ioproc,
                      mpi_comm);
-          MPI_Reduce(MPI_IN_PLACE, maxima.data(), dim * maxima.size(),
-                     mpi_datatype<CCTK_REAL>::value, MPI_MAX, metafile_ioproc,
+          const void *const maxima_sendptr =
+              isroot ? MPI_IN_PLACE : maxima.data();
+          void *const maxima_recvptr = isroot ? maxima.data() : nullptr;
+          MPI_Reduce(maxima_sendptr, maxima_recvptr, dim * maxima.size(),
+                     mpi_datatype_v<CCTK_REAL>, MPI_MAX, metafile_ioproc,
                      mpi_comm);
         }
       }
