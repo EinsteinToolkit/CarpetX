@@ -28,17 +28,17 @@ CCTK_INT HRK423_sol "Which solution to use for HRK423"
   *:* :: ""
 } 1
 
-CCTK_REAL HRK423_a20 "a20 coefficient for HRK423"
+CCTK_REAL HRK423_c2 "c2 coefficient for HRK423"
 {
   *:* :: ""
-} 0.03127973625120939
+} 0.45
 
-CCTK_REAL HRK423_a21 "a21 coefficient for HRK423"
+CCTK_REAL HRK423_c3 "c3 coefficient for HRK423"
 {
   *:* :: ""
-} 0.3736646857963324
+} 0.25
 
-CCTK_REAL HRK432_b3 "b3 coefficient for HRK432"
+CCTK_REAL HRK432_c3 "c3 coefficient for HRK432"
 {
   *:* :: ""
-} 0.84
+} 0.36

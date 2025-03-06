@@ -5,7 +5,7 @@
 
 // TODO: These are temporary includes used only duringthe parameter tuning phase
 // of hybrid methods and will be removed in production
-#include "rk422.hpp"
+#include "rk423.hpp"
 #include "hrk432.hpp"
 
 #include <cctk.h>
@@ -1076,15 +1076,15 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
       // clang-format off
-      const auto a20_pure{HRK423_a20};
-      const auto a21_pure{HRK423_a21};
-      const auto b0_pure {HRK423_sol == 1 ? rk422_sol_1_b0 (a20_pure, a21_pure) : rk422_sol_2_b0 (a20_pure, a21_pure)};
-      const auto b1_pure {HRK423_sol == 1 ? rk422_sol_1_b1 (a20_pure, a21_pure) : rk422_sol_2_b1 (a20_pure, a21_pure)};
-      const auto b2_pure {HRK423_sol == 1 ? rk422_sol_1_b2 (a20_pure, a21_pure) : rk422_sol_2_b2 (a20_pure, a21_pure)};
-      const auto b3_pure {HRK423_sol == 1 ? rk422_sol_1_b3 (a20_pure, a21_pure) : rk422_sol_2_b3 (a20_pure, a21_pure)};
-      const auto a30_pure{HRK423_sol == 1 ? rk422_sol_1_a30(a20_pure, a21_pure) : rk422_sol_2_a30(a20_pure, a21_pure)};
-      const auto a31_pure{HRK423_sol == 1 ? rk422_sol_1_a31(a20_pure, a21_pure) : rk422_sol_2_a31(a20_pure, a21_pure)};
-      const auto a32_pure{HRK423_sol == 1 ? rk422_sol_1_a32(a20_pure, a21_pure) : rk422_sol_2_a32(a20_pure, a21_pure)};
+      const auto b0_pure {HRK423_sol == 1 ? rk423_sol_1_b0(HRK423_c2, HRK423_c3) : rk423_sol_2_b0(HRK423_c2, HRK423_c3)};
+      const auto b1_pure {HRK423_sol == 1 ? rk423_sol_1_b1(HRK423_c2, HRK423_c3) : rk423_sol_2_b1(HRK423_c2, HRK423_c3)};
+      const auto b2_pure {HRK423_sol == 1 ? rk423_sol_1_b2(HRK423_c2, HRK423_c3) : rk423_sol_2_b2(HRK423_c2, HRK423_c3)};
+      const auto a20_pure{HRK423_sol == 1 ? rk423_sol_1_a20(HRK423_c2, HRK423_c3) : rk423_sol_2_a20(HRK423_c2, HRK423_c3)};
+      const auto a30_pure{HRK423_sol == 1 ? rk423_sol_1_a30(HRK423_c2, HRK423_c3) : rk423_sol_2_a30(HRK423_c2, HRK423_c3)};
+      const auto a31_pure{HRK423_sol == 1 ? rk423_sol_1_a31(HRK423_c2, HRK423_c3) : rk423_sol_2_a31(HRK423_c2, HRK423_c3)};
+      const auto b3_pure {1.0 - (b0_pure + b1_pure + b2_pure)};
+      const auto a21_pure{HRK423_c2 - a20_pure};
+      const auto a32_pure{HRK423_c3 - (a30_pure + a31_pure)};
       // clang-format on
 
       const auto b0{b0_pure * dt};
@@ -1198,13 +1198,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const auto b3_pure{HRK432_b3};
-      const auto b0_pure{hrk432_sol_1_b0(b3_pure)};
-      const auto b1_pure{hrk432_sol_1_b1(b3_pure)};
-      const auto b2_pure{hrk432_sol_1_b2(b3_pure)};
-      const auto a30_pure{hrk432_sol_1_a30(b3_pure)};
-      const auto a31_pure{hrk432_sol_1_a31(b3_pure)};
-      const auto a32_pure{hrk432_sol_1_a32(b3_pure)};
+      const auto b0_pure{hrk432_sol_1_b0(HRK432_c3)};
+      const auto b1_pure{hrk432_sol_1_b1(HRK432_c3)};
+      const auto b2_pure{hrk432_sol_1_b2(HRK432_c3)};
+      const auto a30_pure{hrk432_sol_1_a30(HRK432_c3)};
+      const auto a31_pure{hrk432_sol_1_a31(HRK432_c3)};
+      const auto b3_pure{1 - (b0_pure + b1_pure + b2_pure)};
+      const auto a32_pure{HRK432_c3 - (a30_pure + a31_pure)};
 
       const auto b0{b0_pure * dt};
       const auto b1{b1_pure * dt};
