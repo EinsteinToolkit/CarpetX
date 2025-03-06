@@ -47,7 +47,6 @@ CCTK_REAL linear_wave_wavelength "Linear wave wavelength"
   0.0:* :: ""
 } 1.0
 
-CCTK_REAL noise_amplitude "Noise amplitude"
+BOOLEAN add_noise "Add noise to initial data"
 {
-  0.0:* :: ""
-} 0.0
+} no
