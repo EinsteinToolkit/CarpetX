@@ -1076,26 +1076,26 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
       // clang-format off
-      const auto b0_pure {HRK423_sol == 1 ? rk423_sol_1_b0(HRK423_c2, HRK423_c3) : rk423_sol_2_b0(HRK423_c2, HRK423_c3)};
-      const auto b1_pure {HRK423_sol == 1 ? rk423_sol_1_b1(HRK423_c2, HRK423_c3) : rk423_sol_2_b1(HRK423_c2, HRK423_c3)};
-      const auto b2_pure {HRK423_sol == 1 ? rk423_sol_1_b2(HRK423_c2, HRK423_c3) : rk423_sol_2_b2(HRK423_c2, HRK423_c3)};
-      const auto a20_pure{HRK423_sol == 1 ? rk423_sol_1_a20(HRK423_c2, HRK423_c3) : rk423_sol_2_a20(HRK423_c2, HRK423_c3)};
-      const auto a30_pure{HRK423_sol == 1 ? rk423_sol_1_a30(HRK423_c2, HRK423_c3) : rk423_sol_2_a30(HRK423_c2, HRK423_c3)};
-      const auto a31_pure{HRK423_sol == 1 ? rk423_sol_1_a31(HRK423_c2, HRK423_c3) : rk423_sol_2_a31(HRK423_c2, HRK423_c3)};
-      const auto b3_pure {1.0 - (b0_pure + b1_pure + b2_pure)};
-      const auto a21_pure{HRK423_c2 - a20_pure};
-      const auto a32_pure{HRK423_c3 - (a30_pure + a31_pure)};
+      const CCTK_REAL b0_pure {HRK423_sol == 1 ? rk423_sol_1_b0(HRK423_c2, HRK423_c3) : rk423_sol_2_b0(HRK423_c2, HRK423_c3)};
+      const CCTK_REAL b1_pure {HRK423_sol == 1 ? rk423_sol_1_b1(HRK423_c2, HRK423_c3) : rk423_sol_2_b1(HRK423_c2, HRK423_c3)};
+      const CCTK_REAL b2_pure {HRK423_sol == 1 ? rk423_sol_1_b2(HRK423_c2, HRK423_c3) : rk423_sol_2_b2(HRK423_c2, HRK423_c3)};
+      const CCTK_REAL a20_pure{HRK423_sol == 1 ? rk423_sol_1_a20(HRK423_c2, HRK423_c3) : rk423_sol_2_a20(HRK423_c2, HRK423_c3)};
+      const CCTK_REAL a30_pure{HRK423_sol == 1 ? rk423_sol_1_a30(HRK423_c2, HRK423_c3) : rk423_sol_2_a30(HRK423_c2, HRK423_c3)};
+      const CCTK_REAL a31_pure{HRK423_sol == 1 ? rk423_sol_1_a31(HRK423_c2, HRK423_c3) : rk423_sol_2_a31(HRK423_c2, HRK423_c3)};
+      const CCTK_REAL b3_pure {1.0 - (b0_pure + b1_pure + b2_pure)};
+      const CCTK_REAL a21_pure{HRK423_c2 - a20_pure};
+      const CCTK_REAL a32_pure{HRK423_c3 - (a30_pure + a31_pure)};
       // clang-format on
 
-      const auto b0{b0_pure * dt};
-      const auto b1{b1_pure * dt};
-      const auto b2{b2_pure * dt};
-      const auto b3{b3_pure * dt};
-      const auto a20{a20_pure * dt};
-      const auto a21{a21_pure * dt};
-      const auto a30{a30_pure * dt};
-      const auto a31{a31_pure * dt};
-      const auto a32{a32_pure * dt};
+      const CCTK_REAL b0{b0_pure * dt};
+      const CCTK_REAL b1{b1_pure * dt};
+      const CCTK_REAL b2{b2_pure * dt};
+      const CCTK_REAL b3{b3_pure * dt};
+      const CCTK_REAL a20{a20_pure * dt};
+      const CCTK_REAL a21{a21_pure * dt};
+      const CCTK_REAL a30{a30_pure * dt};
+      const CCTK_REAL a31{a31_pure * dt};
+      const CCTK_REAL a32{a32_pure * dt};
 
       if (verbose) {
         CCTK_VINFO("Coefficients:\n"
@@ -1198,21 +1198,21 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const auto b0_pure{hrk432_sol_1_b0(HRK432_c3)};
-      const auto b1_pure{hrk432_sol_1_b1(HRK432_c3)};
-      const auto b2_pure{hrk432_sol_1_b2(HRK432_c3)};
-      const auto a30_pure{hrk432_sol_1_a30(HRK432_c3)};
-      const auto a31_pure{hrk432_sol_1_a31(HRK432_c3)};
-      const auto b3_pure{1 - (b0_pure + b1_pure + b2_pure)};
-      const auto a32_pure{HRK432_c3 - (a30_pure + a31_pure)};
+      const CCTK_REAL b0_pure{hrk432_sol_1_b0(HRK432_c3)};
+      const CCTK_REAL b1_pure{hrk432_sol_1_b1(HRK432_c3)};
+      const CCTK_REAL b2_pure{hrk432_sol_1_b2(HRK432_c3)};
+      const CCTK_REAL a30_pure{hrk432_sol_1_a30(HRK432_c3)};
+      const CCTK_REAL a31_pure{hrk432_sol_1_a31(HRK432_c3)};
+      const CCTK_REAL b3_pure{1 - (b0_pure + b1_pure + b2_pure)};
+      const CCTK_REAL a32_pure{HRK432_c3 - (a30_pure + a31_pure)};
 
-      const auto b0{b0_pure * dt};
-      const auto b1{b1_pure * dt};
-      const auto b2{b2_pure * dt};
-      const auto b3{b3_pure * dt};
-      const auto a30{a30_pure * dt};
-      const auto a31{a31_pure * dt};
-      const auto a32{a32_pure * dt};
+      const CCTK_REAL b0{b0_pure * dt};
+      const CCTK_REAL b1{b1_pure * dt};
+      const CCTK_REAL b2{b2_pure * dt};
+      const CCTK_REAL b3{b3_pure * dt};
+      const CCTK_REAL a30{a30_pure * dt};
+      const CCTK_REAL a31{a31_pure * dt};
+      const CCTK_REAL a32{a32_pure * dt};
 
       if (verbose) {
         CCTK_VINFO("Coefficients:\n"
