@@ -1,0 +1,16 @@
+# ParticlesX
+
+INT num_particles "Number of particles"
+{
+  0:* :: ""
+} 0
+
+INT out_every "Output cadence" STEERABLE=always
+{
+  0 :: "no output"
+  1:* :: "output every that many iterations"
+} 1
+
+SHARES: IO
+
+USES STRING out_dir

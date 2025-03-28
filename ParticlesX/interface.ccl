@@ -1,0 +1,7 @@
+# ParticlesX
+
+IMPLEMENTS: ParticlesX
+
+INCLUDES HEADER: particles.hxx IN particles.hxx
+
+USES INCLUDE HEADER: vect.hxx
