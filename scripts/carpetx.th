@@ -711,6 +711,7 @@ CarpetX/Loop
 CarpetX/MovingBoxToy
 CarpetX/ODESolvers
 CarpetX/PDESolvers
+CarpetX/ParticlesX
 CarpetX/PoissonX
 CarpetX/SIMDWaveToyX
 CarpetX/SpacetimeWaveToyX
