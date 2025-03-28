@@ -1520,7 +1520,8 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
         if (groupdata.do_checkpoint) {
           for (int tl = (ntls == 1 ? 0 : 1); tl < ntls; ++tl) {
             for (int vi = 0; vi < groupdata.numvars; ++vi) {
-              if(presync_only) {
+              // it is only possible to sync time-level zero
+              if(tl == 0 && presync_only) {
                 presync_sync_set.insert(gi);
               } else {
                 error_if_invalid(groupdata, vi, tl, make_valid_all(), []() {
