@@ -130,7 +130,7 @@ std::string make_meshname(const std::array<int, dim> &nghosts,
     buf << setw(2) << setfill('0') << nghosts[d];
   }
   if (patch >= 0)
-    buf << ".m" << setw(2) << setfill('0') << patch     //
+    buf << ".m" << setw(4) << setfill('0') << patch     //
         << ".rl" << setw(2) << setfill('0') << reflevel //
         << ".c" << setw(8) << setfill('0') << component;
   return DB::legalize_name(buf.str());
@@ -154,7 +154,7 @@ std::string make_varname(const int gi, const int vi, const int patch = -1,
   std::ostringstream buf;
   buf << varname;
   if (reflevel >= 0)
-    buf << ".m" << setw(2) << setfill('0') << patch     //
+    buf << ".m" << setw(4) << setfill('0') << patch     //
         << ".rl" << setw(2) << setfill('0') << reflevel //
         << ".c" << setw(8) << setfill('0') << component;
   return DB::legalize_name(buf.str());
@@ -165,7 +165,7 @@ const std::string driver_name = "CarpetX";
 std::string make_fabarraybasename(const int patch, const int reflevel) {
   std::ostringstream buf;
   buf << "FabArrayBase"                           //
-      << ".m" << setw(2) << setfill('0') << patch //
+      << ".m" << setw(4) << setfill('0') << patch //
       << ".rl" << setw(2) << setfill('0') << reflevel;
   return DB::legalize_name(buf.str());
 }
