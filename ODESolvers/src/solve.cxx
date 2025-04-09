@@ -1560,9 +1560,9 @@ extern "C" void ODESolvers_SetRefillPrevRHSS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   if (CCTK_EQUALS(method, "HRK423")) {
-    *refill_prev_rhss = 1;
+    *refill_prev_rhss = HRK_extra_bootstrap == -1 ? 1 : HRK_extra_bootstrap;
   } else if (CCTK_EQUALS(method, "HRK432")) {
-    *refill_prev_rhss = 2;
+    *refill_prev_rhss = HRK_extra_bootstrap == -1 ? 2 : HRK_extra_bootstrap;
   } else {
     *refill_prev_rhss = 0;
   }
