@@ -1354,11 +1354,11 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   // Number of coarse grid cells
   amrex::Vector<int> ncells{ncells_x, ncells_y, ncells_z};
 
-  if (CCTK_IsFunctionAliased("MultiPatch_GetPatchSpecification")) {
+  if (CCTK_IsFunctionAliased("MultiPatch_GetPatchSpecification2")) {
     CCTK_INT ncells1[dim];
     CCTK_REAL xmin1[dim], xmax1[dim];
-    const int ierr =
-        MultiPatch_GetPatchSpecification(patch, dim, ncells1, xmin1, xmax1);
+    const int ierr = MultiPatch_GetPatchSpecification2(patch, nullptr, dim,
+                                                       ncells1, xmin1, xmax1);
     assert(!ierr);
     for (int d = 0; d < dim; ++d)
       ncells[d] = ncells1[d];
