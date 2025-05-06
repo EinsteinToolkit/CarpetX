@@ -27,9 +27,10 @@
 #include <cstdlib>
 #if defined __cpp_lib_filesystem && __cpp_lib_filesystem < 201703L
 #include <experimental/filesystem>
-using namespace std::experimental;
+namespace filesystem = std::experimental::filesystem;
 #else
 #include <filesystem>
+namespace filesystem = std::filesystem;
 #endif
 #include <fstream>
 #include <iomanip>
@@ -209,12 +210,12 @@ int InputSiloParameters(const std::string &input_dir,
     // Find latest iteration (if any)
     try {
       for (const auto &direntry :
-           std::filesystem::directory_iterator(input_dir)) {
+           filesystem::directory_iterator(input_dir)) {
         const auto &filename = direntry.path().filename().string();
         const int iter = match_filename(filename);
         input_iteration = max(input_iteration, iter);
       }
-    } catch (const std::filesystem::filesystem_error &) {
+    } catch (const filesystem::filesystem_error &) {
       // do nothing if directory does not exist
     }
   }
