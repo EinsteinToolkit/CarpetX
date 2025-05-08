@@ -1250,7 +1250,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 const auto &fine_groupdata = *fine_leveldata.groupdata.at(gi);
                 const amrex::MultiFab &fine_mfab = *fine_groupdata.mfab[tl];
 
-                const int ncomps = ncomps_level.at(level);
+                const int ncomps = mfab.boxArray().size();
                 const int fine_comp0 = firstcomp_level.at(fine_level);
                 const amrex::BoxArray &fine_boxarray = fine_mfab.boxarray;
 
