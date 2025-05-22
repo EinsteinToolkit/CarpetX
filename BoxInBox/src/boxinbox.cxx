@@ -136,16 +136,18 @@ extern "C" void BoxInBox_Setup(CCTK_ARGUMENTS) {
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         bool do_refine = false;
 
-        for (int region = 0; region < max_num_regions; ++region) {
-          if (active1[region]) {
-            if (level < num_levels1[region]) {
-              const auto position = positions1[region];
-              const auto radii = radii1[region];
-              // Decrease the box radius by one grid spacing since AMReX seems
-              // to expand the refined region by one cell
-              const auto radius = calc_radius(
-                  shapes[region], (p.X - position) / (radii - p.DX));
-              do_refine |= radius <= 1;
+        if (p.patch == 0) {
+          for (int region = 0; region < max_num_regions; ++region) {
+            if (active1[region]) {
+              if (level < num_levels1[region]) {
+                const auto position = positions1[region];
+                const auto radii = radii1[region];
+                // Decrease the box radius by one grid spacing since AMReX seems
+                // to expand the refined region by one cell
+                const auto radius = calc_radius(
+                    shapes[region], (p.X - position) / (radii - p.DX));
+                do_refine |= radius <= 1;
+              }
             }
           }
         }
