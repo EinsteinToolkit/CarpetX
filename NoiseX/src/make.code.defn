@@ -1,0 +1,7 @@
+# Main make.code.defn file for thorn NoiseX
+
+# Source files in this directory
+SRCS = noisex.cxx
+
+# Subdirectories containing source files
+SUBDIRS =
