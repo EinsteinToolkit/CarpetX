@@ -312,4 +312,57 @@ template void calc_derivs2<0, 0, 0>(
     const GridDescBaseDevice &grid, const smat<GF3D2<const T>, dim> &gf0,
     const vect<T, dim> dx, const int deriv_order);
 
+template void calc_copy<1, 1, 1>(const GF3D5<T> &gf, const GF3D5layout layout,
+                                 const GridDescBaseDevice &grid,
+                                 const GF3D2<const T> &gf0);
+
+template void calc_copy<1, 1, 1>(const vec<GF3D5<T>, dim> &gf,
+                                 const GF3D5layout layout,
+                                 const GridDescBaseDevice &grid,
+                                 const vec<GF3D2<const T>, dim> &gf0);
+
+template void calc_copy<1, 1, 1>(const smat<GF3D5<T>, dim> &gf,
+                                 const GF3D5layout layout,
+                                 const GridDescBaseDevice &grid,
+                                 const smat<GF3D2<const T>, dim> &gf0);
+template void
+calc_derivs<1, 1, 1>(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
+                     const GF3D5layout layout, const GridDescBaseDevice &grid,
+                     const GF3D2<const T> &gf0, const vect<T, dim> dx,
+                     const int deriv_order);
+
+template void calc_derivs<1, 1, 1>(const vec<GF3D5<T>, dim> &gf,
+                                   const vec<vec<GF3D5<T>, dim>, dim> &dgf,
+                                   const GF3D5layout layout,
+                                   const GridDescBaseDevice &grid,
+                                   const vec<GF3D2<const T>, dim> &gf0,
+                                   const vect<T, dim> dx,
+                                   const int deriv_order);
+
+template void calc_derivs<1, 1, 1>(const smat<GF3D5<T>, dim> &gf,
+                                   const smat<vec<GF3D5<T>, dim>, dim> &dgf,
+                                   const GF3D5layout layout,
+                                   const GridDescBaseDevice &grid,
+                                   const smat<GF3D2<const T>, dim> &gf0,
+                                   const vect<T, dim> dx,
+                                   const int deriv_order);
+
+template void
+calc_derivs2<1, 1, 1>(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
+                      const smat<GF3D5<T>, dim> &ddgf, const GF3D5layout layout,
+                      const GridDescBaseDevice &grid, const GF3D2<const T> &gf0,
+                      const vect<T, dim> dx, const int deriv_order);
+
+template void calc_derivs2<1, 1, 1>(
+    const vec<GF3D5<T>, dim> &gf, const vec<vec<GF3D5<T>, dim>, dim> &dgf,
+    const vec<smat<GF3D5<T>, dim>, dim> &ddgf, const GF3D5layout layout,
+    const GridDescBaseDevice &grid, const vec<GF3D2<const T>, dim> &gf0,
+    const vect<T, dim> dx, const int deriv_order);
+
+template void calc_derivs2<1, 1, 1>(
+    const smat<GF3D5<T>, dim> &gf, const smat<vec<GF3D5<T>, dim>, dim> &dgf,
+    const smat<smat<GF3D5<T>, dim>, dim> &ddgf, const GF3D5layout layout,
+    const GridDescBaseDevice &grid, const smat<GF3D2<const T>, dim> &gf0,
+    const vect<T, dim> dx, const int deriv_order);
+
 } // namespace Derivs
