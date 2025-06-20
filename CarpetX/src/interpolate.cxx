@@ -505,8 +505,15 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     const auto &restrict leveldata = patchdata.leveldata.at(level);
     const amrex::MFIter mfi(*leveldata.fab);
     assert(mfi.isValid());
-    ParticleTile *const particle_tile = &containers.at(patch).GetParticles(
+    ParticleTile &particle_tile = containers.at(patch).GetParticles(
         level)[make_pair(mfi.index(), mfi.LocalTileIndex())];
+
+    using PinnedTile = typename amrex::ParticleContainer_impl<
+        Container::ParticleType, 0, 0,
+        amrex::PinnedArenaAllocator>::ParticleTileType;
+    PinnedTile pinned_tile;
+    pinned_tile.define(particle_tile.NumRuntimeRealComps(),
+                       particle_tile.NumRuntimeIntComps());
 
     // Set particle positions
     const int proc = amrex::ParallelDescriptor::MyProc();
@@ -524,9 +531,15 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         p.rdata(2) = localsz[n];
         p.idata(0) = proc; // source process
         p.idata(1) = n;    // source index
-        particle_tile->push_back(p);
+        pinned_tile.push_back(p);
       }
     }
+
+    auto old_np = particle_tile.numParticles();
+    auto new_np = old_np + pinned_tile.numParticles();
+    particle_tile.resize(new_np);
+    amrex::copyParticles(particle_tile, pinned_tile, 0, old_np,
+                         pinned_tile.numParticles());
   }
 
   // Send particles to interpolation points
