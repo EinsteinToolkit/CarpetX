@@ -241,7 +241,7 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
                               finemask.get(), x0, dx);
         }
 #ifdef __NVCOMPILER
-#pragma omp critical
+#pragma omp critical (CarpetX_reduce)
         outer += red;
       }
 #endif
