@@ -209,8 +209,7 @@ int InputSiloParameters(const std::string &input_dir,
 
     // Find latest iteration (if any)
     try {
-      for (const auto &direntry :
-           filesystem::directory_iterator(input_dir)) {
+      for (const auto &direntry : filesystem::directory_iterator(input_dir)) {
         const auto &filename = direntry.path().filename().string();
         const int iter = match_filename(filename);
         input_iteration = max(input_iteration, iter);
