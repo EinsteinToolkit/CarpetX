@@ -201,38 +201,50 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
       // TODO: check that multi-threading actually helps (and we are
       // not dominated by memory latency)
       // TODO: document required version of OpenMP to use custom reductions
+#ifdef __NVCOMPILER
+#pragma omp parallel
+      {
+        auto &outer = red;
+        reduction<CCTK_REAL, dim> red;
+#else
 #pragma omp parallel reduction(reduction : red)
-      for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi) {
-        const amrex::Box &bx = mfi.tilebox(); // current tile (without ghosts)
-        const vect<int, dim> tmin{bx.smallEnd(0), bx.smallEnd(1),
-                                  bx.smallEnd(2)};
-        const vect<int, dim> tmax{bx.bigEnd(0) + 1, bx.bigEnd(1) + 1,
-                                  bx.bigEnd(2) + 1};
-        const amrex::Box &vbx =
-            mfi.validbox(); // interior region (without ghosts)
-        const vect<int, dim> imin{vbx.smallEnd(0), vbx.smallEnd(1),
-                                  vbx.smallEnd(2)};
-        const vect<int, dim> imax{vbx.bigEnd(0) + 1, vbx.bigEnd(1) + 1,
-                                  vbx.bigEnd(2) + 1};
+#endif
+        for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi) {
+          const amrex::Box &bx = mfi.tilebox(); // current tile (without ghosts)
+          const vect<int, dim> tmin{bx.smallEnd(0), bx.smallEnd(1),
+                                    bx.smallEnd(2)};
+          const vect<int, dim> tmax{bx.bigEnd(0) + 1, bx.bigEnd(1) + 1,
+                                    bx.bigEnd(2) + 1};
+          const amrex::Box &vbx =
+              mfi.validbox(); // interior region (without ghosts)
+          const vect<int, dim> imin{vbx.smallEnd(0), vbx.smallEnd(1),
+                                    vbx.smallEnd(2)};
+          const vect<int, dim> imax{vbx.bigEnd(0) + 1, vbx.bigEnd(1) + 1,
+                                    vbx.bigEnd(2) + 1};
 
-        const amrex::Array4<const CCTK_REAL> &vars = mfab.array(mfi);
+          const amrex::Array4<const CCTK_REAL> &vars = mfab.array(mfi);
 
-        std::unique_ptr<amrex::Array4<const int> > finemask;
-        if (finemask_imfab) {
-          finemask = make_unique<amrex::Array4<const int> >(
-              finemask_imfab->array(mfi));
-          // Ensure the mask has the correct size
-          assert(finemask->begin.x == vars.begin.x);
-          assert(finemask->begin.y == vars.begin.y);
-          assert(finemask->begin.z == vars.begin.z);
-          assert(finemask->end.x == vars.end.x);
-          assert(finemask->end.y == vars.end.y);
-          assert(finemask->end.z == vars.end.z);
+          std::unique_ptr<amrex::Array4<const int> > finemask;
+          if (finemask_imfab) {
+            finemask = make_unique<amrex::Array4<const int> >(
+                finemask_imfab->array(mfi));
+            // Ensure the mask has the correct size
+            assert(finemask->begin.x == vars.begin.x);
+            assert(finemask->begin.y == vars.begin.y);
+            assert(finemask->begin.z == vars.begin.z);
+            assert(finemask->end.x == vars.end.x);
+            assert(finemask->end.y == vars.end.y);
+            assert(finemask->end.z == vars.end.z);
+          }
+
+          red += reduce_array(vars, vi, tmin, tmax, indextype, imin, imax,
+                              finemask.get(), x0, dx);
         }
-
-        red += reduce_array(vars, vi, tmin, tmax, indextype, imin, imax,
-                            finemask.get(), x0, dx);
+#ifdef __NVCOMPILER
+#pragma omp critical (CarpetX_reduce)
+        outer += red;
       }
+#endif
     }
   }
 
