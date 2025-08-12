@@ -20,6 +20,8 @@ CarpetX::max_num_levels = $nlevels
 
 CarpetX::dtfac = 0.5
 
+Cactus::highlight_warning_messages = "no"
+
 IO::out_dir = $parfile
 IO::out_every = 1
 IO::out_fileinfo = "axis labels"
@@ -27,7 +29,11 @@ IO::parfile_write = no
 
 CarpetX::out_metadata = no
 CarpetX::out_tsv_vars = "
-    TestArrayGroup::test_array
     TestArrayGroup::test_gf
+    TestArrayGroup::test_array
     TestArrayGroup::test_scalar
+    TestArrayGroup::test_array_int
+    TestArrayGroup::test_scalar_int
+    TestArrayGroup::test_array_complex
+    TestArrayGroup::test_scalar_complex
 "
