@@ -3,6 +3,7 @@
 IMPLEMENTS: ADMBaseX
 
 USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: noisex.hxx
 
 
 

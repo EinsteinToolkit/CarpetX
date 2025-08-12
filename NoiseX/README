@@ -1,0 +1,11 @@
+Cactus Code Thorn Noise
+Author(s)    : Lucas Timotheo Sanches <lsanches@lsu.edu>
+Maintainer(s): Lucas Timotheo Sanches <lsanches@lsu.edu>
+Licence      : GPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+This thorn provides a unified way to add pseudo-random noise to CarpetX
+variables. This is useful mainly for testing time evolution codes, i.e.,
+performing robust stability tests.

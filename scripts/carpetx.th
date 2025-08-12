@@ -709,6 +709,7 @@ CarpetX/FluxWaveToyX
 CarpetX/HydroBaseX
 CarpetX/Loop
 CarpetX/MovingBoxToy
+CarpetX/NoiseX
 CarpetX/ODESolvers
 CarpetX/PDESolvers
 CarpetX/PoissonX
