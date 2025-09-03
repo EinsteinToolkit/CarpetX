@@ -1257,6 +1257,46 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       calcupdate(2, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
                  states<5>{&old, &k0, &k1, &k2, &rhs});
     }
+  } else if (CCTK_EQUALS(method, "RK4(3)6[2S]")) {
+
+    constexpr std::size_t m{6};
+
+    constexpr std::array<CCTK_REAL, m + 1> gamma_1{
+        0.000000000000000, 0.000000000000000,  1.587969352283926,
+        1.345849277346560, -0.088819115511932, 0.206532710491623,
+        -3.422331114067989};
+
+    constexpr std::array<CCTK_REAL, m + 1> gamma_2{
+        0.000000000000000,  1.000000000000000, 0.888063312510453,
+        -0.953407216543495, 0.798778614781935, 0.544596034836750,
+        1.402871254395165};
+
+    constexpr std::array<CCTK_REAL, m + 1> beta{
+        0.000000000000000, 0.653858677151052, 0.258675602947738,
+        0.802263873737920, 0.104618887237994, 0.199273700611894,
+        0.318145532666168};
+
+    constexpr std::array<CCTK_REAL, m + 1> delta{
+        1.000000000000000, -1.662080444041546, 1.024831293149243,
+        1.000354140638651, 0.093878239568257,  1.695359582053809,
+        0.392860285418747};
+
+    // y_1
+    const auto s_2 = copy_state(rhs, make_valid_int());
+    statecomp_t::lincomb(s_2, 0.0, reals<1>{0.0}, states<1>{&rhs},
+                         make_valid_int());
+
+    // y_i
+    for (std::size_t i = 2; i <= m + 1; i++) {
+      statecomp_t::lincomb(s_2, 1.0, reals<1>{delta[i - 2]}, states<1>{&var},
+                           make_valid_int());
+
+      calcrhs(i - 1);
+      calcupdate(i - 1, dt, gamma_1[i - 1],
+                 reals<2>{gamma_2[i - 1], beta[i - 1] * dt},
+                 states<2>{&s_2, &rhs});
+    }
+
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
     typedef CCTK_REAL T;

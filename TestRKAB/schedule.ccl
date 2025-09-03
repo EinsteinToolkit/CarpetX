@@ -6,20 +6,13 @@ STORAGE: state rhs p_rhs pp_rhs energy error
 SCHEDULE TestRKAB_Initial AT initial
 {
   LANG: C
-  WRITES: state(interior) p_rhs(interior) pp_rhs(interior)
+  WRITES: state(everywhere) p_rhs(everywhere) pp_rhs(everywhere)
   SYNC: state p_rhs pp_rhs
 } "Initialize scalar wave state and previous state"
 
 
 
 # Step
-SCHEDULE TestRKAB_Sync AT postregrid
-{
-  LANG: C
-  OPTIONS: global
-  SYNC: state p_rhs pp_rhs
-} "Synchronize state"
-
 SCHEDULE TestRKAB_RHS IN ODESolvers_RHS
 {
   LANG: C

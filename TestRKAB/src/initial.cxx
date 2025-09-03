@@ -17,7 +17,7 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
-    grid.loop_int_device<0, 0, 0>(
+    grid.loop_all_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const auto t{cctk_time};
@@ -35,7 +35,7 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
         });
 
   } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
-    grid.loop_int_device<0, 0, 0>(
+    grid.loop_all_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const auto t{cctk_time};
@@ -53,14 +53,9 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
     static std::uniform_real_distribution<CCTK_REAL> distrib(-noise_boundary,
                                                              noise_boundary);
 
-    grid.loop_int<0, 0, 0>(grid.nghostzones,
+    grid.loop_all<0, 0, 0>(grid.nghostzones,
                            [&] CCTK_HOST(const Loop::PointDesc &p)
                                CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                 using std::cos;
-
-                                 // const auto noise_value{noise_boundary *
-                                 // cos(10.0 * p.x / p.dx) *cos(10.0 * p.y /
-                                 // p.dy) *cos(10.0 * p.z / p.dz)};
                                  const auto noise_value{distrib(engine)};
 
                                  phi(p.I) = noise_value;
@@ -74,7 +69,7 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
   }
 
   // Regardless of ID choice, we initialize the previous RHS with zeros
-  grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+  grid.loop_all_device<0, 0, 0>(grid.nghostzones,
                                 [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
                                       phi_p_rhs(p.I) = 0.0;

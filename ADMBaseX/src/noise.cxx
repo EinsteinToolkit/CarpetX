@@ -14,13 +14,10 @@ extern "C" void ADMBaseX_add_noise(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_ADMBaseX_add_noise;
   DECLARE_CCTK_PARAMETERS;
 
-  // Hardware random device
-  random_device device;
-  // Create and seed software random number engine from hardware random number
-  default_random_engine engine(device());
-  // Random number distribution
-  uniform_real_distribution<CCTK_REAL> distribution(-noise_amplitude,
-                                                    noise_amplitude);
+  static std::mt19937_64 engine(100);
+  static std::uniform_real_distribution<CCTK_REAL> distribution(
+      -noise_amplitude, noise_amplitude);
+
   const auto add_noise = [&](CCTK_REAL &restrict var) {
     var += distribution(engine);
   };

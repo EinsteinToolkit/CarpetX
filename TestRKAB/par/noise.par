@@ -6,72 +6,57 @@ ActiveThorns = "
 "
 
 ###### Settings ######
-$final_time = 1000.0
-$out_every_time = 100.0
-
-$start = -0.5
-$end = 0.5
-
 $rho = 1 # 1, 2, 4
-$ncells = 50 * $rho
-$cfl = 0.9
+$base_ncells = 80
+
+$cfl = 0.5
 $method = "HRK423"
 ######################
 
-# We are using a 5 point centered stencil
-$ghost_size = 2
+$ncells = $base_ncells * $rho
 
-$dx = ($end - $start)/$ncells
-$dt = $cfl * $dx
-
-$itlast = ceil($final_time / $dt)
-$out_every_it = ceil($out_every_time / $dt)
-
-TestRKAB::compute_error = no
+TestRKAB::compute_error     = no
 TestRKAB::initial_condition = "noise"
-TestRKAB::noise_boundary = 1.0e-10 / ($rho * $rho)
+TestRKAB::noise_boundary    = 1.0e-10 / ($rho * $rho)
 
 CarpetX::poison_undefined_values = no
-CarpetX::verbose = no
+CarpetX::verbose = yes
 
 Cactus::cctk_show_schedule = yes
 Cactus::presync_mode = "mixed-error"
 
-CarpetX::xmin = $start
-CarpetX::ymin = $start
-CarpetX::zmin = $start
+CarpetX::xmin = 0.0
+CarpetX::ymin = 0.0
+CarpetX::zmin = 0.0
 
-CarpetX::xmax = $end
-CarpetX::ymax = $end
-CarpetX::zmax = $end
+CarpetX::xmax = 1.0
+CarpetX::ymax = 1.0
+CarpetX::zmax = 1.0
 
 # In the y and z directions, We use the min. ammount of points required for non
 # trivial finite differences with our stencil
 CarpetX::ncells_x = $ncells
-CarpetX::ncells_y = 5
-CarpetX::ncells_z = 5
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
 
-CarpetX::periodic = yes
+CarpetX::periodic   = yes
 CarpetX::periodic_x = yes
 CarpetX::periodic_y = yes
 CarpetX::periodic_z = yes
 
-CarpetX::ghost_size = $ghost_size
+# 5 point stencil
+CarpetX::ghost_size = 2
 
 CarpetX::dtfac = $cfl
 
-CarpetX::blocking_factor_x = 1
-CarpetX::blocking_factor_y = 1
-CarpetX::blocking_factor_z = 1
+Cactus::terminate        = "time"
+Cactus::cctk_final_time  = 1.0
 
-Cactus::terminate = "iteration"
-Cactus::cctk_itlast = $itlast
-
-ODESolvers::method = $method
+ODESolvers::method  = $method
 ODESolvers::verbose = yes
 
 IO::out_dir = $parfile
-IO::out_every = $out_every_it
+IO::out_every = 1
 
 CarpetX::out_metadata = no
 CarpetX::out_metadata_every = 0
