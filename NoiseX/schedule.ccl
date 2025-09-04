@@ -1,0 +1,6 @@
+# Schedule definitions for thorn NoiseX
+
+SCHEDULE NoiseX_setup_globals AT startup BEFORE Driver_Startup
+{
+  LANG: C
+} "Create NoiseX global data"
