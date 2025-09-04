@@ -11,6 +11,7 @@
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
+#include <cstddef>
 #include <util_Table.h>
 
 #include <div.hxx>
@@ -1297,6 +1298,68 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                  states<2>{&s_2, &rhs});
     }
 
+  } else if (CCTK_EQUALS(method, "RK4()9[3S*]")) {
+    constexpr std::size_t s{9};
+
+    constexpr std::array<CCTK_REAL, s> c{
+        0.0000000000000000e+00,  2.8363432481011769e-01,
+        5.4840742446661772e-01,  3.6872298094969475e-01,
+        -6.8061183026103156e-01, 3.5185265855105619e-01,
+        1.6659419385562171e+00,  9.7152778807463247e-01,
+        9.0515694340066954e-01};
+
+    constexpr std::array<CCTK_REAL, s> beta{
+        2.8363432481011769e-01,  9.7364980747486463e-01,
+        3.3823592364196498e-01,  -3.5849518935750763e-01,
+        -4.1139587569859462e-03, 1.4279689871485013e+00,
+        1.8084680519536503e-02,  1.6057708856060501e-01,
+        2.9522267863254809e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_1{
+        0.0000000000000000e+00,  -4.6556413837561301e+00,
+        -7.7202649689034453e-01, -4.0244202720632174e+00,
+        -2.1296873883702272e-02, -2.4350219407769953e+00,
+        1.9856336960249132e-02,  -2.8107894116913812e-01,
+        1.6894354373677900e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_2{
+        1.0000000000000000e+00, 2.4992627683300688e+00, 5.8668202764174726e-01,
+        1.2051419816240785e+00, 3.4747937498564541e-01, 1.3213458736302766e+00,
+        3.1196363453264964e-01, 4.3514189245414447e-01, 2.3596980658341213e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_3{
+        0.0000000000000000e+00,  0.0000000000000000e+00,
+        0.0000000000000000e+00,  7.6209857891449362e-01,
+        -1.9811817832965520e-01, -6.2289587091629484e-01,
+        -3.7522475499063573e-01, -3.3554373281046146e-01,
+        -4.5609629702116454e-02};
+
+    constexpr std::array<CCTK_REAL, s> delta{
+        1.0000000000000000e+00,  1.2629238731608268e+00,
+        7.5749675232391733e-01,  5.1635907196195419e-01,
+        -2.7463346616574083e-02, -4.3826743572318672e-01,
+        1.2735870231839268e+00,  -6.2947382217730230e-01,
+        0.0000000000000000e+00};
+
+    // y_1
+    const auto s_3 = copy_state(var, make_valid_all());
+
+    const auto s_2 = copy_state(rhs, make_valid_int());
+    statecomp_t::lincomb(s_2, 0.0, reals<1>{0.0}, states<1>{&rhs},
+                         make_valid_int());
+
+    for (std::size_t i = 1; i <= s; i++) {
+      const auto ti{c[i - 1] * dt};
+
+      statecomp_t::lincomb(s_2, 1.0, reals<1>{delta[i - 1]}, states<1>{&var},
+                           make_valid_int());
+
+      calcrhs(i - 1);
+      calcupdate(i - 1, ti, gamma_1[i - 1],
+                 reals<3>{gamma_2[i - 1], gamma_3[i - 1], beta[i - 1] * dt},
+                 states<3>{&s_2, &s_3, &rhs});
+    }
+
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
     typedef CCTK_REAL T;
@@ -1405,7 +1468,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
     }
     calcupdate(nsteps, dt, 0.0, factors, srcs);
-
   } else if (CCTK_EQUALS(method, "DP87")) {
 
     typedef CCTK_REAL T;
@@ -1517,7 +1579,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
     }
     calcupdate(nsteps, dt, 0.0, factors, srcs);
-
   } else if (CCTK_EQUALS(method, "Implicit Euler")) {
 
     // Implicit definition:
@@ -1578,7 +1639,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     var.check_valid(make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
-
   } else {
     assert(0);
   }

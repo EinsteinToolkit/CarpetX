@@ -12,6 +12,7 @@ KEYWORD method "ODE solver method" STEERABLE=always
   "HRK423" :: "Hybrid two step, three stage fourth order Runge-Kutta method"
   "HRK432" :: "Hybrid three step, two stage fourth order Runge-Kutta method"
   "RK4(3)6[2S]" :: "Ketcheson low storage method"
+  "RK4()9[3S*]" :: "Ketcheson optimized low storage method"
   "RKF78" :: "Runge-Kutta-Fehlberg 7(8)"
   "DP87" :: "Dormand & Prince 8(7)"
 
