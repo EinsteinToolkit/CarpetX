@@ -1,5 +1,15 @@
 # Schedule definitions for thorn ODESolvers
 
+STORAGE: do_substeps
+
+SCHEDULE ODESolvers_InitConstants AT WRAGH
+{
+  LANG: C
+  OPTIONS: global
+
+  WRITES: do_substeps
+} "Set up dummy loop counters for schedule printout"
+
 SCHEDULE ODESolvers_Solve AT evol
 {
   LANG: C
@@ -175,6 +185,22 @@ SCHEDULE ODESolvers_Solve AT evol
   # SCHEDULE GROUP ODESolvers_ImplicitStep AT poststep AFTER ODESolvers_PostStep
   # {
   # } "Take an implicit step everywhere on the grid"
+
+  # TODO: this does not yet handle "Implicit Euler" correctly
+  # this group never actually executes since do_subseteps == 0 always, it is
+  # only present to show up in the schedule printout
+  SCHEDULE GROUP ODESolvers_CalledBySolve AT EVOL AFTER ODESolvers_Solve WHILE (ODESolvers::do_substeps)
+  {
+  } "Groups internally scheduled by ODESolvers_Solve"
+
+  SCHEDULE GROUP ODESolvers_RHS IN ODESolvers_CalledBySolve
+  {
+  } "Evaluate the RHS for of state vector everywhere on the grid"
+
+  SCHEDULE GROUP ODESolvers_PostStep IN ODESolvers_CalledBySolve AFTER ODESolvers_RHS
+  {
+  } "Apply boundary conditions to state vector, and project if necessary"
+
   
   SCHEDULE GROUP ODESolvers_EstimateError AT poststep AFTER (ODESolvers_PostStep, ODESolvers_RHS)
   {
