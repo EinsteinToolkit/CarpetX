@@ -258,7 +258,7 @@ template <typename T, int order, int centering> struct interpolator {
 
     const int np = int(varresult.size());
 
-#pragma omp simd
+#pragma omp parallel for
     for (int n = 0; n < np; ++n) {
       const vect<T, dim> x{particles[n].rdata(0), particles[n].rdata(1),
                            particles[n].rdata(2)};
@@ -440,14 +440,13 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
                               patches.data(), localsx.data(), localsy.data(),
                               localsz.data());
   } else {
-    for (int n = 0; n < npoints; ++n)
+#pragma omp parallel for
+    for (int n = 0; n < npoints; ++n) {
       patches.at(n) = 0;
-    for (int n = 0; n < npoints; ++n)
       localsx.at(n) = globalsx[n];
-    for (int n = 0; n < npoints; ++n)
       localsy.at(n) = globalsy[n];
-    for (int n = 0; n < npoints; ++n)
       localsz.at(n) = globalsz[n];
+    }
   }
 
   // Apply symmetries to coordinates
@@ -463,6 +462,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     constexpr int patch = 0;
     const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
     const CCTK_REAL *restrict const xmin = geom.ProbLo();
+#pragma omp parallel for
     for (int n = 0; n < npoints; ++n) {
       const bool refl = localsz[n] < xmin[2];
       symmetry_reflected_z[n] = refl;
@@ -480,6 +480,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   std::vector<CCTK_REAL> posx(npoints);
   std::vector<CCTK_REAL> posy(npoints);
   std::vector<CCTK_REAL> posz(npoints);
+#pragma omp parallel for
   for (int n = 0; n < npoints; ++n) {
     const int patch = patches.at(n);
     const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
