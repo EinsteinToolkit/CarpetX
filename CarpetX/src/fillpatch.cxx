@@ -137,7 +137,6 @@ void FillPatch_ProlongateGhosts(
   });
 }
 
-
 void FillPatch_NewLevel(
     const GHExt::PatchData::LevelData::GroupData &groupdata,
     const GHExt::PatchData::LevelData::GroupData &coarsegroupdata,

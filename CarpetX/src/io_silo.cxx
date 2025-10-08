@@ -1176,22 +1176,34 @@ void OutputSilo(const cGH *restrict const cctkGH,
       if (!have_mesh) {
         const std::string multimeshname = make_meshname(nghosts);
 
-        // Count components per level
+        // Count components
         const int nlevels = ghext->num_levels();
-        std::vector<int> ncomps_level(nlevels, 0);
-        for (const auto &patchdata : ghext->patchdata) {
-          for (const auto &leveldata : patchdata.leveldata) {
-            const amrex::DistributionMapping &dm =
-                leveldata.fab->DistributionMap();
-            const int ncomponents = dm.size();
-            ncomps_level.at(leveldata.level) += ncomponents;
-          }
+        const int npatches = ghext->num_patches();
+        std::vector<int> comp0_level(nlevels);
+        std::vector<int> ncomps_level(nlevels);
+        std::vector<std::vector<int> > comp0_level_patch(nlevels);
+        std::vector<std::vector<int> > ncomps_level_patch(nlevels);
+        for (int level = 0; level < nlevels; ++level) {
+          comp0_level_patch.at(level).resize(npatches, 0);
+          ncomps_level_patch.at(level).resize(npatches, 0);
         }
-        std::vector<int> firstcomp_level(nlevels, 0);
         int ncomps_total = 0;
-        for (int l = 0; l < nlevels; ++l) {
-          firstcomp_level.at(l) = ncomps_total;
-          ncomps_total += ncomps_level.at(l);
+        for (int level = 0; level < nlevels; ++level) {
+          comp0_level.at(level) = ncomps_total;
+          for (int patch = 0; patch < npatches; ++patch) {
+            const auto &patchdata = ghext->patchdata.at(patch);
+            if (level < int(patchdata.leveldata.size())) {
+              const auto &leveldata = patchdata.leveldata.at(level);
+              comp0_level_patch.at(level).at(patch) = ncomps_total;
+              const amrex::DistributionMapping &dm =
+                  leveldata.fab->DistributionMap();
+              const int ncomponents = dm.size();
+              ncomps_total += ncomponents;
+              ncomps_level_patch.at(level).at(patch) =
+                  ncomps_total - comp0_level_patch.at(level).at(patch);
+            }
+          }
+          ncomps_level.at(level) = ncomps_total - comp0_level.at(level);
         }
 
         // Describe which components belong to which level
@@ -1203,7 +1215,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
           segment_types.reserve(nlevels);
           segment_data.reserve(nlevels);
           for (int l = 0; l < nlevels; ++l) {
-            const int comp0 = firstcomp_level.at(l);
+            const int comp0 = comp0_level.at(l);
             const int ncomps = ncomps_level.at(l);
             std::vector<int> data;
             data.reserve(ncomps);
@@ -1239,6 +1251,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
           segment_data.reserve(ncomps_total);
 
           for (const auto &patchdata : ghext->patchdata) {
+            const int patch = patchdata.patch;
             for (const auto &leveldata : patchdata.leveldata) {
               const int level = leveldata.level;
               const int fine_level = level + 1;
@@ -1249,8 +1262,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 const auto &fine_groupdata = *fine_leveldata.groupdata.at(gi);
                 const amrex::MultiFab &fine_mfab = *fine_groupdata.mfab[tl];
 
-                const int ncomps = ncomps_level.at(level);
-                const int fine_comp0 = firstcomp_level.at(fine_level);
+                const int ncomps = ncomps_level_patch.at(level).at(patch);
+                const int fine_comp0 =
+                    comp0_level_patch.at(fine_level).at(patch);
                 const amrex::BoxArray &fine_boxarray = fine_mfab.boxarray;
 
                 for (int component = 0; component < ncomps; ++component) {

@@ -208,6 +208,8 @@ struct GHExt {
 
     int patch;
 
+    bool is_cartesian;
+
     std::array<std::array<symmetry_t, dim>, 2> symmetries;
 
     // AMReX grid structure
