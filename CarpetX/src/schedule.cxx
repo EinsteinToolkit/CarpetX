@@ -3132,6 +3132,105 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
   } // for patchdata
 }
 
+void RestrictNoPoison(const cGH *cctkGH, int level, const vector<int> &groups) {
+  DECLARE_CCTK_PARAMETERS;
+
+#warning "TODO"
+  assert(do_restrict);
+  if (!do_restrict)
+    return;
+
+  static Timer timer("Restrict");
+  Interval interval(timer);
+
+  for (const auto &patchdata : ghext->patchdata) {
+    const int patch = patchdata.patch;
+    if (level + 1 < int(patchdata.leveldata.size())) {
+      auto &leveldata = patchdata.leveldata.at(level);
+      const auto &fineleveldata = patchdata.leveldata.at(level + 1);
+      const active_levels_t active_levels(level, level + 1, patch, patch + 1);
+      const active_levels_t active_fine_levels(level + 1, level + 2, patch,
+                                               patch + 1);
+
+      for (const int gi : groups) {
+        cGroup group;
+        int ierr = CCTK_GroupData(gi, &group);
+        assert(!ierr);
+
+        assert(group.grouptype == CCTK_GF);
+
+        auto &groupdata = *leveldata.groupdata.at(gi);
+        const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
+        const amrex::IntVect reffact{2, 2, 2};
+        const nan_handling_t nan_handling = groupdata.do_checkpoint
+                                                ? nan_handling_t::forbid_nans
+                                                : nan_handling_t::allow_nans;
+
+        // If there is more than one time level, then we don't restrict the
+        // oldest.
+        // TODO: during evolution, restrict only one time level
+        int ntls = groupdata.mfab.size();
+        int restrict_tl = ntls > 1 ? ntls - 1 : ntls;
+        for (int tl = 0; tl < restrict_tl; ++tl) {
+
+          for (int vi = 0; vi < groupdata.numvars; ++vi) {
+
+            // Restriction only uses the interior
+            error_if_invalid(finegroupdata, vi, tl, make_valid_int(), []() {
+              return "Restrict on fine level before restricting";
+            });
+            poison_invalid_gf(active_fine_levels, gi, vi, tl);
+            check_valid_gf(active_fine_levels, gi, vi, tl, nan_handling, []() {
+              return "Restrict on fine level before restricting";
+            });
+            error_if_invalid(groupdata, vi, tl, make_valid_int(), []() {
+              return "Restrict on coarse level before restricting";
+            });
+            poison_invalid_gf(active_levels, gi, vi, tl);
+            check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
+              return "Restrict on coarse level before restricting";
+            });
+          }
+
+#if 1
+          {
+            static Timer timer("Restrict::average_down");
+            Interval interval(timer);
+#warning                                                                       \
+    "TODO: Allow different restriction operators, and ensure this is conservative"
+            // rank: 0: vertex, 1: edge, 2: face, 3: volume
+            int rank = 0;
+            for (int d = 0; d < dim; ++d)
+              rank += groupdata.indextype.at(d);
+            switch (rank) {
+            case 0:
+              average_down_nodal(*finegroupdata.mfab.at(tl),
+                                 *groupdata.mfab.at(tl), reffact);
+              break;
+            case 1:
+              average_down_edges(*finegroupdata.mfab.at(tl),
+                                 *groupdata.mfab.at(tl), reffact);
+              break;
+            case 2:
+              average_down_faces(*finegroupdata.mfab.at(tl),
+                                 *groupdata.mfab.at(tl), reffact);
+              break;
+            case 3:
+              average_down(*finegroupdata.mfab.at(tl), *groupdata.mfab.at(tl),
+                           0, groupdata.numvars, reffact);
+              break;
+            default:
+              assert(0);
+            }
+          }
+#endif
+
+        } // for tl
+      } // for gi
+    } // if level exists
+  } // for patchdata
+}
+
 void Restrict(const cGH *cctkGH, int level) {
   const int numgroups = CCTK_NumGroups();
   vector<int> groups;
