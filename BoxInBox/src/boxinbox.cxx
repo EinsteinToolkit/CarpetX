@@ -96,6 +96,10 @@ extern "C" void BoxInBox_Setup(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_BoxInBox_Setup;
   DECLARE_CCTK_PARAMETERS;
 
+  // Refine only patch 0
+  if (cctk_patch != 0)
+    return;
+
   const auto get_shape = [](const auto &shape) {
     if (CCTK_EQUALS(shape, "sphere"))
       return shape_t::sphere;
