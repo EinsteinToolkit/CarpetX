@@ -12,3 +12,17 @@ CCTK_REAL test_array[4] TYPE=array DIM=2 SIZE=5,6 DISTRIB=constant
 CCTK_REAL test_gf TYPE=gf CENTERING={VVV} "Test grid function for verifying CarpetX implementation of DynamicData"
 
 CCTK_REAL test_scalar TYPE=scalar "Test scalar for verifying CarpetX implementation of DynamicData"
+
+CCTK_INT test_array_int[4] TYPE=array DIM=2 SIZE=5,6 DISTRIB=constant
+{
+  test_int1 test_int2 test_int3
+} "Test integer arrays for verifying CarpetX implementation of non-distributed array data"
+
+CCTK_INT test_scalar_int TYPE=scalar "Test integer scalar for verifying CarpetX implementation of DynamicData"
+
+CCTK_COMPLEX test_array_complex[4] TYPE=array DIM=2 SIZE=5,6 DISTRIB=constant
+{
+  test_complex1 test_complex2 test_complex3
+} "Test complex arrays for verifying CarpetX implementation of non-distributed array data"
+
+CCTK_COMPLEX test_scalar_complex TYPE=scalar "Test complex scalar for verifying CarpetX implementation of DynamicData"

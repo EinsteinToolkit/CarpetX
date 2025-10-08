@@ -533,6 +533,43 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     particle_tiles.at(patch)->push_back(p);
   }
 
+#if 0 // TODO: This is part of Liwei's fast code, should reinstate it, needs to
+      // be merged with the loop over patches above
+    using PinnedTile = typename amrex::ParticleContainer_impl<
+        Container::ParticleType, 0, 0,
+        amrex::PinnedArenaAllocator>::ParticleTileType;
+    PinnedTile pinned_tile;
+    pinned_tile.define(particle_tile.NumRuntimeRealComps(),
+                       particle_tile.NumRuntimeIntComps());
+
+    // Set particle positions
+    const int proc = amrex::ParallelDescriptor::MyProc();
+    for (int n = 0; n < npoints; ++n) {
+      // TODO: Loop over points only once
+      if (patches.at(n) == patch) {
+        amrex::Particle<3, 2> p;
+        p.id() = Container::ParticleType::NextID();
+        p.cpu() = proc;
+        p.pos(0) = posx[n]; // AMReX distribution position
+        p.pos(1) = posy[n];
+        p.pos(2) = posz[n];
+        p.rdata(0) = localsx[n]; // actual particle coordinate
+        p.rdata(1) = localsy[n];
+        p.rdata(2) = localsz[n];
+        p.idata(0) = proc; // source process
+        p.idata(1) = n;    // source index
+        pinned_tile.push_back(p);
+      }
+    }
+
+    auto old_np = particle_tile.numParticles();
+    auto new_np = old_np + pinned_tile.numParticles();
+    particle_tile.resize(new_np);
+    amrex::copyParticles(particle_tile, pinned_tile, 0, old_np,
+                         pinned_tile.numParticles());
+  }
+#endif
+
   // Send particles to interpolation points
   for (auto &container : containers) {
 #ifdef CCTK_DEBUG
