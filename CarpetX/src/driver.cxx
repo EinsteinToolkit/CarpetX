@@ -1356,11 +1356,13 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   amrex::Vector<int> ncells{ncells_x, ncells_y, ncells_z};
 
   if (CCTK_IsFunctionAliased("MultiPatch_GetPatchSpecification2")) {
+    CCTK_INT is_cartesian1;
     CCTK_INT ncells1[dim];
     CCTK_REAL xmin1[dim], xmax1[dim];
-    const int ierr = MultiPatch_GetPatchSpecification2(patch, nullptr, dim,
-                                                       ncells1, xmin1, xmax1);
+    const int ierr = MultiPatch_GetPatchSpecification2(
+        patch, &is_cartesian1, dim, ncells1, xmin1, xmax1);
     assert(!ierr);
+    is_cartesian = is_cartesian1;
     for (int d = 0; d < dim; ++d)
       ncells[d] = ncells1[d];
     domain = amrex::RealBox(xmin1, xmax1);

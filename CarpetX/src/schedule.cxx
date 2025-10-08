@@ -2559,8 +2559,6 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       const int ntls0 = groupdata0.mfab.size();
       const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
 
-      assert(active_levels->max_level == 1);
-
       for (int tl = 0; tl < sync_tl0; ++tl)
         for (int vi = 0; vi < groupdata0.numvars; ++vi)
           check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
