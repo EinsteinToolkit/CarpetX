@@ -801,10 +801,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
     // Loop over patches
     for (const auto &patchdata : ghext->patchdata) {
 
-      // TODO: Correct this condition
-      const bool patch_is_cartesian = false; // patchdata.patch == 0;
-
-      if (!patch_is_cartesian) {
+      if (!patchdata.is_cartesian) {
         coordinate_minima.at(patchdata.patch)
             .resize(patchdata.leveldata.size());
         coordinate_maxima.at(patchdata.patch)
@@ -817,7 +814,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
         const amrex::DistributionMapping &dm = leveldata.fab->DistributionMap();
         const int ncomponents = dm.size();
 
-        if (!patch_is_cartesian) {
+        if (!patchdata.is_cartesian) {
           coordinate_minima.at(patchdata.patch)
               .at(leveldata.level)
               .resize(ncomponents);
@@ -884,7 +881,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               const amrex::Real *const dx = geom.CellSize();
               std::array<std::vector<CCTK_REAL>, ndims> coords;
               std::array<const void *, ndims> coord_ptrs;
-              if (patch_is_cartesian) {
+              if (patchdata.is_cartesian) {
                 for (int d = 0; d < ndims; ++d) {
                   coords[d].resize(dims_vc[d]);
                   for (int i = 0; i < dims_vc[d]; ++i)
@@ -934,7 +931,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               const DB::ptr<DBoptlist> optlist = DB::make(DBMakeOptlist(10));
               assert(optlist);
 
-              if (patch_is_cartesian) {
+              if (patchdata.is_cartesian) {
                 int cartesian = DB_CARTESIAN;
                 ierr = DBAddOption(optlist.get(), DBOPT_COORDSYS, &cartesian);
                 assert(!ierr);
@@ -974,7 +971,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               assert(!ierr);
 
               const int coordtype =
-                  patch_is_cartesian ? DB_COLLINEAR : DB_NONCOLLINEAR;
+                  patchdata.is_cartesian ? DB_COLLINEAR : DB_NONCOLLINEAR;
 
               ierr = DBPutQuadmesh(file.get(), meshname.c_str(), nullptr,
                                    coord_ptrs.data(), dims_vc.data(), ndims,
@@ -1092,9 +1089,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
   } // write data
 
   for (const auto &patchdata : ghext->patchdata) {
-    for (const auto &leveldata : patchdata.leveldata) {
-      const bool patch_is_cartesian = false; // patchdata.patch == 0;
-      if (!patch_is_cartesian) {
+    if (!patchdata.is_cartesian) {
+      for (const auto &leveldata : patchdata.leveldata) {
         const int patch = patchdata.patch;
         const int level = leveldata.level;
         auto &minima = coordinate_minima.at(patch).at(level);
@@ -1465,8 +1461,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const int tl = 0;
             const amrex::MultiFab &mfab = *groupdata.mfab[tl];
             const int ncomponents = mfab.size();
-            const bool patch_is_cartesian = false; // patchdata.patch == 0;
-            if (patch_is_cartesian) {
+            if (patchdata.is_cartesian) {
               const amrex::Geometry &geom =
                   patchdata.amrcore->Geom(leveldata.level);
               const amrex::Real *const x0 = geom.ProbLo();
@@ -1484,7 +1479,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 iextents.push_back(iextent);
                 extents.push_back(extent);
               }
-            } else { // if !patch_is_cartesian)
+            } else { // if !patchdata.is_cartesian)
               const auto &minima =
                   coordinate_minima.at(patchdata.patch).at(leveldata.level);
               const auto &maxima =
@@ -1502,7 +1497,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 iextents.push_back(iextent);
                 extents.push_back(extent);
               }
-            } // if !patch_is_cartesian)
+            } // if !patchdata.is_cartesian)
           }
         }
 
@@ -1514,7 +1509,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
           const std::vector<std::string> icompnames{"iMin", "iMax", "jMin",
                                                     "jMax", "kMin", "kMax"};
           // TODO: These are local coordinates -- are they useful? Should they
-          // be omitted? Look at `patch_is_cartesian`.
+          // be omitted? Look at `patchdata.is_cartesian`.
           const std::vector<std::string> compnames{"xMin", "xMax", "yMin",
                                                    "yMax", "zMin", "zMax"};
           std::vector<const char *> icompname_ptrs;
