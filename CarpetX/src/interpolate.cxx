@@ -570,18 +570,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
              ++pti) {
           const auto &particles = pti.GetArrayOfStructs();
           const int component = MFPointer(pti).index();
-          // CCTK_VINFO("patch %d level %d component %d old_nparticles: %zu",
-          //            patch, lev, component, particles.size());
-          for (const auto &particle : particles) {
+          for (const auto &particle : particles)
             oldids.insert(particle.id());
-            // CCTK_VINFO("    id=%d proc=%d pos=[%g,%g,%g]  locals=[%g,%g,%g] "
-            //            "proc=%d n=%d",
-            //            int(particle.id()), int(particle.cpu()),
-            //            particle.pos(0), particle.pos(1), particle.pos(2),
-            //            particle.rdata(0), particle.rdata(1),
-            //            particle.rdata(2), particle.idata(0),
-            //            particle.idata(1));
-          }
           old_nparticles += particles.size();
         }
       }
@@ -604,18 +594,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
              ++pti) {
           const int component = MFPointer(pti).index();
           const auto &particles = pti.GetArrayOfStructs();
-          // CCTK_VINFO("patch %d level %d component %d new_nparticles: %zu",
-          //            patch, lev, component, particles.size());
-          for (const auto &particle : particles) {
+          for (const auto &particle : particles)
             newids.insert(particle.id());
-            // CCTK_VINFO("    id=%d proc=%d pos=[%g,%g,%g]  locals=[%g,%g,%g] "
-            //            "proc=%d n=%d",
-            //            int(particle.id()), int(particle.cpu()),
-            //            particle.pos(0), particle.pos(1), particle.pos(2),
-            //            particle.rdata(0), particle.rdata(1),
-            //            particle.rdata(2), particle.idata(0),
-            //            particle.idata(1));
-          }
           new_nparticles += particles.size();
         }
       }
@@ -660,7 +640,6 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     givis.at(v) = {gi, vi};
   }
 
-  // CCTK_VINFO("interpolating");
   for (const auto &patchdata : ghext->patchdata) {
     const int patch = patchdata.patch;
     for (const auto &leveldata : patchdata.leveldata) {
@@ -675,8 +654,6 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
-        // CCTK_VINFO("patch=%d level=%d component=%d npoints=%d", patch, level,
-        //            component, np);
 
         std::vector<std::vector<CCTK_REAL> > varresults(nvars);
 
@@ -822,20 +799,9 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     }
   }
 
-  // CCTK_VINFO("interpolation results");
-  // for (const auto &proc_result : results) {
-  //   const int p = proc_result.first;
-  //   const auto &result = proc_result.second;
-  //   CCTK_VINFO("[%d] count=%zu", p, result.size());
-  // }
-
   // Collect particles back
-  // CCTK_VINFO("collecting results");
   const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
   const MPI_Datatype datatype = mpi_datatype<CCTK_REAL>::value;
-
-  // int total_npoints;
-  // MPI_Allreduce(&npoints, &total_npoints, 1, MPI_INT, MPI_SUM, comm);
 
   std::vector<int> sendcounts(nprocs);
   std::vector<int> senddispls(nprocs);
@@ -889,7 +855,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   // Set result
   CCTK_REAL *const restrict *const restrict resultptrs =
       static_cast<CCTK_REAL *const *>(resultptrs_);
-  assert(int(recvbuf.size()) == (nvars + 1) * npoints);
+  if (int(recvbuf.size()) != (nvars + 1) * npoints)
+    CCTK_ERROR("Internal error");
   for (int n = 0; n < npoints; ++n) {
     const int offset = (nvars + 1) * n;
     const int idx = int(recvbuf.at(offset));
