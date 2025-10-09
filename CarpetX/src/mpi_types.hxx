@@ -53,6 +53,9 @@ template <> struct mpi_datatype<long double> {
   static const MPI_Datatype value;
 };
 
+template <typename T>
+inline MPI_Datatype mpi_datatype_v = mpi_datatype<T>::value;
+
 } // namespace CarpetX
 
 #endif // #ifndef CARPETX_CARPETX_MPI_TYPES_HXX

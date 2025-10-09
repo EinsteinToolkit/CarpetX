@@ -3,6 +3,13 @@
 namespace ODESolvers {
 using namespace std;
 
+extern "C" void ODESolvers_InitConstants(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ODESolvers_InitConstants;
+  DECLARE_CCTK_PARAMETERS;
+
+  *do_substeps = 0;
+}
+
 extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_ODESolvers_Solve;
   DECLARE_CCTK_PARAMETERS;

@@ -1,5 +1,9 @@
 # Schedule definitions for thorn TestOutput
 
+STORAGE: gf sc a1 a2 a3
+STORAGE: sc_int a1_int a2_int a3_int
+STORAGE: sc_complex a1_complex a2_complex a3_complex
+
 SCHEDULE TestOutput_SetVarsLocal AT initial
 {
   LANG: C
@@ -22,6 +26,14 @@ SCHEDULE TestOutput_SetVarsGlobal AT initial
   WRITES: a1(everywhere)
   WRITES: a2(everywhere)
   WRITES: a3(everywhere)
+  WRITES: sc_int(everywhere)
+  WRITES: a1_int(everywhere)
+  WRITES: a2_int(everywhere)
+  WRITES: a3_int(everywhere)
+  WRITES: sc_complex(everywhere)
+  WRITES: a1_complex(everywhere)
+  WRITES: a2_complex(everywhere)
+  WRITES: a3_complex(everywhere)
 } "Set up global test variables"
 
 SCHEDULE TestOutput_UpdateVarsLocal AT evol
@@ -40,8 +52,24 @@ SCHEDULE TestOutput_UpdateVarsGlobal AT evol
   READS: a1(everywhere)
   READS: a2(everywhere)
   READS: a3(everywhere)
+  READS: sc_int(everywhere)
+  READS: a1_int(everywhere)
+  READS: a2_int(everywhere)
+  READS: a3_int(everywhere)
+  READS: sc_complex(everywhere)
+  READS: a1_complex(everywhere)
+  READS: a2_complex(everywhere)
+  READS: a3_complex(everywhere)
   WRITES: sc(everywhere)
   WRITES: a1(everywhere)
   WRITES: a2(everywhere)
   WRITES: a3(everywhere)
+  WRITES: sc_int(everywhere)
+  WRITES: a1_int(everywhere)
+  WRITES: a2_int(everywhere)
+  WRITES: a3_int(everywhere)
+  WRITES: sc_complex(everywhere)
+  WRITES: a1_complex(everywhere)
+  WRITES: a2_complex(everywhere)
+  WRITES: a3_complex(everywhere)
 } "Update global test variables"

@@ -67,8 +67,13 @@ extern "C" void TestArrayGroup_DynamicData(CCTK_ARGUMENTS) {
   }
 
   // Validate grid scalar dynamic data
-  {
-    const int scalar_gi = CCTK_GroupIndex("TestArrayGroup::test_scalar");
+  char const *const scalars[] = {
+      "TestArrayGroup::test_scalar",
+      "TestArrayGroup::test_scalar_int",
+      "TestArrayGroup::test_scalar_complex",
+  };
+  for (auto scalar : scalars) {
+    const int scalar_gi = CCTK_GroupIndex(scalar);
     cGroupDynamicData scalar_data;
     CCTK_GroupDynamicData(cctkGH, scalar_gi, &scalar_data);
 
@@ -139,8 +144,13 @@ extern "C" void TestArrayGroup_DynamicData(CCTK_ARGUMENTS) {
   }
 
   // Validate grid array dynamic data
-  {
-    const int array_gi = CCTK_GroupIndex("TestArrayGroup::test_array");
+  char const *const arrays[] = {
+      "TestArrayGroup::test_array",
+      "TestArrayGroup::test_array_int",
+      "TestArrayGroup::test_array_complex",
+  };
+  for (auto array : arrays) {
+    const int array_gi = CCTK_GroupIndex(array);
     cGroupDynamicData array_data;
     CCTK_GroupDynamicData(cctkGH, array_gi, &array_data);
 

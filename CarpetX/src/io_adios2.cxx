@@ -146,7 +146,7 @@ struct carpetx_adios2_t {
     std::ostringstream buf;
     buf << varname;
     if (patch >= 0)
-      buf << ".m" << setw(2) << setfill('0') << patch;
+      buf << ".m" << setw(4) << setfill('0') << patch;
     if (reflevel >= 0)
       buf << ".rl" << setw(2) << setfill('0') << reflevel;
     if (component >= 0)

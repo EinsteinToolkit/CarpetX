@@ -531,8 +531,8 @@ void enter_global_mode(cGH *restrict cctkGH) {
           const auto &restrict vars = arraygroupdata.data.at(tl);
           for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
             cctkGH->data[arraygroupdata.firstvarindex + vi][tl] =
-                const_cast<CCTK_REAL *>(
-                    &vars.at(vi * arraygroupdata.array_size));
+                const_cast<void *>(
+                    vars.data_at(vi * arraygroupdata.array_size));
         }
       }
     }
@@ -2609,8 +2609,6 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       // TODO: during evolution, sync only one time level
       const int ntls0 = groupdata0.mfab.size();
       const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
-
-      assert(active_levels->max_level == 1);
 
       for (int tl = 0; tl < sync_tl0; ++tl)
         for (int vi = 0; vi < groupdata0.numvars; ++vi)
