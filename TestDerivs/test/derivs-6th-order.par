@@ -46,7 +46,7 @@ CarpetX::dtfac = 0.5
 
 CarpetX::prolongation_type = "ddf"
 CarpetX::prolongation_order = 7
-CarpetX::ghost_size = 3
+CarpetX::ghost_size = 4  # 1 extra for diss operator
 
 TestDerivs::deriv_order = 6
 TestDerivs::kxx = 1.0
@@ -60,7 +60,8 @@ IO::out_every = 1
 
 CarpetX::out_metadata = "no"
 CarpetX::out_tsv_vars = "
-  TestDerivs::chi
-  TestDerivs::dchi
-  TestDerivs::ddchi
+  TestDerivs::dchi_error
+  TestDerivs::ddchi_error
+  TestDerivs::chi_diss_error
+  TestDerivs::chi_upwind_error
 "

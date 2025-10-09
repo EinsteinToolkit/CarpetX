@@ -14,6 +14,7 @@ USES INCLUDE HEADER: vect.hxx
 USES INCLUDE HEADER: loop.hxx
 USES INCLUDE HEADER: loop_device.hxx
 
+INCLUDES HEADER: driver.hxx IN driver.hxx
 INCLUDES HEADER: reduction.hxx IN reduction.hxx
 
 
@@ -24,13 +25,14 @@ CCTK_INT FUNCTION MultiPatch_GetSystemSpecification( \
 USES FUNCTION MultiPatch_GetSystemSpecification
 
 # Overall size of the domain
-CCTK_INT FUNCTION MultiPatch_GetPatchSpecification( \
+CCTK_INT FUNCTION MultiPatch_GetPatchSpecification2( \
   CCTK_INT IN patch, \
+  CCTK_INT OUT is_cartesian, \
   CCTK_INT IN size, \
   CCTK_INT OUT ARRAY ncells, \
   CCTK_REAL OUT ARRAY xmin, \
   CCTK_REAL OUT ARRAY xmax)
-USES FUNCTION MultiPatch_GetPatchSpecification
+USES FUNCTION MultiPatch_GetPatchSpecification2
 
 # Patch boundaries
 CCTK_INT FUNCTION MultiPatch_GetBoundarySpecification2( \

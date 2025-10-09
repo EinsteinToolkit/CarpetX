@@ -6,8 +6,9 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-oneapi.dockerfile --tag einsteintoolkit/carpetx:oneapi-real32 .
 #     docker push einsteintoolkit/carpetx:oneapi-real32
 
-# FROM intel/oneapi-basekit:2024.2.0-1-devel-ubuntu22.04
-FROM intel/oneapi-basekit:2024.2.1-0-devel-ubuntu22.04
+# FROM intel/oneapi-basekit:2024.2.1-0-devel-ubuntu22.04
+# FROM intel/oneapi-basekit:2025.0.0-0-devel-ubuntu24.04
+FROM intel/oneapi-basekit:2025.0.1-0-devel-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -32,6 +33,7 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA &&
         gdb \
         gfortran \
         git \
+        hdf5-filter-plugin-zfp-serial \
         hdf5-tools \
         hwloc-nox \
         language-pack-en \
@@ -51,6 +53,7 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA &&
         libtool \
         libudev-dev \
         libyaml-cpp-dev \
+        libzfp-dev \
         libzstd-dev \
         locales \
         m4 \
@@ -87,9 +90,9 @@ RUN find /opt/intel -name 'impi.pc' -delete && \
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.1.tar.gz && \
-    tar xzf v2.15.1.tar.gz && \
-    cd c-blosc2-2.15.1 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.2.tar.gz && \
+    tar xzf v2.15.2.tar.gz && \
+    cd c-blosc2-2.15.2 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -141,9 +144,12 @@ RUN mkdir src && \
         -DBUILD_TESTING=OFF \
         -DADIOS2_BUILD_EXAMPLES=OFF \
         -DADIOS2_Blosc2_PREFER_SHARED=ON \
+        -DADIOS2_USE_BZip2=ON \
         -DADIOS2_USE_Blosc2=ON \
         -DADIOS2_USE_Fortran=OFF \
+        -DADIOS2_USE_HDF5=ON \
         -DADIOS2_USE_MGARD=ON \
+        -DADIOS2_USE_ZFP=ON \
         && \
     cmake --build build && \
     cmake --install build && \
@@ -186,6 +192,8 @@ RUN mkdir src && \
     true) && \
     rm -rf src
 
+COPY patches/openPMD-api.patch /cactus/patches/
+
 # Install openPMD-api
 # openPMD-api defines a standard for laying out AMR data in a file
 # - depends on ADIOS2
@@ -194,6 +202,8 @@ RUN mkdir src && \
     wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.16.0.tar.gz && \
     tar xzf 0.16.0.tar.gz && \
     cd openPMD-api-0.16.0 && \
+    patch -p1 </cactus/patches/openPMD-api.patch && \
+    rm /cactus/patches/openPMD-api.patch && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -288,10 +298,10 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.11.tar.gz && \
-    tar xzf 24.11.tar.gz && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.12.tar.gz && \
+    tar xzf 24.12.tar.gz && \
     rm -rf /opt/intel/oneapi/mpi && \
-    cd amrex-24.11 && \
+    cd amrex-24.12 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \

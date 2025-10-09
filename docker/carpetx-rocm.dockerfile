@@ -6,9 +6,9 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-rocm.dockerfile --tag einsteintoolkit/carpetx:rocm-real32 .
 #     docker push einsteintoolkit/carpetx:rocm-real32
 
-# FROM rocm/dev-ubuntu-22.04:6.1.2
-# FROM rocm/dev-ubuntu-24.04:6.2
-FROM rocm/dev-ubuntu-24.04:6.2
+# FROM rocm/dev-ubuntu-24.04:6.2.4
+# FROM rocm/dev-ubuntu-24.04:6.3
+FROM rocm/dev-ubuntu-24.04:6.3.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -34,6 +34,7 @@ RUN apt-get update && \
         gdb \
         gfortran \
         git \
+        hdf5-filter-plugin-zfp-serial \
         hdf5-tools \
         hiprand-dev \
         hwloc-nox \
@@ -54,6 +55,7 @@ RUN apt-get update && \
         libtool \
         libudev-dev \
         libyaml-cpp-dev \
+        libzfp-dev \
         libzstd-dev \
         locales \
         m4 \
@@ -81,9 +83,9 @@ RUN apt-get update && \
 # # Installing HPCToolkit without rocm since the install fails when this option is enabled.
 # RUN mkdir src && \
 #     (cd src && \
-#     wget https://github.com/spack/spack/archive/refs/tags/v0.21.0.tar.gz && \
-#     tar xzf v0.21.0.tar.gz && \
-#     export SPACK_ROOT="$(pwd)/spack-0.21.0" && \
+#     wget https://github.com/spack/spack/archive/refs/tags/v0.23.0.tar.gz && \
+#     tar xzf v0.23.0.tar.gz && \
+#     export SPACK_ROOT="$(pwd)/spack-0.23.0" && \
 #     mkdir -p "${HOME}/.spack" && \
 #     echo 'config: {install_tree: {root: /spack}}' >"${HOME}/.spack/config.yaml" && \
 #     . ${SPACK_ROOT}/share/spack/setup-env.sh && \
@@ -112,9 +114,9 @@ RUN apt-get update && \
 # blosc2 is a compression library, comparable to zlib
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.1.tar.gz && \
-    tar xzf v2.15.1.tar.gz && \
-    cd c-blosc2-2.15.1 && \
+    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.2.tar.gz && \
+    tar xzf v2.15.2.tar.gz && \
+    cd c-blosc2-2.15.2 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -166,9 +168,12 @@ RUN mkdir src && \
         -DBUILD_TESTING=OFF \
         -DADIOS2_BUILD_EXAMPLES=OFF \
         -DADIOS2_Blosc2_PREFER_SHARED=ON \
+        -DADIOS2_USE_BZip2=ON \
         -DADIOS2_USE_Blosc2=ON \
         -DADIOS2_USE_Fortran=OFF \
+        -DADIOS2_USE_HDF5=ON \
         -DADIOS2_USE_MGARD=ON \
+        -DADIOS2_USE_ZFP=ON \
         && \
     cmake --build build && \
     cmake --install build && \
@@ -211,6 +216,8 @@ RUN mkdir src && \
     true) && \
     rm -rf src
 
+COPY patches/openPMD-api.patch /cactus/patches/
+
 # Install openPMD-api
 # openPMD-api defines a standard for laying out AMR data in a file
 # - depends on ADIOS2
@@ -219,6 +226,8 @@ RUN mkdir src && \
     wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.16.0.tar.gz && \
     tar xzf 0.16.0.tar.gz && \
     cd openPMD-api-0.16.0 && \
+    patch -p1 </cactus/patches/openPMD-api.patch && \
+    rm /cactus/patches/openPMD-api.patch && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -313,9 +322,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.11.tar.gz && \
-    tar xzf 24.11.tar.gz && \
-    cd amrex-24.11 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/24.12.tar.gz && \
+    tar xzf 24.12.tar.gz && \
+    cd amrex-24.12 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
