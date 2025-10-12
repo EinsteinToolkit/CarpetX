@@ -159,14 +159,14 @@ constexpr bool output_ghosts = false;
 struct Const {
   // From: CODATA Internationally recommended 2018 values of the
   // Fundamental Physical Constants
-  static constexpr CCTK_REAL c = 299792458;         // m s-1
-  static constexpr CCTK_REAL G = 6.67430e-11;       // m3 kg-1 s-2
+  static constexpr CCTK_REAL c = 299792458;         // m s⁻¹
+  static constexpr CCTK_REAL G = 6.67430e-11;       // m³ kg⁻¹ s⁻²
   static constexpr CCTK_REAL M_solar = 1.98847e+30; // kg
 };
 
 struct Unit {
   // We use c = G = 1, and M_solar as mass unit.
-  static constexpr CCTK_REAL velocity = Const::c;                       // m s-1
+  static constexpr CCTK_REAL velocity = Const::c;                       // m s⁻¹
   static constexpr CCTK_REAL mass = Const::M_solar;                     // kg
   static constexpr CCTK_REAL length = Const::G * mass / pow2(Const::c); // m
   static constexpr CCTK_REAL time = length / velocity;                  // s
