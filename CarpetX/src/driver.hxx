@@ -449,6 +449,9 @@ struct GHExt {
   std::vector<PatchData> patchdata; // [patch]
 
   int num_patches() const { return patchdata.size(); }
+  int num_levels(const int patch) const {
+    return patchdata.at(patch).leveldata.size();
+  }
   int num_levels() const {
     int nlevels = 0;
     using std::max;
