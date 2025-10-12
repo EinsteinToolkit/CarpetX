@@ -1,7 +1,8 @@
+#include <loop_device.hxx>
+
 #include <cctk.h>
 #include <cctk_Arguments.h>
 
-#include <loop_device.hxx>
 #include <complex>
 
 namespace TestOutput {
@@ -50,14 +51,22 @@ extern "C" void TestOutput_SetVarsGlobal(CCTK_ARGUMENTS) {
       }
 }
 
+extern "C" void TestOutput_CopyVarsLocal(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestOutput_CopyVarsLocal;
+
+  grid.loop_all<0, 0, 0>(grid.nghostzones, [=](const Loop::PointDesc &p) {
+    gf_tmp(p.I) = gf(p.I);
+  });
+}
+
 extern "C" void TestOutput_UpdateVarsLocal(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestOutput_UpdateVarsLocal;
 
   grid.loop_int<0, 0, 0>(grid.nghostzones, [=](const Loop::PointDesc &p) {
     CCTK_REAL lap = 0;
     for (int d = 0; d < 3; ++d)
-      lap += gf(p.I - p.DI[d]) - 2 * gf(p.I) + gf(p.I + p.DI[d]);
-    gf(p.I) += lap / 4;
+      lap += gf_tmp(p.I - p.DI[d]) - 2 * gf_tmp(p.I) + gf_tmp(p.I + p.DI[d]);
+    gf(p.I) = gf_tmp(p.I) + lap / 4;
   });
 }
 
