@@ -1119,7 +1119,9 @@ int Initialise(tFleshConfig *config) {
       patchdata.amrcore->cactus_is_initialized = true;
 
     // Determine time step size
-    {
+    if (CCTK_EQUALS(timestep_choice, "timestep")) {
+      cctkGH->cctk_delta_time = timestep;
+    } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
       CCTK_REAL mindx = 1.0 / 0.0;
       for (const auto &patchdata : ghext->patchdata) {
         const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
@@ -1131,11 +1133,14 @@ int Initialise(tFleshConfig *config) {
         mindx = fmin(mindx, mindx1);
       }
       cctkGH->cctk_delta_time = dtfac * mindx;
-#pragma omp critical
-      CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
-                 cctkGH->cctk_iteration, double(cctkGH->cctk_time),
-                 double(cctkGH->cctk_delta_time));
+    } else {
+      abort();
     }
+    assert(isfinite(cctkGH->cctk_delta_time));
+#pragma omp critical
+    CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+               cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+               double(cctkGH->cctk_delta_time));
 
   } else {
     // Set up initial conditions
@@ -1152,7 +1157,9 @@ int Initialise(tFleshConfig *config) {
         patchdata.amrcore->MakeNewGrids(time);
 
       // Determine time step size
-      {
+      if (CCTK_EQUALS(timestep_choice, "timestep")) {
+        cctkGH->cctk_delta_time = timestep;
+      } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
         CCTK_REAL mindx = 1.0 / 0.0;
         for (const auto &patchdata : ghext->patchdata) {
           const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
@@ -1164,11 +1171,14 @@ int Initialise(tFleshConfig *config) {
           mindx = fmin(mindx, mindx1);
         }
         cctkGH->cctk_delta_time = dtfac * mindx;
-#pragma omp critical
-        CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
-                   cctkGH->cctk_iteration, double(cctkGH->cctk_time),
-                   double(cctkGH->cctk_delta_time));
+      } else {
+        abort();
       }
+      assert(isfinite(cctkGH->cctk_delta_time));
+#pragma omp critical
+      CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                 cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                 double(cctkGH->cctk_delta_time));
 
       assert(!active_levels);
       active_levels = make_optional<active_levels_t>(0, 1);
@@ -1308,7 +1318,9 @@ int Initialise(tFleshConfig *config) {
 
         if (did_modify_any_level) {
           // Determine time step size
-          {
+          if (CCTK_EQUALS(timestep_choice, "timestep")) {
+            cctkGH->cctk_delta_time = timestep;
+          } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
             CCTK_REAL mindx = 1.0 / 0.0;
             for (const auto &patchdata : ghext->patchdata) {
               const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
@@ -1320,11 +1332,14 @@ int Initialise(tFleshConfig *config) {
               mindx = fmin(mindx, mindx1);
             }
             cctkGH->cctk_delta_time = dtfac * mindx;
-#pragma omp critical
-            CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
-                       cctkGH->cctk_iteration, double(cctkGH->cctk_time),
-                       double(cctkGH->cctk_delta_time));
+          } else {
+            abort();
           }
+          assert(isfinite(cctkGH->cctk_delta_time));
+#pragma omp critical
+          CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                     cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                     double(cctkGH->cctk_delta_time));
 
           assert(!active_levels);
           active_levels = make_optional<active_levels_t>(
@@ -1695,7 +1710,9 @@ int Evolve(tFleshConfig *config) {
 
       if (did_modify_any_level) {
         // Determine time step size
-        {
+        if (CCTK_EQUALS(timestep_choice, "timestep")) {
+          cctkGH->cctk_delta_time = timestep;
+        } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
           CCTK_REAL mindx = 1.0 / 0.0;
           for (const auto &patchdata : ghext->patchdata) {
             const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
@@ -1707,11 +1724,14 @@ int Evolve(tFleshConfig *config) {
             mindx = fmin(mindx, mindx1);
           }
           cctkGH->cctk_delta_time = dtfac * mindx;
-#pragma omp critical
-          CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
-                     cctkGH->cctk_iteration, double(cctkGH->cctk_time),
-                     double(cctkGH->cctk_delta_time));
+        } else {
+          abort();
         }
+        assert(isfinite(cctkGH->cctk_delta_time));
+#pragma omp critical
+        CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                   cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                   double(cctkGH->cctk_delta_time));
 
         assert(!active_levels);
         active_levels = make_optional<active_levels_t>(first_modified_level,
