@@ -176,6 +176,19 @@ struct Unit {
 
 namespace {
 
+// TODO: Get this from `valid.cxx`
+inline CCTK_REAL get_poison() {
+#if defined CCTK_REAL_PRECISION_4
+  constexpr std::uint32_t ipoison = 0xffc00000UL + 0xdead;
+#elif defined CCTK_REAL_PRECISION_8
+  constexpr std::uint64_t ipoison = 0xfff8000000000000ULL + 0xdeadbeef;
+#endif
+  static_assert(sizeof ipoison == sizeof(CCTK_REAL));
+  CCTK_REAL poison;
+  std::memcpy(&poison, &ipoison, sizeof poison);
+  return poison;
+}
+
 template <typename T, std::size_t N>
 constexpr std::array<T, N> reversed(const std::array<T, N> &arr) {
   std::array<T, N> res;
@@ -577,7 +590,11 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
 
   const int npatches =
       read_iter->getAttribute("numPatches").get<std::int64_t>();
-  assert(npatches == ghext->num_patches());
+  if (npatches != ghext->num_patches())
+    CCTK_VERROR(
+        "Wrong number of patches: Expected %d, found %d in the checkpoint file",
+        ghext->num_patches(), npatches);
+
   std::vector<std::string> patch_suffixes;
   if (npatches == 1) {
     assert(read_iter->getAttribute("patchSuffixes").dtype ==
@@ -592,71 +609,70 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
     patch_suffixes = read_iter->getAttribute("patchSuffixes")
                          .get<std::vector<std::string> >();
   }
-  // TODOPATCH: Handle multiple patches
-  assert(ghext->num_patches() == 1);
-  const int patch = 0;
 
-  const int nlevels =
-      read_iter->getAttribute("numLevels" + patch_suffixes.at(patch))
-          .get<std::int64_t>();
-  assert(nlevels >= 0);
-  std::vector<std::string> level_suffixes;
-  if (nlevels == 1) {
-    assert(read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
-               .dtype == openPMD::Datatype::STRING);
-    const std::string level_suffix =
-        read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
-            .get<std::string>();
-    level_suffixes.resize(1);
-    level_suffixes.at(0) = level_suffix;
-  } else {
-    assert(read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
-               .dtype == openPMD::Datatype::VEC_STRING);
-    level_suffixes =
-        read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
-            .get<std::vector<std::string> >();
-  }
-  assert(int(level_suffixes.size()) == nlevels);
+  for (auto &patchdata : ghext->patchdata) {
+    const int patch = patchdata.patch;
+    const int nlevels =
+        read_iter->getAttribute("numLevels" + patch_suffixes.at(patch))
+            .get<std::int64_t>();
+    assert(nlevels >= 0);
+    std::vector<std::string> level_suffixes;
+    if (nlevels == 1) {
+      assert(read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+                 .dtype == openPMD::Datatype::STRING);
+      const std::string level_suffix =
+          read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+              .get<std::string>();
+      level_suffixes.resize(1);
+      level_suffixes.at(0) = level_suffix;
+    } else {
+      assert(read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+                 .dtype == openPMD::Datatype::VEC_STRING);
+      level_suffixes =
+          read_iter->getAttribute("levelSuffixes" + patch_suffixes.at(patch))
+              .get<std::vector<std::string> >();
+    }
+    assert(int(level_suffixes.size()) == nlevels);
 
-  assert(ndims == 3);
-  assert(nlevels > 0);
-  auto &patchdata = ghext->patchdata.at(patch);
-  patchdata.amrcore->SetFinestLevel(nlevels - 1);
+    assert(ndims == 3);
+    assert(nlevels > 0);
+    patchdata.amrcore->SetFinestLevel(nlevels - 1);
 
-  for (int level = 0; level < nlevels; ++level) {
-    const std::vector<std::int64_t> chunk_infos =
-        read_iter->getAttribute("chunkInfo" + level_suffixes.at(level))
-            .get<std::vector<std::int64_t> >();
-    assert(chunk_infos.size() % (2 * ndims) == 0);
-    const int nfabs = chunk_infos.size() / (2 * ndims);
-    amrex::Vector<amrex::Box> levboxes(nfabs);
-    for (int component = 0; component < nfabs; ++component) {
-      const int offset = 2 * ndims * component;
-      amrex::IntVect small, big;
-      for (int d = 0; d < ndims; ++d) {
-        small[d] = chunk_infos.at(offset + 0 * ndims + ndims - 1 - d);
-        big[d] = chunk_infos.at(offset + 1 * ndims + ndims - 1 - d);
+    for (int level = 0; level < nlevels; ++level) {
+      const std::vector<std::int64_t> chunk_infos =
+          read_iter->getAttribute("chunkInfo" + level_suffixes.at(level))
+              .get<std::vector<std::int64_t> >();
+      assert(chunk_infos.size() % (2 * ndims) == 0);
+      const int nfabs = chunk_infos.size() / (2 * ndims);
+      amrex::Vector<amrex::Box> levboxes(nfabs);
+      for (int component = 0; component < nfabs; ++component) {
+        const int offset = 2 * ndims * component;
+        amrex::IntVect small, big;
+        for (int d = 0; d < ndims; ++d) {
+          small[d] = chunk_infos.at(offset + 0 * ndims + ndims - 1 - d);
+          big[d] = chunk_infos.at(offset + 1 * ndims + ndims - 1 - d);
+        }
+        levboxes.at(component) = amrex::Box(small, big - 1);
       }
-      levboxes.at(component) = amrex::Box(small, big - 1);
-    }
 
-    // Don't set coarse level domain; this is already set by the driver
-    if (level > 0) {
-      amrex::Geometry geom = patchdata.amrcore->Geom(level - 1);
-      geom.refine({2, 2, 2});
-      patchdata.amrcore->SetGeometry(level, geom);
-    }
+      // Don't set coarse level domain; this is already set by the driver
+      if (level > 0) {
+        amrex::Geometry geom = patchdata.amrcore->Geom(level - 1);
+        geom.refine({2, 2, 2});
+        patchdata.amrcore->SetGeometry(level, geom);
+      }
 
-    amrex::BoxList boxlist(std::move(levboxes));
-    amrex::BoxArray boxarray(std::move(boxlist));
-    patchdata.amrcore->SetBoxArray(level, boxarray);
+      amrex::BoxList boxlist(std::move(levboxes));
+      amrex::BoxArray boxarray(std::move(boxlist));
+      patchdata.amrcore->SetBoxArray(level, boxarray);
 
-    amrex::DistributionMapping dm(boxarray);
-    patchdata.amrcore->SetDistributionMap(level, dm);
+      amrex::DistributionMapping dm(boxarray);
+      patchdata.amrcore->SetDistributionMap(level, dm);
 
-    patchdata.amrcore->SetupLevel(level, boxarray, dm,
-                                  []() { return "Recovering"; });
-  } // for level
+      patchdata.amrcore->SetupLevel(level, boxarray, dm,
+                                    []() { return "Recovering"; });
+    } // for level
+  } // for patch
 }
 
 void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
@@ -789,6 +805,9 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
       } // for record_component
     } // for mesh
   }
+
+  // Post-read tasks
+  std::vector<std::function<void()> > tasks;
 
   // First read grid functions in a loop over patches and levels
 
@@ -979,22 +998,47 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                 const int contig_dk = contig_dj * contig_shape[1];
                 const int contig_np = contig_dk * contig_shape[2];
                 assert(contig_np == np);
+#if 1
                 CCTK_REAL *const contig_ptr =
                     amrex_var_ptr + extbox.size() - box.size();
                 // TODO: optimize memory layout
 #if 0
-              CCTK_REAL *const contig_ptr =
-                  ptr + contig_di * (contig_shape[0] - 1) +
-                  contig_dj * (contig_shape[1] - 1) +
-                  contig_dk * (contig_shape[2] - 1) + 1 - contig_np;
-              assert(&amrex_ptr[amrex_di * (amrex_shape[0] - 1) +
-                                amrex_dj * (amrex_shape[1] - 1) +
-                                amrex_dk * (amrex_shape[2] - 1)] ==
-                     &contig_ptr[contig_di * (contig_shape[0] - 1) +
-                                 contig_dj * (contig_shape[1] - 1) +
-                                 contig_dk * (contig_shape[2] - 1)]);
+                CCTK_REAL *const contig_ptr =
+                    ptr + contig_di * (contig_shape[0] - 1) +
+                    contig_dj * (contig_shape[1] - 1) +
+                    contig_dk * (contig_shape[2] - 1) + 1 - contig_np;
+                assert(&amrex_ptr[amrex_di * (amrex_shape[0] - 1) +
+                                  amrex_dj * (amrex_shape[1] - 1) +
+                                  amrex_dk * (amrex_shape[2] - 1)] ==
+                       &contig_ptr[contig_di * (contig_shape[0] - 1) +
+                                   contig_dj * (contig_shape[1] - 1) +
+                                   contig_dk * (contig_shape[2] - 1)]);
 #endif
-                const auto expand_box = [=](CCTK_REAL *const contig_ptr) {
+                if (poison_undefined_values) {
+                  const CCTK_REAL poison = get_poison();
+#pragma omp simd
+                  for (int n = 0; n < np; ++n)
+                    contig_ptr[n] = poison;
+                }
+                record_components.at(vi).loadChunkRaw(contig_ptr, start, count);
+                tasks.emplace_back([=]() {
+                  for (int k = 0; k < contig_shape[2]; ++k)
+                    for (int j = 0; j < contig_shape[1]; ++j)
+                      for (int i = 0; i < contig_shape[0]; ++i)
+                        amrex_ptr[amrex_di * i + amrex_dj * j + amrex_dk * k] =
+                            contig_ptr[contig_di * i + contig_dj * j +
+                                       contig_dk * k];
+                });
+#else
+                CCTK_REAL *const contig_ptr = new CCTK_REAL[np];
+                if (poison_undefined_values) {
+                  const CCTK_REAL poison = get_poison();
+#pragma omp simd
+                  for (int n = 0; n < np; ++n)
+                    contig_ptr[n] = poison;
+                }
+                record_components.at(vi).loadChunkRaw(contig_ptr, start, count);
+                tasks.emplace_back([=]() {
                   for (int k = 0; k < contig_shape[2]; ++k)
                     for (int j = 0; j < contig_shape[1]; ++j)
 #pragma omp simd
@@ -1002,27 +1046,9 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                         amrex_ptr[amrex_di * i + amrex_dj * j + amrex_dk * k] =
                             contig_ptr[contig_di * i + contig_dj * j +
                                        contig_dk * k];
-                  if (poison_undefined_values) {
-                    CCTK_REAL poison;
-                    poison_value_t<CCTK_REAL> poison_value;
-                    poison_value.set_to_poison(poison);
-                    for (int k = extbox.lo[2]; k < extbox.hi[2]; ++k) {
-                      for (int j = extbox.lo[1]; j < extbox.hi[1]; ++j) {
-                        for (int i = extbox.lo[0]; i < extbox.hi[0]; ++i) {
-                          const Arith::vect<int, dim> I{i, j, k};
-                          if (any(I < box.lo || I >= box.hi))
-                            amrex_var_ptr[amrex_di * (i - extbox.lo[0]) +
-                                          amrex_dj * (j - extbox.lo[1]) +
-                                          amrex_dk * (k - extbox.lo[2])] =
-                                poison;
-                        }
-                      }
-                    }
-                  }
-                };
-                record_components.at(vi).loadChunk(
-                    std::shared_ptr<CCTK_REAL>(contig_ptr, expand_box), start,
-                    count);
+                  delete[] contig_ptr;
+                });
+#endif
               }
 
             } // for vi
@@ -1146,6 +1172,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
         assert(cactus_dj > 0);
         assert(cactus_dk > 0);
         assert(cactus_np > 0);
+        assert(int(groupdata.data.at(tl).size()) == numvars * cactus_np);
         for (int vi = 0; vi < numvars; ++vi) {
           void *const cactus_var_ptr =
               groupdata.data.at(tl).data_at(vi * cactus_np);
@@ -1284,6 +1311,12 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
   series->flush();
 
   if (io_verbose)
+    CCTK_VINFO("InputOpenPMD: Post-processing data...");
+  for (auto &task : tasks)
+    std::move(task)();
+  tasks.clear();
+
+  if (io_verbose)
     CCTK_VINFO("InputOpenPMD: Closing iteration...");
   read_iter->close();
 
@@ -1387,10 +1420,10 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
   if (io_verbose)
     CCTK_VINFO("Creating iteration %d...", cctk_iteration);
-  openPMD::Iteration iter = (*write_iters)[cctk_iteration];
-  iter.setTime(cctk_time);
-  iter.setDt(cctk_delta_time);
-  iter.setTimeUnitSI(Unit::time);
+  openPMD::Iteration write_iter = (*write_iters)[cctk_iteration];
+  write_iter.setTime(cctk_time);
+  write_iter.setDt(cctk_delta_time);
+  write_iter.setTimeUnitSI(Unit::time);
 
   const int myproc = CCTK_MyProc(cctkGH);
   const int ioproc = 0;
@@ -1400,14 +1433,14 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     char *const data = IOUtil_GetAllParameters(cctkGH, 1 /*all*/);
     const std::string parameters(data);
     std::free(data);
-    iter.setAttribute("AllParameters", parameters);
+    write_iter.setAttribute("AllParameters", parameters);
   }
 
   if (myproc == ioproc) {
     const int ndims = Loop::dim;
-    iter.setAttribute<std::int64_t>("numDims", ndims);
+    write_iter.setAttribute<std::int64_t>("numDims", ndims);
     const int npatches = ghext->patchdata.size();
-    iter.setAttribute<std::int64_t>("numPatches", npatches);
+    write_iter.setAttribute<std::int64_t>("numPatches", npatches);
     std::vector<std::string> patch_suffixes(npatches);
     for (const auto &patchdata : ghext->patchdata) {
       const int patch = patchdata.patch;
@@ -1417,12 +1450,12 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
       buf << "_patch" << setw(2) << setfill('0') << patch;
       patch_suffixes.at(patch) = buf.str();
     }
-    iter.setAttribute("patchSuffixes", patch_suffixes);
+    write_iter.setAttribute("patchSuffixes", patch_suffixes);
     for (const auto &patchdata : ghext->patchdata) {
       const int patch = patchdata.patch;
       const int nlevels = patchdata.leveldata.size();
-      iter.setAttribute<std::int64_t>("numLevels" + patch_suffixes.at(patch),
-                                      nlevels);
+      write_iter.setAttribute<std::int64_t>(
+          "numLevels" + patch_suffixes.at(patch), nlevels);
       std::vector<std::string> level_suffixes(nlevels);
       for (const auto &leveldata : patchdata.leveldata) {
         const int level = leveldata.level;
@@ -1431,8 +1464,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             << level;
         level_suffixes.at(level) = buf.str();
       }
-      iter.setAttribute("levelSuffixes" + patch_suffixes.at(patch),
-                        level_suffixes);
+      write_iter.setAttribute("levelSuffixes" + patch_suffixes.at(patch),
+                              level_suffixes);
       for (const auto &leveldata : patchdata.leveldata) {
         const int level = leveldata.level;
         const amrex::FabArrayBase &mfab = *leveldata.fab;
@@ -1447,7 +1480,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                 box.bigEnd()[d] + 1;
           }
         }
-        iter.setAttribute("chunkInfo" + level_suffixes.at(level), chunk_infos);
+        write_iter.setAttribute("chunkInfo" + level_suffixes.at(level),
+                                chunk_infos);
       }
     }
   } // if ioproc
@@ -1547,8 +1581,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
               make_meshname(gi, leveldata.patch, leveldata.level);
           if (io_verbose)
             CCTK_VINFO("Defining mesh %s...", meshname.c_str());
-          assert(!iter.meshes.contains(meshname));
-          openPMD::Mesh mesh = iter.meshes[meshname];
+          assert(!write_iter.meshes.contains(meshname));
+          openPMD::Mesh mesh = write_iter.meshes[meshname];
 
           mesh.setGeometry(openPMD::Mesh::Geometry::cartesian);
           mesh.setAxisLabels(reversed(std::vector<std::string>{"x", "y", "z"}));
@@ -1757,7 +1791,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         // Create mesh
 
         const std::string meshname = make_meshname(gi, -1, -1);
-        openPMD::Mesh mesh = iter.meshes[meshname];
+        openPMD::Mesh mesh = write_iter.meshes[meshname];
 
         // mesh.setGeometry(openPMD::Mesh::Geometry::cartesian);
         // mesh.setAxisLabels(reversed(std::vector<std::string>{"x", "y",
@@ -1833,6 +1867,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         assert(cactus_dj > 0);
         assert(cactus_dk > 0);
         assert(cactus_np > 0);
+        assert(int(groupdata.data.at(tl).size()) == numvars * cactus_np);
         for (int vi = 0; vi < numvars; ++vi) {
           const void *const var_ptr =
               groupdata.data.at(tl).data_at(vi * cactus_np);
@@ -1908,8 +1943,12 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   }
 
   if (io_verbose)
-    CCTK_VINFO("Closing iteration...");
-  iter.close();
+    CCTK_VINFO("OutputOpenPMD: Performing all writes...");
+  series->flush();
+
+  if (io_verbose)
+    CCTK_VINFO("OutputOpenPMD: Closing iteration...");
+  write_iter.close();
 
   if (CCTK_MyProc(nullptr) == 0) {
     std::ostringstream buf;
