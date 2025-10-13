@@ -731,7 +731,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
   // Configure Silo library
   DBShowErrors(DB_ALL_AND_DRVR, nullptr);
   // DBSetAllowEmptyObjects(1);
-  DBSetCompression("METHOD=GZIP LEVEL=9");
+  DBSetCompression("METHOD=GZIP");
   DBSetEnableChecksums(1);
 
   // TODO: directories instead of carefully chosen names
