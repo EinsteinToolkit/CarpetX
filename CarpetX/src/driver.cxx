@@ -547,6 +547,7 @@ amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
     natural,
     poly_cons3lfb,
     poly_eno3lfb,
+    eno1d,
   };
   static interp_t interp = [&]() {
     if (CCTK_EQUALS(prolongation_type, "interpolate"))
@@ -567,6 +568,8 @@ amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
       return interp_t::poly_cons3lfb;
     else if (CCTK_EQUALS(prolongation_type, "poly-eno3lfb"))
       return interp_t::poly_eno3lfb;
+    else if (CCTK_EQUALS(prolongation_type, "eno1d"))
+      return interp_t::eno1d;
     else
       assert(0);
   }();
@@ -1307,6 +1310,33 @@ amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
       }
       break;
 #endif
+    }
+    break;
+
+  case interp_t::eno1d:
+
+    switch (prolongation_order) {
+
+    case 5:
+      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
+      case 0b000:
+        return &prolongate_eno1d_3d_rf2_c000_o5;
+      case 0b001:
+        return &prolongate_eno1d_3d_rf2_c001_o5;
+      case 0b010:
+        return &prolongate_eno1d_3d_rf2_c010_o5;
+      case 0b011:
+        return &prolongate_eno1d_3d_rf2_c011_o5;
+      case 0b100:
+        return &prolongate_eno1d_3d_rf2_c100_o5;
+      case 0b101:
+        return &prolongate_eno1d_3d_rf2_c101_o5;
+      case 0b110:
+        return &prolongate_eno1d_3d_rf2_c110_o5;
+      case 0b111:
+        return &prolongate_eno1d_3d_rf2_c111_o5;
+      }
+      break;
     }
     break;
 
