@@ -643,7 +643,7 @@ INT out_silo_every "Output in Silo format every that many iterations" STEERABLE=
   1:* :: "every that many iterations"
 } -1
 
-STRING out_silo_compression_options "Compress output data use what method" STEERABLE=always
+STRING out_silo_compression_options "Compression options (method and level) to use when creating Silo files" STEERABLE=always
 {
   ".*" :: ""
 } "METHOD=GZIP LEVEL=4"
