@@ -543,10 +543,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         level)[make_pair(mfi.index(), mfi.LocalTileIndex())];
     particle_tiles.at(patch) = &particle_tile;
 
-    PinnedTile pinned_tile;
-    pinned_tile.define(particle_tile.NumRuntimeRealComps(),
-                       particle_tile.NumRuntimeIntComps());
-    pinned_tiles.at(patch) = pinned_tile;
+    pinned_tiles.at(patch).define(particle_tile.NumRuntimeRealComps(),
+                                  particle_tile.NumRuntimeIntComps());
   }
 
   // Set particle positions
@@ -565,12 +563,12 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     p.rdata(2) = localsz[n];
     p.idata(0) = proc; // source process
     p.idata(1) = n;    // source index
-    particle_tiles.at(patch)->push_back(p);
+    pinned_tiles.at(patch).push_back(p);
   }
 
   for (int patch = 0; patch < ghext->num_patches(); ++patch) {
     const auto particle_tile = particle_tiles.at(patch);
-    const auto pinned_tile = pinned_tiles.at(patch);
+    const auto &pinned_tile = pinned_tiles.at(patch);
     auto old_np = particle_tile->numParticles();
     auto new_np = old_np + pinned_tile.numParticles();
     particle_tile->resize(new_np);
