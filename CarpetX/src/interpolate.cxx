@@ -535,7 +535,10 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     const int level = 0;
     const auto &restrict leveldata = patchdata.leveldata.at(level);
     const amrex::MFIter mfi(*leveldata.fab);
-    assert(mfi.isValid());
+    // The mfi can be invalid if the number of processes does not evenly divide
+    // the number of blocks
+    if (!mfi.isValid())
+      continue;
     ParticleTile &particle_tile = containers.at(patch).GetParticles(
         level)[make_pair(mfi.index(), mfi.LocalTileIndex())];
     particle_tiles.at(patch) = &particle_tile;
