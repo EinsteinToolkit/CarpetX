@@ -2666,17 +2666,6 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
     groups.push_back(gi);
   }
 
-  if (restrict_during_sync) {
-    active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
-      if (leveldata.level < ghext->num_levels() - 1)
-        Restrict(cctkGH, leveldata.level, groups);
-    });
-    // FIXME: cannot call POSTRESTRICT since this could contain a SYNC leading
-    // to an infinite loop. This means that outer boundaries will be left
-    // invalid after an implicit restrict
-    // CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
-  }
-
   static const bool have_multipatch_boundaries =
       CCTK_IsFunctionAliased("MultiPatch_Interpolate");
 
@@ -2712,7 +2701,8 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
       const auto &restrict coarseleveldata =
           ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
 
-      if (leveldata.iteration == coarseleveldata.iteration) {
+      if (use_subcycling_wip &&
+          (leveldata.iteration == coarseleveldata.iteration)) {
         return;
       }
 
@@ -2828,17 +2818,6 @@ int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
     if (gi == gi_regrid_error)
       continue;
     groups.push_back(gi);
-  }
-
-  if (restrict_during_sync) {
-    active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
-      if (leveldata.level < ghext->num_levels() - 1)
-        Restrict(cctkGH, leveldata.level, groups);
-    });
-    // FIXME: cannot call POSTRESTRICT since this could contain a SYNC leading
-    // to an infinite loop. This means that outer boundaries will be left
-    // invalid after an implicit restrict
-    // CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
   }
 
   static const bool have_multipatch_boundaries =
