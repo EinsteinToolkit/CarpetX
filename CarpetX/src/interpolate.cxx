@@ -528,7 +528,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
       amrex::PinnedArenaAllocator>::ParticleTileType;
   std::vector<Container> containers(ghext->num_patches());
   std::vector<ParticleTile *> particle_tiles(ghext->num_patches());
-  std::vector<PinnedTile *> pinned_tiles(ghext->num_patches());
+  std::vector<PinnedTile> pinned_tiles(ghext->num_patches());
   for (int patch = 0; patch < ghext->num_patches(); ++patch) {
     const auto &restrict patchdata = ghext->patchdata.at(patch);
     containers.at(patch) = Container(patchdata.amrcore.get());
@@ -546,7 +546,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     PinnedTile pinned_tile;
     pinned_tile.define(particle_tile.NumRuntimeRealComps(),
                        particle_tile.NumRuntimeIntComps());
-    pinned_tiles.at(patch) = &pinned_tile;
+    pinned_tiles.at(patch) = pinned_tile;
   }
 
   // Set particle positions
@@ -572,10 +572,10 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     const auto particle_tile = particle_tiles.at(patch);
     const auto pinned_tile = pinned_tiles.at(patch);
     auto old_np = particle_tile->numParticles();
-    auto new_np = old_np + pinned_tile->numParticles();
+    auto new_np = old_np + pinned_tile.numParticles();
     particle_tile->resize(new_np);
-    amrex::copyParticles(*particle_tile, *pinned_tile, 0, old_np,
-                         pinned_tile->numParticles());
+    amrex::copyParticles(*particle_tile, pinned_tile, 0, old_np,
+                         pinned_tile.numParticles());
   }
 
   // Send particles to interpolation points
