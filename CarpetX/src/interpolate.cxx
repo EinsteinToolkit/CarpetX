@@ -523,21 +523,27 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   using Container = amrex::AmrParticleContainer<3, 2>;
   using Particle = Container::ParticleType;
   using ParticleTile = Container::ParticleTileType;
+  using PinnedTile = typename amrex::ParticleContainer_impl<
+      Container::ParticleType, 0, 0,
+      amrex::PinnedArenaAllocator>::ParticleTileType;
   std::vector<Container> containers(ghext->num_patches());
   std::vector<ParticleTile *> particle_tiles(ghext->num_patches());
+  std::vector<PinnedTile *> pinned_tiles(ghext->num_patches());
   for (int patch = 0; patch < ghext->num_patches(); ++patch) {
     const auto &restrict patchdata = ghext->patchdata.at(patch);
     containers.at(patch) = Container(patchdata.amrcore.get());
     const int level = 0;
     const auto &restrict leveldata = patchdata.leveldata.at(level);
     const amrex::MFIter mfi(*leveldata.fab);
-    // The mfi can be invalid if the number of processes does not evenly divide
-    // the number of blocks
-    if (!mfi.isValid())
-      continue;
+    assert(mfi.isValid());
     ParticleTile &particle_tile = containers.at(patch).GetParticles(
         level)[make_pair(mfi.index(), mfi.LocalTileIndex())];
     particle_tiles.at(patch) = &particle_tile;
+
+    PinnedTile pinned_tile;
+    pinned_tile.define(particle_tile.NumRuntimeRealComps(),
+                       particle_tile.NumRuntimeIntComps());
+    pinned_tiles.at(patch) = &pinned_tile;
   }
 
   // Set particle positions
@@ -559,42 +565,15 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     particle_tiles.at(patch)->push_back(p);
   }
 
-#if 0 // TODO: This is part of Liwei's fast code, should reinstate it, needs to
-      // be merged with the loop over patches above
-    using PinnedTile = typename amrex::ParticleContainer_impl<
-        Container::ParticleType, 0, 0,
-        amrex::PinnedArenaAllocator>::ParticleTileType;
-    PinnedTile pinned_tile;
-    pinned_tile.define(particle_tile.NumRuntimeRealComps(),
-                       particle_tile.NumRuntimeIntComps());
-
-    // Set particle positions
-    const int proc = amrex::ParallelDescriptor::MyProc();
-    for (int n = 0; n < npoints; ++n) {
-      // TODO: Loop over points only once
-      if (patches.at(n) == patch) {
-        amrex::Particle<3, 2> p;
-        p.id() = Container::ParticleType::NextID();
-        p.cpu() = proc;
-        p.pos(0) = posx[n]; // AMReX distribution position
-        p.pos(1) = posy[n];
-        p.pos(2) = posz[n];
-        p.rdata(0) = localsx[n]; // actual particle coordinate
-        p.rdata(1) = localsy[n];
-        p.rdata(2) = localsz[n];
-        p.idata(0) = proc; // source process
-        p.idata(1) = n;    // source index
-        pinned_tile.push_back(p);
-      }
-    }
-
-    auto old_np = particle_tile.numParticles();
-    auto new_np = old_np + pinned_tile.numParticles();
-    particle_tile.resize(new_np);
-    amrex::copyParticles(particle_tile, pinned_tile, 0, old_np,
-                         pinned_tile.numParticles());
+  for (int patch = 0; patch < ghext->num_patches(); ++patch) {
+    const auto particle_tile = particle_tiles.at(patch);
+    const auto pinned_tile = pinned_tiles.at(patch);
+    auto old_np = particle_tile->numParticles();
+    auto new_np = old_np + pinned_tile->numParticles();
+    particle_tile->resize(new_np);
+    amrex::copyParticles(*particle_tile, *pinned_tile, 0, old_np,
+                         pinned_tile->numParticles());
   }
-#endif
 
   // Send particles to interpolation points
   for (auto &container : containers) {
