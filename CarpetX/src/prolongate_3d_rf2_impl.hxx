@@ -382,7 +382,7 @@ template <typename T> struct coeffs1d<CC, ENO, /*order*/ 4, T> {
   }};
 };
 
-template <typename T> struct coeffs1d<CC, ENO1D, /*order*/ 2, T> {
+template <typename T> struct coeffs1d<CC, ENO_STAR, /*order*/ 2, T> {
   static constexpr std::array<std::array<T, 3>, 3> coeffs =
       coeffs1d<CC, ENO, /*order*/ 2, T>::coeffs;
 };
@@ -773,7 +773,7 @@ template <int ORDER> struct undivided_difference_1d<CC, ENO, ORDER> {
   }
 };
 
-template <int ORDER> struct undivided_difference_1d<CC, ENO1D, ORDER> {
+template <int ORDER> struct undivided_difference_1d<CC, ENO_STAR, ORDER> {
   template <typename F, typename T = std::invoke_result_t<F, int> >
   CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
   operator()(const F &crse) const {
@@ -852,7 +852,7 @@ template <int ORDER> struct interp1d<CC, ENO, ORDER> {
 
 // off=0: left sub-cell
 // off=1: right sub-cell
-template <int ORDER> struct interp1d<CC, ENO1D, ORDER> {
+template <int ORDER> struct interp1d<CC, ENO_STAR, ORDER> {
   static constexpr int required_ghosts = ORDER;
   CCTK_DEVICE
   CCTK_HOST constexpr
@@ -1134,7 +1134,7 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
   }
 };
 
-template <int ORDER, typename T> struct test_interp1d<CC, ENO1D, ORDER, T> {
+template <int ORDER, typename T> struct test_interp1d<CC, ENO_STAR, ORDER, T> {
   test_interp1d() { static test_interp1d<CC, ENO, ORDER, T> test1d; }
 };
 
@@ -1240,6 +1240,13 @@ call_stencil_3d(const F &crse, const Si &si, const Sj &sj, const Sk &sk) {
             __always_inline__, __flatten__)) { return crse(i, j, k); },
         si, sj);
   });
+}
+
+template <typename F, typename Si, typename Sj, typename Sk,
+          typename T = std::invoke_result_t<F, int, int, int> >
+CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
+call_stencil_3d_star(const F &crse, const Si &si, const Sj &sj, const Sk &sk) {
+  return (1 - dim) * crse(0, 0, 0) + si(crse) + sj(crse) + sk(crse);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1358,10 +1365,13 @@ void prolongate_3d_rf2<
   };
 
   // Do we need shifted stencils?
-  constexpr vect<bool, dim> use_shift{
-      (interpolation[0] == ENO || INTPI == ENO1D) && order[0] > 0,
-      (interpolation[1] == ENO || INTPJ == ENO1D) && order[1] > 0,
-      (interpolation[2] == ENO || INTPK == ENO1D) && order[2] > 0};
+  constexpr vect<bool, dim> use_shift{interpolation[0] == ENO && order[0] > 0,
+                                      interpolation[1] == ENO && order[1] > 0,
+                                      interpolation[2] == ENO && order[2] > 0};
+  constexpr vect<bool, dim> use_shift_star{
+      interpolation[0] == ENO_STAR && order[0] > 0,
+      interpolation[1] == ENO_STAR && order[1] > 0,
+      interpolation[2] == ENO_STAR && order[2] > 0};
 
   for (int comp = 0; comp < ncomp; ++comp) {
     const CCTK_REAL *restrict const crseptr = crse.dataPtr(crse_comp + comp);
@@ -1431,19 +1441,19 @@ void prolongate_3d_rf2<
               STENCILK::required_ghosts,
           };
           // Do we need shifted stencils?
-          constexpr vect<bool, dim> use_shift3d{
+          constexpr vect<bool, dim> use_shift{
               interpolation[0] == ENO && order[0] > 0,
               interpolation[1] == ENO && order[1] > 0,
               interpolation[2] == ENO && order[2] > 0};
-          constexpr vect<bool, dim> use_shift1d{
-              interpolation[0] == ENO1D && order[0] > 0,
-              interpolation[1] == ENO1D && order[1] > 0,
-              interpolation[2] == ENO1D && order[2] > 0};
+          constexpr vect<bool, dim> use_shift_star{
+              interpolation[0] == ENO_STAR && order[0] > 0,
+              interpolation[1] == ENO_STAR && order[1] > 0,
+              interpolation[2] == ENO_STAR && order[2] > 0};
           // Maximum ENO shift
           constexpr vect<int, dim> maxshift{
-              use_shift3d[0] || use_shift1d[0] ? required_ghosts[0] / 2 : 0,
-              use_shift3d[1] || use_shift1d[1] ? required_ghosts[1] / 2 : 0,
-              use_shift3d[2] || use_shift1d[2] ? required_ghosts[2] / 2 : 0};
+              use_shift[0] || use_shift_star[0] ? required_ghosts[0] / 2 : 0,
+              use_shift[1] || use_shift_star[1] ? required_ghosts[1] / 2 : 0,
+              use_shift[2] || use_shift_star[2] ? required_ghosts[2] / 2 : 0};
 
           const vect<int, dim> icrse = ifine >> 1;
           const vect<int, dim> off = ifine & 0x1;
@@ -1451,8 +1461,8 @@ void prolongate_3d_rf2<
           // Choose stencil shift
           vect<int, dim> shift{0, 0, 0};
 
-          constexpr bool any_use_shift3d = any(use_shift3d);
-          if (any_use_shift3d) {
+          constexpr bool any_use_shift = any(use_shift);
+          if (any_use_shift) {
             CCTK_REAL min_dd = 1 / CCTK_REAL(0);
             // Loop over all possible shifts
             for (int sk = -maxshift[2]; sk <= +maxshift[2]; ++sk) {
@@ -1551,111 +1561,71 @@ void prolongate_3d_rf2<
                 }
               }
             }
-          } // if any_use_shift3d
+          } // if any_use_shift
 
-          constexpr bool any_use_shift1d = any(use_shift1d);
-          if (any_use_shift1d) {
+          if (use_shift_star[0]) {
+            CCTK_REAL min_dd = 1 / CCTK_REAL(0);
+            // Loop over all possible shifts
+            for (int si = -maxshift[0]; si <= +maxshift[0]; ++si) {
+              // Calculate undivided difference
+              const CCTK_REAL ddx =
+                  fabs(undivided_difference_1d<CENTI, INTPI, ORDERI>()(
+                      [&](const int di) {
+                        return crse(icrse[0] + si + di, icrse[1], icrse[2]);
+                      }));
+
+              // Prefer centred stencils
+              const CCTK_REAL penalty =
+                  1 + sqrt(std::numeric_limits<CCTK_REAL>::epsilon()) * abs(si);
+              const CCTK_REAL dd = penalty * ddx;
+              if (dd < min_dd) {
+                min_dd = dd;
+                shift[0] = si;
+              }
+            }
+          }
+          if (use_shift_star[1]) {
+            CCTK_REAL min_dd = 1 / CCTK_REAL(0);
+            // Loop over all possible shifts
+            for (int sj = -maxshift[1]; sj <= +maxshift[1]; ++sj) {
+              // Calculate undivided difference
+              const CCTK_REAL ddy =
+                  fabs(undivided_difference_1d<CENTJ, INTPJ, ORDERJ>()(
+                      [&](const int dj) {
+                        return crse(icrse[0], icrse[1] + sj + dj, icrse[2]);
+                      }));
+
+              // Prefer centred stencils
+              const CCTK_REAL penalty =
+                  1 + sqrt(std::numeric_limits<CCTK_REAL>::epsilon()) * abs(sj);
+              const CCTK_REAL dd = penalty * ddy;
+              if (dd < min_dd) {
+                min_dd = dd;
+                shift[1] = sj;
+              }
+            }
+          }
+          if (use_shift_star[2]) {
             CCTK_REAL min_dd = 1 / CCTK_REAL(0);
             // Loop over all possible shifts
             for (int sk = -maxshift[2]; sk <= +maxshift[2]; ++sk) {
-              for (int sj = -maxshift[1]; sj <= +maxshift[1]; ++sj) {
-                for (int si = -maxshift[0]; si <= +maxshift[0]; ++si) {
-                  if ((si != 0) + (sj != 0) + (sk != 0) > 1)
-                    continue;
+              // Calculate undivided difference
+              const CCTK_REAL ddz =
+                  fabs(undivided_difference_1d<CENTK, INTPK, ORDERK>()(
+                      [&](const int dk) {
+                        return crse(icrse[0], icrse[1], icrse[2] + sk + dk);
+                      }));
 
-                  // Stencil radius
-                  // This stencil radius already takes the shift into account,
-                  // but only for stencils that use a shift. Undo this; we add
-                  // the shift back later manually.
-                  vect<std::array<int, 2>, dim> stencil_radius{
-                      STENCILI().stencil_radius(si, off[0]),
-                      STENCILJ().stencil_radius(sj, off[1]),
-                      STENCILK().stencil_radius(sk, off[2])};
-                  if (use_shift[0]) {
-                    stencil_radius[0][0] -= si;
-                    stencil_radius[0][1] -= si;
-                  }
-                  if (use_shift[1]) {
-                    stencil_radius[1][0] -= sj;
-                    stencil_radius[1][1] -= sj;
-                  }
-                  if (use_shift[2]) {
-                    stencil_radius[2][0] -= sk;
-                    stencil_radius[2][1] -= sk;
-                  }
-
-                  // Calculate all undivided differences in the x-direction,
-                  // looping over the y- and z-directions and finding the
-                  // maximum undivided difference there
-                  CCTK_REAL ddx = 0;
-                  if (use_shift[0]) {
-                    for (int dk = stencil_radius[2][0];
-                         dk <= stencil_radius[2][1]; ++dk) {
-                      for (int dj = stencil_radius[1][0];
-                           dj <= stencil_radius[1][1]; ++dj) {
-                        const CCTK_REAL dd =
-                            undivided_difference_1d<CENTI, INTPI, ORDERI>()(
-                                [&](const int di) {
-                                  return crse(icrse[0] + si + di,
-                                              icrse[1] + sj + dj,
-                                              icrse[2] + sk + dk);
-                                });
-                        ddx = fmax(ddx, fabs(dd));
-                      }
-                    }
-                  }
-
-                  // Same with y-undivided differences
-                  CCTK_REAL ddy = 0;
-                  if (use_shift[1]) {
-                    for (int dk = stencil_radius[2][0];
-                         dk <= stencil_radius[2][1]; ++dk) {
-                      for (int di = stencil_radius[0][0];
-                           di <= stencil_radius[0][1]; ++di) {
-                        const CCTK_REAL dd =
-                            undivided_difference_1d<CENTJ, INTPJ, ORDERJ>()(
-                                [&](const int dj) {
-                                  return crse(icrse[0] + si + di,
-                                              icrse[1] + sj + dj,
-                                              icrse[2] + sk + dk);
-                                });
-                        ddy = fmax(ddy, fabs(dd));
-                      }
-                    }
-                  }
-
-                  // Same with z-undivided differences
-                  CCTK_REAL ddz = 0;
-                  if (use_shift[2]) {
-                    for (int dj = stencil_radius[1][0];
-                         dj <= stencil_radius[1][1]; ++dj) {
-                      for (int di = stencil_radius[0][0];
-                           di <= stencil_radius[0][1]; ++di) {
-                        const CCTK_REAL dd =
-                            undivided_difference_1d<CENTK, INTPK, ORDERK>()(
-                                [&](const int dk) {
-                                  return crse(icrse[0] + si + di,
-                                              icrse[1] + sj + dj,
-                                              icrse[2] + sk + dk);
-                                });
-                        ddz = fmax(ddz, fabs(dd));
-                      }
-                    }
-                  }
-
-                  // Prefer centred stencils
-                  const CCTK_REAL penalty =
-                      1 + sqrt(std::numeric_limits<CCTK_REAL>::epsilon()) *
-                              (abs(si) + abs(sj) + abs(sk));
-                  const CCTK_REAL dd = penalty * fmax(fmax(ddx, ddy), ddz);
-                  if (dd < min_dd) {
-                    min_dd = dd;
-                    shift = {si, sj, sk};
-                  }
-                }
+              // Prefer centred stencils
+              const CCTK_REAL penalty =
+                  1 + sqrt(std::numeric_limits<CCTK_REAL>::epsilon()) * abs(sk);
+              const CCTK_REAL dd = penalty * ddz;
+              if (dd < min_dd) {
+                min_dd = dd;
+                shift[2] = sk;
               }
             }
-          } // if any_use_shift1d
+          }
 
           const CCTK_REAL val = call_stencil_3d(
               [&](const int di, const int dj, const int dk) {

@@ -439,7 +439,7 @@ KEYWORD prolongation_type "Prolongation type"
   "natural" :: "interpolate in vertex centred and conserve in cell centred directions, using the same order"
   "poly-cons3lfb" :: "interpolate polynomially in vertex centred directions and conserve with 3rd order accuracy and a linear fallback in cell centred directions"
   "poly-eno3lfb" :: "interpolate polynomially in vertex centred directions and use ENO stencils with 3rd order accuracy and a linear fallback in cell centred directions"
-  "eno1d" :: "interpolate in vertex centred and use 1d ENO stencils in cell centred directions"
+  "eno-star" :: "interpolate in vertex centred and use star-shaped ENO stencils in cell centred directions"
 } "natural"
 
 CCTK_INT prolongation_order "Prolongation order"

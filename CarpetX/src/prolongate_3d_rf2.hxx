@@ -15,13 +15,13 @@ std::ostream &operator<<(std::ostream &os, centering_t cent);
 constexpr auto VC = centering_t::vertex;
 constexpr auto CC = centering_t::cell;
 
-enum class interpolation_t { poly, hermite, cons, eno, eno1d, minmod };
+enum class interpolation_t { poly, hermite, cons, eno, eno_star, minmod };
 std::ostream &operator<<(std::ostream &os, interpolation_t cent);
 constexpr auto POLY = interpolation_t::poly;
 constexpr auto HERMITE = interpolation_t::hermite;
 constexpr auto CONS = interpolation_t::cons;
 constexpr auto ENO = interpolation_t::eno;
-constexpr auto ENO1D = interpolation_t::eno1d;
+constexpr auto ENO_STAR = interpolation_t::eno_star;
 constexpr auto MINMOD = interpolation_t::minmod;
 
 enum class fallback_t { none, linear };
@@ -41,11 +41,11 @@ class prolongate_3d_rf2 final : public amrex::Interpolater {
 
   // Conservative must be one of the possible choices
   static_assert(INTPI == POLY || INTPI == HERMITE || INTPI == CONS ||
-                INTPI == ENO || INTPI == ENO1D || INTPI == MINMOD);
+                INTPI == ENO || INTPI == ENO_STAR || INTPI == MINMOD);
   static_assert(INTPJ == POLY || INTPJ == HERMITE || INTPJ == CONS ||
-                INTPJ == ENO || INTPJ == ENO1D || INTPJ == MINMOD);
+                INTPJ == ENO || INTPJ == ENO_STAR || INTPJ == MINMOD);
   static_assert(INTPK == POLY || INTPK == HERMITE || INTPK == CONS ||
-                INTPK == ENO || INTPK == ENO1D || INTPK == MINMOD);
+                INTPK == ENO || INTPK == ENO_STAR || INTPK == MINMOD);
 
   // Order must be nonnegative
   static_assert(ORDERI >= 0);
@@ -717,21 +717,22 @@ extern prolongate_3d_rf2<CC, CC, CC, ENO, ENO, ENO, 3, 3, 3, FB_LINEAR>
 #endif
 
 extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 5, 5, 5, FB_NONE>
-    prolongate_eno1d_3d_rf2_c000_o5;
-extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, ENO1D, 5, 5, 2, FB_NONE>
-    prolongate_eno1d_3d_rf2_c001_o5;
-extern prolongate_3d_rf2<VC, CC, VC, POLY, ENO1D, POLY, 5, 2, 5, FB_NONE>
-    prolongate_eno1d_3d_rf2_c010_o5;
-extern prolongate_3d_rf2<VC, CC, CC, POLY, ENO1D, ENO1D, 5, 2, 2, FB_NONE>
-    prolongate_eno1d_3d_rf2_c011_o5;
-extern prolongate_3d_rf2<CC, VC, VC, ENO1D, POLY, POLY, 2, 5, 5, FB_NONE>
-    prolongate_eno1d_3d_rf2_c100_o5;
-extern prolongate_3d_rf2<CC, VC, CC, ENO1D, POLY, ENO1D, 2, 5, 2, FB_NONE>
-    prolongate_eno1d_3d_rf2_c101_o5;
-extern prolongate_3d_rf2<CC, CC, VC, ENO1D, ENO1D, POLY, 2, 2, 5, FB_NONE>
-    prolongate_eno1d_3d_rf2_c110_o5;
-extern prolongate_3d_rf2<CC, CC, CC, ENO1D, ENO1D, ENO1D, 2, 2, 2, FB_NONE>
-    prolongate_eno1d_3d_rf2_c111_o5;
+    prolongate_eno_star_3d_rf2_c000_o5;
+extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, ENO_STAR, 5, 5, 2, FB_NONE>
+    prolongate_eno_star_3d_rf2_c001_o5;
+extern prolongate_3d_rf2<VC, CC, VC, POLY, ENO_STAR, POLY, 5, 2, 5, FB_NONE>
+    prolongate_eno_star_3d_rf2_c010_o5;
+extern prolongate_3d_rf2<VC, CC, CC, POLY, ENO_STAR, ENO_STAR, 5, 2, 2, FB_NONE>
+    prolongate_eno_star_3d_rf2_c011_o5;
+extern prolongate_3d_rf2<CC, VC, VC, ENO_STAR, POLY, POLY, 2, 5, 5, FB_NONE>
+    prolongate_eno_star_3d_rf2_c100_o5;
+extern prolongate_3d_rf2<CC, VC, CC, ENO_STAR, POLY, ENO_STAR, 2, 5, 2, FB_NONE>
+    prolongate_eno_star_3d_rf2_c101_o5;
+extern prolongate_3d_rf2<CC, CC, VC, ENO_STAR, ENO_STAR, POLY, 2, 2, 5, FB_NONE>
+    prolongate_eno_star_3d_rf2_c110_o5;
+extern prolongate_3d_rf2<CC, CC, CC, ENO_STAR, ENO_STAR, ENO_STAR, 2, 2, 2,
+                         FB_NONE>
+    prolongate_eno_star_3d_rf2_c111_o5;
 
 } // namespace CarpetX
 

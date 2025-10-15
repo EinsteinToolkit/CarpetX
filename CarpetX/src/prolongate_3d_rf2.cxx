@@ -25,8 +25,8 @@ std::ostream &operator<<(std::ostream &os, const interpolation_t intp) {
     return os << "cons";
   case interpolation_t::eno:
     return os << "eno";
-  case interpolation_t::eno1d:
-    return os << "eno1d";
+  case interpolation_t::eno_star:
+    return os << "eno_star";
   case interpolation_t::minmod:
     return os << "minmod";
   }
