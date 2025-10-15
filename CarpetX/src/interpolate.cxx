@@ -528,7 +528,9 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   std::vector<PinnedParticleTile> pinned_particle_tiles(ghext->num_patches());
   for (int patch = 0; patch < ghext->num_patches(); ++patch) {
     PinnedParticleTile &pinned_particle_tile = pinned_particle_tiles.at(patch);
-    pinned_particle_tile.define(3, 2);
+    // here the two slots represents components in the structure-of-arrays (SoA)
+    // layout
+    pinned_particle_tile.define(0, 0);
   }
 
   // Set particle positions
