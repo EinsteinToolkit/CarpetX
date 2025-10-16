@@ -124,6 +124,13 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
     cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
+  } else if (CCTK_EQUALS(prolongation_type, "eno-star")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = true;
+    cc_lfb = false;
+    vc_order = operator_order;
+    cc_order = 3;
   } else if (CCTK_EQUALS(prolongation_type, "hermite")) {
     vc_cons = false;
     cc_cons = true;
@@ -147,7 +154,7 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
     using std::min;
     cc_order = min(3, operator_order);
   } else {
-    assert(0);
+    CCTK_VERROR("Unsupported prolongation_type \"%s\"", prolongation_type);
   }
 
   Loop::loop_int<0, 0, 0>(cctkGH, [&](const Loop::PointDesc &p) {
@@ -303,6 +310,13 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order - 1;
+  } else if (CCTK_EQUALS(prolongation_type, "eno-star")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = true;
+    cc_lfb = false;
+    vc_order = operator_order;
+    cc_order = 3;
   } else if (CCTK_EQUALS(prolongation_type, "hermite")) {
     vc_cons = false;
     cc_cons = true;
@@ -326,7 +340,7 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     using std::min;
     cc_order = min(3, operator_order);
   } else {
-    assert(0);
+    CCTK_VERROR("Unsupported prolongation_type \"%s\"", prolongation_type);
   }
 
   {
