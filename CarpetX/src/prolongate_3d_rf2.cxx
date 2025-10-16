@@ -37,6 +37,8 @@ std::ostream &operator<<(std::ostream &os, const fallback_t fb) {
   switch (fb) {
   case fallback_t::none:
     return os << "none";
+  case fallback_t::constant:
+    return os << "constant";
   case fallback_t::linear:
     return os << "linear";
   }

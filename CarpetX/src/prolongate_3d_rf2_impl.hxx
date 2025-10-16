@@ -1654,6 +1654,36 @@ void prolongate_3d_rf2<
           } else {
             // We might want to fall back to linear interpolation
 
+            // Calculate the constantly interpolated value
+            constexpr int CONSTORDERI =
+                INTPI == CONS || INTPI == ENO ? 0 : ORDERI;
+            constexpr int CONSTORDERJ =
+                INTPJ == CONS || INTPJ == ENO ? 0 : ORDERJ;
+            constexpr int CONSTORDERK =
+                INTPK == CONS || INTPK == ENO ? 0 : ORDERK;
+            constexpr interpolation_t CONSTINTPI =
+                INTPI == CONS || INTPI == ENO ? CONS : INTPI;
+            constexpr interpolation_t CONSTINTPJ =
+                INTPJ == CONS || INTPJ == ENO ? CONS : INTPJ;
+            constexpr interpolation_t CONSTINTPK =
+                INTPK == CONS || INTPK == ENO ? CONS : INTPK;
+            const CCTK_REAL val_const = call_stencil_3d(
+                [&](const int di, const int dj, const int dk) {
+                  return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTI, CONSTINTPI, CONSTORDERI>()(crse, 0,
+                                                                    off[0]);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTJ, CONSTINTPJ, CONSTORDERJ>()(crse, 0,
+                                                                    off[1]);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTK, CONSTINTPK, CONSTORDERK>()(crse, 0,
+                                                                    off[2]);
+                });
+
             // Calculate the linearly interpolated value
             constexpr int LINORDERI =
                 INTPI == CONS || INTPI == ENO ? 1 : ORDERI;
@@ -1774,7 +1804,7 @@ void prolongate_3d_rf2<
                 need_fallback |= need_fallback_k;
               }
             }
-            res = need_fallback ? val_lin : val;
+            res = need_fallback ? (FB == FB_CONST ? val_const : val_lin) : val;
           } // if FB != FB_NONE
 
           setfine(ifine[0], ifine[1], ifine[2], res);
@@ -2228,6 +2258,29 @@ void prolongate_3d_rf2<
             }
           }
 
+          // Calculate the constantly interpolated value
+          constexpr int CONSTORDERI = INTPI == CONS ? 0 : ORDERI;
+          constexpr int CONSTORDERJ = INTPJ == CONS ? 0 : ORDERJ;
+          constexpr int CONSTORDERK = INTPK == CONS ? 0 : ORDERK;
+          std::array<CCTK_REAL, maxncomps> val_consts;
+          for (int comp = 0; comp < ncomps; ++comp) {
+            val_consts[comp] = call_stencil_3d(
+                [&](const int di, const int dj, const int dk) {
+                  return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk,
+                              comp);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTI, INTPI, CONSTORDERI>()(crse, 0, off[0]);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTJ, INTPJ, CONSTORDERJ>()(crse, 0, off[1]);
+                },
+                [&](const auto &crse) {
+                  return interp1d<CENTK, INTPK, CONSTORDERK>()(crse, 0, off[2]);
+                });
+          }
+
+          // Calculate the linearly interpolated value
           constexpr int LINORDERI = INTPI == CONS ? 1 : ORDERI;
           constexpr int LINORDERJ = INTPJ == CONS ? 1 : ORDERJ;
           constexpr int LINORDERK = INTPK == CONS ? 1 : ORDERK;
@@ -2250,7 +2303,9 @@ void prolongate_3d_rf2<
           }
 
           for (int comp = 0; comp < ncomps; ++comp)
-            ress[comp] = need_fallback ? val_lins[comp] : vals[comp];
+            ress[comp] = need_fallback ? (FB == FB_CONST ? val_consts[comp]
+                                                         : val_lins[comp])
+                                       : vals[comp];
 
         } // if FB != FB_NONE
 

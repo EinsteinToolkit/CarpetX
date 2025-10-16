@@ -46,13 +46,14 @@ SRCS =							\
 	prolongate_3d_rf2_impl_cons.cxx			\
 	prolongate_3d_rf2_impl_ddf.cxx			\
 	prolongate_3d_rf2_impl_eno.cxx			\
+	prolongate_3d_rf2_impl_eno_star.cxx		\
 	prolongate_3d_rf2_impl_hermite.cxx		\
 	prolongate_3d_rf2_impl_minmod.cxx		\
 	prolongate_3d_rf2_impl_natural.cxx		\
 	prolongate_3d_rf2_impl_poly.cxx			\
+	prolongate_3d_rf2_impl_poly_cons3cfb.cxx	\
 	prolongate_3d_rf2_impl_poly_cons3lfb.cxx	\
 	prolongate_3d_rf2_impl_poly_eno3lfb.cxx		\
-	prolongate_3d_rf2_impl_eno_star.cxx		\
 	reduction.cxx					\
 	schedule.cxx					\
 	task_manager.cxx				\
