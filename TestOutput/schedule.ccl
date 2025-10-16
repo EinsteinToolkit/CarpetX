@@ -36,10 +36,17 @@ SCHEDULE TestOutput_SetVarsGlobal AT initial
   WRITES: a3_complex(everywhere)
 } "Set up global test variables"
 
-SCHEDULE TestOutput_UpdateVarsLocal AT evol
+SCHEDULE TestOutput_CopyVarsLocal AT evol
 {
   LANG: C
   READS: gf(everywhere)
+  WRITES: gf_tmp(everywhere)
+} "Copy local test variables"
+
+SCHEDULE TestOutput_UpdateVarsLocal AT evol AFTER TestOutput_CopyVarsLocal
+{
+  LANG: C
+  READS: gf_tmp(everywhere)
   WRITES: gf(interior)
   SYNC: gf
 } "Update local test variables"

@@ -1354,6 +1354,8 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   // Number of coarse grid cells
   amrex::Vector<int> ncells{ncells_x, ncells_y, ncells_z};
 
+  is_cartesian = true;
+
   if (CCTK_IsFunctionAliased("MultiPatch_GetPatchSpecification2")) {
     CCTK_INT is_cartesian1;
     CCTK_INT ncells1[dim];

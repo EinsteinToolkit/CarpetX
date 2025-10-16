@@ -360,79 +360,91 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
   // Read internal driver state
   const std::string dirname = DB::legalize_name(driver_name);
 
-  // TODOPATCH: Handle multiple patches
-  assert(ghext->num_patches() == 1);
-  const int patch = 0;
-  auto &patchdata = ghext->patchdata.at(patch);
-
-  int nlevels;
+  int npatches;
+  std::vector<int> nlevels;
   if (read_metafile) {
     // Read number of levels
     const std::string varname = dirname + "/" + DB::legalize_name("nlevels");
     const int vartype = DBGetVarType(metafile.get(), varname.c_str());
     assert(vartype == DB_INT);
     const int varlength = DBGetVarLength(metafile.get(), varname.c_str());
-    assert(varlength == 1);
-    ierr = DBReadVar(metafile.get(), varname.c_str(), &nlevels);
+    assert(varlength >= 0);
+    npatches = varlength;
+    nlevels.resize(varlength);
+    ierr = DBReadVar(metafile.get(), varname.c_str(), nlevels.data());
     assert(!ierr);
   }
-  MPI_Bcast(&nlevels, 1, MPI_INT, metafile_ioproc, mpi_comm);
-  CCTK_VINFO("Found %d levels", nlevels);
-  patchdata.amrcore->SetFinestLevel(nlevels - 1);
+  MPI_Bcast(&npatches, 1, MPI_INT, metafile_ioproc, mpi_comm);
+  CCTK_VINFO("Found %d patches", npatches);
+  if (npatches != ghext->num_patches())
+    CCTK_VERROR(
+        "Wrong number of patches: Expected %d, found %d in the checkpoint file",
+        ghext->num_patches(), npatches);
+  if (!read_metafile)
+    nlevels.resize(npatches);
+  MPI_Bcast(nlevels.data(), npatches, MPI_INT, metafile_ioproc, mpi_comm);
 
   // Read FabArrayBase (component positions and shapes)
-  for (int level = 0; level < nlevels; ++level) {
-    CCTK_VINFO("Reading level %d...", level);
+  for (int patch = 0; patch < npatches; ++patch) {
+    CCTK_VINFO("Reading patch %d...", patch);
 
-    const std::string varname =
-        dirname + "/" + make_fabarraybasename(patch, level);
+    CCTK_VINFO("  Found %d levels on patch %d", nlevels.at(patch), patch);
+    auto &patchdata = ghext->patchdata.at(patch);
+    patchdata.amrcore->SetFinestLevel(nlevels.at(patch) - 1);
 
-    int nfabs;
-    if (read_metafile) {
-      const int vartype = DBGetVarType(metafile.get(), varname.c_str());
-      assert(vartype == DB_INT);
-      int vardims[2];
-      const int varndims =
-          DBGetVarDims(metafile.get(), varname.c_str(), 2, vardims);
-      assert(varndims >= 0);
-      assert(varndims == 2);
-      assert(vardims[1] == 2 * ndims);
-      nfabs = vardims[0];
-      assert(nfabs >= 0);
-    }
-    MPI_Bcast(&nfabs, 1, MPI_INT, metafile_ioproc, mpi_comm);
+    for (int level = 0; level < nlevels.at(patch); ++level) {
+      CCTK_VINFO("  Reading level %d...", level);
 
-    std::vector<int> data(2 * ndims * nfabs);
-    if (read_metafile) {
-      ierr = DBReadVar(metafile.get(), varname.c_str(), data.data());
-      assert(!ierr);
-    }
-    MPI_Bcast(data.data(), data.size(), MPI_INT, metafile_ioproc, mpi_comm);
+      const std::string varname =
+          dirname + "/" + make_fabarraybasename(patch, level);
 
-    amrex::Vector<amrex::Box> levboxes(nfabs);
-    for (int component = 0; component < nfabs; ++component) {
-      const amrex::IntVect small(&data.at(2 * ndims * component));
-      const amrex::IntVect big(&data.at(ndims + 2 * ndims * component));
-      levboxes.at(component) = amrex::Box(small, big);
-    }
+      int nfabs;
+      if (read_metafile) {
+        const int vartype = DBGetVarType(metafile.get(), varname.c_str());
+        assert(vartype == DB_INT);
+        int vardims[2];
+        const int varndims =
+            DBGetVarDims(metafile.get(), varname.c_str(), 2, vardims);
+        assert(varndims >= 0);
+        assert(varndims == 2);
+        assert(vardims[1] == 2 * ndims);
+        nfabs = vardims[0];
+        assert(nfabs >= 0);
+      }
+      MPI_Bcast(&nfabs, 1, MPI_INT, metafile_ioproc, mpi_comm);
 
-    // Don't set coarse level domain; this is already set by the driver
-    if (level > 0) {
-      amrex::Geometry geom = patchdata.amrcore->Geom(level - 1);
-      geom.refine({2, 2, 2});
-      patchdata.amrcore->SetGeometry(level, geom);
-    }
+      std::vector<int> data(2 * ndims * nfabs);
+      if (read_metafile) {
+        ierr = DBReadVar(metafile.get(), varname.c_str(), data.data());
+        assert(!ierr);
+      }
+      MPI_Bcast(data.data(), data.size(), MPI_INT, metafile_ioproc, mpi_comm);
 
-    amrex::BoxList boxlist(std::move(levboxes));
-    amrex::BoxArray boxarray(std::move(boxlist));
-    patchdata.amrcore->SetBoxArray(level, boxarray);
+      amrex::Vector<amrex::Box> levboxes(nfabs);
+      for (int component = 0; component < nfabs; ++component) {
+        const amrex::IntVect small(&data.at(2 * ndims * component));
+        const amrex::IntVect big(&data.at(ndims + 2 * ndims * component));
+        levboxes.at(component) = amrex::Box(small, big);
+      }
 
-    amrex::DistributionMapping dm(boxarray);
-    patchdata.amrcore->SetDistributionMap(level, dm);
+      // Don't set coarse level domain; this is already set by the driver
+      if (level > 0) {
+        amrex::Geometry geom = patchdata.amrcore->Geom(level - 1);
+        geom.refine({2, 2, 2});
+        patchdata.amrcore->SetGeometry(level, geom);
+      }
 
-    patchdata.amrcore->SetupLevel(level, boxarray, dm,
-                                  []() { return "Recovering"; });
-  }
+      amrex::BoxList boxlist(std::move(levboxes));
+      amrex::BoxArray boxarray(std::move(boxlist));
+      patchdata.amrcore->SetBoxArray(level, boxarray);
+
+      amrex::DistributionMapping dm(boxarray);
+      patchdata.amrcore->SetDistributionMap(level, dm);
+
+      patchdata.amrcore->SetupLevel(level, boxarray, dm,
+                                    []() { return "Recovering"; });
+    } // for level
+  } // for patch
 
   interval_meta = nullptr;
 }
@@ -509,172 +521,168 @@ void InputSilo(const cGH *restrict const cctkGH,
       assert(file);
     }
 
-    // TODOPATCH: Handle multiple patches
-    assert(ghext->num_patches() == 1);
-    const int patch = 0;
-    auto &patchdata = ghext->patchdata.at(patch);
-
-    // Loop over levels
-    for (const auto &leveldata : patchdata.leveldata) {
-      if (io_verbose)
-        CCTK_VINFO("Reading patch %d level %d", patchdata.patch,
-                   leveldata.level);
-
-      // Loop over groups
-      // std::set<mesh_props_t> have_meshes;
-      for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
-        if (!input_group.at(gi))
-          continue;
-        // TODO: read grid arrays
-        if (CCTK_GroupTypeI(gi) != CCTK_GF)
-          continue;
+    // Loop over patches and levels
+    for (const auto &patchdata : ghext->patchdata) {
+      for (const auto &leveldata : patchdata.leveldata) {
         if (io_verbose)
-          CCTK_VINFO("  Reading group %s", CCTK_FullGroupName(gi));
+          CCTK_VINFO("Reading patch %d level %d", patchdata.patch,
+                     leveldata.level);
 
-        auto &groupdata = *leveldata.groupdata.at(gi);
-        // TODO: Check that group has the default number of ghost zones
-        const int numvars = groupdata.numvars;
-        const int tl = 0;
-        amrex::MultiFab &mfab = *groupdata.mfab[tl];
-        const amrex::IndexType &indextype = mfab.ixType();
-        const amrex::DistributionMapping &dm = mfab.DistributionMap();
-
-        const std::array<int, dim> &nghosts = groupdata.nghostzones;
-        // const mesh_props_t mesh_props{ngrow};
-        // const bool have_mesh = have_meshes.count(mesh_props);
-
-        // Loop over components (AMReX boxes)
-        const int ncomponents = dm.size();
-        for (int component = 0; component < ncomponents; ++component) {
-          if (io_verbose)
-            CCTK_VINFO("    Reading component %d", component);
-
-          const int proc = dm[component];
-          const int ioproc = proc / ioproc_every * ioproc_every;
-          const bool recv_this_fab = proc == myproc;
-          const bool read_this_fab = ioproc == myproc;
-          if (!(recv_this_fab || read_this_fab))
+        // Loop over groups
+        // std::set<mesh_props_t> have_meshes;
+        for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
+          if (!input_group.at(gi))
             continue;
+          // TODO: read grid arrays
+          if (CCTK_GroupTypeI(gi) != CCTK_GF)
+            continue;
+          if (io_verbose)
+            CCTK_VINFO("  Reading group %s", CCTK_FullGroupName(gi));
 
-          const amrex::Box &fabbox = mfab.fabbox(component); // exterior
+          auto &groupdata = *leveldata.groupdata.at(gi);
+          // TODO: Check that group has the default number of ghost zones
+          const int numvars = groupdata.numvars;
+          const int tl = 0;
+          amrex::MultiFab &mfab = *groupdata.mfab[tl];
+          const amrex::IndexType &indextype = mfab.ixType();
+          const amrex::DistributionMapping &dm = mfab.DistributionMap();
 
-          std::array<int, ndims> dims;
-          for (int d = 0; d < ndims; ++d)
-            dims[d] = fabbox.length(d);
-          std::ptrdiff_t zonecount = 1;
-          for (int d = 0; d < ndims; ++d)
-            zonecount *= dims[d];
-          assert(zonecount >= 0 && zonecount <= INT_MAX);
+          const std::array<int, dim> &nghosts = groupdata.nghostzones;
 
-          // Communicate variable, part 1
-          static Timer timer_mpi("InputSilo.mpi");
-          auto interval_mpi = std::make_unique<Interval>(timer_mpi);
-          const int mpi_tag = 22901; // randomly chosen
-          std::vector<CCTK_REAL> buffer;
-          MPI_Request mpi_req;
-          CCTK_REAL *data = nullptr;
-          if (recv_this_fab && read_this_fab) {
-            amrex::FArrayBox &fab = mfab[component];
-            data = fab.dataPtr();
-          } else if (recv_this_fab) {
-            amrex::FArrayBox &fab = mfab[component];
-            assert(numvars * zonecount <= INT_MAX);
-            MPI_Irecv(fab.dataPtr(), numvars * zonecount,
-                      mpi_datatype_v<CCTK_REAL>, ioproc, mpi_tag, mpi_comm,
-                      &mpi_req);
-          } else {
-            buffer.resize(numvars * zonecount);
-            assert(numvars * zonecount <= INT_MAX);
-            data = buffer.data();
-          }
-          interval_mpi = nullptr;
+          // Loop over components (AMReX boxes)
+          const int ncomponents = dm.size();
+          for (int component = 0; component < ncomponents; ++component) {
+            if (io_verbose)
+              CCTK_VINFO("    Reading component %d", component);
 
-          // Read variable
-          if (read_file) {
-            static Timer timer_var("InputSilo.var");
-            Interval interval_var(timer_var);
+            const int proc = dm[component];
+            const int ioproc = proc / ioproc_every * ioproc_every;
+            const bool recv_this_fab = proc == myproc;
+            const bool read_this_fab = ioproc == myproc;
+            if (!(recv_this_fab || read_this_fab))
+              continue;
 
-            const std::string meshname = make_meshname(
-                nghosts, leveldata.patch, leveldata.level, component);
+            const amrex::Box &fabbox = mfab.fabbox(component); // exterior
 
-            const int centering = [&]() {
-              const int rank = indextype.cellCentered(0) +
-                               indextype.cellCentered(1) +
-                               indextype.cellCentered(2);
-              switch (rank) {
-              case 0:
-                return DB_NODECENT;
-              case 1:
-                return DB_EDGECENT;
-              case 2:
-                return DB_FACECENT;
-              case 3:
-                return DB_ZONECENT;
-              }
-              assert(0);
-            }();
+            std::array<int, ndims> dims;
+            for (int d = 0; d < ndims; ++d)
+              dims[d] = fabbox.length(d);
+            std::ptrdiff_t zonecount = 1;
+            for (int d = 0; d < ndims; ++d)
+              zonecount *= dims[d];
+            assert(zonecount >= 0 && zonecount <= INT_MAX);
 
-            if (centering == DB_EDGECENT || centering == DB_FACECENT) {
-              // Need to find the other 2 edge- or face-centered
-              // variables, and output them as well. Maybe input all 3
-              // when the x- or xy-centered value is input, for those
-              // which should be input? Maybe add a "sibling" tag to
-              // such grid functions to find these other components?
-              assert(0);
+            // Communicate variable, part 1
+            static Timer timer_mpi("InputSilo.mpi");
+            auto interval_mpi = std::make_unique<Interval>(timer_mpi);
+            const int mpi_tag = 22901; // randomly chosen
+            std::vector<CCTK_REAL> buffer;
+            MPI_Request mpi_req;
+            CCTK_REAL *data = nullptr;
+            if (recv_this_fab && read_this_fab) {
+              amrex::FArrayBox &fab = mfab[component];
+              data = fab.dataPtr();
+            } else if (recv_this_fab) {
+              amrex::FArrayBox &fab = mfab[component];
+              assert(numvars * zonecount <= INT_MAX);
+              MPI_Irecv(fab.dataPtr(), numvars * zonecount,
+                        mpi_datatype_v<CCTK_REAL>, ioproc, mpi_tag, mpi_comm,
+                        &mpi_req);
+            } else {
+              buffer.resize(numvars * zonecount);
+              assert(numvars * zonecount <= INT_MAX);
+              data = buffer.data();
             }
+            interval_mpi = nullptr;
 
-            for (int vi = 0; vi < numvars; ++vi) {
-              const std::string varname = make_varname(
-                  gi, vi, leveldata.patch, leveldata.level, component);
-              if (io_verbose)
-                CCTK_VINFO("      Reading variable %s", varname.c_str());
+            // Read variable
+            if (read_file) {
+              static Timer timer_var("InputSilo.var");
+              Interval interval_var(timer_var);
 
-              const DB::ptr<DBquadvar> quadvar =
-                  DB::make(DBGetQuadvar(file.get(), varname.c_str()));
-              assert(quadvar);
+              const std::string meshname = make_meshname(
+                  nghosts, patchdata.patch, leveldata.level, component);
 
-              assert(quadvar->ndims == ndims);
-              assert(ndims <= 3);
-              for (int d = 0; d < ndims; ++d)
-                assert(quadvar->dims[d] == dims[d]);
-              assert(quadvar->datatype == db_datatype_v<CCTK_REAL>);
-              assert(quadvar->centering == centering);
-              assert(quadvar->nvals == 1);
+              const int centering = [&]() {
+                const int rank = indextype.cellCentered(0) +
+                                 indextype.cellCentered(1) +
+                                 indextype.cellCentered(2);
+                switch (rank) {
+                case 0:
+                  return DB_NODECENT;
+                case 1:
+                  return DB_EDGECENT;
+                case 2:
+                  return DB_FACECENT;
+                case 3:
+                  return DB_ZONECENT;
+                }
+                assert(0);
+              }();
 
-              // TODO: check DBOPT_COORDSYS: int cartesian = DB_CARTESIAN;
-              const int column_major = 0;
-              assert(quadvar->major_order == column_major);
+              if (centering == DB_EDGECENT || centering == DB_FACECENT) {
+                // Need to find the other 2 edge- or face-centered
+                // variables, and output them as well. Maybe input all 3
+                // when the x- or xy-centered value is input, for those
+                // which should be input? Maybe add a "sibling" tag to
+                // such grid functions to find these other components?
+                assert(0);
+              }
 
-              const void *const read_ptr = quadvar->vals[0];
+              for (int vi = 0; vi < numvars; ++vi) {
+                const std::string varname = make_varname(
+                    gi, vi, patchdata.patch, leveldata.level, component);
+                if (io_verbose)
+                  CCTK_VINFO("      Reading variable %s", varname.c_str());
 
-              void *const data_ptr = data + vi * zonecount;
-              memcpy(data_ptr, read_ptr, zonecount * sizeof(CCTK_REAL));
-            } // for vi
-          } // if read_file
+                const DB::ptr<DBquadvar> quadvar =
+                    DB::make(DBGetQuadvar(file.get(), varname.c_str()));
+                assert(quadvar);
 
-          // Communicate variable, part 2
-          static Timer timer_wait("InputSilo.wait");
-          auto interval_wait = std::make_unique<Interval>(timer_wait);
-          if (recv_this_fab && read_this_fab) {
-            // do nothing
-          } else if (recv_this_fab) {
-            MPI_Wait(&mpi_req, MPI_STATUS_IGNORE);
-          } else {
-            buffer.resize(numvars * zonecount);
-            assert(numvars * zonecount <= INT_MAX);
-            MPI_Send(buffer.data(), numvars * zonecount,
-                     mpi_datatype_v<CCTK_REAL>, proc, mpi_tag, mpi_comm);
-          }
-          if (recv_this_fab)
-            for (int vi = 0; vi < numvars; ++vi)
-              groupdata.valid.at(tl).at(vi).set_all(
-                  make_valid_all(), []() { return "read from Silo file"; });
-          interval_wait = nullptr;
+                assert(quadvar->ndims == ndims);
+                assert(ndims <= 3);
+                for (int d = 0; d < ndims; ++d)
+                  assert(quadvar->dims[d] == dims[d]);
+                assert(quadvar->datatype == db_datatype_v<CCTK_REAL>);
+                assert(quadvar->centering == centering);
+                assert(quadvar->nvals == 1);
 
-        } // for component
+                // TODO: check DBOPT_COORDSYS:
+                // int cartesian = DB_CARTESIAN;
 
-      } // for gi
-    } // for leveldata
+                const int column_major = 0;
+                assert(quadvar->major_order == column_major);
+
+                const void *const read_ptr = quadvar->vals[0];
+
+                void *const data_ptr = data + vi * zonecount;
+                memcpy(data_ptr, read_ptr, zonecount * sizeof(CCTK_REAL));
+              } // for vi
+            } // if read_file
+
+            // Communicate variable, part 2
+            static Timer timer_wait("InputSilo.wait");
+            auto interval_wait = std::make_unique<Interval>(timer_wait);
+            if (recv_this_fab && read_this_fab) {
+              // do nothing
+            } else if (recv_this_fab) {
+              MPI_Wait(&mpi_req, MPI_STATUS_IGNORE);
+            } else {
+              assert(std::ptrdiff_t(buffer.size()) == numvars * zonecount);
+              MPI_Send(buffer.data(), numvars * zonecount,
+                       mpi_datatype_v<CCTK_REAL>, proc, mpi_tag, mpi_comm);
+            }
+            if (recv_this_fab)
+              for (int vi = 0; vi < numvars; ++vi)
+                groupdata.valid.at(tl).at(vi).set_all(
+                    make_valid_all(), []() { return "read from Silo file"; });
+            interval_wait = nullptr;
+
+          } // for component
+
+        } // for gi
+      } // for leveldata
+    } // for patchdata
   } // read data
 
   interval_data = nullptr;
@@ -801,10 +809,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
     // Loop over patches
     for (const auto &patchdata : ghext->patchdata) {
 
-      // TODO: Correct this condition
-      const bool patch_is_cartesian = false; // patchdata.patch == 0;
-
-      if (!patch_is_cartesian) {
+      if (!patchdata.is_cartesian) {
         coordinate_minima.at(patchdata.patch)
             .resize(patchdata.leveldata.size());
         coordinate_maxima.at(patchdata.patch)
@@ -817,7 +822,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
         const amrex::DistributionMapping &dm = leveldata.fab->DistributionMap();
         const int ncomponents = dm.size();
 
-        if (!patch_is_cartesian) {
+        if (!patchdata.is_cartesian) {
           coordinate_minima.at(patchdata.patch)
               .at(leveldata.level)
               .resize(ncomponents);
@@ -872,7 +877,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               Interval interval_mesh(timer_mesh);
 
               const std::string meshname = make_meshname(
-                  nghosts, leveldata.patch, leveldata.level, component);
+                  nghosts, patchdata.patch, leveldata.level, component);
 
               std::array<int, ndims> dims_vc;
               for (int d = 0; d < ndims; ++d)
@@ -884,7 +889,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               const amrex::Real *const dx = geom.CellSize();
               std::array<std::vector<CCTK_REAL>, ndims> coords;
               std::array<const void *, ndims> coord_ptrs;
-              if (patch_is_cartesian) {
+              if (patchdata.is_cartesian) {
                 for (int d = 0; d < ndims; ++d) {
                   coords[d].resize(dims_vc[d]);
                   for (int i = 0; i < dims_vc[d]; ++i)
@@ -934,7 +939,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               const DB::ptr<DBoptlist> optlist = DB::make(DBMakeOptlist(10));
               assert(optlist);
 
-              if (patch_is_cartesian) {
+              if (patchdata.is_cartesian) {
                 int cartesian = DB_CARTESIAN;
                 ierr = DBAddOption(optlist.get(), DBOPT_COORDSYS, &cartesian);
                 assert(!ierr);
@@ -974,7 +979,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               assert(!ierr);
 
               const int coordtype =
-                  patch_is_cartesian ? DB_COLLINEAR : DB_NONCOLLINEAR;
+                  patchdata.is_cartesian ? DB_COLLINEAR : DB_NONCOLLINEAR;
 
               ierr = DBPutQuadmesh(file.get(), meshname.c_str(), nullptr,
                                    coord_ptrs.data(), dims_vc.data(), ndims,
@@ -1015,7 +1020,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               Interval interval_var(timer_var);
 
               const std::string meshname = make_meshname(
-                  nghosts, leveldata.patch, leveldata.level, component);
+                  nghosts, patchdata.patch, leveldata.level, component);
 
               const int centering = [&]() {
                 const int rank = indextype.cellCentered(0) +
@@ -1073,7 +1078,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
               for (int vi = 0; vi < numvars; ++vi) {
                 const std::string varname = make_varname(
-                    gi, vi, leveldata.patch, leveldata.level, component);
+                    gi, vi, patchdata.patch, leveldata.level, component);
 
                 const void *const data_ptr = data + vi * zonecount;
 
@@ -1092,9 +1097,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
   } // write data
 
   for (const auto &patchdata : ghext->patchdata) {
-    for (const auto &leveldata : patchdata.leveldata) {
-      const bool patch_is_cartesian = false; // patchdata.patch == 0;
-      if (!patch_is_cartesian) {
+    if (!patchdata.is_cartesian) {
+      for (const auto &leveldata : patchdata.leveldata) {
         const int patch = patchdata.patch;
         const int level = leveldata.level;
         auto &minima = coordinate_minima.at(patch).at(level);
@@ -1465,8 +1469,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const int tl = 0;
             const amrex::MultiFab &mfab = *groupdata.mfab[tl];
             const int ncomponents = mfab.size();
-            const bool patch_is_cartesian = false; // patchdata.patch == 0;
-            if (patch_is_cartesian) {
+            if (patchdata.is_cartesian) {
               const amrex::Geometry &geom =
                   patchdata.amrcore->Geom(leveldata.level);
               const amrex::Real *const x0 = geom.ProbLo();
@@ -1484,7 +1487,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 iextents.push_back(iextent);
                 extents.push_back(extent);
               }
-            } else { // if !patch_is_cartesian)
+            } else { // if !patchdata.is_cartesian)
               const auto &minima =
                   coordinate_minima.at(patchdata.patch).at(leveldata.level);
               const auto &maxima =
@@ -1502,7 +1505,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 iextents.push_back(iextent);
                 extents.push_back(extent);
               }
-            } // if !patch_is_cartesian)
+            } // if !patchdata.is_cartesian)
           }
         }
 
@@ -1514,7 +1517,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
           const std::vector<std::string> icompnames{"iMin", "iMax", "jMin",
                                                     "jMax", "kMin", "kMax"};
           // TODO: These are local coordinates -- are they useful? Should they
-          // be omitted? Look at `patch_is_cartesian`.
+          // be omitted? Look at `patchdata.is_cartesian`.
           const std::vector<std::string> compnames{"xMin", "xMax", "yMin",
                                                    "yMax", "zMin", "zMax"};
           std::vector<const char *> icompname_ptrs;
@@ -1595,7 +1598,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                 proc / ioproc_every);
               const std::string meshname =
                   proc_filename + ":" +
-                  make_meshname(nghosts, leveldata.patch, leveldata.level, c);
+                  make_meshname(nghosts, patchdata.patch, leveldata.level, c);
               meshnames.push_back(meshname);
             }
           }
@@ -1733,7 +1736,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                   proc / ioproc_every);
                 const std::string varname =
                     proc_filename + ":" +
-                    make_varname(gi, vi, leveldata.patch, leveldata.level, c);
+                    make_varname(gi, vi, patchdata.patch, leveldata.level, c);
                 varnames.push_back(varname);
               }
             }
@@ -1758,39 +1761,40 @@ void OutputSilo(const cGH *restrict const cctkGH,
       ierr = DBMkDir(metafile.get(), dirname.c_str());
       assert(!ierr);
 
-      const int patch = 0;
-      const auto &patchdata = ghext->patchdata.at(patch);
-
       // Write number of levels
       {
         const int dims = 1;
-        const int value = patchdata.leveldata.size();
+        std::vector<int> values(ghext->num_patches());
+        for (const auto &patchdata : ghext->patchdata)
+          values.at(patchdata.patch) = ghext->num_levels(patchdata.patch);
         const std::string varname =
             dirname + "/" + DB::legalize_name("nlevels");
-        ierr =
-            DBWrite(metafile.get(), varname.c_str(), &value, &dims, 1, DB_INT);
+        ierr = DBWrite(metafile.get(), varname.c_str(), values.data(), &dims,
+                       values.size(), DB_INT);
         assert(!ierr);
       }
 
       // Write FabArrayBase (component positions and shapes)
-      for (const auto &leveldata : patchdata.leveldata) {
-        const amrex::FabArrayBase &fab = *leveldata.fab;
-        const int ncomponents = fab.size();
-        std::vector<int> boxes(2 * ndims * ncomponents);
-        for (int component = 0; component < ncomponents; ++component) {
-          const amrex::Box &fabbox = fab.box(component); // valid region
-          for (int d = 0; d < ndims; ++d)
-            boxes[d + 2 * ndims * component] = fabbox.smallEnd(d);
-          for (int d = 0; d < ndims; ++d)
-            boxes[d + ndims + 2 * ndims * component] = fabbox.bigEnd(d);
+      for (const auto &patchdata : ghext->patchdata) {
+        for (const auto &leveldata : patchdata.leveldata) {
+          const amrex::FabArrayBase &fab = *leveldata.fab;
+          const int ncomponents = fab.size();
+          std::vector<int> boxes(2 * ndims * ncomponents);
+          for (int component = 0; component < ncomponents; ++component) {
+            const amrex::Box &fabbox = fab.box(component); // valid region
+            for (int d = 0; d < ndims; ++d)
+              boxes[d + 2 * ndims * component] = fabbox.smallEnd(d);
+            for (int d = 0; d < ndims; ++d)
+              boxes[d + ndims + 2 * ndims * component] = fabbox.bigEnd(d);
+          }
+          const int dims[2] = {ncomponents, 2 * ndims};
+          const std::string varname =
+              dirname + "/" +
+              make_fabarraybasename(patchdata.patch, leveldata.level);
+          ierr = DBWrite(metafile.get(), varname.c_str(), boxes.data(), dims, 2,
+                         DB_INT);
+          assert(!ierr);
         }
-        const int dims[2] = {ncomponents, 2 * ndims};
-        const std::string varname =
-            dirname + "/" +
-            make_fabarraybasename(leveldata.patch, leveldata.level);
-        ierr = DBWrite(metafile.get(), varname.c_str(), boxes.data(), dims, 2,
-                       DB_INT);
-        assert(!ierr);
       }
     }
 
