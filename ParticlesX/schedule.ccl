@@ -1,0 +1,13 @@
+# ParticlesX
+
+SCHEDULE ParticlesX_setup AT basegrid
+{
+  LANG: C
+  OPTIONS: global
+} "Set up particle data structures"
+
+SCHEDULE ParticlesX_output AT analysis
+{
+  LANG: C
+  OPTIONS: global
+} "Output particles"
