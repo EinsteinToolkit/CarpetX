@@ -1911,6 +1911,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
   static map<cFunctionData *restrict, Timer> timers;
   static map<cFunctionData *restrict, Timer> mark_timers;
+  static map<cFunctionData *restrict, Timer> cctk_timers;
+  static map<cFunctionData *restrict, Timer> synchronize_timers;
 
   map<cFunctionData *restrict, Timer>::iterator timer_iter;
 #pragma omp critical(CarpetX_CallFunction)
@@ -2090,13 +2092,43 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
   const mode_t mode = decode_mode(attribute);
   switch (mode) {
   case mode_t::local:
+  {
+  map<cFunctionData *restrict, Timer>::iterator cctk_timer_iter;
+#pragma omp critical(CarpetX_CallFunctioncctk)
+  {
+    cctk_timer_iter = cctk_timers.find(attribute);
+    if (cctk_timer_iter == cctk_timers.end()) {
+      ostringstream buf;
+      buf << "CallFunction cctk " << attribute->where << ": " << attribute->thorn
+          << "::" << attribute->routine;
+      cctk_timer_iter = get<0>(cctk_timers.emplace(attribute, buf.str()));
+    }
+  }
+  Timer &cctk_timer = cctk_timer_iter->second;
+  Interval cctk_interval(cctk_timer);
     // Call function once per tile
     active_levels->loop_parallel([&](int patch, int level, int index,
                                      int component, const cGH *local_cctkGH) {
       update_cctkGH(const_cast<cGH *>(local_cctkGH), cctkGH);
       CCTK_CallFunction(function, attribute, const_cast<cGH *>(local_cctkGH));
     });
+  }
+  {
+  map<cFunctionData *restrict, Timer>::iterator synchronize_timer_iter;
+#pragma omp critical(CarpetX_CallFunctionsynchronize)
+  {
+    synchronize_timer_iter = synchronize_timers.find(attribute);
+    if (synchronize_timer_iter == synchronize_timers.end()) {
+      ostringstream buf;
+      buf << "CallFunction synchronize " << attribute->where << ": " << attribute->thorn
+          << "::" << attribute->routine;
+      synchronize_timer_iter = get<0>(synchronize_timers.emplace(attribute, buf.str()));
+    }
+  }
+  Timer &synchronize_timer = synchronize_timer_iter->second;
+  Interval synchronize_interval(synchronize_timer);
     synchronize();
+  }
     break;
 
   case mode_t::meta:
