@@ -1910,6 +1910,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
                attribute->where, attribute->thorn, attribute->routine);
 
   static map<cFunctionData *restrict, Timer> timers;
+  static map<cFunctionData *restrict, Timer> mark_timers;
 
   map<cFunctionData *restrict, Timer>::iterator timer_iter;
 #pragma omp critical(CarpetX_CallFunction)
@@ -2120,6 +2121,20 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
           << "::" << attribute->routine << " checking output";
       return buf.str();
     });
+
+  map<cFunctionData *restrict, Timer>::iterator mark_timer_iter;
+#pragma omp critical(CarpetX_CallFunctionMark)
+  {
+    mark_timer_iter = mark_timers.find(attribute);
+    if (mark_timer_iter == mark_timers.end()) {
+      ostringstream buf;
+      buf << "CallFunction mark " << attribute->where << ": " << attribute->thorn
+          << "::" << attribute->routine;
+      mark_timer_iter = get<0>(mark_timers.emplace(attribute, buf.str()));
+    }
+  }
+  Timer &mark_timer = mark_timer_iter->second;
+  Interval mark_interval(mark_timer);
 
   // Mark output variables as having valid data
   {
