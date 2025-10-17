@@ -51,8 +51,10 @@ SRCS =							\
 	prolongate_3d_rf2_impl_minmod.cxx		\
 	prolongate_3d_rf2_impl_natural.cxx		\
 	prolongate_3d_rf2_impl_poly.cxx			\
+	prolongate_3d_rf2_impl_poly_cons0.cxx		\
 	prolongate_3d_rf2_impl_poly_cons3cfb.cxx	\
 	prolongate_3d_rf2_impl_poly_cons3lfb.cxx	\
+	prolongate_3d_rf2_impl_poly_eno3cfb.cxx		\
 	prolongate_3d_rf2_impl_poly_eno3lfb.cxx		\
 	reduction.cxx					\
 	schedule.cxx					\

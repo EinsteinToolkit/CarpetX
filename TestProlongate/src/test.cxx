@@ -156,6 +156,14 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
     cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order;
+  } else if (CCTK_EQUALS(prolongation_type, "poly-cons0")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = false;
+    cc_cfb = false;
+    cc_lfb = false;
+    vc_order = operator_order;
+    cc_order = 0;
   } else if (CCTK_EQUALS(prolongation_type, "poly-cons3cfb")) {
     vc_cons = false;
     cc_cons = true;
@@ -169,6 +177,24 @@ extern "C" void TestProlongate_Set(CCTK_ARGUMENTS) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
+    cc_cfb = false;
+    cc_lfb = true;
+    vc_order = operator_order;
+    using std::min;
+    cc_order = min(3, operator_order);
+  } else if (CCTK_EQUALS(prolongation_type, "poly-eno3cfb")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = true;
+    cc_cfb = true;
+    cc_lfb = false;
+    vc_order = operator_order;
+    using std::min;
+    cc_order = min(3, operator_order);
+  } else if (CCTK_EQUALS(prolongation_type, "poly-eno3lfb")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = true;
     cc_cfb = false;
     cc_lfb = true;
     vc_order = operator_order;
@@ -368,6 +394,14 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     cc_lfb = false;
     vc_order = operator_order;
     cc_order = operator_order;
+  } else if (CCTK_EQUALS(prolongation_type, "poly-cons0")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = false;
+    cc_cfb = false;
+    cc_lfb = false;
+    vc_order = operator_order;
+    cc_order = 0;
   } else if (CCTK_EQUALS(prolongation_type, "poly-cons3cfb")) {
     vc_cons = false;
     cc_cons = true;
@@ -381,6 +415,24 @@ extern "C" void TestProlongate_Check(CCTK_ARGUMENTS) {
     vc_cons = false;
     cc_cons = true;
     cc_eno = false;
+    cc_cfb = false;
+    cc_lfb = true;
+    vc_order = operator_order;
+    using std::min;
+    cc_order = min(3, operator_order);
+  } else if (CCTK_EQUALS(prolongation_type, "poly-eno3cfb")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = true;
+    cc_cfb = true;
+    cc_lfb = false;
+    vc_order = operator_order;
+    using std::min;
+    cc_order = min(3, operator_order);
+  } else if (CCTK_EQUALS(prolongation_type, "poly-eno3lfb")) {
+    vc_cons = false;
+    cc_cons = true;
+    cc_eno = true;
     cc_cfb = false;
     cc_lfb = true;
     vc_order = operator_order;
