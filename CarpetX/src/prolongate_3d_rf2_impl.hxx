@@ -1643,30 +1643,38 @@ void prolongate_3d_rf2<
 
           CCTK_REAL res;
 
-          if constexpr (FB == FB_NONE ||
-                        (((INTPI != CONS && INTPI != ENO) || ORDERI <= 1) &&
-                         ((INTPJ != CONS && INTPJ != ENO) || ORDERJ <= 1) &&
-                         ((INTPK != CONS && INTPK != ENO) || ORDERK <= 1))) {
+          if constexpr (FB == FB_NONE || (((INTPI != CONS && INTPI != ENO &&
+                                            INTPI != ENO_STAR) ||
+                                           ORDERI <= 1) &&
+                                          ((INTPJ != CONS && INTPJ != ENO &&
+                                            INTPJ != ENO_STAR) ||
+                                           ORDERJ <= 1) &&
+                                          ((INTPK != CONS && INTPK != ENO &&
+                                            INTPK != ENO_STAR) ||
+                                           ORDERK <= 1))) {
             // We are not falling back to linear interpolation
 
             res = val;
 
           } else {
-            // We might want to fall back to linear interpolation
+            // We might want to fall back to constant or linear interpolation
 
             // Calculate the constantly interpolated value
             constexpr int CONSTORDERI =
-                INTPI == CONS || INTPI == ENO ? 0 : ORDERI;
+                INTPI == CONS || INTPI == ENO || INTPI == ENO_STAR ? 0 : ORDERI;
             constexpr int CONSTORDERJ =
-                INTPJ == CONS || INTPJ == ENO ? 0 : ORDERJ;
+                INTPJ == CONS || INTPJ == ENO || INTPJ == ENO_STAR ? 0 : ORDERJ;
             constexpr int CONSTORDERK =
-                INTPK == CONS || INTPK == ENO ? 0 : ORDERK;
+                INTPK == CONS || INTPK == ENO || INTPK == ENO_STAR ? 0 : ORDERK;
             constexpr interpolation_t CONSTINTPI =
-                INTPI == CONS || INTPI == ENO ? CONS : INTPI;
+                INTPI == CONS || INTPI == ENO || INTPI == ENO_STAR ? CONS
+                                                                   : INTPI;
             constexpr interpolation_t CONSTINTPJ =
-                INTPJ == CONS || INTPJ == ENO ? CONS : INTPJ;
+                INTPJ == CONS || INTPJ == ENO || INTPJ == ENO_STAR ? CONS
+                                                                   : INTPJ;
             constexpr interpolation_t CONSTINTPK =
-                INTPK == CONS || INTPK == ENO ? CONS : INTPK;
+                INTPK == CONS || INTPK == ENO || INTPK == ENO_STAR ? CONS
+                                                                   : INTPK;
             const CCTK_REAL val_const = call_stencil_3d(
                 [&](const int di, const int dj, const int dk) {
                   return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
@@ -1686,17 +1694,20 @@ void prolongate_3d_rf2<
 
             // Calculate the linearly interpolated value
             constexpr int LINORDERI =
-                INTPI == CONS || INTPI == ENO ? 1 : ORDERI;
+                INTPI == CONS || INTPI == ENO || INTPI == ENO_STAR ? 1 : ORDERI;
             constexpr int LINORDERJ =
-                INTPJ == CONS || INTPJ == ENO ? 1 : ORDERJ;
+                INTPJ == CONS || INTPJ == ENO || INTPJ == ENO_STAR ? 1 : ORDERJ;
             constexpr int LINORDERK =
-                INTPK == CONS || INTPK == ENO ? 1 : ORDERK;
+                INTPK == CONS || INTPK == ENO || INTPK == ENO_STAR ? 1 : ORDERK;
             constexpr interpolation_t LININTPI =
-                INTPI == CONS || INTPI == ENO ? CONS : INTPI;
+                INTPI == CONS || INTPI == ENO || INTPI == ENO_STAR ? CONS
+                                                                   : INTPI;
             constexpr interpolation_t LININTPJ =
-                INTPJ == CONS || INTPJ == ENO ? CONS : INTPJ;
+                INTPJ == CONS || INTPJ == ENO || INTPJ == ENO_STAR ? CONS
+                                                                   : INTPJ;
             constexpr interpolation_t LININTPK =
-                INTPK == CONS || INTPK == ENO ? CONS : INTPK;
+                INTPK == CONS || INTPK == ENO || INTPK == ENO_STAR ? CONS
+                                                                   : INTPK;
             const CCTK_REAL val_lin = call_stencil_3d(
                 [&](const int di, const int dj, const int dk) {
                   return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
@@ -1747,7 +1758,8 @@ void prolongate_3d_rf2<
               // values at the stencil points changes sign anywhere in
               // the stencil
 
-              if constexpr (INTPI == CONS || INTPI == ENO) {
+              if constexpr (INTPI == CONS || INTPI == ENO ||
+                            INTPI == ENO_STAR) {
                 bool need_fallback_i = false;
                 for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                   for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
@@ -1766,7 +1778,8 @@ void prolongate_3d_rf2<
                 need_fallback |= need_fallback_i;
               }
 
-              if constexpr (INTPJ == CONS || INTPJ == ENO) {
+              if constexpr (INTPJ == CONS || INTPJ == ENO ||
+                            INTPJ == ENO_STAR) {
                 bool need_fallback_j = false;
                 for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
                   for (int di = sradi[0]; di <= sradi[1]; ++di) {
@@ -1785,7 +1798,8 @@ void prolongate_3d_rf2<
                 need_fallback |= need_fallback_j;
               }
 
-              if constexpr (INTPK == CONS || INTPK == ENO) {
+              if constexpr (INTPK == CONS || INTPK == ENO ||
+                            INTPK == ENO_STAR) {
                 bool need_fallback_k = false;
                 for (int dj = sradj[0]; dj <= sradj[1]; ++dj) {
                   for (int di = sradi[0]; di <= sradi[1]; ++di) {
@@ -1909,8 +1923,6 @@ void prolongate_3d_rf2<
   };
 
   // Do we need shifted stencils?
-  assert(interpolation[0] != ENO && interpolation[1] != ENO &&
-         interpolation[2] == ENO);
   constexpr vect<bool, dim> use_shift{interpolation[0] == ENO && order[0] > 0,
                                       interpolation[1] == ENO && order[1] > 0,
                                       interpolation[2] == ENO && order[2] > 0};
