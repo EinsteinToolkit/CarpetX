@@ -1767,7 +1767,6 @@ void OutputSilo(const cGH *restrict const cctkGH,
         const auto num_patches = ghext->num_patches();
 
         std::vector<int> values(num_patches);
-        const int dims[1] = {num_patches};
 
         for (const auto &patchdata : ghext->patchdata) {
           values.at(patchdata.patch) = ghext->num_levels(patchdata.patch);
@@ -1776,8 +1775,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
         const std::string varname =
             dirname + "/" + DB::legalize_name("nlevels");
 
-        ierr = DBWrite(metafile.get(), varname.c_str(), values.data(), dims, 1,
-                       DB_INT);
+        ierr = DBWrite(metafile.get(), varname.c_str(), values.data(),
+                       &num_patches, 1, DB_INT);
         assert(!ierr);
       }
 
