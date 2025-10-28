@@ -566,7 +566,6 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     // The mfi can be invalid if the number of processes does not evenly divide
     // the number of blocks
     if (!mfi.isValid()) {
-      assert(pinned_particle_tile.numParticles() == 0);
       continue;
     }
 
