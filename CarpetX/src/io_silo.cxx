@@ -197,6 +197,7 @@ int InputSiloParameters(const std::string &input_dir,
 
   // Configure Silo library
   DBShowErrors(DB_ALL_AND_DRVR, nullptr);
+  DBSetAllowEmptyObjects(1);
 
   // TODO: directories instead of carefully chosen names
 
@@ -1763,14 +1764,20 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
       // Write number of levels
       {
-        const int dims = 1;
-        std::vector<int> values(ghext->num_patches());
-        for (const auto &patchdata : ghext->patchdata)
+        const auto num_patches = ghext->num_patches();
+
+        std::vector<int> values(num_patches);
+        const int dims[1] = {num_patches};
+
+        for (const auto &patchdata : ghext->patchdata) {
           values.at(patchdata.patch) = ghext->num_levels(patchdata.patch);
+        }
+
         const std::string varname =
             dirname + "/" + DB::legalize_name("nlevels");
-        ierr = DBWrite(metafile.get(), varname.c_str(), values.data(), &dims,
-                       values.size(), DB_INT);
+
+        ierr = DBWrite(metafile.get(), varname.c_str(), values.data(), dims, 1,
+                       DB_INT);
         assert(!ierr);
       }
 
