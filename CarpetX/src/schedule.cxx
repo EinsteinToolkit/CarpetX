@@ -2481,8 +2481,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
         auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
         assert(coarsegroupdata.numvars == groupdata.numvars);
 
-        amrex::Interpolater *const interpolator =
-            get_interpolator(groupdata.indextype);
+        amrex::Interpolater *const interpolator = groupdata.interpolator;
 
         for (int tl = 0; tl < sync_tl; ++tl) {
 
