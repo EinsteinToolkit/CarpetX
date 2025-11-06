@@ -22,10 +22,14 @@ int Initialise(tFleshConfig *config);
 int Evolve(tFleshConfig *config);
 int Shutdown(tFleshConfig *config);
 
-void RestrictNoPoison(const cGH *cctkGH, int level, const std::vector<int> &groups);
+void RestrictNoPoison(const cGH *cctkGH, int level,
+                      const std::vector<int> &groups);
 
 int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                      const int *groups, const int *directions);
+
+int SyncGroupsByDirINoRestrict(const cGH *restrict cctkGH, int numgroups,
+                               const int *groups, const int *directions);
 
 int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
                                    const int *groups, const int *directions);
