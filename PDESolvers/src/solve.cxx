@@ -316,8 +316,7 @@ void define_point_type() {
         const auto &coarsegroupdata = *coarseleveldata.groupdata.at(gi_ind);
         amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
         amrex::MultiFab &coarsemfab_ind = *coarsegroupdata.mfab.at(tl);
-        amrex::Interpolater *const interpolator =
-            CarpetX::get_interpolator(std::array<int, 3>(indextype));
+        amrex::Interpolater *const interpolator = groupdata.interpolator;
         tasks1.submit_serially([&tasks2, &tasks3, &groupdata, &coarsegroupdata,
                                 &mfab_ind, &coarsemfab_ind, &patchdata,
                                 &interpolator, level]() {
