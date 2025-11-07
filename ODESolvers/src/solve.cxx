@@ -679,7 +679,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   static bool did_output = false;
   if (verbose || !did_output)
-    CCTK_VINFO("Integrator is %s", method);
+    CCTK_VINFO("ODE integrator is %s", method);
   did_output = true;
 
   static Timer timer("ODESolvers::Solve");
