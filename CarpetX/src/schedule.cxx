@@ -2052,6 +2052,11 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         active_levels->loop_serially([&](auto &restrict leveldata) {
           auto &restrict groupdata = *leveldata.groupdata.at(wr.gi);
           const valid_t &provided = wr.valid;
+          // The flesh can accidentally describe timelevels that do
+          // not exist.
+          if (wr.tl > int(groupdata.valid.size()))
+            CCTK_VERROR("Accessing non-existent timelevel %d of variable %s",
+                        wr.tl, groupdata.groupname.c_str());
           groupdata.valid.at(wr.tl).at(wr.vi).set_invalid(
               provided & ~need,
               [iteration = cctkGH->cctk_iteration, where = attribute->where,
