@@ -1,0 +1,6 @@
+# ParticlesX
+
+REQUIRES Arith
+
+REQUIRES ADIOS2
+REQUIRES MPI
