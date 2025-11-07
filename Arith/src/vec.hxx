@@ -1,6 +1,7 @@
 #ifndef CARPETX_ARITH_VEC_HXX
 #define CARPETX_ARITH_VEC_HXX
 
+#include "arr.hxx"
 #include "defs.hxx"
 #include "dual.hxx"
 #include "simd.hxx"
@@ -58,11 +59,11 @@ inline ostream &operator<<(ostream &os, const symm_t symm) {
 // A small vector.
 
 // There are two small vector classes, `vect` and `vec`. The former
-// (`vect`) is a drop-in replacement for `std::array` which supports
-// arithmetic operations. The latter (`vec`, defined here) is a rank-1
-// tensor compatible with `mat`, `ten3`, and `rten`. While similar,
-// these classes have different APIs because they are used
-// differently.
+// (`vect`) is a drop-in replacement for `std::array` or `Arith::arr`
+// which supports arithmetic operations. The latter (`vec`, defined
+// here) is a rank-1 tensor compatible with `mat`, `ten3`, and `rten`.
+// While similar, these classes have different APIs because they are
+// used differently.
 //
 // The rule of thumb is: If you are looking for a type similar to a
 // C++ array, use `vect`. If you are looking for a type for a physics
@@ -70,6 +71,12 @@ inline ostream &operator<<(ostream &os, const symm_t symm) {
 //
 // It might be possible to unify these two types. In practice, there
 // is little confusion, so this is not urgent.
+
+template <typename T, int D> struct vec;
+
+template <typename T> struct is_vec : std::false_type {};
+template <typename T, int D> struct is_vec<vec<T, D> > : std::true_type {};
+template <typename T> constexpr bool is_vec_v = is_vec<T>::value;
 
 template <typename T, int D> struct vec {
 
@@ -107,7 +114,10 @@ public:
       : elts(x) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(vect<T, N> elts)
       : elts(std::move(elts)) {}
-  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(array<T, N> x)
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(arr<T, N> x)
+      : elts(std::move(x)) {}
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  vec(std::array<T, N> x)
       : elts(std::move(x)) {}
   // explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(const vector<T>
   // &x) : elts(x) {} explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
