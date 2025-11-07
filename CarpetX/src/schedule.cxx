@@ -1606,6 +1606,8 @@ int Evolve(tFleshConfig *config) {
   double total_evolution_output_time = 0;
   int total_iterations = 0;
   double total_cell_updates = 0;
+  int average_iteration_time_iterations = 0;
+  double average_iteration_time = 0;
 
   std::ofstream performance_file;
   if (out_performance && CCTK_MyProc(NULL) == 0) {
@@ -1820,6 +1822,10 @@ int Evolve(tFleshConfig *config) {
       active_levels = optional<active_levels_t>();
     } // for min_level
 
+    const double waiting_start_time = gettime();
+    MPI_Barrier(MPI_COMM_WORLD);
+    const double waiting_finish_time = gettime();
+
     const double finish_time = gettime();
     double num_cells = 0;
     for (const auto &patch : ghext->patchdata)
@@ -1829,7 +1835,17 @@ int Evolve(tFleshConfig *config) {
     ++total_iterations;
     const double iteration_time = finish_time - start_time;
     total_evolution_time += iteration_time;
-    const double iterations_per_second = 1 / iteration_time;
+
+    // Calculate statistics
+    if (average_iteration_time_iterations < 10)
+      ++average_iteration_time_iterations;
+    // Calculate exponential moving average
+    average_iteration_time =
+        ((average_iteration_time_iterations - 1) * average_iteration_time +
+         iteration_time) /
+        average_iteration_time_iterations;
+
+    const double iterations_per_second = 1 / average_iteration_time;
     const double cell_updates_per_second = num_cells * iterations_per_second;
     CCTK_VINFO("Simulation time: %g   "
                "Iterations per second: %g   "
