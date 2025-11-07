@@ -1394,7 +1394,9 @@ bool EvolutionIsDone(cGH *restrict const cctkGH) {
   const int runtime = CCTK_RunTime();
   const bool max_runtime_reached = runtime >= 60 * max_runtime;
 
-  bool we_are_done;
+  // Note: Some MPI implementations have been built without support
+  // for `MPI_CXX_BOOL`, so we use `int` instead
+  int we_are_done;
   if (terminate_next || CCTK_TerminationReached(cctkGH))
     we_are_done = true;
   else if (CCTK_Equals(terminate, "never"))
@@ -1419,7 +1421,7 @@ bool EvolutionIsDone(cGH *restrict const cctkGH) {
     CCTK_ERROR("internal error");
 
   // Ensure all processes make the same decision
-  MPI_Allreduce(MPI_IN_PLACE, &we_are_done, 1, MPI_CXX_BOOL, MPI_LOR,
+  MPI_Allreduce(MPI_IN_PLACE, &we_are_done, 1, MPI_INT, MPI_LOR,
                 MPI_COMM_WORLD);
 
   return we_are_done;
