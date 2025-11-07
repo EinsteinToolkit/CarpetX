@@ -397,6 +397,8 @@ struct GHExt {
         std::array<int, dim> indextype;
         std::array<int, dim> nghostzones;
 
+        amrex::Interpolater *interpolator;
+
         std::array<std::array<boundary_t, dim>, 2> boundaries;
         bool all_faces_have_symmetries_or_boundaries() const;
         std::vector<array<int, dim> > parities;
@@ -480,8 +482,6 @@ struct GHExt {
 };
 
 extern std::unique_ptr<GHExt> ghext;
-
-amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype);
 
 } // namespace CarpetX
 
