@@ -679,7 +679,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   static bool did_output = false;
   if (verbose || !did_output)
-    CCTK_VINFO("Integrator is %s", method);
+    CCTK_VINFO("ODE integrator is %s", method);
   did_output = true;
 
   static Timer timer("ODESolvers::Solve");
@@ -1133,8 +1133,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     }
     calcupdate(nsteps, dt, 0.0, factors, srcs);
 
-  } else if (CCTK_EQUALS(method, "Implicit Euler")) {
-
+  } else if (CCTK_EQUALS(method, "IMEX122") ||
+             CCTK_EQUALS(method, "Implicit Euler")) {
     // Implicit definition:
     //   y1 = y0 + h/2 f(y0) + h/2 g(y1)
     //   y2 = y0 + h f(y1) + h g(y1)
