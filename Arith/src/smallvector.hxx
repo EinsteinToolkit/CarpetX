@@ -1,6 +1,7 @@
 #ifndef CARPETX_ARITH_SMALLVECTOR_HXX
 #define CARPETX_ARITH_SMALLVECTOR_HXX
 
+#include "arr.hxx"
 #include "defs.hxx"
 #include "vect.hxx"
 
@@ -22,22 +23,21 @@
 namespace Arith {
 
 template <typename T, std::size_t N> class smallvector {
-  std::array<T, N> elts;
+  arr<T, N> elts;
   std::size_t sz;
 
 public:
-  using value_type = typename std::array<T, N>::value_type;
-  using size_type = typename std::array<T, N>::size_type;
-  using difference_type = typename std::array<T, N>::difference_type;
-  using reference = typename std::array<T, N>::reference;
-  using const_reference = typename std::array<T, N>::const_reference;
-  using pointer = typename std::array<T, N>::pointer;
-  using const_pointer = typename std::array<T, N>::const_pointer;
-  using iterator = typename std::array<T, N>::iterator;
-  using const_iterator = typename std::array<T, N>::const_iterator;
-  // using reverse_iterator = typename std::array<T, N>::reverse_iterator;
-  // using const_reverse_iterator =
-  //     typename std::array<T, N>::const_reverse_iterator;
+  using value_type = typename arr<T, N>::value_type;
+  using size_type = typename arr<T, N>::size_type;
+  using difference_type = typename arr<T, N>::difference_type;
+  using reference = typename arr<T, N>::reference;
+  using const_reference = typename arr<T, N>::const_reference;
+  using pointer = typename arr<T, N>::pointer;
+  using const_pointer = typename arr<T, N>::const_pointer;
+  using iterator = typename arr<T, N>::iterator;
+  using const_iterator = typename arr<T, N>::const_iterator;
+  using reverse_iterator = typename arr<T, N>::reverse_iterator;
+  using const_reverse_iterator = typename arr<T, N>::const_reverse_iterator;
 
   constexpr smallvector(const smallvector &) = default;
   constexpr smallvector(smallvector &&) = default;
@@ -47,13 +47,18 @@ public:
   constexpr ARITH_DEVICE ARITH_HOST smallvector() : elts{}, sz(0) {}
 
   // constexpr smallvector(const std::initializer_list<T> &lst)
-  //     : elts(std::array<T, N>(vect<T, N>(lst))), sz(lst.size()) {}
+  //     : elts(arr<T, N>(vect<T, N>(lst))), sz(lst.size()) {}
   constexpr ARITH_DEVICE ARITH_HOST
   smallvector(const std::initializer_list<T> &lst)
       : elts(construct_array<T, N>([&lst](const size_type i) {
           return i < lst.size() ? lst.begin()[i] : T{};
         })),
         sz(lst.size()) {}
+  template <size_type N1>
+  constexpr ARITH_DEVICE ARITH_HOST smallvector(const arr<T, N1> &elts_)
+      : elts(construct_array<T, N>(
+            [&elts_](const size_type i) { return i < N1 ? elts_[i] : T{}; })),
+        sz(N1) {}
   template <size_type N1>
   constexpr ARITH_DEVICE ARITH_HOST smallvector(const std::array<T, N1> &elts_)
       : elts(construct_array<T, N>(
@@ -89,30 +94,34 @@ public:
     return elts[i];
   }
 
-  constexpr ARITH_DEVICE ARITH_HOST const_reference front() const {
-    debug_assert(sz > 0);
-    return elts[0];
-  }
   constexpr ARITH_DEVICE ARITH_HOST reference front() {
     debug_assert(sz > 0);
-    return elts[0];
+    return elts.front();
   }
-  constexpr ARITH_DEVICE ARITH_HOST const_reference back() const {
+  constexpr ARITH_DEVICE ARITH_HOST const_reference front() const {
     debug_assert(sz > 0);
-    return elts[sz - 1];
+    return elts.front();
   }
   constexpr ARITH_DEVICE ARITH_HOST reference back() {
     debug_assert(sz > 0);
-    return elts[sz - 1];
+    return elts.back();
+  }
+  constexpr ARITH_DEVICE ARITH_HOST const_reference back() const {
+    debug_assert(sz > 0);
+    return elts.back();
   }
 
   ARITH_DEVICE ARITH_HOST const T *data() const { return elts.data(); }
   ARITH_DEVICE ARITH_HOST T *data() { return elts.data(); }
 
-  ARITH_DEVICE ARITH_HOST const_iterator begin() const { return &elts[0]; }
-  ARITH_DEVICE ARITH_HOST iterator begin() { return &elts[0]; }
-  ARITH_DEVICE ARITH_HOST const_iterator end() const { return &elts[sz]; }
-  ARITH_DEVICE ARITH_HOST iterator end() { return &elts[sz]; }
+  ARITH_DEVICE ARITH_HOST iterator begin() { return elts.begin(); }
+  ARITH_DEVICE ARITH_HOST const_iterator begin() const { return elts.begin(); }
+  ARITH_DEVICE ARITH_HOST const_iterator cbegin() const {
+    return elts.cbegin();
+  }
+  ARITH_DEVICE ARITH_HOST iterator end() { return elts.end(); }
+  ARITH_DEVICE ARITH_HOST const_iterator end() const { return elts.end(); }
+  ARITH_DEVICE ARITH_HOST const_iterator cend() const { return elts.cend(); }
 
   // constexpr const T *rbegin() const { return &elts[0]; }
   // constexpr T *rbegin() { return &elts[0]; }
