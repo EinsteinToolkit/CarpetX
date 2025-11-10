@@ -3,6 +3,9 @@
 IMPLEMENTS: ODESolvers
 
 USES INCLUDE HEADER: div.hxx
+USES INCLUDE HEADER: driver.hxx
+USES INCLUDE HEADER: schedule.hxx
+USES INCLUDE HEADER: timer.hxx
 
 
 
