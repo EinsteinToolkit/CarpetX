@@ -6,6 +6,7 @@
 #include "task_manager.hxx"
 #include "timer.hxx"
 #include "valid.hxx"
+#include "interp_cache.hxx"
 
 #include <cctk.h>
 #include <cctk_Parameters.h>
@@ -1876,6 +1877,10 @@ int Evolve(tFleshConfig *config) {
                total_iterations / total_evolution_time);
     CCTK_VINFO("  average cell updates per second: %g",
                total_cell_updates / total_evolution_time);
+
+    // Interpolation cache statistics
+    InterpTargetCache::instance().print_stats();
+
     // TODO: Output this in a proper I/O method
     if (out_performance && CCTK_MyProc(NULL) == 0) {
       const int every =

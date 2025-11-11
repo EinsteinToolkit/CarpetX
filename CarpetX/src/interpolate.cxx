@@ -1,5 +1,6 @@
 #include "driver.hxx"
 #include "interp.hxx"
+#include "interp_cache.hxx"
 #include "mpi_types.hxx"
 #include "reduction.hxx"
 #include "schedule.hxx"
@@ -20,10 +21,8 @@
 #include <array>
 #include <cassert>
 #include <cmath>
-#include <iostream>
 #include <limits>
 #include <map>
-#include <set>
 #include <utility>
 #include <vector>
 
@@ -31,6 +30,25 @@ namespace CarpetX {
 using Arith::pown;
 
 namespace {
+
+// Structure to cache interpolation stencil positions and offsets
+// This allows reusing the same stencil data across multiple variables
+struct InterpCache {
+  std::vector<vect<int, dim> >
+      stencil_indices; // Base stencil position for each particle
+  std::vector<vect<CCTK_REAL, dim> >
+      stencil_offsets; // Fractional offset for each particle
+  std::vector<uint8_t>
+      is_allowed; // Whether interpolation is allowed at this point
+
+  InterpCache() = default;
+
+  void resize(int npoints) {
+    stencil_indices.resize(npoints);
+    stencil_offsets.resize(npoints);
+    is_allowed.resize(npoints);
+  }
+};
 
 // Interpolate a grid function at one point, dimensionally recursive
 template <typename T, int order, int centering> struct interpolator {
@@ -238,6 +256,87 @@ template <typename T, int order, int centering> struct interpolator {
     default:
       assert(0);
     } // switch order
+  }
+
+  // Compute interpolation stencil positions and offsets for all particles
+  // This cache can be reused across multiple variables
+  template <typename Particles>
+  static void
+  compute_interp_cache(const Particles &particles, const GridDescBase &grid,
+                       const bool allow_boundaries, InterpCache &cache) {
+    const auto x0 = grid.x0 + (2 * grid.lbnd - !indextype) * grid.dx / 2;
+    const auto dx = grid.dx;
+
+    vect<vect<bool, dim>, 2> allowed_boundaries;
+    for (int f = 0; f < 2; ++f)
+      for (int d = 0; d < dim; ++d)
+        allowed_boundaries[f][d] = allow_boundaries ? true : !grid.bbox[f][d];
+
+    const auto i0_allowed = !allowed_boundaries[0] * grid.nghostzones;
+    const auto i1_allowed =
+        grid.lsh - (!allowed_boundaries[1] * grid.nghostzones + order);
+
+    const int np = particles.size();
+    cache.resize(np);
+
+#pragma omp parallel for simd
+    for (int n = 0; n < np; ++n) {
+      const vect<T, dim> x{particles[n].rdata(0), particles[n].rdata(1),
+                           particles[n].rdata(2)};
+
+      // Find stencil anchor (i.e. the leftmost stencil point)
+      const auto qi = (x - x0) / dx;
+      const auto lrint1 = [](auto a) {
+        using std::lrint;
+        return int(lrint(a));
+      };
+      auto i = fmap(lrint1, qi - order / T(2));
+      auto di = qi - i;
+
+      // Consistency check
+      assert(all(i >= 0 && i + order < grid.lsh));
+
+      // Push point away from boundaries if they are just a little outside
+      for (int d = 0; d < dim; ++d) {
+        if (i[d] + order / 2 < i0_allowed[d] &&
+            di[d] - order / T(2) >= +T(0.5) - eps()) {
+          i[d] += 1;
+          di[d] -= 1;
+        }
+        if (i[d] >= i1_allowed[d] && di[d] - order / T(2) <= -T(0.5) + eps()) {
+          i[d] -= 1;
+          di[d] += 1;
+        }
+      }
+
+      // Avoid points on boundaries
+      const bool is_allowed_val = all(i >= i0_allowed && i < i1_allowed);
+      assert(is_allowed_val);
+
+      cache.stencil_indices[n] = i;
+      cache.stencil_offsets[n] = di;
+      cache.is_allowed[n] = is_allowed_val ? 1 : 0;
+    }
+  }
+
+  // Interpolate using precomputed cache (for multiple variables)
+  void interpolate3d_cached(const InterpCache &cache,
+                            std::vector<T> &varresult) const {
+    assert(vars.end.x - vars.begin.x == grid.lsh[0] - indextype[0]);
+    assert(vars.end.y - vars.begin.y == grid.lsh[1] - indextype[1]);
+    assert(vars.end.z - vars.begin.z == grid.lsh[2] - indextype[2]);
+
+    const int np = int(varresult.size());
+
+#pragma omp parallel for simd
+    for (int n = 0; n < np; ++n) {
+      const auto &i = cache.stencil_indices[n];
+      const auto &di = cache.stencil_offsets[n];
+      const bool is_allowed = cache.is_allowed[n] != 0;
+
+      const T res = !is_allowed ? -2 : interpolate<dim - 1>(i, di);
+      varresult[n] = res;
+    }
   }
 
   template <typename Particles>
@@ -495,154 +594,274 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     }
   }
 
-  // Project particles into the domain for AMReX's distribution
-  // AMReX silently drops particles that are outside the domain. We
-  // can't have this. We thus push them back into the domain. Of
-  // course, these modified coordinates are not useful for
-  // interpolating, so we have both the `local` (true) and the `pos`
-  // (AMReX) coordinates.
-  std::vector<CCTK_REAL> posx(npoints);
-  std::vector<CCTK_REAL> posy(npoints);
-  std::vector<CCTK_REAL> posz(npoints);
-#pragma omp simd
-  for (int n = 0; n < npoints; ++n) {
-    const int patch = patches.at(n);
-    const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
-    const CCTK_REAL *restrict const xmin = geom.ProbLo();
-    const CCTK_REAL *restrict const xmax = geom.ProbHi();
-    const CCTK_REAL *restrict const dx = geom.CellSize();
-    using std::clamp;
-    // Push the particle at least 1/2 grid spacing into the domain
-    // TODO: push by less because 1/2 is too much if there are many AMR levels
-    posx[n] = clamp(localsx[n], xmin[0] + dx[0] / 2, xmax[0] - dx[0] / 2);
-    posy[n] = clamp(localsy[n], xmin[1] + dx[1] / 2, xmax[1] - dx[1] / 2);
-    posz[n] = clamp(localsz[n], xmin[2] + dx[2] / 2, xmax[2] - dx[2] / 2);
-  }
+  // Try to get cached particle containers
+  auto &cache = InterpTargetCache::instance();
+  const auto *cached_entry =
+      cache.get_cached_entry(npoints, globalsx, globalsy, globalsz);
 
   // Create particle containers
   using Container = amrex::AmrParticleContainer<3, 2>;
   using Particle = Container::ParticleType;
 
-  using PinnedParticleTile = typename amrex::ParticleContainer_impl<
-      Particle, 0, 0, amrex::PinnedArenaAllocator>::ParticleTileType;
-  std::vector<PinnedParticleTile> pinned_particle_tiles(ghext->num_patches());
-  for (int patch = 0; patch < ghext->num_patches(); ++patch) {
-    PinnedParticleTile &pinned_particle_tile = pinned_particle_tiles.at(patch);
-    // here the two slots represents components in the structure-of-arrays (SoA)
-    // layout
-    pinned_particle_tile.define(0, 0);
+  // Check if we can use cached containers
+  std::vector<std::shared_ptr<Container> > containers_shared;
+  bool using_cache = (cached_entry != nullptr);
+
+  if (using_cache) {
+    // Cache hit! Use the cached containers directly
+    containers_shared = cached_entry->containers;
+
+    if (verbose && amrex::ParallelDescriptor::IOProcessor()) {
+      CCTK_VINFO("InterpTargetCache: Cache HIT for %d points", npoints);
+    }
   }
 
-  // Set particle positions
-  // TODO: parallelize this loop
-  const int proc = amrex::ParallelDescriptor::MyProc();
-  for (int n = 0; n < npoints; ++n) {
-    const int patch = patches.at(n);
-    amrex::Particle<3, 2> p;
-    p.id() = Particle::NextID();
-    p.cpu() = proc;
-    p.pos(0) = posx[n]; // AMReX distribution position
-    p.pos(1) = posy[n];
-    p.pos(2) = posz[n];
-    p.rdata(0) = localsx[n]; // actual particle coordinate
-    p.rdata(1) = localsy[n];
-    p.rdata(2) = localsz[n];
-    p.idata(0) = proc; // source process
-    p.idata(1) = n;    // source index
-    pinned_particle_tiles.at(patch).push_back(p);
-  }
-
-  using ParticleTile = Container::ParticleTileType;
-  std::vector<Container> containers(ghext->num_patches());
-  for (int patch = 0; patch < ghext->num_patches(); ++patch) {
-    const PinnedParticleTile &pinned_particle_tile =
-        pinned_particle_tiles.at(patch);
-
-    const auto &restrict patchdata = ghext->patchdata.at(patch);
-    containers.at(patch) = Container(patchdata.amrcore.get());
-    const int level = 0;
-    const auto &restrict leveldata = patchdata.leveldata.at(level);
-    const amrex::MFIter mfi(*leveldata.fab);
-    // The mfi can be invalid if the number of processes does not evenly divide
-    // the number of blocks
-    if (!mfi.isValid()) {
-      continue;
+  // If not using cache, we need to create the containers
+  if (!using_cache) {
+    // Project particles into the domain for AMReX's distribution
+    // AMReX silently drops particles that are outside the domain. We
+    // can't have this. We thus push them back into the domain. Of
+    // course, these modified coordinates are not useful for
+    // interpolating, so we have both the `local` (true) and the `pos`
+    // (AMReX) coordinates.
+    std::vector<CCTK_REAL> posx(npoints);
+    std::vector<CCTK_REAL> posy(npoints);
+    std::vector<CCTK_REAL> posz(npoints);
+#pragma omp simd
+    for (int n = 0; n < npoints; ++n) {
+      const int patch = patches.at(n);
+      const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
+      const CCTK_REAL *restrict const xmin = geom.ProbLo();
+      const CCTK_REAL *restrict const xmax = geom.ProbHi();
+      const CCTK_REAL *restrict const dx = geom.CellSize();
+      using std::clamp;
+      // Push the particle at least 1/2 grid spacing into the domain
+      // TODO: push by less because 1/2 is too much if there are many AMR levels
+      posx[n] = clamp(localsx[n], xmin[0] + dx[0] / 2, xmax[0] - dx[0] / 2);
+      posy[n] = clamp(localsy[n], xmin[1] + dx[1] / 2, xmax[1] - dx[1] / 2);
+      posz[n] = clamp(localsz[n], xmin[2] + dx[2] / 2, xmax[2] - dx[2] / 2);
     }
 
-    ParticleTile &particle_tile = containers.at(patch).GetParticles(
-        level)[make_pair(mfi.index(), mfi.LocalTileIndex())];
+    using PinnedParticleTile = typename amrex::ParticleContainer_impl<
+        Particle, 0, 0, amrex::PinnedArenaAllocator>::ParticleTileType;
+    std::vector<PinnedParticleTile> pinned_particle_tiles(ghext->num_patches());
+    for (int patch = 0; patch < ghext->num_patches(); ++patch) {
+      PinnedParticleTile &pinned_particle_tile =
+          pinned_particle_tiles.at(patch);
+      // here the two slots represents components in the structure-of-arrays
+      // (SoA) layout
+      pinned_particle_tile.define(0, 0);
+    }
 
-    const auto old_np = particle_tile.numParticles();
-    const auto new_np = old_np + pinned_particle_tile.numParticles();
-    particle_tile.resize(new_np);
-    amrex::copyParticles(particle_tile, pinned_particle_tile, 0, old_np,
-                         pinned_particle_tile.numParticles());
-  }
+    // Set particle positions
+    // TODO: parallelize this loop
+    const int proc = amrex::ParallelDescriptor::MyProc();
+    for (int n = 0; n < npoints; ++n) {
+      const int patch = patches.at(n);
+      amrex::Particle<3, 2> p;
+      p.id() = Particle::NextID();
+      p.cpu() = proc;
+      p.pos(0) = posx[n]; // AMReX distribution position
+      p.pos(1) = posy[n];
+      p.pos(2) = posz[n];
+      p.rdata(0) = localsx[n]; // actual particle coordinate
+      p.rdata(1) = localsy[n];
+      p.rdata(2) = localsz[n];
+      p.idata(0) = proc; // source process
+      p.idata(1) = n;    // source index
+      pinned_particle_tiles.at(patch).push_back(p);
+    }
 
-  // Send particles to interpolation points
-  for (auto &container : containers) {
-#ifdef CCTK_DEBUG
-    const int patch = int(&container - containers.data());
+    using ParticleTile = Container::ParticleTileType;
 
-    std::size_t old_nparticles = 0;
-    std::set<int> oldids;
+    // Create containers and store them in shared_ptrs for caching
+    for (int patch = 0; patch < ghext->num_patches(); ++patch) {
+      const PinnedParticleTile &pinned_particle_tile =
+          pinned_particle_tiles.at(patch);
+
+      const auto &restrict patchdata = ghext->patchdata.at(patch);
+      auto container_ptr = std::make_shared<Container>(patchdata.amrcore.get());
+      const int level = 0;
+      const auto &restrict leveldata = patchdata.leveldata.at(level);
+      const amrex::MFIter mfi(*leveldata.fab);
+      // The mfi can be invalid if the number of processes does not evenly
+      // divide the number of blocks
+      if (!mfi.isValid()) {
+        containers_shared.push_back(container_ptr);
+        continue;
+      }
+
+      ParticleTile &particle_tile = container_ptr->GetParticles(
+          level)[make_pair(mfi.index(), mfi.LocalTileIndex())];
+
+      const auto old_np = particle_tile.numParticles();
+      const auto new_np = old_np + pinned_particle_tile.numParticles();
+      particle_tile.resize(new_np);
+      amrex::copyParticles(particle_tile, pinned_particle_tile, 0, old_np,
+                           pinned_particle_tile.numParticles());
+
+      containers_shared.push_back(container_ptr);
+    }
+
+    // Send particles to interpolation points
+    // Check if redistribution is needed by testing if particles are already
+    // in the correct spatial location
+    bool need_redistribute = false;
+    for (int patch = 0; patch < int(containers_shared.size()); ++patch) {
+      auto &container = *containers_shared.at(patch);
+      const auto &restrict patchdata = ghext->patchdata.at(patch);
+      const int level = 0;
+      const auto &restrict leveldata = patchdata.leveldata.at(level);
+      const amrex::Geometry &geom = patchdata.amrcore->Geom(level);
+      const amrex::BoxArray &ba = leveldata.fab->boxArray();
+      const amrex::DistributionMapping &dm = leveldata.fab->DistributionMap();
+      const int myproc = amrex::ParallelDescriptor::MyProc();
+
+      // Check if any particles are in non-local boxes
+      for (amrex::ParIter<3, 2> pti(container, level); pti.isValid(); ++pti) {
+        const auto &particles = pti.GetArrayOfStructs();
+        for (const auto &p : particles) {
+          // Convert particle position to index space
+          const CCTK_REAL pos[3] = {p.pos(0), p.pos(1), p.pos(2)};
+          const amrex::IntVect iv = geom.CellIndex(pos);
+
+          // Find which box contains this particle by checking each box
+          int box_id = -1;
+          for (int i = 0; i < ba.size(); ++i) {
+            if (ba[i].contains(iv)) {
+              box_id = i;
+              break;
+            }
+          }
+
+          // Check if this box is owned by current process
+          if (box_id >= 0 && dm[box_id] != myproc) {
+            need_redistribute = true;
+            break;
+          }
+          // If box_id < 0, particle is outside all boxes, definitely need
+          // redistribute
+          if (box_id < 0) {
+            need_redistribute = true;
+            break;
+          }
+        }
+        if (need_redistribute)
+          break;
+      }
+      if (need_redistribute)
+        break;
+    }
+
+    // Use MPI_Allreduce to check if ANY process needs redistribution
     {
-      const auto &levels = container.GetParticles();
-      for (const auto &level : levels) {
-        const int lev = int(&level - levels.data());
-        for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
-             ++pti) {
-          const auto &particles = pti.GetArrayOfStructs();
-          const int component = MFPointer(pti).index();
-          for (const auto &particle : particles)
-            oldids.insert(particle.id());
-          old_nparticles += particles.size();
+      const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
+      int local_need = need_redistribute ? 1 : 0;
+      int global_need = 0;
+      MPI_Allreduce(&local_need, &global_need, 1, MPI_INT, MPI_MAX, comm);
+      need_redistribute = (global_need > 0);
+
+      // Diagnostic output
+      static int interp_call_count = 0;
+      static int skipped_count = 0;
+      if (amrex::ParallelDescriptor::IOProcessor()) {
+        interp_call_count++;
+        if (!need_redistribute) {
+          skipped_count++;
+        }
+        if (interp_call_count % 100 == 0) {
+          CCTK_VINFO("CarpetX_Interpolate: Skipped Redistribute %d/%d times "
+                     "(%.1f%%), npoints=%d",
+                     skipped_count, interp_call_count,
+                     100.0 * skipped_count / interp_call_count, npoints);
         }
       }
-      const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
-      MPI_Allreduce(MPI_IN_PLACE, &old_nparticles, 1,
-                    mpi_datatype<std::size_t>::value, MPI_SUM, comm);
     }
+
+    for (auto &container_ptr : containers_shared) {
+      auto &container = *container_ptr;
+#ifdef CCTK_DEBUG
+      const int patch = int(&container_ptr - containers_shared.data());
+
+      std::size_t old_nparticles = 0;
+      std::set<int> oldids;
+      {
+        const auto &levels = container.GetParticles();
+        for (const auto &level : levels) {
+          const int lev = int(&level - levels.data());
+          for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
+               ++pti) {
+            const auto &particles = pti.GetArrayOfStructs();
+            const int component = MFPointer(pti).index();
+            for (const auto &particle : particles)
+              oldids.insert(particle.id());
+            old_nparticles += particles.size();
+          }
+        }
+        const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
+        MPI_Allreduce(MPI_IN_PLACE, &old_nparticles, 1,
+                      mpi_datatype<std::size_t>::value, MPI_SUM, comm);
+      }
 #endif
 
-    container.Redistribute();
+      if (need_redistribute) {
+        container.Redistribute();
+      }
 
 #ifdef CCTK_DEBUG
-    std::size_t new_nparticles = 0;
-    std::set<int> newids;
-    {
-      const auto &levels = container.GetParticles();
-      for (const auto &level : levels) {
-        const int lev = int(&level - levels.data());
-        for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
-             ++pti) {
-          const int component = MFPointer(pti).index();
-          const auto &particles = pti.GetArrayOfStructs();
-          for (const auto &particle : particles)
-            newids.insert(particle.id());
-          new_nparticles += particles.size();
+      if (need_redistribute) {
+        std::size_t new_nparticles = 0;
+        std::set<int> newids;
+        {
+          const auto &levels = container.GetParticles();
+          for (const auto &level : levels) {
+            const int lev = int(&level - levels.data());
+            for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
+                 ++pti) {
+              const int component = MFPointer(pti).index();
+              const auto &particles = pti.GetArrayOfStructs();
+              for (const auto &particle : particles)
+                newids.insert(particle.id());
+              new_nparticles += particles.size();
+            }
+          }
+          const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
+          MPI_Allreduce(MPI_IN_PLACE, &new_nparticles, 1,
+                        mpi_datatype<std::size_t>::value, MPI_SUM, comm);
+        }
+        if (new_nparticles != old_nparticles) {
+          for (const auto oldid : oldids)
+            if (!newids.count(oldid))
+              CCTK_VWARN(CCTK_WARN_ALERT, "old id %d not present in new ids",
+                         oldid);
+          for (const auto newid : newids)
+            if (!oldids.count(newid))
+              CCTK_VWARN(CCTK_WARN_ALERT, "new id %d not present in old ids",
+                         newid);
+          CCTK_VERROR("We lost interpolation points on patch %d. Before "
+                      "redistributing: "
+                      "%zu particles, after redistributing: %zu particles",
+                      patch, old_nparticles, new_nparticles);
         }
       }
-      const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
-      MPI_Allreduce(MPI_IN_PLACE, &new_nparticles, 1,
-                    mpi_datatype<std::size_t>::value, MPI_SUM, comm);
-    }
-    if (new_nparticles != old_nparticles) {
-      for (const auto oldid : oldids)
-        if (!newids.count(oldid))
-          CCTK_VWARN(CCTK_WARN_ALERT, "old id %d not present in new ids",
-                     oldid);
-      for (const auto newid : newids)
-        if (!oldids.count(newid))
-          CCTK_VWARN(CCTK_WARN_ALERT, "new id %d not present in old ids",
-                     newid);
-      CCTK_VERROR(
-          "We lost interpolation points on patch %d. Before redistributing: "
-          "%zu particles, after redistributing: %zu particles",
-          patch, old_nparticles, new_nparticles);
-    }
 #endif
-  }
+    }
+
+    // Store containers in cache if this was a cache miss
+    if (!using_cache) {
+      cache.store_entry(npoints, globalsx, globalsy, globalsz,
+                        std::move(containers_shared));
+
+      // Need to reassign since we moved
+      const auto *new_cached_entry =
+          cache.get_cached_entry(npoints, globalsx, globalsy, globalsz);
+      if (new_cached_entry) {
+        containers_shared = new_cached_entry->containers;
+      } else {
+        CCTK_WARN(CCTK_WARN_ALERT, "Failed to store containers in cache");
+      }
+    }
+  } // end if (!using_cache)
 
   // Define result variables
   const int nprocs = amrex::ParallelDescriptor::NProcs();
@@ -670,8 +889,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
       const int level = leveldata.level;
 
       // TODO: use OpenMP
-      for (amrex::ParIter<3, 2> pti(containers.at(patch), level); pti.isValid();
-           ++pti) {
+      for (amrex::ParIter<3, 2> pti(*containers_shared.at(patch), level);
+           pti.isValid(); ++pti) {
         const MFPointer mfp(pti);
         const GridDesc grid(leveldata, mfp);
         // const int component = mfp.index();
@@ -681,8 +900,19 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
         std::vector<std::vector<CCTK_REAL> > varresults(nvars);
 
-        // TODO: Don't re-calculate interpolation coefficients for each
-        // variable
+        // Cache interpolation coefficients to reuse across variables
+        // Key: (centering << 8) | interpolation_order
+        std::map<int, InterpCache> interp_caches;
+
+        // Diagnostic: track cache usage
+        static bool first_diagnostic = true;
+        if (first_diagnostic && amrex::ParallelDescriptor::IOProcessor()) {
+          CCTK_VINFO("CarpetX_Interpolate: Interpolating %d variables with %d "
+                     "particles (interpolation caching enabled)",
+                     int(nvars), np);
+          first_diagnostic = false;
+        }
+
         for (int v = 0; v < nvars; ++v) {
           const int gi = givis.at(v).gi;
           const int vi = givis.at(v).vi;
@@ -706,44 +936,73 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
           auto &varresult = varresults.at(v);
           varresult.resize(np);
 
+          // Cache key combining centering and interpolation order
+          const int cache_key = (centering << 8) | interpolation_order;
+
           switch (centering) {
           case 0b000: {
             // Vertex centering
 
             switch (interpolation_order) {
             case 0: {
+              // Compute cache on first use for this centering/order combination
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 0, 0b000>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 0, 0b000> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             case 1: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 1, 0b000>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 1, 0b000> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             case 2: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 2, 0b000>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 2, 0b000> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             case 3: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 3, 0b000>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 3, 0b000> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             case 4: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 4, 0b000>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 4, 0b000> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             default:
@@ -760,38 +1019,63 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
             switch (interpolation_order) {
             case 0: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 0, 0b111>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 0, 0b111> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             case 1: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 1, 0b111>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 1, 0b111> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             case 2: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 2, 0b111>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 2, 0b111> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             case 3: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 3, 0b111>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 3, 0b111> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             case 4: {
+              if (interp_caches.find(cache_key) == interp_caches.end()) {
+                interpolator<CCTK_REAL, 4, 0b111>::compute_interp_cache(
+                    particles, grid, bool(allow_boundaries),
+                    interp_caches[cache_key]);
+              }
               const interpolator<CCTK_REAL, 4, 0b111> interp{
                   grid,  gi,   vi,     patch,
                   level, vars, derivs, bool(allow_boundaries)};
-              interp.interpolate3d(particles, varresult);
+              interp.interpolate3d_cached(interp_caches[cache_key], varresult);
               break;
             }
             default:
@@ -909,6 +1193,14 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         resultptrs[1][n] = +resultptrs[1][n];
       }
     }
+  }
+
+  // Print cache statistics if verbose is enabled
+  // We only print stats occasionally to avoid spam
+  static int interp_total_calls = 0;
+  interp_total_calls++;
+  if (verbose && interp_total_calls % 100 == 0) {
+    cache.print_stats();
   }
 }
 } // namespace CarpetX
