@@ -201,7 +201,7 @@ void InterpTargetCache::print_stats() const {
 
   CCTK_VINFO("InterpTargetCache statistics:");
   CCTK_VINFO("  Total accesses: %zu", total_accesses);
-  CCTK_VINFO("  Hits:           %zu (%.2f)", stats_.hits, hit_rate);
+  CCTK_VINFO("  Hits:           %zu (%.2f %%)", stats_.hits, hit_rate);
   CCTK_VINFO("  Misses:         %zu", stats_.misses);
   CCTK_VINFO("  Rebuilds:       %zu", stats_.rebuilds);
   CCTK_VINFO("  Invalidations:  %zu", stats_.invalidations);

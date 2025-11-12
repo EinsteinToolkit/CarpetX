@@ -720,6 +720,10 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
       // Check if any particles are in non-local boxes
       for (amrex::ParIter<3, 2> pti(container, level); pti.isValid(); ++pti) {
         const auto &particles = pti.GetArrayOfStructs();
+        const int current_grid = pti.index();
+        const int current_tile = pti.LocalTileIndex();
+        const amrex::Box &tilebox = pti.tilebox();
+
         for (const auto &p : particles) {
           // Convert particle position to index space
           const CCTK_REAL pos[3] = {p.pos(0), p.pos(1), p.pos(2)};
@@ -744,6 +748,17 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
           if (box_id < 0) {
             need_redistribute = true;
             break;
+          }
+
+          // Check if particle is in the correct grid and tile
+          // Even if the particle is in the correct rank, it must also be
+          // in the correct tile within that rank
+          if (box_id >= 0 && dm[box_id] == myproc) {
+            // Particle is on the correct rank and grid, now check tile
+            if (box_id != current_grid || !tilebox.contains(iv)) {
+              need_redistribute = true;
+              break;
+            }
           }
         }
         if (need_redistribute)
