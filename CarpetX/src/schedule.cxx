@@ -1146,13 +1146,18 @@ int Initialise(tFleshConfig *config) {
       patchdata.amrcore->cactus_is_initialized = true;
 
     // Determine time step size
-    {
+    if (CCTK_EQUALS(timestep_choice, "timestep")) {
+      cctkGH->cctk_delta_time = timestep;
+    } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
       cctkGH->cctk_delta_time = dtfac * get_mindx(use_subcycling_wip);
-#pragma omp critical
-      CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
-                 cctkGH->cctk_iteration, double(cctkGH->cctk_time),
-                 double(cctkGH->cctk_delta_time));
+    } else {
+      abort();
     }
+    assert(isfinite(cctkGH->cctk_delta_time));
+#pragma omp critical
+    CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+               cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+               double(cctkGH->cctk_delta_time));
 
   } else {
     // Set up initial conditions
@@ -1169,13 +1174,18 @@ int Initialise(tFleshConfig *config) {
         patchdata.amrcore->MakeNewGrids(time);
 
       // Determine time step size
-      {
+      if (CCTK_EQUALS(timestep_choice, "timestep")) {
+        cctkGH->cctk_delta_time = timestep;
+      } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
         cctkGH->cctk_delta_time = dtfac * get_mindx(use_subcycling_wip);
-#pragma omp critical
-        CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
-                   cctkGH->cctk_iteration, double(cctkGH->cctk_time),
-                   double(cctkGH->cctk_delta_time));
+      } else {
+        abort();
       }
+      assert(isfinite(cctkGH->cctk_delta_time));
+#pragma omp critical
+      CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                 cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                 double(cctkGH->cctk_delta_time));
 
       assert(!active_levels);
       active_levels = make_optional<active_levels_t>(0, 1);
@@ -1315,13 +1325,18 @@ int Initialise(tFleshConfig *config) {
 
         if (did_modify_any_level) {
           // Determine time step size
-          {
+          if (CCTK_EQUALS(timestep_choice, "timestep")) {
+            cctkGH->cctk_delta_time = timestep;
+          } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
             cctkGH->cctk_delta_time = dtfac * get_mindx(use_subcycling_wip);
-#pragma omp critical
-            CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
-                       cctkGH->cctk_iteration, double(cctkGH->cctk_time),
-                       double(cctkGH->cctk_delta_time));
+          } else {
+            abort();
           }
+          assert(isfinite(cctkGH->cctk_delta_time));
+#pragma omp critical
+          CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                     cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                     double(cctkGH->cctk_delta_time));
 
           assert(!active_levels);
           active_levels = make_optional<active_levels_t>(
@@ -1378,7 +1393,9 @@ bool EvolutionIsDone(cGH *restrict const cctkGH) {
   const int runtime = CCTK_RunTime();
   const bool max_runtime_reached = runtime >= 60 * max_runtime;
 
-  bool we_are_done;
+  // Note: Some MPI implementations have been built without support
+  // for `MPI_CXX_BOOL`, so we use `int` instead
+  int we_are_done;
   if (terminate_next || CCTK_TerminationReached(cctkGH))
     we_are_done = true;
   else if (CCTK_Equals(terminate, "never"))
@@ -1403,7 +1420,7 @@ bool EvolutionIsDone(cGH *restrict const cctkGH) {
     CCTK_ERROR("internal error");
 
   // Ensure all processes make the same decision
-  MPI_Allreduce(MPI_IN_PLACE, &we_are_done, 1, MPI_CXX_BOOL, MPI_LOR,
+  MPI_Allreduce(MPI_IN_PLACE, &we_are_done, 1, MPI_INT, MPI_LOR,
                 MPI_COMM_WORLD);
 
   return we_are_done;
@@ -1588,6 +1605,8 @@ int Evolve(tFleshConfig *config) {
   double total_evolution_output_time = 0;
   int total_iterations = 0;
   double total_cell_updates = 0;
+  int average_iteration_time_iterations = 0;
+  double average_iteration_time = 0;
 
   std::ofstream performance_file;
   if (out_performance && CCTK_MyProc(NULL) == 0) {
@@ -1711,13 +1730,18 @@ int Evolve(tFleshConfig *config) {
 
       if (did_modify_any_level) {
         // Determine time step size
-        {
+        if (CCTK_EQUALS(timestep_choice, "timestep")) {
+          cctkGH->cctk_delta_time = timestep;
+        } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
           cctkGH->cctk_delta_time = dtfac * get_mindx(use_subcycling_wip);
-#pragma omp critical
-          CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
-                     cctkGH->cctk_iteration, double(cctkGH->cctk_time),
-                     double(cctkGH->cctk_delta_time));
+        } else {
+          abort();
         }
+        assert(isfinite(cctkGH->cctk_delta_time));
+#pragma omp critical
+        CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
+                   cctkGH->cctk_iteration, double(cctkGH->cctk_time),
+                   double(cctkGH->cctk_delta_time));
 
         assert(!active_levels);
         active_levels = make_optional<active_levels_t>(first_modified_level,
@@ -1837,6 +1861,10 @@ int Evolve(tFleshConfig *config) {
       active_levels = optional<active_levels_t>();
     } // for min_level, max_level
 
+    const double waiting_start_time = gettime();
+    MPI_Barrier(MPI_COMM_WORLD);
+    const double waiting_finish_time = gettime();
+
     const double finish_time = gettime();
     double num_cells = 0;
     for (const auto &patch : ghext->patchdata)
@@ -1846,7 +1874,17 @@ int Evolve(tFleshConfig *config) {
     ++total_iterations;
     const double iteration_time = finish_time - start_time;
     total_evolution_time += iteration_time;
-    const double iterations_per_second = 1 / iteration_time;
+
+    // Calculate statistics
+    if (average_iteration_time_iterations < 10)
+      ++average_iteration_time_iterations;
+    // Calculate exponential moving average
+    average_iteration_time =
+        ((average_iteration_time_iterations - 1) * average_iteration_time +
+         iteration_time) /
+        average_iteration_time_iterations;
+
+    const double iterations_per_second = 1 / average_iteration_time;
     const double cell_updates_per_second = num_cells * iterations_per_second;
     CCTK_VINFO("Simulation time: %g   "
                "Iterations per second: %g   "
@@ -1915,16 +1953,16 @@ int Shutdown(tFleshConfig *config) {
   CCTK_VINFO("Shutting down...");
 
   assert(!active_levels);
-  active_levels = make_optional<active_levels_t>();
+  active_levels = std::make_optional<active_levels_t>();
 
   CCTK_Traverse(cctkGH, "CCTK_TERMINATE");
 
-  active_levels = optional<active_levels_t>();
-  active_levels = make_optional<active_levels_t>(0, 0);
+  active_levels = std::optional<active_levels_t>();
+  active_levels = std::make_optional<active_levels_t>(0, 0);
 
   CCTK_Traverse(cctkGH, "CCTK_SHUTDOWN");
 
-  active_levels = optional<active_levels_t>();
+  active_levels = std::optional<active_levels_t>();
   assert(!ghext);
 
   return 0;
@@ -1946,14 +1984,14 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     CCTK_VINFO("CallFunction iteration %d %s: %s::%s", cctkGH->cctk_iteration,
                attribute->where, attribute->thorn, attribute->routine);
 
-  static map<cFunctionData *restrict, Timer> timers;
+  static std::map<cFunctionData *restrict, Timer> timers;
 
-  map<cFunctionData *restrict, Timer>::iterator timer_iter;
+  std::map<cFunctionData *restrict, Timer>::iterator timer_iter;
 #pragma omp critical(CarpetX_CallFunction)
   {
     timer_iter = timers.find(attribute);
     if (timer_iter == timers.end()) {
-      ostringstream buf;
+      std::ostringstream buf;
       buf << "CallFunction " << attribute->where << ": " << attribute->thorn
           << "::" << attribute->routine;
       timer_iter = get<0>(timers.emplace(attribute, buf.str()));
@@ -1965,7 +2003,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
   assert(active_levels);
 
   if (CCTK_EQUALS(presync_mode, "presync-only")) {
-    const vector<clause_t> &reads = decode_clauses(attribute, rdwr_t::read);
+    const std::vector<clause_t> &reads =
+        decode_clauses(attribute, rdwr_t::read);
     std::set<int> sync_set;
     for (const auto &rd : reads) {
       if (CCTK_GroupTypeI(rd.gi) == CCTK_GF) {
@@ -1987,7 +2026,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
   // Check whether input variables have valid data
   {
-    const vector<clause_t> &reads = decode_clauses(attribute, rdwr_t::read);
+    const std::vector<clause_t> &reads =
+        decode_clauses(attribute, rdwr_t::read);
     for (const auto &rd : reads) {
       if (CCTK_GroupTypeI(rd.gi) == CCTK_GF) {
         const auto &patchdata0 = ghext->patchdata.at(0);
@@ -2002,7 +2042,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
           const valid_t &need = rd.valid;
           error_if_invalid(
               groupdata, rd.vi, rd.tl, need, [attribute, cctkGH]() {
-                ostringstream buf;
+                std::ostringstream buf;
                 buf << "CallFunction iteration " << cctkGH->cctk_iteration
                     << " " << attribute->where << ": " << attribute->thorn
                     << "::" << attribute->routine << " checking input";
@@ -2011,7 +2051,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         });
         check_valid_gf(*active_levels, rd.gi, rd.vi, rd.tl, nan_handling,
                        [attribute, cctkGH]() {
-                         ostringstream buf;
+                         std::ostringstream buf;
                          buf << "CallFunction iteration "
                              << cctkGH->cctk_iteration << " "
                              << attribute->where << ": " << attribute->thorn
@@ -2028,7 +2068,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         const valid_t &need = rd.valid;
         error_if_invalid(
             arraygroupdata, rd.vi, rd.tl, need, [attribute, cctkGH]() {
-              ostringstream buf;
+              std::ostringstream buf;
               buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
                   << attribute->where << ": " << attribute->thorn
                   << "::" << attribute->routine << " checking input";
@@ -2036,7 +2076,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
             });
         check_valid_ga(
             rd.gi, rd.vi, rd.tl, nan_handling, [attribute, cctkGH]() {
-              ostringstream buf;
+              std::ostringstream buf;
               buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
                   << attribute->where << ": " << attribute->thorn
                   << "::" << attribute->routine << " checking input";
@@ -2048,15 +2088,17 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
   // Poison those output variables that are not input variables
   if (poison_undefined_values) {
-    map<clause_t, valid_t> isread;
-    const vector<clause_t> &reads = decode_clauses(attribute, rdwr_t::read);
+    std::map<clause_t, valid_t> isread;
+    const std::vector<clause_t> &reads =
+        decode_clauses(attribute, rdwr_t::read);
     for (const auto &rd : reads) {
       clause_t cl = rd;
       cl.valid = valid_t();
       assert(isread.count(cl) == 0);
       isread[cl] = rd.valid;
     }
-    const vector<clause_t> &writes = decode_clauses(attribute, rdwr_t::write);
+    const std::vector<clause_t> &writes =
+        decode_clauses(attribute, rdwr_t::write);
     for (const auto &wr : writes) {
       clause_t cl = wr;
       cl.valid = valid_t();
@@ -2069,11 +2111,16 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         active_levels->loop_serially([&](auto &restrict leveldata) {
           auto &restrict groupdata = *leveldata.groupdata.at(wr.gi);
           const valid_t &provided = wr.valid;
+          // The flesh can accidentally describe timelevels that do
+          // not exist.
+          if (wr.tl > int(groupdata.valid.size()))
+            CCTK_VERROR("Accessing non-existent timelevel %d of variable %s",
+                        wr.tl, groupdata.groupname.c_str());
           groupdata.valid.at(wr.tl).at(wr.vi).set_invalid(
               provided & ~need,
               [iteration = cctkGH->cctk_iteration, where = attribute->where,
                thorn = attribute->thorn, routine = attribute->routine] {
-                ostringstream buf;
+                std::ostringstream buf;
                 buf << "CallFunction iteration " << iteration << " " << where
                     << ": " << thorn << "::" << routine
                     << ": Poison output variables that are not input variables";
@@ -2089,7 +2136,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
             provided & ~need,
             [iteration = cctkGH->cctk_iteration, where = attribute->where,
              thorn = attribute->thorn, routine = attribute->routine] {
-              ostringstream buf;
+              std::ostringstream buf;
               buf << "CallFunction iteration " << iteration << " " << where
                   << ": " << thorn << "::" << routine
                   << ": Poison output variables that are not input variables";
@@ -2103,9 +2150,10 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
   // Calculate checksums over variables that are not written
   checksums_t checksums;
   if (poison_undefined_values) {
-    const vector<clause_t> &writes = decode_clauses(attribute, rdwr_t::write);
+    const std::vector<clause_t> &writes =
+        decode_clauses(attribute, rdwr_t::write);
     const int numgroups = CCTK_NumGroups();
-    vector<vector<vector<valid_t>>> gfs(numgroups);
+    std::vector<std::vector<std::vector<valid_t> > > gfs(numgroups);
     for (int gi = 0; gi < numgroups; ++gi) {
       const int numvars = CCTK_NumVarsInGroupI(gi);
       gfs.at(gi).resize(numvars);
@@ -2151,7 +2199,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
   // Check checksums
   if (poison_undefined_values)
     check_checksums(checksums, [attribute, cctkGH]() {
-      ostringstream buf;
+      std::ostringstream buf;
       buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
           << attribute->where << ": " << attribute->thorn
           << "::" << attribute->routine << " checking output";
@@ -2160,7 +2208,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
   // Mark output variables as having valid data
   {
-    const vector<clause_t> &writes = decode_clauses(attribute, rdwr_t::write);
+    const std::vector<clause_t> &writes =
+        decode_clauses(attribute, rdwr_t::write);
     for (const auto &wr : writes) {
       if (CCTK_GroupTypeI(wr.gi) == CCTK_GF) {
         const auto &patchdata0 = ghext->patchdata.at(0);
@@ -2177,7 +2226,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
               provided,
               [iteration = cctkGH->cctk_iteration, where = attribute->where,
                thorn = attribute->thorn, routine = attribute->routine] {
-                ostringstream buf;
+                std::ostringstream buf;
                 buf << "CallFunction iteration " << iteration << " " << where
                     << ": " << thorn << "::" << routine
                     << ": Mark output variables as valid";
@@ -2186,7 +2235,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         });
         check_valid_gf(*active_levels, wr.gi, wr.vi, wr.tl, nan_handling,
                        [attribute, cctkGH]() {
-                         ostringstream buf;
+                         std::ostringstream buf;
                          buf << "CallFunction iteration "
                              << cctkGH->cctk_iteration << " "
                              << attribute->where << ": " << attribute->thorn
@@ -2205,7 +2254,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
             provided,
             [iteration = cctkGH->cctk_iteration, where = attribute->where,
              thorn = attribute->thorn, routine = attribute->routine] {
-              ostringstream buf;
+              std::ostringstream buf;
               buf << "CallFunction iteration " << iteration << " " << where
                   << ": " << thorn << "::" << routine
                   << ": Mark output variables as valid";
@@ -2213,7 +2262,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
             });
         check_valid_ga(
             wr.gi, wr.vi, wr.tl, nan_handling, [attribute, cctkGH]() {
-              ostringstream buf;
+              std::ostringstream buf;
               buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
                   << attribute->where << ": " << attribute->thorn
                   << "::" << attribute->routine << " checking output";
@@ -2225,7 +2274,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
   // Mark invalid variables as having invalid data
   {
-    const vector<clause_t> &invalids =
+    const std::vector<clause_t> &invalids =
         decode_clauses(attribute, rdwr_t::invalid);
     for (const auto &inv : invalids) {
       if (CCTK_GroupTypeI(inv.gi) == CCTK_GF) {
@@ -2243,7 +2292,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
               invalidated,
               [iteration = cctkGH->cctk_iteration, where = attribute->where,
                thorn = attribute->thorn, routine = attribute->routine] {
-                ostringstream buf;
+                std::ostringstream buf;
                 buf << "CallFunction iteration " << iteration << " " << where
                     << ": " << thorn << "::" << routine
                     << ": Mark invalid variables as invalid";
@@ -2252,7 +2301,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         });
         check_valid_gf(*active_levels, inv.gi, inv.vi, inv.tl, nan_handling,
                        [attribute, cctkGH]() {
-                         ostringstream buf;
+                         std::ostringstream buf;
                          buf << "CallFunction iteration "
                              << cctkGH->cctk_iteration << " "
                              << attribute->where << ": " << attribute->thorn
@@ -2271,7 +2320,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
             invalidated,
             [iteration = cctkGH->cctk_iteration, where = attribute->where,
              thorn = attribute->thorn, routine = attribute->routine] {
-              ostringstream buf;
+              std::ostringstream buf;
               buf << "CallFunction iteration " << iteration << " " << where
                   << ": " << thorn << "::" << routine
                   << ": Mark invalid variables as invalid";
@@ -2279,7 +2328,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
             });
         check_valid_ga(
             inv.gi, inv.vi, inv.tl, nan_handling, [attribute, cctkGH]() {
-              ostringstream buf;
+              std::ostringstream buf;
               buf << "CallFunction iteration " << cctkGH->cctk_iteration << " "
                   << attribute->where << ": " << attribute->thorn
                   << "::" << attribute->routine << " checking output";
@@ -2323,7 +2372,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   assert(groups0);
 
   if (verbose) {
-    ostringstream buf;
+    std::ostringstream buf;
     for (int n = 0; n < numgroups; ++n) {
       if (n != 0)
         buf << ", ";
@@ -2336,7 +2385,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
   assert(gi_regrid_error >= 0);
 
-  vector<int> groups;
+  std::vector<int> groups;
   for (int n = 0; n < numgroups; ++n) {
     const int gi = groups0[n];
     if (CCTK_GroupTypeI(gi) != CCTK_GF)
@@ -2350,7 +2399,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   // Skip groups that have valid ghosts and boundaries
   if (CCTK_EQUALS(presync_mode, "presync-only")) {
     active_levels->loop_serially([&](auto &restrict leveldata) {
-      vector<int> new_groups;
+      std::vector<int> new_groups;
       for (const int gi : groups) {
         auto &restrict groupdata = *leveldata.groupdata.at(gi);
         bool need_sync = false;
@@ -2512,8 +2561,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
         auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
         assert(coarsegroupdata.numvars == groupdata.numvars);
 
-        amrex::Interpolater *const interpolator =
-            get_interpolator(groupdata.indextype);
+        amrex::Interpolater *const interpolator = groupdata.interpolator;
 
         for (int tl = 0; tl < sync_tl; ++tl) {
 
@@ -2642,7 +2690,7 @@ int SyncGroupsByDirINoRestrict(const cGH *restrict cctkGH, int numgroups,
   assert(groups0);
 
   if (verbose) {
-    ostringstream buf;
+    std::ostringstream buf;
     for (int n = 0; n < numgroups; ++n) {
       if (n != 0)
         buf << ", ";
@@ -2655,7 +2703,7 @@ int SyncGroupsByDirINoRestrict(const cGH *restrict cctkGH, int numgroups,
   const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
   assert(gi_regrid_error >= 0);
 
-  vector<int> groups;
+  std::vector<int> groups;
   for (int n = 0; n < numgroups; ++n) {
     const int gi = groups0[n];
     if (CCTK_GroupTypeI(gi) != CCTK_GF)
@@ -2711,8 +2759,7 @@ int SyncGroupsByDirINoRestrict(const cGH *restrict cctkGH, int numgroups,
         auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
         assert(coarsegroupdata.numvars == groupdata.numvars);
 
-        amrex::Interpolater *const interpolator =
-            get_interpolator(groupdata.indextype);
+        amrex::Interpolater *const interpolator = groupdata.interpolator;
 
         for (int tl = 0; tl < sync_tl; ++tl) {
 
@@ -2797,7 +2844,7 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
   assert(groups0);
 
   if (verbose) {
-    ostringstream buf;
+    std::ostringstream buf;
     for (int n = 0; n < numgroups; ++n) {
       if (n != 0)
         buf << ", ";
@@ -2810,7 +2857,7 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
   const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
   assert(gi_regrid_error >= 0);
 
-  vector<int> groups;
+  std::vector<int> groups;
   for (int n = 0; n < numgroups; ++n) {
     const int gi = groups0[n];
     if (CCTK_GroupTypeI(gi) != CCTK_GF)
@@ -2864,8 +2911,7 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
       auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
       assert(coarsegroupdata.numvars == groupdata.numvars);
 
-      amrex::Interpolater *const interpolator =
-          get_interpolator(groupdata.indextype);
+      amrex::Interpolater *const interpolator = groupdata.interpolator;
 
       for (int tl = 0; tl < sync_tl; ++tl) {
 
@@ -3105,12 +3151,12 @@ void Reflux(const cGH *cctkGH, int level) {
             for (int vi = 0; vi < finegroupdata.numvars; ++vi) {
               error_if_invalid(
                   flux_finegroupdata, vi, tl, make_valid_int(), [&]() {
-                    ostringstream buf;
+                    std::ostringstream buf;
                     buf << "Reflux: Fine level flux in direction " << d;
                     return buf.str();
                   });
               error_if_invalid(flux_groupdata, vi, tl, make_valid_int(), [&]() {
-                ostringstream buf;
+                std::ostringstream buf;
                 buf << "Reflux: Coarse level flux in direction " << d;
                 return buf.str();
               });
@@ -3365,7 +3411,7 @@ void RestrictNoPoison(const cGH *cctkGH, int level, const vector<int> &groups) {
 
 void Restrict(const cGH *cctkGH, int level) {
   const int numgroups = CCTK_NumGroups();
-  vector<int> groups;
+  std::vector<int> groups;
   groups.reserve(numgroups);
   const auto &patchdata0 = ghext->patchdata.at(0);
   const auto &leveldata0 = patchdata0.leveldata.at(0);

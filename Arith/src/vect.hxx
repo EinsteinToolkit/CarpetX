@@ -1,6 +1,7 @@
 #ifndef CARPETX_ARITH_VECT_HXX
 #define CARPETX_ARITH_VECT_HXX
 
+#include "arr.hxx"
 #include "defs.hxx"
 #include "div.hxx"
 #include "simd.hxx"
@@ -48,58 +49,10 @@ template <typename T, size_t N> using ntuple_t = typename ntuple<T, N>::type;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace detail {
-template <typename T, class Tuple, std::size_t... Is>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto
-array_from_tuple(const Tuple &t, std::index_sequence<Is...>) {
-  return std::array<T, sizeof...(Is)>{std::get<Is>(t)...};
-}
-template <typename T, class Tuple, std::size_t... Is>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto
-array_from_tuple(Tuple &&t, std::index_sequence<Is...>) {
-  return std::array<T, sizeof...(Is)>{std::move(std::get<Is>(t))...};
-}
-
-template <typename T, class Tuple, std::size_t... Is, typename U>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto
-array_push(const Tuple &t, std::index_sequence<Is...>, const U &x) {
-  return std::array<T, sizeof...(Is) + 1>{std::get<Is>(t)..., T(x)};
-}
-} // namespace detail
-
-template <typename T, std::size_t N, typename Tuple>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST std::array<T, N>
-array_from_tuple(const Tuple &t) {
-  return detail::array_from_tuple<T>(t, std::make_index_sequence<N>());
-}
-template <typename T, std::size_t N, typename Tuple>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST std::array<T, N>
-array_from_tuple(Tuple &&t) {
-  return detail::array_from_tuple<T>(std::move(t),
-                                     std::make_index_sequence<N>());
-}
-
-template <class T, std::size_t N, typename U>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto
-array_push(const std::array<T, N> &a, const U &e) {
-  return detail::array_push<T>(a, std::make_index_sequence<N>(), e);
-}
-
-template <typename T, std::size_t N, typename F>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST std::array<T, N>
-construct_array(const F &f) {
-  if constexpr (N == 0)
-    return std::array<T, N>();
-  if constexpr (N > 0)
-    return array_push<T>(construct_array<T, N - 1>(f), f(N - 1));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 // A small vector with a length that is known at compile time, similar
-// to `std::array`. The main difference is that `vect` supports
-// arithmetic operations, which is most useful for multi-dimensional
-// array indices.
+// to `std::array` or `Arith::arr`. The main difference is that `vect`
+// supports arithmetic operations, which is most useful for
+// multi-dimensional array indices.
 
 template <typename T, int D> struct vect;
 
@@ -108,7 +61,7 @@ template <typename T, int D> struct is_vect<vect<T, D> > : std::true_type {};
 template <typename T> constexpr bool is_vect_v = is_vect<T>::value;
 
 template <typename T, int D> struct vect {
-  array<T, D> elts;
+  arr<T, D> elts;
 
   typedef T value_type;
   typedef int size_type;
@@ -124,10 +77,15 @@ template <typename T, int D> struct vect {
 
   template <typename U>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect(vect<U, D> x)
-      : elts(construct_array<T, D>([&](int d) ARITH_INLINE { return x[d]; })) {}
+      : elts(construct_array<T, D>([&](int d)
+                                       ARITH_INLINE { return T(x[d]); })) {}
 
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect(array<T, D> arr)
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect(arr<T, D> arr)
       : elts(std::move(arr)) {}
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  vect(const std::array<T, D> &arr)
+      : elts(construct_array<T, D>([&](int d)
+                                       ARITH_INLINE { return arr[d]; })) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect(const T (&arr)[D])
       : elts(construct_array<T, D>([&](int d)
                                        ARITH_INLINE { return arr[d]; })) {}
@@ -162,8 +120,7 @@ template <typename T, int D> struct vect {
         })) {
   }
 
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-  operator std::array<T, D>() const {
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator arr<T, D>() const {
     return elts;
   }
 
@@ -196,7 +153,7 @@ template <typename T, int D> struct vect {
   }
 
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect unit(int dir) {
-    return make([&](int d) ARITH_INLINE { return d == dir; });
+    return make([&](int d) ARITH_INLINE { return T(d == dir); });
   }
 
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<int, D> iota() {
@@ -216,6 +173,8 @@ template <typename T, int D> struct vect {
   fmap_(const F &f, const vect &x, const vect<Args, D> &...args) {
     loop([&](int d) ARITH_INLINE { f(x.elts[d], args.elts[d]...); });
   }
+
+  // TODO: scan, exscan
 
   template <typename Op, typename R, typename... Args,
             typename = remove_cv_t<

@@ -7,6 +7,7 @@
 #include "../../CarpetX/src/schedule.hxx"
 #include "../../CarpetX/src/task_manager.hxx"
 
+#include <arr.hxx>
 #include <div.hxx>
 #include <loop.hxx>
 #include <vect.hxx>
@@ -40,7 +41,7 @@ namespace PDESolvers {
 const int tl = 0;
 
 // TODO: Generalize this
-const Arith::vect<int, 3> indextype{0, 0, 0}; // vertex centred
+const Arith::arr<int, 3> indextype{0, 0, 0}; // vertex centred
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -176,7 +177,7 @@ void define_point_type() {
       amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
       const amrex::MultiFab &finemfab_ind = *finegroupdata.mfab.at(tl);
       const amrex::IntVect reffact{2, 2, 2};
-      const int rank = sum(indextype);
+      const int rank = sum(Arith::vect<int, 3>(indextype));
       switch (rank) {
       case 0:
         average_down_nodal(finemfab_ind, mfab_ind, reffact);
@@ -316,8 +317,7 @@ void define_point_type() {
         const auto &coarsegroupdata = *coarseleveldata.groupdata.at(gi_ind);
         amrex::MultiFab &mfab_ind = *groupdata.mfab.at(tl);
         amrex::MultiFab &coarsemfab_ind = *coarsegroupdata.mfab.at(tl);
-        amrex::Interpolater *const interpolator =
-            CarpetX::get_interpolator(std::array<int, 3>(indextype));
+        amrex::Interpolater *const interpolator = groupdata.interpolator;
         tasks1.submit_serially([&tasks2, &tasks3, &groupdata, &coarsegroupdata,
                                 &mfab_ind, &coarsemfab_ind, &patchdata,
                                 &interpolator, level]() {
@@ -610,7 +610,7 @@ void enumerate_points(
       const amrex::MultiFab &finemfab_idx =
           *fineleveldata.groupdata.at(gi_idx)->mfab.at(tl);
       const amrex::IntVect reffact{2, 2, 2};
-      const int rank = sum(indextype);
+      const int rank = sum(Arith::vect<int, 3>(indextype));
       switch (rank) {
       case 0:
         average_down_nodal(finemfab_idx, mfab_idx, reffact);

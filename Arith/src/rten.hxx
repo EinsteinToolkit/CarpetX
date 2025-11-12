@@ -1,6 +1,7 @@
 #ifndef CARPETX_ARITH_RTEN_HXX
 #define CARPETX_ARITH_RTEN_HXX
 
+#include "arr.hxx"
 #include "defs.hxx"
 #include "simd.hxx"
 #include "vect.hxx"
@@ -100,7 +101,10 @@ public:
       : elts(x) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten(vect<T, N> elts)
       : elts(std::move(elts)) {}
-  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten(array<T, N> x)
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten(arr<T, N> x)
+      : elts(std::move(x)) {}
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  rten(std::array<T, N> x)
       : elts(std::move(x)) {}
   // explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten(const
   // vector<T> &x) : elts(x) {} explicit constexpr ARITH_INLINE ARITH_DEVICE
@@ -137,9 +141,8 @@ public:
 
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten<int, D> iota() {
     rten<int, D> r;
-    rten<int, D>::loop([&](int i, int j, int k, int l) {
-      r(i, j, k, l) = {i, j, k, l};
-    });
+    rten<int, D>::loop(
+        [&](int i, int j, int k, int l) { r(i, j, k, l) = {i, j, k, l}; });
     return r;
   }
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten<int, D> iota1() {

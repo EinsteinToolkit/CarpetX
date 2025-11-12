@@ -397,6 +397,8 @@ struct GHExt {
         std::array<int, dim> indextype;
         std::array<int, dim> nghostzones;
 
+        amrex::Interpolater *interpolator;
+
         std::array<std::array<boundary_t, dim>, 2> boundaries;
         bool all_faces_have_symmetries_or_boundaries() const;
         std::vector<array<int, dim> > parities;
@@ -449,6 +451,9 @@ struct GHExt {
   std::vector<PatchData> patchdata; // [patch]
 
   int num_patches() const { return patchdata.size(); }
+  int num_levels(const int patch) const {
+    return patchdata.at(patch).leveldata.size();
+  }
   int num_levels() const {
     int nlevels = 0;
     using std::max;
@@ -477,8 +482,6 @@ struct GHExt {
 };
 
 extern std::unique_ptr<GHExt> ghext;
-
-amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype);
 
 } // namespace CarpetX
 

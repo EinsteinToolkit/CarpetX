@@ -1,6 +1,7 @@
 #ifndef CARPETX_ARITH_MAT_HXX
 #define CARPETX_ARITH_MAT_HXX
 
+#include "arr.hxx"
 #include "defs.hxx"
 #include "simd.hxx"
 #include "sum.hxx"
@@ -102,7 +103,10 @@ public:
       : elts(x) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(vect<T, N> elts)
       : elts(std::move(elts)) {}
-  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(array<T, N> x)
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(arr<T, N> x)
+      : elts(std::move(x)) {}
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  gmat(std::array<T, N> x)
       : elts(std::move(x)) {}
   // explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(const
   // vector<T> &x) : elts(x) {} explicit constexpr ARITH_INLINE ARITH_DEVICE

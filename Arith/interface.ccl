@@ -2,6 +2,7 @@
 
 IMPLEMENTS: Arith
 
+INCLUDES HEADER: arr.hxx IN arr.hxx
 INCLUDES HEADER: cons.hxx IN cons.hxx
 INCLUDES HEADER: cplx.hxx IN cplx.hxx
 INCLUDES HEADER: defs.hxx IN defs.hxx

@@ -1,6 +1,7 @@
 #ifndef CARPETX_ARITH_TEN3_HXX
 #define CARPETX_ARITH_TEN3_HXX
 
+#include "arr.hxx"
 #include "defs.hxx"
 #include "simd.hxx"
 #include "tuple.hxx"
@@ -36,15 +37,15 @@ public:
   static constexpr int size_value = N;
 
 private:
-  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST std::array<int, 3>
+  static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST arr<int, 3>
   sorted(const int i, const int j, const int k) {
     using std::max, std::min;
     if (i <= j && i <= k)
-      return std::array<int, 3>{i, min(j, k), max(j, k)};
+      return arr<int, 3>{i, min(j, k), max(j, k)};
     else if (j <= i && j <= k)
-      return std::array<int, 3>{j, min(i, k), max(i, k)};
+      return arr<int, 3>{j, min(i, k), max(i, k)};
     else
-      return std::array<int, 3>{k, min(i, j), max(i, j)};
+      return arr<int, 3>{k, min(i, j), max(i, j)};
   }
 
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST int
@@ -118,7 +119,10 @@ public:
       : elts(x) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(vect<T, N> elts)
       : elts(std::move(elts)) {}
-  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(array<T, N> x)
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(arr<T, N> x)
+      : elts(std::move(x)) {}
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  gten3(std::array<T, N> x)
       : elts(std::move(x)) {}
   // explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(const
   // vector<T> &x) : elts(x) {} explicit constexpr ARITH_INLINE ARITH_DEVICE
@@ -164,9 +168,8 @@ public:
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<int, D, symm>
   iota() {
     gten3<int, D, symm> r;
-    gten3<int, D, symm>::loop([&](int i, int j, int k) {
-      r(i, j, k) = {i, j, k};
-    });
+    gten3<int, D, symm>::loop(
+        [&](int i, int j, int k) { r(i, j, k) = {i, j, k}; });
     return r;
   }
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<int, D, symm>
@@ -315,11 +318,11 @@ public:
   }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator==(const gten3 &x, const gten3 &y) {
+  operator==(const gten3 & x, const gten3 & y) {
     return all(x.elts == y.elts);
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator!=(const gten3 &x, const gten3 &y) {
+  operator!=(const gten3 & x, const gten3 & y) {
     return !(x == y);
   }
 

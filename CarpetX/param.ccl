@@ -481,6 +481,17 @@ BOOLEAN restrict_during_sync "Restrict fine to coarse grid functions when syncin
 
 
 
+KEYWORD timestep_choice "How to set the time step size"
+{
+  "timestep" :: "Set the time step `timestep` directly"
+  "dtfac"    :: "Set the time step factor `dtfac`"
+} "dtfac"
+
+CCTK_REAL timestep "The time step size"
+{
+  *:* :: ""
+} 0.5
+
 CCTK_REAL dtfac "The standard timestep condition dt = dtfac*min(delta_space)"
 {
   *:* :: ""
