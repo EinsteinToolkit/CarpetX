@@ -32,6 +32,7 @@ SRCS =							\
 	driver.cxx					\
 	fillpatch.cxx					\
 	interpolate.cxx					\
+    interp_cache.cxx \
 	io.cxx						\
 	io_adios2.cxx					\
 	io_meta.cxx					\

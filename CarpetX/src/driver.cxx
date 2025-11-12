@@ -3,6 +3,7 @@
 #include "boundaries.hxx"
 #include "fillpatch.hxx"
 #include "interp.hxx"
+#include "interp_cache.hxx"
 #include "io.hxx"
 #include "logo.hxx"
 #include "loop_device.hxx"
@@ -1174,6 +1175,10 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
   if (level >= int(level_modified.size()))
     level_modified.resize(level + 1, true);
   level_modified.at(level) = true;
+
+  // Invalidate interpolation cache when grid changes
+  InterpTargetCache::instance().invalidate();
+
   const active_levels_t active_levels(level, level + 1, patch, patch + 1);
 
   // Initialize data
@@ -1449,6 +1454,9 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   } // for gi
 
   level_modified.at(level) = true;
+
+  // Invalidate interpolation cache when grid changes
+  InterpTargetCache::instance().invalidate();
 
   if (verbose)
 #pragma omp critical
