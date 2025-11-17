@@ -7,6 +7,7 @@
 #include "logo.hxx"
 #include "loop_device.hxx"
 #include "prolongate_3d_rf2.hxx"
+#include "prolongate_star_3d_rf2.hxx"
 #include "schedule.hxx"
 #include "timer.hxx"
 
@@ -532,6 +533,34 @@ std::vector<CCTK_REAL> get_group_robin_values(const int gi) {
   return robin_values;
 }
 
+std::string get_group_prolongation_type_parameter(const int gi) {
+  DECLARE_CCTK_PARAMETERS;
+  assert(gi >= 0);
+  const int tags = CCTK_GroupTagsTableI(gi);
+  assert(tags >= 0);
+  char buf[1000];
+  int iret =
+      Util_TableGetString(tags, sizeof buf, buf, "prolongation_type_parameter");
+  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
+    // default: empty string
+    return "";
+  } else if (iret >= 0) {
+    const std::string value = buf;
+    const std::size_t colon = value.find("::");
+    assert(colon != std::string::npos);
+    const std::string name = value.substr(colon + 2);
+    const std::string thorn = value.substr(0, colon);
+    int type;
+    const void *const value_ptr =
+        CCTK_ParameterGet(name.c_str(), thorn.c_str(), &type);
+    assert(type == PARAMETER_STRING);
+    return *(const char**)value_ptr;
+  } else {
+    assert(0);
+  }
+  std::abort();
+}
+
 std::string get_group_prolongation_type(const int gi) {
   DECLARE_CCTK_PARAMETERS;
   assert(gi >= 0);
@@ -541,11 +570,43 @@ std::string get_group_prolongation_type(const int gi) {
   const int iret = Util_TableGetString(tags, group_prolongation_type_buf.size(),
                                        group_prolongation_type_buf.data(),
                                        "prolongation_type");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY)
-    return prolongation_type; // unset (use global default)
+  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
+    const std::string type = get_group_prolongation_type_parameter(gi);
+    if (type.empty())
+      return prolongation_type; // unset (use global default)
+    return type;
+  }
   assert(iret >= 0);
   const std::string group_prolongation_type(group_prolongation_type_buf.data());
   return group_prolongation_type;
+}
+
+int get_group_prolongation_order_parameter(const int gi) {
+  DECLARE_CCTK_PARAMETERS;
+  assert(gi >= 0);
+  const int tags = CCTK_GroupTagsTableI(gi);
+  assert(tags >= 0);
+  char buf[1000];
+  int iret = Util_TableGetString(tags, sizeof buf, buf,
+                                 "prolongation_order_parameter");
+  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
+    // default: -1
+    return -1;
+  } else if (iret >= 0) {
+    const std::string value = buf;
+    const std::size_t colon = value.find("::");
+    assert(colon != std::string::npos);
+    const std::string name = value.substr(colon + 2);
+    const std::string thorn = value.substr(0, colon);
+    int type;
+    const void *const value_ptr =
+        CCTK_ParameterGet(name.c_str(), thorn.c_str(), &type);
+    assert(type == PARAMETER_INT);
+    return *(const CCTK_INT *)value_ptr;
+  } else {
+    assert(0);
+  }
+  std::abort();
 }
 
 int get_group_prolongation_order(const int gi) {
@@ -557,8 +618,11 @@ int get_group_prolongation_order(const int gi) {
   int iret =
       Util_TableGetInt(tags, &group_prolongation_order, "prolongation_order");
   if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    // default: use driver parameter
-    group_prolongation_order = prolongation_order;
+    // fallback: look for a parameter that defines the order
+    group_prolongation_order = get_group_prolongation_order_parameter(gi);
+    if (group_prolongation_order < 0)
+      // default: use driver parameter
+      group_prolongation_order = prolongation_order;
   } else if (iret >= 0) {
     assert(iret == 1);
   } else {
@@ -570,6 +634,9 @@ int get_group_prolongation_order(const int gi) {
 amrex::Interpolater *get_interpolator(const std::string prolongation_type,
                                       const int prolongation_order,
                                       const std::array<int, dim> indextype) {
+  if (prolongation_type == "none")
+    return nullptr;
+
   const int indextype_scalar =
       (indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0);
 
@@ -594,6 +661,10 @@ amrex::Interpolater *get_interpolator(const std::string prolongation_type,
     operators = &prolongate_poly_cons3lfb_3d_rf2;
   else if (prolongation_type == "poly-eno3lfb")
     operators = &prolongate_poly_eno3lfb_3d_rf2;
+  else if (prolongation_type == "star-poly")
+    operators = &prolongate_star_poly_3d_rf2;
+  else if (prolongation_type == "star-cons")
+    operators = &prolongate_star_cons_3d_rf2;
   else
     CCTK_VERROR("Unsupported prolongation type %s", prolongation_type.c_str());
 
@@ -601,7 +672,17 @@ amrex::Interpolater *get_interpolator(const std::string prolongation_type,
     CCTK_VERROR("Unsupported prolongation order %d for prolongation type %s",
                 prolongation_order, prolongation_type.c_str());
 
-  return operators->at(prolongation_order).at(indextype_scalar);
+  amrex::Interpolater *const op =
+      operators->at(prolongation_order).at(indextype_scalar);
+  if (!op)
+    assert(0),
+        CCTK_VERROR(
+            "Unsupported index type [%d,%d,%d} for prolongation type %s, "
+            "prolongation order %d",
+            indextype[0], indextype[1], indextype[2], prolongation_type.c_str(),
+            prolongation_order);
+
+  return op;
 }
 
 amrex::Interpolater *
