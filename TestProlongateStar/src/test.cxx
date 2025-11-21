@@ -193,89 +193,84 @@ extern "C" void TestProlongateStar_Check(CCTK_ARGUMENTS) {
 
   // Skip testing too-high prolongation orders for conserved variables
   if (max({px, py, pz}) <= dens_prolongation_order) {
-    grid.loop_all<1, 1, 1>(
-        grid.nghostzones, [=] CCTK_DEVICE(const Loop::PointDesc &p) {
-          // Skip outer boundary points
-          if (maxabs(p.NI) != 0)
-            return;
+    grid.loop_all<1, 1, 1>(grid.nghostzones, [&](const Loop::PointDesc &p) {
+      // Skip outer boundary points
+      if (maxabs(p.NI) != 0)
+        return;
 
-          const CCTK_REAL x = ccoordx(p.I);
-          const CCTK_REAL y = ccoordy(p.I);
-          const CCTK_REAL z = ccoordz(p.I);
-          const CCTK_REAL goodval = consfun(x, y, z, dx, dy, dz, px, py, pz);
+      const CCTK_REAL x = ccoordx(p.I);
+      const CCTK_REAL y = ccoordy(p.I);
+      const CCTK_REAL z = ccoordz(p.I);
+      const CCTK_REAL goodval = consfun(x, y, z, dx, dy, dz, px, py, pz);
 
-          if (abs(dens(p.I) - goodval) > maxrelerr * abs(goodval)) {
-            CCTK_VERROR("dens p=[%d,%d,%d] i=[%d,%d,%d] x=[%.17g,%.17g,%.17g] "
-                        "expected=%.17g result=%.17g abserr=%.17g relerr=%.17g",
-                        px, py, pz, p.I[0], p.I[1], p.I[2], double(p.X[0]),
-                        double(p.X[1]), double(p.X[2]), double(goodval),
-                        double(dens(p.I)), double(abs(dens(p.I) - goodval)),
-                        double(abs((dens(p.I) - goodval)) / goodval));
-            found_error = true;
-          }
-        });
+      if (abs(dens(p.I) - goodval) > maxrelerr * abs(goodval)) {
+        CCTK_VERROR("dens p=[%d,%d,%d] i=[%d,%d,%d] x=[%.17g,%.17g,%.17g] "
+                    "expected=%.17g result=%.17g abserr=%.17g relerr=%.17g",
+                    px, py, pz, p.I[0], p.I[1], p.I[2], double(p.X[0]),
+                    double(p.X[1]), double(p.X[2]), double(goodval),
+                    double(dens(p.I)), double(abs(dens(p.I) - goodval)),
+                    double(abs((dens(p.I) - goodval)) / goodval));
+        found_error = true;
+      }
+    });
   }
 
   // Skip testing too-high prolongation orders for flux variables
   if (max({px, py, pz}) <= flux_prolongation_order) {
-    grid.loop_all_device<0, 1, 1>(
-        grid.nghostzones, [=] CCTK_DEVICE(const Loop::PointDesc &p) {
-          // Skip outer boundary points
-          if (maxabs(p.NI) != 0)
-            return;
+    grid.loop_all<0, 1, 1>(grid.nghostzones, [&](const Loop::PointDesc &p) {
+      // Skip outer boundary points
+      if (maxabs(p.NI) != 0)
+        return;
 
-          const CCTK_REAL x = p.X[0];
-          const CCTK_REAL y = p.X[1];
-          const CCTK_REAL z = p.X[2];
-          const CCTK_REAL goodval = fluxxfun(x, y, z, dx, dy, dz, px, py, pz);
+      const CCTK_REAL x = p.X[0];
+      const CCTK_REAL y = p.X[1];
+      const CCTK_REAL z = p.X[2];
+      const CCTK_REAL goodval = fluxxfun(x, y, z, dx, dy, dz, px, py, pz);
 
-          if (abs(flux_x(p.I) - goodval) > maxrelerr * abs(goodval)) {
-            CCTK_VERROR(
-                "flux_x p=[%d,%d,%d] i=[%d,%d,%d] x=[%.17g,%.17g,%.17g] "
-                "expected=%.17g result=%.17g abserr=%.17g relerr=%.17g",
-                px, py, pz, p.I[0], p.I[1], p.I[2], double(p.X[0]),
-                double(p.X[1]), double(p.X[2]), double(goodval),
-                double(flux_x(p.I)), double(abs(flux_x(p.I) - goodval)),
-                double(abs((flux_x(p.I) - goodval)) / goodval));
-            found_error = true;
-          }
-        });
+      if (abs(flux_x(p.I) - goodval) > maxrelerr * abs(goodval)) {
+        CCTK_VERROR("flux_x p=[%d,%d,%d] i=[%d,%d,%d] x=[%.17g,%.17g,%.17g] "
+                    "expected=%.17g result=%.17g abserr=%.17g relerr=%.17g",
+                    px, py, pz, p.I[0], p.I[1], p.I[2], double(p.X[0]),
+                    double(p.X[1]), double(p.X[2]), double(goodval),
+                    double(flux_x(p.I)), double(abs(flux_x(p.I) - goodval)),
+                    double(abs((flux_x(p.I) - goodval)) / goodval));
+        found_error = true;
+      }
+    });
 
-    grid.loop_all_device<1, 0, 1>(
-        grid.nghostzones, [=] CCTK_DEVICE(const Loop::PointDesc &p) {
-          // Skip outer boundary points
-          if (maxabs(p.NI) != 0)
-            return;
+    grid.loop_all<1, 0, 1>(grid.nghostzones, [&](const Loop::PointDesc &p) {
+      // Skip outer boundary points
+      if (maxabs(p.NI) != 0)
+        return;
 
-          const CCTK_REAL x = p.X[0];
-          const CCTK_REAL y = p.X[1];
-          const CCTK_REAL z = p.X[2];
-          const CCTK_REAL goodval = fluxyfun(x, y, z, dx, dy, dz, px, py, pz);
+      const CCTK_REAL x = p.X[0];
+      const CCTK_REAL y = p.X[1];
+      const CCTK_REAL z = p.X[2];
+      const CCTK_REAL goodval = fluxyfun(x, y, z, dx, dy, dz, px, py, pz);
 
-          if (abs(flux_y(p.I) - goodval) > maxrelerr * abs(goodval)) {
-            CCTK_VERROR("flux_y px=%d py=%d pz=%d expected=%.17g, result=%.17g",
-                        px, py, pz, double(goodval), double(flux_y(p.I)));
-            found_error = true;
-          }
-        });
+      if (abs(flux_y(p.I) - goodval) > maxrelerr * abs(goodval)) {
+        CCTK_VERROR("flux_y px=%d py=%d pz=%d expected=%.17g, result=%.17g", px,
+                    py, pz, double(goodval), double(flux_y(p.I)));
+        found_error = true;
+      }
+    });
 
-    grid.loop_all_device<1, 1, 0>(
-        grid.nghostzones, [=] CCTK_DEVICE(const Loop::PointDesc &p) {
-          // Skip outer boundary points
-          if (maxabs(p.NI) != 0)
-            return;
+    grid.loop_all<1, 1, 0>(grid.nghostzones, [&](const Loop::PointDesc &p) {
+      // Skip outer boundary points
+      if (maxabs(p.NI) != 0)
+        return;
 
-          const CCTK_REAL x = p.X[0];
-          const CCTK_REAL y = p.X[1];
-          const CCTK_REAL z = p.X[2];
-          const CCTK_REAL goodval = fluxzfun(x, y, z, dx, dy, dz, px, py, pz);
+      const CCTK_REAL x = p.X[0];
+      const CCTK_REAL y = p.X[1];
+      const CCTK_REAL z = p.X[2];
+      const CCTK_REAL goodval = fluxzfun(x, y, z, dx, dy, dz, px, py, pz);
 
-          if (abs(flux_z(p.I) - goodval) > maxrelerr * abs(goodval)) {
-            CCTK_VERROR("flux_z px=%d py=%d pz=%d expected=%.17g, result=%.17g",
-                        px, py, pz, double(goodval), double(flux_z(p.I)));
-            found_error = true;
-          }
-        });
+      if (abs(flux_z(p.I) - goodval) > maxrelerr * abs(goodval)) {
+        CCTK_VERROR("flux_z px=%d py=%d pz=%d expected=%.17g, result=%.17g", px,
+                    py, pz, double(goodval), double(flux_z(p.I)));
+        found_error = true;
+      }
+    });
   }
 }
 
