@@ -1,0 +1,7 @@
+# Main make.code.defn file for thorn TestSubcycling
+
+# Source files in this directory
+SRCS = subcycling.cxx
+
+# Subdirectories containing source files
+SUBDIRS = 
