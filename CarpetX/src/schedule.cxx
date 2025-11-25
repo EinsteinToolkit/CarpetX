@@ -1130,7 +1130,7 @@ int Initialise(tFleshConfig *config) {
     CCTK_Traverse(cctkGH, "CCTK_RECOVER_VARIABLES");
     CCTK_Traverse(cctkGH, "CCTK_POST_RECOVER_VARIABLES");
 
-    // Here we assume that all levels have catched up to the coarsed one when
+    // Here we assume that all levels have caught up to the coarsest one when
     // checkpointing.
     // TODO: checkpoint level.iteration instead.
     const int iteration_ratio = pow(2, ghext->num_levels() - 1);
@@ -1789,7 +1789,7 @@ int Evolve(tFleshConfig *config) {
         continue;
 
       // must not terminate loop iteration due to active_levels being reset at
-      // bootom of loop body
+      // bottom of loop body
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
       // Advance iteration number on this batch of levels
@@ -1821,7 +1821,8 @@ int Evolve(tFleshConfig *config) {
       for (int level = ghext->num_levels() - 2; level >= 0; --level)
         Reflux(cctkGH, level);
 
-      // reset active_levels to all that have caught to the same time
+      // reset active_levels to include all levels that have caught up to the
+      // current timestep
       for (int level = min_level - 1; level >= 0; --level) {
         rat64 coarse_iteration =
             ghext->patchdata.at(0).leveldata.at(level).iteration;
