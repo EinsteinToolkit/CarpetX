@@ -41,6 +41,7 @@ CarpetX::max_num_levels = 2
 IO::out_dir = $parfile
 IO::out_every = 1
 IO::parfile_write = no
+IO::out_fileinfo = "axis labels"
 
 CarpetX::out_adios2_every = 0
 CarpetX::out_silo_every = 0
