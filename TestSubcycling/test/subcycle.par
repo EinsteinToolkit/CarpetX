@@ -9,9 +9,9 @@ Cactus::presync_mode = "mixed-error"
 
 CarpetX::poison_undefined_values = yes
 
-CarpetX::ncells_x = 8
-CarpetX::ncells_y = 8
-CarpetX::ncells_z = 8
+CarpetX::ncells_x = 16
+CarpetX::ncells_y = 16
+CarpetX::ncells_z = 16
 
 Driver::periodic = "yes"
 Driver::periodic_x = yes
