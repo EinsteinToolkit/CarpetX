@@ -1057,6 +1057,11 @@ int Initialise(tFleshConfig *config) {
     CCTK_ERROR("CarpetX currently requires Cactus::presync_mode = "
                "\"mixed-error\" or \"presync-only\"");
 
+  // Check restrict_during_sync when use_subcycling_wip is on
+  if (use_subcycling_wip && restrict_during_sync)
+    CCTK_ERROR("CarpetX currently requires CarpetX::restrict_during_sync = "
+               "\"no\" when CarpetX::use_subcycling_wip = \"yes\"");
+
   // Initialise iteration and time
   cctkGH->cctk_iteration = 0;
   cctkGH->cctk_time = *static_cast<const CCTK_REAL *>(
