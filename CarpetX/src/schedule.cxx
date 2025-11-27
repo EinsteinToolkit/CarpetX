@@ -1149,7 +1149,7 @@ int Initialise(tFleshConfig *config) {
     // Here we assume that all levels have caught up to the coarsest one when
     // checkpointing.
     // TODO: checkpoint level.iteration instead.
-    const int iteration_ratio = pow(2, ghext->num_levels() - 1);
+    const int iteration_ratio = 1 << (ghext->num_levels() - 1);
     active_levels->loop_serially([&](auto &restrict leveldata) {
       leveldata.iteration = rat64(cctkGH->cctk_iteration) / iteration_ratio;
     });
@@ -1832,7 +1832,7 @@ int Evolve(tFleshConfig *config) {
       CycleTimelevels(cctkGH);
 
       cctkGH->cctk_timefac =
-          ghext->use_subcycling() ? std::pow(2, min_level) : 1;
+          ghext->use_subcycling() ? (1 << min_level) : 1;
       cctkGH->cctk_time =
           ghext->use_subcycling()
               ? cctkGH->cctk_delta_time * double(level_iteration)
