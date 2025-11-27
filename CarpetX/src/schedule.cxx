@@ -83,7 +83,7 @@ std::optional<active_levels_t> active_levels;
 void Reflux(const cGH *cctkGH, int level);
 void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups);
 void Restrict(const cGH *cctkGH, int level);
-void SyncAfterRestrict(const cGH *cctkGH);
+void SyncAndProlongate(const cGH *cctkGH);
 
 namespace {
 // Convert a (direction, face) pair to an AMReX Orientation
@@ -1386,7 +1386,7 @@ int Initialise(tFleshConfig *config) {
         Restrict(cctkGH, leveldata.level);
     });
     // Prolongation
-    SyncAfterRestrict(cctkGH);
+    SyncAndProlongate(cctkGH);
     CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
   }
 
@@ -1831,8 +1831,7 @@ int Evolve(tFleshConfig *config) {
 
       CycleTimelevels(cctkGH);
 
-      cctkGH->cctk_timefac =
-          ghext->use_subcycling() ? (1 << min_level) : 1;
+      cctkGH->cctk_timefac = ghext->use_subcycling() ? (1 << min_level) : 1;
       cctkGH->cctk_time =
           ghext->use_subcycling()
               ? cctkGH->cctk_delta_time * double(level_iteration)
@@ -1871,7 +1870,7 @@ int Evolve(tFleshConfig *config) {
         // Perform CCTK_POSTRESTRICT if the current level was restricted
         if (restricted) {
           // Prolongation
-          SyncAfterRestrict(cctkGH);
+          SyncAndProlongate(cctkGH);
           CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
         }
       }
@@ -2911,7 +2910,7 @@ void Restrict(const cGH *cctkGH, int level) {
   Restrict(cctkGH, level, groups);
 }
 
-void SyncAfterRestrict(const cGH *cctkGH) {
+void SyncAndProlongate(const cGH *cctkGH) {
   const int numgroups = CCTK_NumGroups();
   vector<int> groups;
   groups.reserve(numgroups);
