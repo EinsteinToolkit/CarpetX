@@ -1866,7 +1866,8 @@ int Evolve(tFleshConfig *config) {
             restricted = true;
           }
         });
-        // Perform CCTK_POSTRESTRICT if the current level was restricted
+        // Perform CCTK_POSTRESTRICT if the current batch of levels was
+        // restricted
         if (restricted) {
           // Prolongation
           SyncAndProlongate(cctkGH);
