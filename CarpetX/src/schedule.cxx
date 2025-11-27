@@ -1025,18 +1025,29 @@ std::vector<clause_t> decode_clauses(const cFunctionData *restrict attribute,
   return result;
 }
 
-CCTK_REAL get_mindx(const bool use_subcycling) {
-  CCTK_REAL mindx = 1.0 / 0.0;
+CCTK_REAL get_coarse_mindx() {
+  CCTK_REAL mindx = std::numeric_limits<CCTK_REAL>::infinity();
   for (const auto &patchdata : ghext->patchdata) {
     const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
     const CCTK_REAL *restrict const dx = geom.CellSize();
     CCTK_REAL mindx1 = 1.0 / 0.0;
     for (int d = 0; d < dim; ++d)
       mindx1 = fmin(mindx1, dx[d]);
-    mindx = fmin(mindx,
-                 (use_subcycling)
-                     ? mindx1
-                     : ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1)));
+    mindx = fmin(mindx, mindx1);
+  }
+  return mindx;
+}
+
+CCTK_REAL get_finest_mindx() {
+  CCTK_REAL mindx = std::numeric_limits<CCTK_REAL>::infinity();
+  for (const auto &patchdata : ghext->patchdata) {
+    const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
+    const CCTK_REAL *restrict const dx = geom.CellSize();
+    CCTK_REAL mindx1 = std::numeric_limits<CCTK_REAL>::infinity();
+    for (int d = 0; d < dim; ++d)
+      mindx1 = fmin(mindx1, dx[d]);
+    mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
+    mindx = fmin(mindx, mindx1);
   }
   return mindx;
 }
@@ -1153,7 +1164,9 @@ int Initialise(tFleshConfig *config) {
     if (CCTK_EQUALS(timestep_choice, "timestep")) {
       cctkGH->cctk_delta_time = timestep;
     } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
-      cctkGH->cctk_delta_time = dtfac * get_mindx(ghext->use_subcycling());
+      cctkGH->cctk_delta_time =
+          dtfac *
+          (ghext->use_subcycling() ? get_coarse_mindx() : get_finest_mindx());
     } else {
       abort();
     }
@@ -1181,7 +1194,9 @@ int Initialise(tFleshConfig *config) {
       if (CCTK_EQUALS(timestep_choice, "timestep")) {
         cctkGH->cctk_delta_time = timestep;
       } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
-        cctkGH->cctk_delta_time = dtfac * get_mindx(ghext->use_subcycling());
+        cctkGH->cctk_delta_time =
+            dtfac *
+            (ghext->use_subcycling() ? get_coarse_mindx() : get_finest_mindx());
       } else {
         abort();
       }
@@ -1333,7 +1348,8 @@ int Initialise(tFleshConfig *config) {
             cctkGH->cctk_delta_time = timestep;
           } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
             cctkGH->cctk_delta_time =
-                dtfac * get_mindx(ghext->use_subcycling());
+                dtfac * (ghext->use_subcycling() ? get_coarse_mindx()
+                                                 : get_finest_mindx());
           } else {
             abort();
           }
@@ -1738,7 +1754,9 @@ int Evolve(tFleshConfig *config) {
         if (CCTK_EQUALS(timestep_choice, "timestep")) {
           cctkGH->cctk_delta_time = timestep;
         } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
-          cctkGH->cctk_delta_time = dtfac * get_mindx(ghext->use_subcycling());
+          cctkGH->cctk_delta_time =
+              dtfac * (ghext->use_subcycling() ? get_coarse_mindx()
+                                               : get_finest_mindx());
         } else {
           abort();
         }
