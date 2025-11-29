@@ -587,10 +587,10 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     std::size_t old_nparticles = 0;
     std::set<int> oldids;
     {
-      const auto &levels = container.GetParticles();
+      const auto &levels = container->GetParticles();
       for (const auto &level : levels) {
         const int lev = int(&level - levels.data());
-        for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
+        for (amrex::ParConstIter<3, 2> pti(*container, lev); pti.isValid();
              ++pti) {
           const auto &particles = pti.GetArrayOfStructs();
           const int component = MFPointer(pti).index();
@@ -611,10 +611,10 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     std::size_t new_nparticles = 0;
     std::set<int> newids;
     {
-      const auto &levels = container.GetParticles();
+      const auto &levels = container->GetParticles();
       for (const auto &level : levels) {
         const int lev = int(&level - levels.data());
-        for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
+        for (amrex::ParConstIter<3, 2> pti(*container, lev); pti.isValid();
              ++pti) {
           const int component = MFPointer(pti).index();
           const auto &particles = pti.GetArrayOfStructs();
@@ -870,14 +870,14 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
                 comm);
 #ifdef CCTK_DEBUG
   // Check consistency of received ids
-  std::vector<bool> idxs(npoints, false);
-  for (int n = 0; n < npoints; ++n) {
-    const int offset = (nvars + 1) * n;
+  std::vector<bool> idxs(setup.npoints, false);
+  for (int n = 0; n < setup.npoints; ++n) {
+    const int offset = (setup.nvars + 1) * n;
     const int idx = int(recvbuf.at(offset));
     assert(!idxs.at(idx));
     idxs.at(idx) = true;
   }
-  for (int n = 0; n < npoints; ++n)
+  for (int n = 0; n < setup.npoints; ++n)
     assert(idxs.at(n));
 #endif
 
