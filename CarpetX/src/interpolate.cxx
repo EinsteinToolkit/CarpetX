@@ -434,11 +434,8 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     const CCTK_POINTER_TO_CONST cctkGH_, const CCTK_INT npoints,
     const CCTK_REAL *restrict const globalsx,
     const CCTK_REAL *restrict const globalsy,
-    const CCTK_REAL *restrict const globalsz, const CCTK_INT nvars,
-    const CCTK_INT *restrict const varinds,
-    const CCTK_INT *restrict const operations, const CCTK_INT allow_boundaries)
-    : npoints(npoints), nvars(nvars), varinds(varinds), operations(operations),
-      allow_boundaries(allow_boundaries) {
+    const CCTK_REAL *restrict const globalsz)
+    : npoints(npoints) {
   DECLARE_CCTK_PARAMETERS;
   const cGH *restrict const cctkGH = static_cast<const cGH *>(cctkGH_);
   assert(in_global_mode(cctkGH));
@@ -645,7 +642,10 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   }
 }
 
-void InterpolateFromSetup(const InterpolationSetup &setup,
+void InterpolateFromSetup(const InterpolationSetup &setup, const CCTK_INT nvars,
+                          const CCTK_INT *restrict const varinds,
+                          const CCTK_INT *restrict const operations,
+                          const CCTK_INT allow_boundaries,
                           const CCTK_POINTER resultptrs_) {
   DECLARE_CCTK_PARAMETERS;
 
@@ -658,12 +658,12 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
   struct givi_t {
     int gi, vi;
   };
-  std::vector<givi_t> givis(setup.nvars);
-  for (int v = 0; v < setup.nvars; ++v) {
-    int gi = CCTK_GroupIndexFromVarI(setup.varinds[v]);
+  std::vector<givi_t> givis(nvars);
+  for (int v = 0; v < nvars; ++v) {
+    int gi = CCTK_GroupIndexFromVarI(varinds[v]);
     assert(gi >= 0);
     assert(gi < CCTK_NumGroups());
-    int vi = setup.varinds[v] - CCTK_FirstVarIndexI(gi);
+    int vi = varinds[v] - CCTK_FirstVarIndexI(gi);
     assert(vi >= 0);
     assert(vi < CCTK_NumVarsInGroupI(gi));
     givis.at(v) = {gi, vi};
@@ -684,11 +684,11 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
 
-        std::vector<std::vector<CCTK_REAL> > varresults(setup.nvars);
+        std::vector<std::vector<CCTK_REAL> > varresults(nvars);
 
         // TODO: Don't re-calculate interpolation coefficients for each
         // variable
-        for (int v = 0; v < setup.nvars; ++v) {
+        for (int v = 0; v < nvars; ++v) {
           const int gi = givis.at(v).gi;
           const int vi = givis.at(v).vi;
           const auto &restrict groupdata = *leveldata.groupdata.at(gi);
@@ -699,7 +699,7 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
           const amrex::Array4<const CCTK_REAL> &vars =
               groupdata.mfab.at(tl)->array(pti);
           vect<int, dim> derivs;
-          int op = setup.operations[v];
+          int op = operations[v];
           while (op > 0) {
             const int dir = op % 10 - 1;
             if (dir >= 0) {
@@ -719,35 +719,35 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
             case 0: {
               const interpolator<CCTK_REAL, 0, 0b000> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
               const interpolator<CCTK_REAL, 1, 0b000> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
               const interpolator<CCTK_REAL, 2, 0b000> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
               const interpolator<CCTK_REAL, 3, 0b000> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
               const interpolator<CCTK_REAL, 4, 0b000> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
@@ -767,35 +767,35 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
             case 0: {
               const interpolator<CCTK_REAL, 0, 0b111> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
               const interpolator<CCTK_REAL, 1, 0b111> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
               const interpolator<CCTK_REAL, 2, 0b111> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
               const interpolator<CCTK_REAL, 3, 0b111> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
               const interpolator<CCTK_REAL, 4, 0b111> interp{
                   grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(setup.allow_boundaries)};
+                  level, vars, derivs, bool(allow_boundaries)};
               interp.interpolate3d(particles, varresult);
               break;
             }
@@ -821,7 +821,7 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
           const int id = particles[n].idata(1);
           auto &result = results.at(proc);
           result.push_back(id);
-          for (int v = 0; v < setup.nvars; ++v)
+          for (int v = 0; v < nvars; ++v)
             result.push_back(varresults.at(v).at(n));
         }
       }
@@ -872,7 +872,7 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
   // Check consistency of received ids
   std::vector<bool> idxs(setup.npoints, false);
   for (int n = 0; n < setup.npoints; ++n) {
-    const int offset = (setup.nvars + 1) * n;
+    const int offset = (nvars + 1) * n;
     const int idx = int(recvbuf.at(offset));
     assert(!idxs.at(idx));
     idxs.at(idx) = true;
@@ -884,12 +884,12 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
   // Set result
   CCTK_REAL *const restrict *const restrict resultptrs =
       static_cast<CCTK_REAL *const *>(resultptrs_);
-  if (int(recvbuf.size()) != (setup.nvars + 1) * setup.npoints)
+  if (int(recvbuf.size()) != (nvars + 1) * setup.npoints)
     CCTK_ERROR("Internal error");
   for (int n = 0; n < setup.npoints; ++n) {
-    const int offset = (setup.nvars + 1) * n;
+    const int offset = (nvars + 1) * n;
     const int idx = int(recvbuf.at(offset));
-    for (int v = 0; v < setup.nvars; ++v)
+    for (int v = 0; v < nvars; ++v)
       resultptrs[v][idx] = recvbuf.at(offset + 1 + v);
   }
 
@@ -902,9 +902,9 @@ void InterpolateFromSetup(const InterpolationSetup &setup,
 
   if (reflection_z) {
     // The code below is only valid for Psi4
-    assert(setup.nvars == 2);
-    assert(setup.varinds[0] == CCTK_VarIndex("Weyl::Psi4re"));
-    assert(setup.varinds[1] == CCTK_VarIndex("Weyl::Psi4im"));
+    assert(nvars == 2);
+    assert(varinds[0] == CCTK_VarIndex("Weyl::Psi4re"));
+    assert(varinds[1] == CCTK_VarIndex("Weyl::Psi4im"));
     // l^a = et^a + er^a
     // n^a = et^a - er^a
     // m^a = etheta^a + i ephi^a
@@ -928,9 +928,10 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
                                     const CCTK_INT *restrict const operations,
                                     const CCTK_INT allow_boundaries,
                                     const CCTK_POINTER resultptrs_) {
-  const InterpolationSetup setup(cctkGH_, npoints, globalsx, globalsy, globalsz,
-                                 nvars, varinds, operations, allow_boundaries);
-  InterpolateFromSetup(setup, resultptrs_);
+  const InterpolationSetup setup(cctkGH_, npoints, globalsx, globalsy,
+                                 globalsz);
+  InterpolateFromSetup(setup, nvars, varinds, operations, allow_boundaries,
+                       resultptrs_);
 }
 
 } // namespace CarpetX
