@@ -3,6 +3,13 @@
 
 #include <cctk.h>
 
+#include <AMReX_AmrParticles.H>
+#include <AMReX_Particles.H>
+
+#include <vector>
+#include <array>
+#include <memory>
+
 // Scheduled functions
 extern "C" int CarpetX_InterpGridArrays(
     cGH const *const cGH, int const N_dims, int const local_interp_handle,
@@ -23,6 +30,38 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
     CCTK_POINTER const output_arrays[]);
 
 namespace CarpetX {
+
+// Create a cache of data required for interpolation
+struct InterpolationSetup {
+  using Container = amrex::AmrParticleContainer<3, 2>;
+  using Particle = Container::ParticleType;
+  using PinnedParticleTile = amrex::ParticleContainer_impl<
+      Particle, 0, 0, amrex::PinnedArenaAllocator>::ParticleTileType;
+  using ParticleTile = Container::ParticleTileType;
+
+  const CCTK_INT npoints{0};
+  const CCTK_INT nvars{0};
+  const CCTK_INT *restrict const varinds{nullptr};
+  const CCTK_INT *restrict const operations{nullptr};
+  const CCTK_INT allow_boundaries{0};
+
+  std::vector<char> symmetry_reflected_z;
+  std::vector<std::shared_ptr<Container> > containers{};
+
+  InterpolationSetup(const CCTK_POINTER_TO_CONST cctkGH_,
+                     const CCTK_INT npoints,
+                     const CCTK_REAL *restrict const globalsx,
+                     const CCTK_REAL *restrict const globalsy,
+                     const CCTK_REAL *restrict const globalsz,
+                     const CCTK_INT nvars,
+                     const CCTK_INT *restrict const varinds,
+                     const CCTK_INT *restrict const operations,
+                     const CCTK_INT allow_boundaries);
+};
+
+void InterpolateFromSetup(const InterpolationSetup &setup,
+                          const CCTK_POINTER resultptrs_);
+
 // a dummy routine for now
 // TODO: implement this for actual local interpolation
 int InterpLocalUniform(int N_dims, int param_table_handle,
