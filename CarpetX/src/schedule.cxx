@@ -1811,8 +1811,6 @@ int Evolve(tFleshConfig *config) {
       if (level_iteration > iteration)
         continue;
 
-      // must not terminate loop iteration due to active_levels being reset at
-      // bottom of loop body
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
       // Advance iteration number on this batch of levels
@@ -1883,8 +1881,10 @@ int Evolve(tFleshConfig *config) {
       const double output_finish_time = gettime();
       total_evolution_output_time += output_finish_time - output_start_time;
 
-      active_levels = optional<active_levels_t>();
     } // for min_level, max_level
+
+    // Mark all levels inactive
+    active_levels = optional<active_levels_t>();
 
     const double waiting_start_time = gettime();
     MPI_Barrier(MPI_COMM_WORLD);
