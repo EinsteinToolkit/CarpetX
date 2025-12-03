@@ -214,7 +214,7 @@ void poison_invalid_gf(const active_levels_t &active_levels, const int gi,
 // Poison arrays
 void poison_invalid_ga(const int gi, const int vi, const int tl) {
   DECLARE_CCTK_PARAMETERS;
-  if (!poison_undefined_values)
+  if (!poison_undefined_arrays)
     return;
 
   static Timer timer("poison_invalid<GA>");
@@ -477,7 +477,7 @@ void check_valid_ga(const int gi, const int vi, const int tl,
                     const nan_handling_t nan_handling1,
                     const std::function<std::string()> &msg) {
   DECLARE_CCTK_PARAMETERS;
-  if (!poison_undefined_values)
+  if (!poison_undefined_arrays)
     return;
 
   static Timer timer("check_valid<GA>");
