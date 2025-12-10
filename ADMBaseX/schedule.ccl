@@ -14,6 +14,16 @@ if (CCTK_IsThornActive("ODESolvers")) {
   {
   } "Schedule group for modifying the ADM initial data, such as e.g. adding noise"
 
+  if(use_subcycling_wip) {
+    SCHEDULE GROUP ADMBaseX_SetADMVars IN ODESolvers_PostSubStep
+    {
+    } "Set ADM variables in this group"
+
+    SCHEDULE GROUP ADMBaseX_SetADMRHS IN ODESolvers_PostSubStep
+    {
+    } "Set ADM RHS variables in this group"
+  }
+
   SCHEDULE GROUP ADMBaseX_SetADMVars IN ODESolvers_PostStep
   {
   } "Set ADM variables in this group"

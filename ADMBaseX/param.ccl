@@ -51,3 +51,6 @@ CCTK_REAL noise_amplitude "Noise amplitude"
 {
   0.0:* :: ""
 } 0.0
+
+SHARES: Driver
+USES BOOLEAN use_subcycling_wip

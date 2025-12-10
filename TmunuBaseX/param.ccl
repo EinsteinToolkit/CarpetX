@@ -1,1 +1,4 @@
 # Parameter definitions for thorn TmunuBaseX
+
+SHARES: Driver
+USES BOOLEAN use_subcycling_wip
