@@ -1,0 +1,11 @@
+# Parameter definitions for thorn DGCoordinatesX
+
+RESTRICTED:
+
+CCTK_INT dg_npoints "Discontinuous Galerkin number of collocation points"
+{
+  2 :: ""
+  3 :: ""
+  4 :: ""
+  8 :: ""
+} 2
