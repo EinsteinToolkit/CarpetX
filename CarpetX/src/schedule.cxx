@@ -83,7 +83,7 @@ std::optional<active_levels_t> active_levels;
 void Reflux(const cGH *cctkGH, int level);
 void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups);
 void Restrict(const cGH *cctkGH, int level);
-void SyncAndProlongate(const cGH *cctkGH);
+void FullSync(const cGH *cctkGH);
 
 namespace {
 // Convert a (direction, face) pair to an AMReX Orientation
@@ -1389,7 +1389,7 @@ int Initialise(tFleshConfig *config) {
         Restrict(cctkGH, leveldata.level);
     });
     // Prolongation
-    SyncAndProlongate(cctkGH);
+    FullSync(cctkGH);
     CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
   }
 
@@ -1872,7 +1872,7 @@ int Evolve(tFleshConfig *config) {
         active_levels->loop_fine_to_coarse(
             [&](const auto &leveldata) { Restrict(cctkGH, leveldata.level); });
         // Prolongation
-        SyncAndProlongate(cctkGH);
+        FullSync(cctkGH);
         CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
       }
 
@@ -2913,7 +2913,7 @@ void Restrict(const cGH *cctkGH, int level) {
   Restrict(cctkGH, level, groups);
 }
 
-void SyncAndProlongate(const cGH *cctkGH) {
+void FullSync(const cGH *cctkGH) {
   const int numgroups = CCTK_NumGroups();
   vector<int> groups;
   groups.reserve(numgroups);
