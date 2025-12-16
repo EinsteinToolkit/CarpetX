@@ -5,7 +5,8 @@ STORAGE: iteration
 schedule TestSubcycling_Init AT INITIAL
 {
   LANG: C
-  WRITES: iteration(everywhere)
+  WRITES: iteration(interior)
+  SYNC: iteration
 } "initialize test grid function"
 
 schedule TestSubcycling_Update AT EVOL
