@@ -1168,6 +1168,7 @@ int Initialise(tFleshConfig *config) {
           dtfac *
           (ghext->use_subcycling() ? get_coarse_mindx() : get_finest_mindx());
     } else {
+      CCTK_ERROR("Unsupported value for 'timestep_choice'");
       abort();
     }
     assert(isfinite(cctkGH->cctk_delta_time));
@@ -1198,6 +1199,7 @@ int Initialise(tFleshConfig *config) {
             dtfac *
             (ghext->use_subcycling() ? get_coarse_mindx() : get_finest_mindx());
       } else {
+        CCTK_ERROR("Unsupported value for 'timestep_choice'");
         abort();
       }
       assert(isfinite(cctkGH->cctk_delta_time));
@@ -1351,6 +1353,7 @@ int Initialise(tFleshConfig *config) {
                 dtfac * (ghext->use_subcycling() ? get_coarse_mindx()
                                                  : get_finest_mindx());
           } else {
+            CCTK_ERROR("Unsupported value for 'timestep_choice'");
             abort();
           }
           assert(isfinite(cctkGH->cctk_delta_time));
@@ -1757,6 +1760,7 @@ int Evolve(tFleshConfig *config) {
               dtfac * (ghext->use_subcycling() ? get_coarse_mindx()
                                                : get_finest_mindx());
         } else {
+          CCTK_ERROR("Unsupported value for 'timestep_choice'");
           abort();
         }
         assert(isfinite(cctkGH->cctk_delta_time));
