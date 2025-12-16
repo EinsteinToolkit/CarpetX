@@ -1752,6 +1752,12 @@ int Evolve(tFleshConfig *config) {
       }
     } // Regrid
 
+    rat64 delta_iteration =
+        ghext->patchdata.at(0).leveldata.at(0).delta_iteration;
+    for (const auto &patchdata : ghext->patchdata)
+      for (const auto &leveldata : patchdata.leveldata)
+        delta_iteration = min(delta_iteration, leveldata.delta_iteration);
+
     cctkGH->cctk_iteration += 1;
 
     // Loop over all levels, in batches that combine levels that don't
@@ -1833,21 +1839,15 @@ int Evolve(tFleshConfig *config) {
       }
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
-      if (!restrict_during_sync) {
-        bool restricted = false;
+      if ((!restrict_during_sync) &&
+          (ghext->patchdata.at(0).leveldata.at(max_level - 1).delta_iteration ==
+           delta_iteration)) {
         // Restrict
-        active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
-          if (leveldata.level + 1 < active_levels->max_level) {
-            Restrict(cctkGH, leveldata.level);
-            restricted = true;
-          }
-        });
-        // Perform actions if the current level was restricted
-        if (restricted) {
-          // Prolongation
-          SyncAfterRestrict(cctkGH);
-          CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
-        }
+        active_levels->loop_fine_to_coarse(
+            [&](const auto &leveldata) { Restrict(cctkGH, leveldata.level); });
+        // Prolongation
+        SyncAfterRestrict(cctkGH);
+        CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
       }
 
       CCTK_Traverse(cctkGH, "CCTK_POSTSTEP");
@@ -2153,7 +2153,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     const std::vector<clause_t> &writes =
         decode_clauses(attribute, rdwr_t::write);
     const int numgroups = CCTK_NumGroups();
-    std::vector<std::vector<std::vector<valid_t> > > gfs(numgroups);
+    std::vector<std::vector<std::vector<valid_t>>> gfs(numgroups);
     for (int gi = 0; gi < numgroups; ++gi) {
       const int numvars = CCTK_NumVarsInGroupI(gi);
       gfs.at(gi).resize(numvars);
