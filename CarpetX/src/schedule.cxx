@@ -1886,7 +1886,7 @@ int Evolve(tFleshConfig *config) {
 
     } // for min_level, max_level
 
-    // Mark all levels inactive
+    // Mark all levels inactive now that we are done processing a time step
     active_levels = optional<active_levels_t>();
 
     const double waiting_start_time = gettime();
