@@ -238,7 +238,8 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
 
 void WriteTSVGFs(const cGH *restrict cctkGH, const std::string &filename,
                  const int gi, const vect<bool, dim> &outdirs,
-                 const vect<CCTK_REAL, dim> &outcoords) {
+                 const vect<CCTK_REAL, dim> &outcoords,
+                 bool include_boundaries) {
   const auto &groupdata0 =
       *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
 
@@ -313,8 +314,8 @@ void WriteTSVGFs(const cGH *restrict cctkGH, const std::string &filename,
         for (int d = 0; d < dim; ++d) {
           if (outdirs[d]) {
             // output everything
-            imin[d] = varmin[d];
-            imax[d] = varmax[d];
+            imin[d] = varmin[d] + !include_boundaries * nghosts[d];
+            imax[d] = varmax[d] - !include_boundaries * nghosts[d];
           } else if (icoord[d] >= varmin[d] && icoord[d] < varmax[d]) {
             // output one point
             imin[d] = icoord[d];
@@ -509,11 +510,11 @@ void OutputTSV(const cGH *restrict cctkGH) {
         break;
       case CCTK_GF:
         WriteTSVGFs(cctkGH, basename + ".x.tsv", gi, {true, false, false},
-                    {0, out_xline_y, out_xline_z});
+                    {0, out_xline_y, out_xline_z}, out_tsv_boundaries);
         WriteTSVGFs(cctkGH, basename + ".y.tsv", gi, {false, true, false},
-                    {out_yline_x, 0, out_yline_z});
+                    {out_yline_x, 0, out_yline_z}, out_tsv_boundaries);
         WriteTSVGFs(cctkGH, basename + ".z.tsv", gi, {false, false, true},
-                    {out_zline_x, out_zline_y, 0});
+                    {out_zline_x, out_zline_y, 0}, out_tsv_boundaries);
         break;
       default:
         assert(0);

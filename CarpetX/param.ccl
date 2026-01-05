@@ -680,6 +680,9 @@ INT out_tsv_every "Output in TSV format every that many iterations" STEERABLE=al
   1:* :: "every that many iterations"
 } -1
 
+BOOLEAN out_tsv_boundaries "Output boundaries in 1d TSV files" STEERABLE=always
+{
+} yes
 
 
 SHARES: Cactus
