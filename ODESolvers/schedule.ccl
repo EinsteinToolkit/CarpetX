@@ -7,12 +7,13 @@ SCHEDULE ODESolvers_InitConstants AT WRAGH
   LANG: C
   OPTIONS: global
 
-  WRITES: do_substeps
-} "Set up dummy loop counters for schedule printout"
+  WRITES: do_substeps, substep_counter
+} "Set up dummy loop counters for schedule printout and substep counter"
 
 SCHEDULE ODESolvers_Solve AT evol
 {
   LANG: C
+  WRITES: substep_counter
   OPTIONS: level
 } "Solve ODEs"
 

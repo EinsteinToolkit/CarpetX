@@ -14,3 +14,13 @@ REQUIRES FUNCTION CallScheduleGroup
 # these are *always* 0 (false) so that the groups do not execute
 # TODO: this does not handle "IMEX122" yet
 CCTK_INT do_substeps TYPE=SCALAR TAGS='checkpoint="no"' "Dummy condition used to generate schedule printouts"
+
+# On a time integrator that has substeps (RK methods), this variable counts
+# which substep is currently being executed.
+#
+# Value | meaning
+#  0    | Not doing a substep
+#  >=1  | Evaluating substep >= 1
+#
+# On time integrators that do not have any substeps, the counter is negative
+CCTK_INT substep_counter TYPE=SCALAR TAGS='checkpoint="no"' "Counts which substep the time integrator is running"

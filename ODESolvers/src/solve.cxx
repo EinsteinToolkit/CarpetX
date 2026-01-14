@@ -671,6 +671,7 @@ extern "C" void ODESolvers_InitConstants(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   *do_substeps = 0;
+  *substep_counter = 0;
 }
 
 extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
@@ -776,12 +777,17 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     return var.copy(where);
   };
   const auto calcrhs = [&](const int n) {
+    #pragma omp critical
+    {
+      *substep_counter = n;
+    }   
+
     Interval interval_rhs(timer_rhs);
     if (verbose)
       CCTK_VINFO("Calculating RHS #%d at t=%g", n, double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
     rhs.check_valid(make_valid_int(),
-                    "ODESolvers after calling ODESolvers_RHS");
+                    "ODESolvers after calling ODESolvers_RHS");                 
   };
   // t = t_0 + c
   // var = a_0 * var + \Sum_i a_i * var_i
@@ -1206,6 +1212,12 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   // Reset current time
   *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = saved_time;
+
+  // Reset substep counte
+  #pragma omp critical
+  {
+    *substep_counter = 0;
+  }   
 
   // TODO: Update time here, and not during time level cycling in the driver
 }
