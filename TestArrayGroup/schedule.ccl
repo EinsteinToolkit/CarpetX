@@ -1,19 +1,23 @@
 # Schedule definitions for thorn CarpetX
 
+STORAGE: test_scalar test_array test_gf
+STORAGE: test_scalar_int test_array_int
+STORAGE: test_scalar_complex test_array_complex
+
 SCHEDULE TestArrayGroup_Initialize AT Initial
 {
   LANG: C
-  WRITES: test_scalar(everywhere)
-  WRITES: test_array(everywhere)
-  WRITES: test_gf(everywhere)
+  WRITES: test_scalar(everywhere) test_array(everywhere) test_gf(everywhere)
+  WRITES: test_scalar_int(everywhere) test_array_int(everywhere)
+  WRITES: test_scalar_complex(everywhere) test_array_complex(everywhere)
 } "Initialize data in grid functions, scalars, and distrib=const arrays"
 
 SCHEDULE TestArrayGroup_Compare AT PostInitial
 {
   LANG: C
-  READS: test_scalar(everywhere)
-  READS: test_array(everywhere)
-  READS: test_gf(everywhere)
+  READS: test_scalar(everywhere) test_array(everywhere) test_gf(everywhere)
+  READS: test_scalar_int(everywhere) test_array_int(everywhere)
+  READS: test_scalar_complex(everywhere) test_array_complex(everywhere)
 } "Test data in grid functions, scalars, and distrib=const arrays"
 
 SCHEDULE TestArrayGroup_CompareF AT PostInitial
@@ -21,8 +25,9 @@ SCHEDULE TestArrayGroup_CompareF AT PostInitial
   LANG: Fortran
   # no local support so far
   OPTION: global
-  READS: test_scalar(everywhere)
-  READS: test_array(everywhere)
+  READS: test_scalar(everywhere) test_array(everywhere)
+  READS: test_scalar_int(everywhere) test_array_int(everywhere)
+  READS: test_scalar_complex(everywhere) test_array_complex(everywhere)
 } "Test data in grid scalars and distrib=const arrays"
 
 SCHEDULE TestArrayGroup_DynamicData AT PostInitial
@@ -35,6 +40,13 @@ SCHEDULE TestArrayGroup_DynamicDataF AT PostInitial
   LANG: Fortran
   # no local support so far
   OPTION: global
-  READS: test_scalar(everywhere)
-  READS: test_array(everywhere)
+  READS: test_scalar(everywhere) test_array(everywhere)
+  READS: test_scalar_int(everywhere) test_array_int(everywhere)
+  READS: test_scalar_complex(everywhere) test_array_complex(everywhere)
 } "Test DynamicData for Fortran scalars, and distrib=const arrays"
+
+SCHEDULE TestArrayGroup_Terminate AT Terminate
+{
+  LANG: C
+  OPTION: meta
+} "Set exit code based on test results"

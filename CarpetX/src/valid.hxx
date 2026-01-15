@@ -8,6 +8,7 @@
 #include <yaml-cpp/yaml.h>
 #include <zlib.h>
 
+#include <cstdint>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -226,6 +227,71 @@ checksums_t calculate_checksums(
     const std::vector<std::vector<std::vector<valid_t> > > &will_write);
 void check_checksums(const checksums_t &checksums,
                      const std::function<std::string()> &where);
+
+////////////////////////////////////////////////////////////////////////////////
+
+template <typename T> struct ipoison_t;
+
+template <> struct ipoison_t<CCTK_COMPLEX> {
+#if defined CCTK_REAL_PRECISION_4
+  const std::uint32_t value[2] = {0xffc00000UL + 0xdead, 0xffc00000UL + 0xdead};
+#elif defined CCTK_REAL_PRECISION_8
+  const std::uint64_t value[2] = {0xfff8000000000000ULL + 0xdeadbeef,
+                                  0xfff8000000000000ULL + 0xdeadbeef};
+#endif
+  static_assert(sizeof value == sizeof(CCTK_COMPLEX));
+};
+
+template <> struct ipoison_t<CCTK_REAL> {
+#if defined CCTK_REAL_PRECISION_4
+  const std::uint32_t value[1] = {0xffc00000UL + 0xdead};
+#elif defined CCTK_REAL_PRECISION_8
+  const std::uint64_t value[1] = {0xfff8000000000000ULL + 0xdeadbeef};
+#endif
+  static_assert(sizeof value == sizeof(CCTK_REAL));
+};
+
+template <> struct ipoison_t<CCTK_INT> {
+  const std::uint32_t value[1] = {0xdeadbeef};
+  static_assert(sizeof value == sizeof(CCTK_INT));
+};
+
+template <typename T> class poison_value_t {
+public:
+  poison_value_t() = default;
+
+  CCTK_HOST CCTK_DEVICE bool is_poison(const T &val) const {
+    // no memcmp on CUDA :-(
+    // return std::memcmp(&val, &ipoison.value, sizeof(val)) == 0;
+
+    typedef decltype(ipoison.value) array_type;
+    typedef typename std::remove_extent<array_type>::type const_type;
+    const size_t array_size = std::extent<array_type>::value;
+
+    const_type *ival = reinterpret_cast<const_type *>(&val);
+    bool retval = false;
+    for (size_t i = 0; i < array_size; ++i)
+      if (ival[i] == ipoison.value[i])
+        retval = true;
+    return retval;
+  }
+
+  void set_to_poison(T &val) const {
+    std::memcpy(static_cast<void *>(&val), &ipoison.value, sizeof(val));
+  }
+
+  void set_to_poison(void *val, size_t count) const {
+    set_to_poison(reinterpret_cast<T *>(val), count);
+  }
+
+  void set_to_poison(T *val, size_t count) const {
+    for (size_t i = 0; i < count; ++i)
+      set_to_poison(val[i]);
+  }
+
+private:
+  const ipoison_t<T> ipoison;
+};
 
 } // namespace CarpetX
 

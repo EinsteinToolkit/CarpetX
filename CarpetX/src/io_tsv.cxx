@@ -136,6 +136,9 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const std::string &filename,
     return;
 
   const auto &arraygroupdata = *ghext->globaldata.arraygroupdata.at(gi);
+  cGroup cgroup;
+  const int ierr = CCTK_GroupData(gi, &cgroup);
+  assert(!ierr);
 
   std::vector<std::string> varnames;
   for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
@@ -152,14 +155,22 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const std::string &filename,
   file << "# 1:iteration" << sep << "2:time";
   int col = 3;
   for (const auto &varname : varnames)
-    file << sep << col++ << ":" << varname;
+    if (cgroup.vartype == CCTK_VARIABLE_REAL ||
+        cgroup.vartype == CCTK_VARIABLE_INT)
+      file << sep << col++ << ":" << varname;
+    else if (cgroup.vartype == CCTK_VARIABLE_COMPLEX) {
+      file << sep << col++ << ":" << varname << ".real";
+      file << sep << col++ << ":" << varname << ".imag";
+    } else
+      assert(0 && "Unexpected variable type");
   file << "\n";
 
   // Output data
   file << cctkGH->cctk_iteration << sep << cctkGH->cctk_time;
   const int tl = 0;
+  const auto &data = arraygroupdata.data.at(tl);
   for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
-    file << sep << arraygroupdata.data.at(tl).at(vi);
+    file << sep << data[vi];
   file << "\n";
 }
 
@@ -170,6 +181,9 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
     return;
 
   const auto &arraygroupdata = *ghext->globaldata.arraygroupdata.at(gi);
+  cGroup cgroup;
+  const int ierr = CCTK_GroupData(gi, &cgroup);
+  assert(!ierr);
 
   if (out_dir >= arraygroupdata.dimension)
     return;
@@ -193,7 +207,14 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
     file << sep << col++ << ":"
          << "ijk"[dir];
   for (const auto &varname : varnames)
-    file << sep << col++ << ":" << varname;
+    if (cgroup.vartype == CCTK_VARIABLE_REAL ||
+        cgroup.vartype == CCTK_VARIABLE_INT)
+      file << sep << col++ << ":" << varname;
+    else if (cgroup.vartype == CCTK_VARIABLE_COMPLEX) {
+      file << sep << col++ << ":" << varname << ".real";
+      file << sep << col++ << ":" << varname << ".imag";
+    } else
+      assert(0 && "Unexpected variable type");
   file << "\n";
 
   constexpr int di = 1;
@@ -208,8 +229,9 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
     for (int dir = 0; dir < arraygroupdata.dimension; ++dir)
       file << sep << (dir == out_dir ? i : 0);
     const int tl = 0;
+    const auto &data = arraygroupdata.data.at(tl);
     for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
-      file << sep << arraygroupdata.data.at(tl).at(np * vi + DI[out_dir] * i);
+      file << sep << data[np * vi + DI[out_dir] * i];
     file << "\n";
   }
 }

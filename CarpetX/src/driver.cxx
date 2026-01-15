@@ -1,3 +1,4 @@
+#pragma GCC optimize("O0")
 #include "driver.hxx"
 
 #include "boundaries.hxx"
@@ -1783,7 +1784,6 @@ void SetupGlobals() {
     if (group.grouptype == CCTK_GF)
       continue;
     assert(group.grouptype == CCTK_ARRAY || group.grouptype == CCTK_SCALAR);
-    assert(group.vartype == CCTK_VARIABLE_REAL);
     assert(group.disttype == CCTK_DISTRIB_CONSTANT);
     assert(group.dim >= 0);
     assert(group.dim <= dim);
@@ -1834,9 +1834,8 @@ void SetupGlobals() {
     arraygroupdata.data.resize(group.numtimelevels);
     arraygroupdata.valid.resize(group.numtimelevels);
     for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
-      // TODO: Allocate in managed memory
-      arraygroupdata.data.at(tl).resize(arraygroupdata.numvars *
-                                        arraygroupdata.array_size);
+      arraygroupdata.data.at(tl).alloc(
+          group.vartype, arraygroupdata.numvars * arraygroupdata.array_size);
       why_valid_t why([]() { return "SetupGlobals"; });
       arraygroupdata.valid.at(tl).resize(arraygroupdata.numvars, why);
       for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
@@ -2291,6 +2290,28 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml, const amrex::AmrCore &amrcore) {
 } // namespace amrex
 namespace CarpetX {
 
+std::ostream &
+operator<<(std::ostream &os,
+           const GHExt::GlobalData::AnyTypeVector::AnyTypeScalarRef &scalar) {
+  const char sep = '\t';
+  switch (scalar._vect.type()) {
+  case CCTK_VARIABLE_REAL:
+    os << *(CCTK_REAL *)scalar._vect.data_at(scalar._idx);
+    break;
+  case CCTK_VARIABLE_INT:
+    os << *(CCTK_INT *)scalar._vect.data_at(scalar._idx);
+    break;
+  case CCTK_VARIABLE_COMPLEX: {
+    CCTK_COMPLEX value = *(CCTK_COMPLEX *)scalar._vect.data_at(scalar._idx);
+    os << value.real() << sep << value.imag();
+  } break;
+  default:
+    assert(0 && "Unexpected variable type");
+    break;
+  }
+  return os;
+}
+
 YAML::Emitter &operator<<(YAML::Emitter &yaml,
                           const GHExt::CommonGroupData &commongroupdata) {
   yaml << YAML::LocalTag("commongroupdata-1.0.0");
@@ -2309,6 +2330,47 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml,
        << commongroupdata.do_restrict;
   yaml << YAML::Key << "valid" << YAML::Value << commongroupdata.valid;
   yaml << YAML::EndMap;
+  return yaml;
+}
+
+YAML::Emitter &operator<<(YAML::Emitter &yaml, const CCTK_COMPLEX &cval) {
+  yaml << YAML::Flow << YAML::BeginSeq << cval.real() << cval.imag()
+       << YAML::EndSeq;
+  return yaml;
+};
+
+YAML::Emitter &
+operator<<(YAML::Emitter &yaml,
+           const GHExt::GlobalData::AnyTypeVector::AnyTypeScalarRef
+               &anytypescalarref) {
+  switch (anytypescalarref._vect.type()) {
+  case CCTK_VARIABLE_COMPLEX:
+    yaml << *(const CCTK_COMPLEX *)anytypescalarref._vect.data_at(
+        anytypescalarref._idx);
+    break;
+  case CCTK_VARIABLE_REAL:
+    yaml << *(const CCTK_REAL *)anytypescalarref._vect.data_at(
+        anytypescalarref._idx);
+    break;
+  case CCTK_VARIABLE_INT:
+    yaml << *(const CCTK_INT *)anytypescalarref._vect.data_at(
+        anytypescalarref._idx);
+    break;
+  default:
+    // missed to implement a type
+    CCTK_VERROR("Cannot handle type %d", anytypescalarref._vect.type());
+    break;
+  }
+  return yaml;
+}
+
+YAML::Emitter &
+operator<<(YAML::Emitter &yaml,
+           const GHExt::GlobalData::AnyTypeVector &anytypevector) {
+  yaml << YAML::BeginSeq;
+  for (size_t i = 0; i < anytypevector.size(); ++i)
+    yaml << anytypevector[i];
+  yaml << YAML::EndSeq;
   return yaml;
 }
 

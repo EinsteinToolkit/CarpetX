@@ -9,3 +9,13 @@ CCTK_REAL sc TYPE=scalar
 CCTK_REAL a1 TYPE=array DISTRIB=constant DIM=1 SIZE=10
 CCTK_REAL a2 TYPE=array DISTRIB=constant DIM=2 SIZE=9,8
 CCTK_REAL a3 TYPE=array DISTRIB=constant DIM=3 SIZE=7,6,5
+
+CCTK_INT sc_int TYPE=scalar
+CCTK_INT a1_int TYPE=array DISTRIB=constant DIM=1 SIZE=10
+CCTK_INT a2_int TYPE=array DISTRIB=constant DIM=2 SIZE=9,8
+CCTK_INT a3_int TYPE=array DISTRIB=constant DIM=3 SIZE=7,6,5
+
+CCTK_COMPLEX sc_complex TYPE=scalar
+CCTK_COMPLEX a1_complex TYPE=array DISTRIB=constant DIM=1 SIZE=10
+CCTK_COMPLEX a2_complex TYPE=array DISTRIB=constant DIM=2 SIZE=9,8
+CCTK_COMPLEX a3_complex TYPE=array DISTRIB=constant DIM=3 SIZE=7,6,5

@@ -121,7 +121,9 @@ template <typename T, int D> struct combine {
 };
 
 typedef reduction<CCTK_REAL, dim> reduction_CCTK_REAL;
+#ifndef __NVCOMPILER
 #pragma omp declare reduction(reduction:reduction_CCTK_REAL : omp_out += omp_in)
+#endif
 
 MPI_Datatype reduction_mpi_datatype_CCTK_REAL();
 MPI_Op reduction_mpi_op();
