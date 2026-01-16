@@ -15,6 +15,7 @@ REQUIRES FUNCTION CallScheduleGroup
 # TODO: this does not handle "IMEX122" yet
 CCTK_INT do_substeps TYPE=SCALAR TAGS='checkpoint="no"' "Dummy condition used to generate schedule printouts"
 
+public:
 # On a time integrator that has substeps (RK methods), this variable counts
 # which substep is currently being executed.
 #

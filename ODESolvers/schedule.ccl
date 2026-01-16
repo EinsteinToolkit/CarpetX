@@ -13,6 +13,7 @@ SCHEDULE ODESolvers_InitConstants AT WRAGH
 SCHEDULE ODESolvers_Solve AT evol
 {
   LANG: C
+  READS: substep_counter
   WRITES: substep_counter
   OPTIONS: level
 } "Solve ODEs"
