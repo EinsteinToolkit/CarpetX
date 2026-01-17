@@ -16,7 +16,9 @@ Timer::Timer(const std::string &name)
 void Timer::start() {
 #pragma omp critical
   {
-    CCTK_TimerStartI(handle);
+    if (!CCTK_TimerIsRunningI(handle)) {
+      CCTK_TimerStartI(handle);
+    }
 #ifdef __CUDACC__
     range = nvtxRangeStartA(name.c_str());
 #endif
@@ -29,7 +31,9 @@ void Timer::stop() {
 #ifdef __CUDACC__
     nvtxRangeEnd(range);
 #endif
-    CCTK_TimerStopI(handle);
+    if (CCTK_TimerIsRunningI(handle)) {
+      CCTK_TimerStopI(handle);
+    }
   }
 }
 
