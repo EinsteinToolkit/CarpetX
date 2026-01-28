@@ -68,7 +68,8 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
     CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
   }
 
-  // Regardless of ID choice, we initialize the previous RHS with zeros
+  // Regardless of ID choice, we initialize the previous RHS and error with
+  // zeros
   grid.loop_all_device<0, 0, 0>(grid.nghostzones,
                                 [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -83,6 +84,16 @@ extern "C" void TestRKAB_Initial(CCTK_ARGUMENTS) {
                                       Dx_pp_rhs(p.I) = 0.0;
                                       Dy_pp_rhs(p.I) = 0.0;
                                       Dz_pp_rhs(p.I) = 0.0;
+                                    });
+
+  grid.loop_all_device<0, 0, 0>(grid.nghostzones,
+                                [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                    CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                      phi_err(p.I) = 0.0;
+                                      Pi_err(p.I) = 0.0;
+                                      Dx_err(p.I) = 0.0;
+                                      Dy_err(p.I) = 0.0;
+                                      Dz_err(p.I) = 0.0;
                                     });
 }
 

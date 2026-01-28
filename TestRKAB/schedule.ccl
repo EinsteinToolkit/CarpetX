@@ -6,7 +6,7 @@ STORAGE: state rhs p_rhs pp_rhs energy error
 SCHEDULE TestRKAB_Initial AT initial
 {
   LANG: C
-  WRITES: state(everywhere) p_rhs(everywhere) pp_rhs(everywhere)
+  WRITES: state(everywhere) p_rhs(everywhere) pp_rhs(everywhere) error(everywhere)
   SYNC: state p_rhs pp_rhs
 } "Initialize scalar wave state and previous state"
 
@@ -32,19 +32,17 @@ SCHEDULE TestRKAB_Sync IN ODESolvers_PostStep
 # Analysis
 if (CCTK_EQUALS(initial_condition, "Gaussian") || CCTK_EQUALS(initial_condition, "standing wave"))
 {
-  SCHEDULE TestRKAB_Error IN ODESolvers_PostStep AFTER TestRKAB_Sync
+  SCHEDULE TestRKAB_Error AT analysis
   {
     LANG: C
     READS: state(interior)
     WRITES: error(interior)
-    SYNC: error
   } "Calculate error in scalar wave state"
 }
 
-SCHEDULE TestRKAB_Energy IN ODESolvers_PostStep AFTER TestRKAB_Sync
+SCHEDULE TestRKAB_Energy AT analysis
 {
   LANG: C
   READS: state(interior)
   WRITES: energy(interior)
-  SYNC: energy
 } "Calculate the scalar wave energy measure"
