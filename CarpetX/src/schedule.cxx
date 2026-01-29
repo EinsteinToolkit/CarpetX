@@ -2851,7 +2851,8 @@ void Restrict(const cGH *cctkGH, int level) {
 // storage handling
 namespace {
 int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
-                       const int *requested_tls, int *status, const bool inc) {
+                       const int *requested_tls, int *status, const bool inc,
+                       const std::function<std::string()> &why) {
   DECLARE_CCTK_PARAMETERS;
 
   assert(cctkGH);
@@ -2897,13 +2898,87 @@ int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
     assert(not ierr);
 
     // Record previous number of allocated time levels
+    int active_timelevels =
+        group.grouptype == CCTK_GF
+            ? static_cast<int>(ghext->patchdata.at(0)
+                                   .leveldata.at(0)
+                                   .groupdata.at(gid)
+                                   ->mfab.size())
+            : static_cast<int>(
+                  ghext->globaldata.arraygroupdata.at(gid)->data.size());
     if (status) {
       // Note: This remembers only the last level
-      status[n] = group.numtimelevels;
+      status[n] = active_timelevels;
     }
 
+    // maybe update allocations
+    const bool do_update = inc ? (active_timelevels < requested_tls[n])
+                               : (active_timelevels > requested_tls[n]);
+    if (do_update) {
+      if (group.grouptype == CCTK_GF) {
+        // grid function
+        for (auto &pd : ghext->patchdata) {
+          for (auto &ld : pd.leveldata) {
+            const active_levels_t active_levels(ld.level, ld.level + 1,
+                                                ld.patch, ld.patch + 1);
+            auto &gd = *ld.groupdata.at(gid);
+
+            gd.mfab.resize(requested_tls[n]);
+            gd.valid.resize(requested_tls[n]);
+
+            if (inc) {
+              const amrex::BoxArray &gba = amrex::convert(
+                  ld.fab->boxArray(),
+                  amrex::IndexType(gd.indextype[0] ? amrex::IndexType::CELL
+                                                   : amrex::IndexType::NODE,
+                                   gd.indextype[1] ? amrex::IndexType::CELL
+                                                   : amrex::IndexType::NODE,
+                                   gd.indextype[2] ? amrex::IndexType::CELL
+                                                   : amrex::IndexType::NODE));
+              for (int tl = active_timelevels; tl < requested_tls[n]; ++tl) {
+                // TODO: move this into LevelData? Or GroupData even?
+                gd.mfab.at(tl) = make_unique<amrex::MultiFab>(
+                    gba, ld.fab->DistributionMap(), group.numvars,
+                    amrex::IntVect(gd.nghostzones));
+                gd.valid.at(tl).resize(gd.numvars, why_valid_t(why));
+                for (int vi = 0; vi < gd.numvars; ++vi) {
+                  poison_invalid_gf(active_levels, gid, vi, tl);
+                } // for vi
+              } // for tl
+            } // if inc
+          } // for ld
+        } // for pd
+      } else {
+        // Grid array or grid scalar
+        auto &gd = *ghext->globaldata.arraygroupdata.at(gid);
+
+        gd.data.resize(requested_tls[n]);
+        gd.valid.resize(requested_tls[n]);
+
+        if (inc) {
+          for (int tl = active_timelevels; tl < requested_tls[n]; ++tl) {
+            gd.data.at(tl).alloc(group.vartype, gd.numvars * gd.array_size);
+            gd.valid.at(tl).resize(gd.numvars, why_valid_t(why));
+            for (int vi = 0; vi < gd.numvars; ++vi) {
+              // TODO: decide that valid_bnd == false always and rely on
+              // initialization magic?
+              valid_t valid;
+              valid.valid_int = false;
+              valid.valid_outer = true;
+              valid.valid_ghosts = true;
+              gd.valid.at(tl).at(vi).set_all(valid, why);
+              poison_invalid_ga(gid, vi, tl);
+              check_valid_ga(gid, vi, tl, nan_handling_t::forbid_nans, why);
+            } // for vi
+          } // for tl
+        } // if inc
+      } // if grouptype
+
+      active_timelevels = requested_tls[n];
+    } // if do_update
+
     // Record (minimum of) current number of time levels
-    min_num_timelevels = min(min_num_timelevels, group.numtimelevels);
+    min_num_timelevels = min(min_num_timelevels, active_timelevels);
   } // for n
   if (min_num_timelevels == INT_MAX) {
     min_num_timelevels = 0;
@@ -2917,14 +2992,16 @@ int GroupStorageIncrease(const cGH *cctkGH, int n_groups, const int *groups,
                          const int *tls, int *status) {
   DECLARE_CCTK_PARAMETERS;
 
-  return GroupStorageCrease(cctkGH, n_groups, groups, tls, status, true);
+  return GroupStorageCrease(cctkGH, n_groups, groups, tls, status, true,
+                            []() { return "GroupStorageIncrease"; });
 }
 
 int GroupStorageDecrease(const cGH *cctkGH, int n_groups, const int *groups,
                          const int *tls, int *status) {
   DECLARE_CCTK_PARAMETERS;
 
-  return GroupStorageCrease(cctkGH, n_groups, groups, tls, status, false);
+  return GroupStorageCrease(cctkGH, n_groups, groups, tls, status, false,
+                            []() { return "GroupStorageDecrease"; });
 }
 
 int EnableGroupStorage(const cGH *cctkGH, const char *groupname) {
