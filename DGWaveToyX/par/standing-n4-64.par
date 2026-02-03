@@ -1,0 +1,89 @@
+ActiveThorns = "
+    CarpetX
+    DGCoordinatesX
+    DGWaveToyX
+    Formaline
+    IOUtil
+    ODESolvers
+"
+
+$ncells = 64
+
+Cactus::cctk_show_schedule = yes
+
+Cactus::presync_mode = "mixed-error"
+
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 1.0
+
+CarpetX::verbose = yes
+
+CarpetX::xmin = -1.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+
+CarpetX::xmax = +1.0
+CarpetX::ymax = +1.0
+CarpetX::zmax = +1.0
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::periodic = yes
+CarpetX::periodic_x = yes
+CarpetX::periodic_y = yes
+CarpetX::periodic_z = yes
+
+# CarpetX::reflection_x = yes
+# CarpetX::reflection_y = yes
+# CarpetX::reflection_z = yes
+# CarpetX::reflection_upper_x = yes
+# CarpetX::reflection_upper_y = yes
+# CarpetX::reflection_upper_z = yes
+
+# CarpetX::boundary_x = "dirichlet"
+# CarpetX::boundary_y = "dirichlet"
+# CarpetX::boundary_z = "dirichlet"
+# CarpetX::boundary_upper_x = "dirichlet"
+# CarpetX::boundary_upper_y = "dirichlet"
+# CarpetX::boundary_upper_z = "dirichlet"
+
+CarpetX::ghost_size = 1
+
+CarpetX::max_num_levels = 1
+
+DGCoordinatesX::dg_npoints = 4
+
+ODESolvers::method = "RK4"
+CarpetX::dtfac = 0.5
+
+IO::out_dir = $parfile
+IO::out_every = $ncells
+
+CarpetX::out_norm_every = $ncells/32   #TODO $ncells
+CarpetX::out_norm_vars = "
+    DGCoordinatesX::coords
+    DGCoordinatesX::volume
+    DGWaveToyX::u
+    DGWaveToyX::f
+    DGWaveToyX::u_rhs
+    DGWaveToyX::f_rhs
+    DGWaveToyX::eps
+    DGWaveToyX::u_error
+    DGWaveToyX::f_error
+"
+
+CarpetX::out_tsv_every = $ncells/32   #TODO $ncells
+CarpetX::out_tsv_header = "plain"
+CarpetX::out_tsv_vars = "
+    DGCoordinatesX::coords
+    DGCoordinatesX::volume
+    DGWaveToyX::u
+    DGWaveToyX::f
+    DGWaveToyX::u_rhs
+    DGWaveToyX::f_rhs
+    DGWaveToyX::eps
+    DGWaveToyX::u_error
+    DGWaveToyX::f_error
+"

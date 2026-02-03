@@ -1,0 +1,8 @@
+# Schedule definitions for thorn DGCoordinatesX
+
+SCHEDULE DGCoordinatesX_Setup AT basegrid
+{
+  LANG: C
+  WRITES: coords(everywhere)
+  WRITES: volume(everywhere)
+} "Set coordinate grid functions"
