@@ -3,6 +3,11 @@
 
 #include <cctk.h>
 
+#include <AMReX_AmrParticles.H>
+#include <AMReX_Particles.H>
+
+#include <vector>
+
 // Scheduled functions
 extern "C" int CarpetX_InterpGridArrays(
     cGH const *const cGH, int const N_dims, int const local_interp_handle,
@@ -23,6 +28,36 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
     CCTK_POINTER const output_arrays[]);
 
 namespace CarpetX {
+
+struct InterpSetup {
+  using Container = amrex::AmrParticleContainer<3, 2>;
+
+  int npoints;
+  bool allow_boundaries;
+
+  // Redistributed particle containers (one per patch)
+  std::vector<Container> containers;
+
+  // Symmetry state from Phase B (empty if no z-reflection)
+  std::vector<bool> symmetry_reflected_z;
+};
+
+// Internal setup: performs coordinate transformation, symmetry handling,
+// particle creation, and redistribution (Phases A-E).
+InterpSetup interp_setup(const cGH *cctkGH, int npoints,
+                         const CCTK_REAL *globalsx,
+                         const CCTK_REAL *globalsy,
+                         const CCTK_REAL *globalsz,
+                         bool allow_boundaries);
+
+// Internal apply: performs per-variable interpolation, MPI result gathering,
+// and symmetry application (Phases F-H) using a pre-built setup.
+// Takes non-const InterpSetup& because AMReX's ParIter mutates internal state.
+void interp_apply(InterpSetup &setup, const cGH *cctkGH,
+                  int nvars, const CCTK_INT *varinds,
+                  const CCTK_INT *operations,
+                  CCTK_POINTER resultptrs);
+
 // a dummy routine for now
 // TODO: implement this for actual local interpolation
 int InterpLocalUniform(int N_dims, int param_table_handle,
