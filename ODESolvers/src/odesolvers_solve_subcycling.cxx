@@ -215,6 +215,12 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
                                  rhs_groups, stage);
     });
     synchronize();
+
+    // apply boundary condition to account for mesh refinement overlapping the
+    // outer boundary
+    const int s = stage - 1;
+    SyncGroupsByDirIGhostOnly(cctkGH, ks_groups[s].size(), ks_groups[s].data(),
+                              nullptr);
   };
   // set old in the interior which will be used for prolongation later
   const auto setold = [&]() {
