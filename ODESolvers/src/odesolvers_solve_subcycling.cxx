@@ -217,7 +217,7 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     synchronize();
 
     // apply boundary condition to account for mesh refinement overlapping the
-    // outer boundary
+    // outer boundary (suggested by Allen Wen)
     const int s = stage - 1;
     SyncGroupsByDirIGhostOnly(cctkGH, ks_groups[s].size(), ks_groups[s].data(),
                               nullptr);
