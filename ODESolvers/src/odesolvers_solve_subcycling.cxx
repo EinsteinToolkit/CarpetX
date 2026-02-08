@@ -234,6 +234,11 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
                          var_groups);
     });
     synchronize();
+
+    // apply boundary condition to account for mesh refinement overlapping the
+    // outer boundary (suggested by Allen Wen)
+    SyncGroupsByDirIGhostOnly(cctkGH, old_groups.size(), old_groups.data(),
+                              nullptr);
   };
 
   *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
