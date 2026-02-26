@@ -510,11 +510,11 @@ void OutputTSV(const cGH *restrict cctkGH) {
         break;
       case CCTK_GF:
         WriteTSVGFs(cctkGH, basename + ".x.tsv", gi, {true, false, false},
-                    {0, out_xline_y, out_xline_z}, out_tsv_boundaries);
+                    {0, out_xline_y, out_xline_z}, output_boundary_points);
         WriteTSVGFs(cctkGH, basename + ".y.tsv", gi, {false, true, false},
-                    {out_yline_x, 0, out_yline_z}, out_tsv_boundaries);
+                    {out_yline_x, 0, out_yline_z}, output_boundary_points);
         WriteTSVGFs(cctkGH, basename + ".z.tsv", gi, {false, false, true},
-                    {out_zline_x, out_zline_y, 0}, out_tsv_boundaries);
+                    {out_zline_x, out_zline_y, 0}, output_boundary_points);
         break;
       default:
         assert(0);
