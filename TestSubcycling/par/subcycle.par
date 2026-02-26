@@ -29,7 +29,7 @@ CarpetX::dtfac = 16.0
 
 Cactus::cctk_itlast = 8
 
-CarpetX::use_subcycling_wip = yes
+CarpetX::use_subcycling = yes
 CarpetX::restrict_during_sync = no
 
 ErrorEstimator::region_shape = "cube"
