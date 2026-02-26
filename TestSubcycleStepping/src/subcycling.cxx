@@ -4,10 +4,10 @@
 #include "loop.hxx"
 
 extern "C"
-void TestSubcycling_Init(CCTK_ARGUMENTS)
+void TestSubcycleStepping_Init(CCTK_ARGUMENTS)
 {
   DECLARE_CCTK_PARAMETERS;
-  DECLARE_CCTK_ARGUMENTSX_TestSubcycling_Init;
+  DECLARE_CCTK_ARGUMENTSX_TestSubcycleStepping_Init;
 
   CCTK_INFO("Initializing grid function");
   grid.loop_int<0,0,0>(grid.nghostzones, [=](const Loop::PointDesc &pt) {
@@ -18,10 +18,10 @@ void TestSubcycling_Init(CCTK_ARGUMENTS)
 }
 
 extern "C"
-void TestSubcycling_Update(CCTK_ARGUMENTS)
+void TestSubcycleStepping_Update(CCTK_ARGUMENTS)
 {
   DECLARE_CCTK_PARAMETERS;
-  DECLARE_CCTK_ARGUMENTSX_TestSubcycling_Update;
+  DECLARE_CCTK_ARGUMENTSX_TestSubcycleStepping_Update;
 
   CCTK_VINFO("Updating grid function at iteration %d level %d time %g", cctk_iteration, cctk_level, cctk_time);
   grid.loop_int<0,0,0>(grid.nghostzones, [=] CCTK_HOST(const Loop::PointDesc &pt) {

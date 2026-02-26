@@ -2,7 +2,7 @@ ActiveThorns = "
   CarpetX
   ErrorEstimator
   IOUtil
-  TestSubcycling
+  TestSubcycleStepping
 "
 
 Cactus::presync_mode = "mixed-error"
@@ -49,6 +49,6 @@ CarpetX::verbose = no
 CarpetX::out_performance = no
 CarpetX::out_metadata = no
 CarpetX::out_tsv_vars = "
-  TestSubcycling::iteration
+  TestSubcycleStepping::iteration
   CarpetX::regrid_error
 "

@@ -1,5 +1,5 @@
-# Interface definition for thorn TestSubcycling
-implements: TestSubcycling
+# Interface definition for thorn TestSubcycleStepping
+implements: TestSubcycleStepping
 
 USES INCLUDE HEADER: loop.hxx
 
