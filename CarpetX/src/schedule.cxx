@@ -1069,7 +1069,7 @@ int Initialise(tFleshConfig *config) {
                "\"mixed-error\" or \"presync-only\"");
 
   // Check restrict_during_sync when use_subcycling is on
-  if (ghext->use_subcycling() && restrict_during_sync)
+  if (ghext->use_subcycling && restrict_during_sync)
     CCTK_ERROR("CarpetX currently requires CarpetX::restrict_during_sync = "
                "\"no\" when CarpetX::use_subcycling_wip = \"yes\"");
 
@@ -1166,7 +1166,7 @@ int Initialise(tFleshConfig *config) {
     } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
       cctkGH->cctk_delta_time =
           dtfac *
-          (ghext->use_subcycling() ? get_coarse_mindx() : get_finest_mindx());
+          (ghext->use_subcycling ? get_coarse_mindx() : get_finest_mindx());
     } else {
       CCTK_ERROR("Unsupported value for 'timestep_choice'");
       abort();
@@ -1197,7 +1197,7 @@ int Initialise(tFleshConfig *config) {
       } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
         cctkGH->cctk_delta_time =
             dtfac *
-            (ghext->use_subcycling() ? get_coarse_mindx() : get_finest_mindx());
+            (ghext->use_subcycling ? get_coarse_mindx() : get_finest_mindx());
       } else {
         CCTK_ERROR("Unsupported value for 'timestep_choice'");
         abort();
@@ -1350,8 +1350,8 @@ int Initialise(tFleshConfig *config) {
             cctkGH->cctk_delta_time = timestep;
           } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
             cctkGH->cctk_delta_time =
-                dtfac * (ghext->use_subcycling() ? get_coarse_mindx()
-                                                 : get_finest_mindx());
+                dtfac * (ghext->use_subcycling ? get_coarse_mindx()
+                                               : get_finest_mindx());
           } else {
             CCTK_ERROR("Unsupported value for 'timestep_choice'");
             abort();
@@ -1757,8 +1757,8 @@ int Evolve(tFleshConfig *config) {
           cctkGH->cctk_delta_time = timestep;
         } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
           cctkGH->cctk_delta_time =
-              dtfac * (ghext->use_subcycling() ? get_coarse_mindx()
-                                               : get_finest_mindx());
+              dtfac *
+              (ghext->use_subcycling ? get_coarse_mindx() : get_finest_mindx());
         } else {
           CCTK_ERROR("Unsupported value for 'timestep_choice'");
           abort();
@@ -1838,9 +1838,9 @@ int Evolve(tFleshConfig *config) {
 
       CycleTimelevels(cctkGH);
 
-      cctkGH->cctk_timefac = ghext->use_subcycling() ? (1 << min_level) : 1;
+      cctkGH->cctk_timefac = ghext->use_subcycling ? (1 << min_level) : 1;
       cctkGH->cctk_time =
-          ghext->use_subcycling()
+          ghext->use_subcycling
               ? cctkGH->cctk_delta_time * double(level_iteration)
               : cctkGH->cctk_time + cctkGH->cctk_delta_time;
 

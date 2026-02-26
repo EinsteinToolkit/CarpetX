@@ -1993,8 +1993,8 @@ int InitGH(cGH *restrict cctkGH) {
   for (int patch = 0; patch < num_patches; ++patch)
     ghext->patchdata.emplace_back(patch);
 
-  // Set up do_subcycling
-  ghext->do_subcycling = use_subcycling_wip;
+  // Set up use_subcycling
+  ghext->use_subcycling = use_subcycling_wip;
 
   return 0; // unused
 }
