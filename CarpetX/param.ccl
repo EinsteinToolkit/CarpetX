@@ -457,7 +457,7 @@ CCTK_INT interpolation_order "Interpolation order" STEERABLE=always
 
 
 
-BOOLEAN use_subcycling_wip "Use subcycling in time"
+BOOLEAN use_subcycling "Use subcycling in time"
 {
 } no  
 

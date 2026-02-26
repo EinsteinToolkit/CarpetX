@@ -1070,8 +1070,8 @@ int Initialise(tFleshConfig *config) {
 
   // Check restrict_during_sync when use_subcycling is on
   if (ghext->use_subcycling && restrict_during_sync)
-    CCTK_ERROR("CarpetX currently requires CarpetX::restrict_during_sync = "
-               "\"no\" when CarpetX::use_subcycling_wip = \"yes\"");
+    CCTK_ERROR("CarpetX requires CarpetX::restrict_during_sync = "
+               "\"no\" when CarpetX::use_subcycling = \"yes\"");
 
   // Initialise iteration and time
   cctkGH->cctk_iteration = 0;

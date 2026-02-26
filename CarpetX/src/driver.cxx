@@ -715,7 +715,7 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
     : patch(patch), level(level) {
   DECLARE_CCTK_PARAMETERS;
 
-  const int timereffact = use_subcycling_wip ? 2 : 1;
+  const int timereffact = use_subcycling ? 2 : 1;
   if (level == 0) {
     // We are creating the coarsest level
     is_subcycling_level = false; // unused
@@ -724,7 +724,7 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
   } else {
     // We are creating a new refined level
     auto &coarseleveldata = ghext->patchdata.at(patch).leveldata.at(level - 1);
-    is_subcycling_level = use_subcycling_wip;
+    is_subcycling_level = use_subcycling;
     iteration = coarseleveldata.iteration;
     delta_iteration = coarseleveldata.delta_iteration / timereffact;
   }
@@ -1994,7 +1994,7 @@ int InitGH(cGH *restrict cctkGH) {
     ghext->patchdata.emplace_back(patch);
 
   // Set up use_subcycling
-  ghext->use_subcycling = use_subcycling_wip;
+  ghext->use_subcycling = use_subcycling;
 
   return 0; // unused
 }
