@@ -1817,7 +1817,8 @@ int Evolve(tFleshConfig *config) {
       }
       assert(level_iteration != -1);
       assert(level_delta_iteration != -1);
-      // Skip those evolved coarse levels when evolving fine levels to catch up
+      // Skip those evolved coarse levels while evolving the fine levels to
+      // catch up
       if (level_iteration > iteration)
         continue;
 
