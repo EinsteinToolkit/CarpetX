@@ -1030,10 +1030,8 @@ CCTK_REAL get_coarse_mindx() {
   for (const auto &patchdata : ghext->patchdata) {
     const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
     const CCTK_REAL *restrict const dx = geom.CellSize();
-    CCTK_REAL mindx1 = std::numeric_limits<CCTK_REAL>::infinity();
     for (int d = 0; d < dim; ++d)
-      mindx1 = fmin(mindx1, dx[d]);
-    mindx = fmin(mindx, mindx1);
+      mindx = fmin(mindx, dx[d]);
   }
   return mindx;
 }
