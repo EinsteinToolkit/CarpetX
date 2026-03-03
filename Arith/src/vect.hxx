@@ -639,6 +639,12 @@ template <typename T, int D> struct vect {
   }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
+  vect_any(const vect &x) {
+    return fold([](const T &a, const T &b) ARITH_INLINE { return a || b; },
+                zero<T>()(), x);
+  }
+
+  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
   allisfinite(const vect &x) {
     return all(
         fmap([](const auto &a) ARITH_INLINE { return allisfinite(a); }, x));
