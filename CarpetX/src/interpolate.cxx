@@ -664,10 +664,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     givis.at(v) = {gi, vi};
   }
 
-  rat64 min_level_iteration_used =
-      std::numeric_limits<decltype(min_level_iteration_used.num)>::max();
-  rat64 max_level_iteration_used =
-      std::numeric_limits<decltype(max_level_iteration_used.num)>::min();
+  rat64 min_level_iteration_used = -1;
+  rat64 max_level_iteration_used = -1;
   bool requires_interpolation_in_time = false;
   for (const auto &patchdata : ghext->patchdata) {
     const int patch = patchdata.patch;
@@ -682,9 +680,13 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         // const int component = mfp.index();
 
         min_level_iteration_used =
-            std::min(min_level_iteration_used, leveldata.iteration);
+            min_level_iteration_used != -1
+                ? std::min(min_level_iteration_used, leveldata.iteration)
+                : leveldata.iteration;
         max_level_iteration_used =
-            std::max(max_level_iteration_used, leveldata.iteration);
+            max_level_iteration_used != -1
+                ? std::max(max_level_iteration_used, leveldata.iteration)
+                : leveldata.iteration;
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
@@ -837,8 +839,13 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
   // check if interpolation in time (unsupported) would be needed
   if (use_subcycling) {
-    const double local_iteration_used[2] = {-double(min_level_iteration_used),
-                                            +double(max_level_iteration_used)};
+    const double local_iteration_used[2] = {
+        min_level_iteration_used != -1
+            ? -double(min_level_iteration_used)
+            : -std::numeric_limits<double>::infinity(),
+        max_level_iteration_used != -1
+            ? +double(max_level_iteration_used)
+            : -std::numeric_limits<double>::infinity()};
     double global_iteration_used[2] = {0.};
     MPI_Allreduce(local_iteration_used, global_iteration_used, 2, MPI_DOUBLE,
                   MPI_MAX, comm);
