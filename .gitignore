@@ -1,4 +1,6 @@
+.claude/
+thoughts/
+
 *.pyc
 .vscode
 tags
-.claude
