@@ -1786,6 +1786,8 @@ int Evolve(tFleshConfig *config) {
 
     // Loop over all levels, in batches that combine levels that don't
     // subcycle. The level range is [min_level, max_level).
+    bool found_active_level = false; // sanity check, once a level is active
+                                     // all finer levels must be achtive as well
     for (int min_level = 0, max_level = min_level + 1;
          min_level < ghext->num_levels();
          min_level = max_level, max_level = min_level + 1) {
@@ -1817,8 +1819,12 @@ int Evolve(tFleshConfig *config) {
       assert(level_delta_iteration != -1);
       // Skip those evolved coarse levels while evolving the fine levels to
       // catch up
-      if (level_iteration > iteration)
+      if (level_iteration > iteration) {
+        assert(!found_active_level && "Logic error: all levels after the first "
+                                      "active must also be active");
         continue;
+      }
+      found_active_level = true;
 
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
