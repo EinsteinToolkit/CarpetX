@@ -2153,7 +2153,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     const std::vector<clause_t> &writes =
         decode_clauses(attribute, rdwr_t::write);
     const int numgroups = CCTK_NumGroups();
-    std::vector<std::vector<std::vector<valid_t>>> gfs(numgroups);
+    std::vector<std::vector<std::vector<valid_t> > > gfs(numgroups);
     for (int gi = 0; gi < numgroups; ++gi) {
       const int numvars = CCTK_NumVarsInGroupI(gi);
       gfs.at(gi).resize(numvars);
