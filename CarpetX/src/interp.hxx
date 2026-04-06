@@ -3,6 +3,8 @@
 
 #include <cctk.h>
 
+#include <defs.hxx>
+
 #include <AMReX_AmrParticles.H>
 #include <AMReX_Particles.H>
 
@@ -29,6 +31,13 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
     CCTK_INT const N_output_arrays, CCTK_INT const output_array_type_codes[],
     CCTK_POINTER const output_arrays[]);
 
+extern "C" void CarpetX_Interpolate_Multipatch(
+    CCTK_POINTER_TO_CONST cctkGH, CCTK_INT npoints,
+    const CCTK_REAL *restrict coordsx, const CCTK_REAL *restrict coordsy,
+    const CCTK_REAL *restrict coordsz, CCTK_INT nvars,
+    const CCTK_INT *restrict varinds, const CCTK_INT *restrict operations,
+    CCTK_POINTER resultptrs);
+
 namespace CarpetX {
 
 // Create a cache of data required for interpolation
@@ -53,7 +62,7 @@ struct InterpolationSetup {
 void InterpolateFromSetup(const InterpolationSetup &setup, const CCTK_INT nvars,
                           const CCTK_INT *restrict const varinds,
                           const CCTK_INT *restrict const operations,
-                          const CCTK_INT allow_boundaries,
+                          const std::vector<vect<vect<bool, dim>, 2>> &outer_boundary_per_patch,
                           const CCTK_POINTER resultptrs_);
 
 // a dummy routine for now

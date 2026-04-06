@@ -121,6 +121,20 @@ void FUNCTION Interpolate(
   CCTK_POINTER IN resultptrs)
 PROVIDES FUNCTION Interpolate WITH CarpetX_Interpolate LANGUAGE C
 
+void FUNCTION InterpolateMultipatch( \
+  CCTK_POINTER_TO_CONST IN cctkGH, \
+  CCTK_INT IN npoints, \
+  CCTK_REAL ARRAY IN coordsx, \
+  CCTK_REAL ARRAY IN coordsy, \
+  CCTK_REAL ARRAY IN coordsz, \
+  CCTK_INT IN nvars, \
+  CCTK_INT ARRAY IN varinds, \
+  CCTK_INT ARRAY IN operations, \
+  CCTK_POINTER IN resultptrs)
+PROVIDES FUNCTION InterpolateMultipatch \
+  WITH CarpetX_Interpolate_Multipatch \
+  LANGUAGE C
+
 
 
 # Interpolation

@@ -47,12 +47,12 @@ template <typename T, int order, int centering> struct interpolator {
   const amrex::Array4<const T> &vars;
   const vect<int, dim> &derivs;
   // Allow outer boundaries as interpolation sources
-  const bool allow_boundaries;
+  const vect<vect<bool, dim>, 2> allowed_boundaries;
 
   interpolator(const GridDescBase &grid, CCTK_ATTRIBUTE_UNUSED const int gi,
                const int vi, const int patch, const int level,
                const amrex::Array4<const T> &vars, const vect<int, dim> &derivs,
-               const bool allow_boundaries)
+               const vect<vect<bool, dim>, 2> &allowed_boundaries)
       : grid(grid),
 #ifdef CCTK_DEBUG
         gi(gi),
@@ -61,7 +61,7 @@ template <typename T, int order, int centering> struct interpolator {
 #ifdef CCTK_DEBUG
         patch(patch), level(level),
 #endif
-        vars(vars), derivs(derivs), allow_boundaries(allow_boundaries) {
+        vars(vars), derivs(derivs), allowed_boundaries(allowed_boundaries) {
   }
 
   static constexpr T eps() {
@@ -250,12 +250,6 @@ template <typename T, int order, int centering> struct interpolator {
 
     // We assume that the input is synchronized, i.e. that all ghost
     // zones are valid, but all outer boundaries are invalid.
-    // TODO: Take multipatch boundary directions into account; forbid
-    // only interpatch boundaries but allow true outer boundaries.
-    vect<vect<bool, dim>, 2> allowed_boundaries;
-    for (int f = 0; f < 2; ++f)
-      for (int d = 0; d < dim; ++d)
-        allowed_boundaries[f][d] = allow_boundaries ? true : !grid.bbox[f][d];
 
     // The point must lie inside the domain. At outer boundaries the
     // point may be in the boundary region, but at ghost boundaries
@@ -311,6 +305,21 @@ template <typename T, int order, int centering> struct interpolator {
 
       // Avoid points on boundaries
       const bool is_allowed = all(i >= i0_allowed && i < i1_allowed);
+
+      if (!is_allowed) {
+        CCTK_VWARN(0,
+                   "Interpolation anchor is not allowed:\n"
+                   "  patch = %d\n"
+                   "  n = %d\n"
+                   "  i = (%d, %d, %d)\n"
+                   "  i0_allowed = (%d, %d, %d)\n"
+                   "  i1_allowed = (%d, %d, %d)\n"
+                   "  x = (%f, %f, %f)",
+                   grid.patch, n, i[0], i[1], i[2], i0_allowed[0],
+                   i0_allowed[1], i0_allowed[2], i1_allowed[0], i1_allowed[1],
+                   i1_allowed[2], x[0], x[1], x[2]);
+      }
+
       assert(is_allowed);
 
       const T res = !is_allowed ? -2 : interpolate<dim - 1>(i, di);
@@ -642,11 +651,12 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   }
 }
 
-void InterpolateFromSetup(const InterpolationSetup &setup, const CCTK_INT nvars,
-                          const CCTK_INT *restrict const varinds,
-                          const CCTK_INT *restrict const operations,
-                          const CCTK_INT allow_boundaries,
-                          const CCTK_POINTER resultptrs_) {
+void InterpolateFromSetup(
+    const InterpolationSetup &setup, const CCTK_INT nvars,
+    const CCTK_INT *restrict const varinds,
+    const CCTK_INT *restrict const operations,
+    const std::vector<vect<vect<bool, dim>, 2> > &outer_boundary_per_patch,
+    const CCTK_POINTER resultptrs_) {
   DECLARE_CCTK_PARAMETERS;
 
   // Define result variables
@@ -680,6 +690,15 @@ void InterpolateFromSetup(const InterpolationSetup &setup, const CCTK_INT nvars,
         const MFPointer mfp(pti);
         const GridDesc grid(leveldata, mfp);
         // const int component = mfp.index();
+
+        // Compute per-box allowed_boundaries from per-patch outer boundary
+        // policy and AMReX bbox (which box faces touch the patch boundary)
+        vect<vect<bool, dim>, 2> ab;
+        for (int f = 0; f < 2; ++f)
+          for (int d = 0; d < dim; ++d)
+            ab[f][d] = grid.bbox[f][d]
+                           ? outer_boundary_per_patch.at(patch)[f][d]
+                           : true;
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
@@ -718,36 +737,31 @@ void InterpolateFromSetup(const InterpolationSetup &setup, const CCTK_INT nvars,
             switch (interpolation_order) {
             case 0: {
               const interpolator<CCTK_REAL, 0, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
               const interpolator<CCTK_REAL, 1, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
               const interpolator<CCTK_REAL, 2, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
               const interpolator<CCTK_REAL, 3, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
               const interpolator<CCTK_REAL, 4, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
@@ -766,36 +780,31 @@ void InterpolateFromSetup(const InterpolationSetup &setup, const CCTK_INT nvars,
             switch (interpolation_order) {
             case 0: {
               const interpolator<CCTK_REAL, 0, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
               const interpolator<CCTK_REAL, 1, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
               const interpolator<CCTK_REAL, 2, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
               const interpolator<CCTK_REAL, 3, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
               const interpolator<CCTK_REAL, 4, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, bool(allow_boundaries)};
+                  grid, gi, vi, patch, level, vars, derivs, ab};
               interp.interpolate3d(particles, varresult);
               break;
             }
@@ -930,8 +939,56 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
                                     const CCTK_POINTER resultptrs_) {
   const InterpolationSetup setup(cctkGH_, npoints, globalsx, globalsy,
                                  globalsz);
-  InterpolateFromSetup(setup, nvars, varinds, operations, allow_boundaries,
-                       resultptrs_);
+
+  // Replicate old behaviour: scalar bool -> uniform per-patch policy
+  // allow_boundaries=true  -> allow stencil on all faces
+  // allow_boundaries=false -> forbid stencil on all bbox faces
+  const int npatches = ghext->num_patches();
+  const vect<vect<bool, dim>, 2> uniform{
+      {{bool(allow_boundaries), bool(allow_boundaries), bool(allow_boundaries)},
+       {bool(allow_boundaries), bool(allow_boundaries),
+        bool(allow_boundaries)}}};
+  const std::vector<vect<vect<bool, dim>, 2> > policy(npatches, uniform);
+
+  InterpolateFromSetup(setup, nvars, varinds, operations, policy, resultptrs_);
+}
+
+extern "C" void CarpetX_Interpolate_Multipatch(
+    const CCTK_POINTER_TO_CONST cctkGH_, const CCTK_INT npoints,
+    const CCTK_REAL *restrict const globalsx,
+    const CCTK_REAL *restrict const globalsy,
+    const CCTK_REAL *restrict const globalsz, const CCTK_INT nvars,
+    const CCTK_INT *restrict const varinds,
+    const CCTK_INT *restrict const operations, const CCTK_POINTER resultptrs_) {
+
+  const InterpolationSetup setup(cctkGH_, npoints, globalsx, globalsy,
+                                 globalsz);
+
+  static const bool have_boundary_spec =
+      CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2");
+
+  const int npatches = ghext->num_patches();
+  std::vector<vect<vect<bool, dim>, 2> > policy(npatches);
+
+  if (have_boundary_spec) {
+    // Query CapyrX once per patch to get interpatch/outer face classification
+    std::array<CCTK_INT, 2 * dim> spec;
+    for (int p = 0; p < npatches; ++p) {
+      MultiPatch_GetBoundarySpecification2(p, 2 * dim, spec.data());
+      for (int f = 0; f < 2; ++f)
+        for (int d = 0; d < dim; ++d)
+          // spec[2*d+f] = 1 means interpatch (forbid), 0 means outer (allow)
+          policy[p][f][d] = !spec[2 * d + f];
+    }
+  } else {
+    // No multipatch system: treat all faces as outer boundaries (allow stencil)
+    for (int p = 0; p < npatches; ++p)
+      for (int f = 0; f < 2; ++f)
+        for (int d = 0; d < dim; ++d)
+          policy[p][f][d] = true;
+  }
+
+  InterpolateFromSetup(setup, nvars, varinds, operations, policy, resultptrs_);
 }
 
 } // namespace CarpetX
