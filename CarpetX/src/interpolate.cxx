@@ -655,7 +655,7 @@ void InterpolateFromSetup(
     const InterpolationSetup &setup, const CCTK_INT nvars,
     const CCTK_INT *restrict const varinds,
     const CCTK_INT *restrict const operations,
-    const std::vector<vect<vect<bool, dim>, 2> > &outer_boundary_per_patch,
+    const std::vector<vect<vect<bool, 3>, 2> > &outer_boundary_per_patch,
     const CCTK_POINTER resultptrs_) {
   DECLARE_CCTK_PARAMETERS;
 
@@ -949,44 +949,6 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
        {bool(allow_boundaries), bool(allow_boundaries),
         bool(allow_boundaries)}}};
   const std::vector<vect<vect<bool, dim>, 2> > policy(npatches, uniform);
-
-  InterpolateFromSetup(setup, nvars, varinds, operations, policy, resultptrs_);
-}
-
-extern "C" void CarpetX_Interpolate_Multipatch(
-    const CCTK_POINTER_TO_CONST cctkGH_, const CCTK_INT npoints,
-    const CCTK_REAL *restrict const globalsx,
-    const CCTK_REAL *restrict const globalsy,
-    const CCTK_REAL *restrict const globalsz, const CCTK_INT nvars,
-    const CCTK_INT *restrict const varinds,
-    const CCTK_INT *restrict const operations, const CCTK_POINTER resultptrs_) {
-
-  const InterpolationSetup setup(cctkGH_, npoints, globalsx, globalsy,
-                                 globalsz);
-
-  static const bool have_boundary_spec =
-      CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2");
-
-  const int npatches = ghext->num_patches();
-  std::vector<vect<vect<bool, dim>, 2> > policy(npatches);
-
-  if (have_boundary_spec) {
-    // Query CapyrX once per patch to get interpatch/outer face classification
-    std::array<CCTK_INT, 2 * dim> spec;
-    for (int p = 0; p < npatches; ++p) {
-      MultiPatch_GetBoundarySpecification2(p, 2 * dim, spec.data());
-      for (int f = 0; f < 2; ++f)
-        for (int d = 0; d < dim; ++d)
-          // spec[2*d+f] = 1 means interpatch (forbid), 0 means outer (allow)
-          policy[p][f][d] = !spec[2 * d + f];
-    }
-  } else {
-    // No multipatch system: treat all faces as outer boundaries (allow stencil)
-    for (int p = 0; p < npatches; ++p)
-      for (int f = 0; f < 2; ++f)
-        for (int d = 0; d < dim; ++d)
-          policy[p][f][d] = true;
-  }
 
   InterpolateFromSetup(setup, nvars, varinds, operations, policy, resultptrs_);
 }

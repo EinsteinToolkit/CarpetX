@@ -1023,6 +1023,15 @@ std::vector<clause_t> decode_clauses(const cFunctionData *restrict attribute,
   return result;
 }
 
+// Driver epoch control
+static void IncrementEpoch() {
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed);
+}
+
+extern "C" CCTK_INT CarpetX_GetEpoch(void) {
+  return carpetx_epoch.load(std::memory_order_relaxed);
+}
+
 // Schedule initialisation
 int Initialise(tFleshConfig *config) {
   DECLARE_CCTK_PARAMETERS;
@@ -1111,6 +1120,7 @@ int Initialise(tFleshConfig *config) {
     RecoverGH(cctkGH);
     CCTK_Traverse(cctkGH, "CCTK_RECOVER_VARIABLES");
     CCTK_Traverse(cctkGH, "CCTK_POST_RECOVER_VARIABLES");
+    IncrementEpoch();
 
     active_levels = optional<active_levels_t>();
 
@@ -1346,6 +1356,7 @@ int Initialise(tFleshConfig *config) {
               first_modified_level, last_modified_level + 1);
           CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
           CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
+          IncrementEpoch();
           active_levels = optional<active_levels_t>();
         }
       } // Regrid
@@ -1742,6 +1753,7 @@ int Evolve(tFleshConfig *config) {
                                                        last_modified_level + 1);
         CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
         CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
+        IncrementEpoch();
         active_levels = optional<active_levels_t>();
       }
     } // Regrid

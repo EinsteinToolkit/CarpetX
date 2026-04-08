@@ -44,6 +44,8 @@ int ghext_handle = -1;
 amrex::AMReX *restrict pamrex = nullptr;
 std::unique_ptr<GHExt> ghext;
 
+std::atomic<CCTK_INT> carpetx_epoch{1};
+
 // Registered functions
 
 void *SetupGH(tFleshConfig *fc, int convLevel, cGH *cctkGH);
