@@ -1865,24 +1865,25 @@ int Evolve(tFleshConfig *config) {
       }
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
-      if ((!restrict_during_sync) &&
-          (ghext->patchdata.at(0).leveldata.at(max_level - 1).delta_iteration ==
-           delta_iteration)) {
-        // Restrict
-        active_levels->loop_fine_to_coarse(
-            [&](const auto &leveldata) { Restrict(cctkGH, leveldata.level); });
-        // Prolongation
-        SyncEvolvedGFs(cctkGH);
-        CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
-      }
+      if (max_level == ghext->num_levels()) {
+        if (!restrict_during_sync) {
+          // Restrict
+          active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
+            Restrict(cctkGH, leveldata.level);
+          });
+          // Prolongation
+          SyncEvolvedGFs(cctkGH);
+          CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
+        }
 
-      CCTK_Traverse(cctkGH, "CCTK_POSTSTEP");
-      CCTK_Traverse(cctkGH, "CCTK_CHECKPOINT");
-      CCTK_Traverse(cctkGH, "CCTK_ANALYSIS");
-      const double output_start_time = gettime();
-      CCTK_OutputGH(cctkGH);
-      const double output_finish_time = gettime();
-      total_evolution_output_time += output_finish_time - output_start_time;
+        CCTK_Traverse(cctkGH, "CCTK_POSTSTEP");
+        CCTK_Traverse(cctkGH, "CCTK_CHECKPOINT");
+        CCTK_Traverse(cctkGH, "CCTK_ANALYSIS");
+        const double output_start_time = gettime();
+        CCTK_OutputGH(cctkGH);
+        const double output_finish_time = gettime();
+        total_evolution_output_time += output_finish_time - output_start_time;
+      }
 
     } // for min_level, max_level
 
