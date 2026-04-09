@@ -1786,9 +1786,10 @@ int Evolve(tFleshConfig *config) {
 
     // Loop over all levels, in batches that combine levels that don't
     // subcycle. The level range is [min_level, max_level).
-    for (int min_level = 0, max_level = min_level + 1;
-         min_level < ghext->num_levels();
-         min_level = max_level, max_level = min_level + 1) {
+    for (int min_level = 0, max_level; min_level < ghext->num_levels();
+         min_level = max_level) {
+      max_level = min_level + 1;
+
       // Find end of batch
       while (max_level < ghext->num_levels()) {
         bool level_is_subcycling_level = false;
