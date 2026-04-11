@@ -609,8 +609,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
     return;
   }
 
-  if (use_subcycling) { // currently checkpoint and recovery only works if all
-                        // levels are aligned in time
+  if (ghext->use_subcycling) { // currently checkpoint and recovery only works
+                               // if all levels are aligned in time
     rat64 level_iteration = -1;
     for (const auto &patchdata : ghext->patchdata) {
       for (const auto &leveldata : patchdata.leveldata) {

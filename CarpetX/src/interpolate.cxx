@@ -838,7 +838,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
 
   // check if interpolation in time (unsupported) would be needed
-  if (use_subcycling) {
+  if (ghext->use_subcycling) {
     const double local_iteration_used[2] = {
         min_level_iteration_used != -1
             ? -double(min_level_iteration_used)

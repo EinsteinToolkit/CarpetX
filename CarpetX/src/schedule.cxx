@@ -2935,7 +2935,7 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
       const auto &restrict coarseleveldata =
           ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
 
-      if (use_subcycling_wip &&
+      if (ghext->use_subcycling &&
           (leveldata.iteration == coarseleveldata.iteration)) {
         return;
       }
