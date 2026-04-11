@@ -609,6 +609,24 @@ void Checkpoint(const cGH *const restrict cctkGH) {
     return;
   }
 
+  if (use_subcycling) { // currently checkpoint and recovery only works if all
+                        // levels are aligned in time
+    rat64 level_iteration = -1;
+    for (const auto &patchdata : ghext->patchdata) {
+      for (const auto &leveldata : patchdata.leveldata) {
+        if (level_iteration == -1) {
+          level_iteration = leveldata.iteration;
+        } else {
+          if (leveldata.iteration != level_iteration) {
+            CCTK_VERROR("Checkpointing is only allowed if all levels are "
+                        "aligned in time, not at %d",
+                        cctkGH->cctk_iteration);
+          }
+        }
+      }
+    }
+  }
+
   if (cctkGH->cctk_iteration <= last_checkpoint_iteration) {
     CCTK_VINFO(
         "Already wrote checkpoint at iteration %d; skipping checkpointing",
