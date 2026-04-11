@@ -1875,17 +1875,17 @@ int Evolve(tFleshConfig *config) {
           SyncEvolvedGFs(cctkGH);
           CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
         }
-
-        CCTK_Traverse(cctkGH, "CCTK_POSTSTEP");
-        CCTK_Traverse(cctkGH, "CCTK_CHECKPOINT");
-        CCTK_Traverse(cctkGH, "CCTK_ANALYSIS");
-        const double output_start_time = gettime();
-        CCTK_OutputGH(cctkGH);
-        const double output_finish_time = gettime();
-        total_evolution_output_time += output_finish_time - output_start_time;
       }
 
+      CCTK_Traverse(cctkGH, "CCTK_POSTSTEP");
+      CCTK_Traverse(cctkGH, "CCTK_ANALYSIS");
     } // for min_level, max_level
+
+    CCTK_Traverse(cctkGH, "CCTK_CHECKPOINT");
+    const double output_start_time = gettime();
+    CCTK_OutputGH(cctkGH);
+    const double output_finish_time = gettime();
+    total_evolution_output_time += output_finish_time - output_start_time;
 
     // Mark all levels inactive now that we are done processing a time step
     active_levels = optional<active_levels_t>();
