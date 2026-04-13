@@ -1,0 +1,17 @@
+# Schedule definitions for thorn TestSubcycleStepping
+
+STORAGE: iteration
+
+schedule TestSubcycleStepping_Init AT INITIAL
+{
+  LANG: C
+  WRITES: iteration(interior)
+  SYNC: iteration
+} "initialize test grid function"
+
+schedule TestSubcycleStepping_Update AT EVOL
+{
+  LANG: C
+  WRITES: iteration(interior)
+  SYNC: iteration
+} "update test grid function"

@@ -664,6 +664,9 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     givis.at(v) = {gi, vi};
   }
 
+  rat64 min_level_iteration_used = -1;
+  rat64 max_level_iteration_used = -1;
+  bool requires_interpolation_in_time = false;
   for (const auto &patchdata : ghext->patchdata) {
     const int patch = patchdata.patch;
     for (const auto &leveldata : patchdata.leveldata) {
@@ -675,6 +678,15 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         const MFPointer mfp(pti);
         const GridDesc grid(leveldata, mfp);
         // const int component = mfp.index();
+
+        min_level_iteration_used =
+            min_level_iteration_used != -1
+                ? std::min(min_level_iteration_used, leveldata.iteration)
+                : leveldata.iteration;
+        max_level_iteration_used =
+            max_level_iteration_used != -1
+                ? std::max(max_level_iteration_used, leveldata.iteration)
+                : leveldata.iteration;
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
@@ -823,8 +835,32 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
     }
   }
 
-  // Collect particles back
   const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
+
+  // check if interpolation in time (unsupported) would be needed
+  if (use_subcycling) {
+    const double local_iteration_used[2] = {
+        min_level_iteration_used != -1
+            ? -double(min_level_iteration_used)
+            : -std::numeric_limits<double>::infinity(),
+        max_level_iteration_used != -1
+            ? +double(max_level_iteration_used)
+            : -std::numeric_limits<double>::infinity()};
+    double global_iteration_used[2] = {0.};
+    MPI_Allreduce(local_iteration_used, global_iteration_used, 2, MPI_DOUBLE,
+                  MPI_MAX, comm);
+    const double min_iteration_used = -global_iteration_used[0];
+    const double max_iteration_used = +global_iteration_used[1];
+    // Did two (or one) ranks use different iterations?
+    if (max_iteration_used != min_iteration_used) {
+      CCTK_VERROR("Interpolation in time required when interpolating %s at "
+                  "iteration %d",
+                  nvars > 0 ? CCTK_FullVarName(varinds[0]) : "no variable",
+                  cctkGH->cctk_iteration);
+    }
+  }
+
+  // Collect particles back
   const MPI_Datatype datatype = mpi_datatype<CCTK_REAL>::value;
 
   std::vector<int> sendcounts(nprocs);

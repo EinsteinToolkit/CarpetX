@@ -83,6 +83,7 @@ std::optional<active_levels_t> active_levels;
 void Reflux(const cGH *cctkGH, int level);
 void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups);
 void Restrict(const cGH *cctkGH, int level);
+void SyncRestrictedGFs(const cGH *cctkGH);
 
 namespace {
 // Convert a (direction, face) pair to an AMReX Orientation
@@ -492,6 +493,7 @@ void update_cctkGH(cGH *const cctkGH, const cGH *const sourceGH) {
   if (cctkGH == sourceGH)
     return;
   cctkGH->cctk_iteration = sourceGH->cctk_iteration;
+  cctkGH->cctk_timefac = sourceGH->cctk_timefac;
   cctkGH->cctk_time = sourceGH->cctk_time;
   cctkGH->cctk_delta_time = sourceGH->cctk_delta_time;
   // for (int d = 0; d < dim; ++d)
@@ -1023,6 +1025,31 @@ std::vector<clause_t> decode_clauses(const cFunctionData *restrict attribute,
   return result;
 }
 
+CCTK_REAL get_coarse_mindx() {
+  CCTK_REAL mindx = std::numeric_limits<CCTK_REAL>::infinity();
+  for (const auto &patchdata : ghext->patchdata) {
+    const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
+    const CCTK_REAL *restrict const dx = geom.CellSize();
+    for (int d = 0; d < dim; ++d)
+      mindx = fmin(mindx, dx[d]);
+  }
+  return mindx;
+}
+
+CCTK_REAL get_finest_mindx() {
+  CCTK_REAL mindx = std::numeric_limits<CCTK_REAL>::infinity();
+  for (const auto &patchdata : ghext->patchdata) {
+    const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
+    const CCTK_REAL *restrict const dx = geom.CellSize();
+    CCTK_REAL mindx1 = std::numeric_limits<CCTK_REAL>::infinity();
+    for (int d = 0; d < dim; ++d)
+      mindx1 = fmin(mindx1, dx[d]);
+    mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
+    mindx = fmin(mindx, mindx1);
+  }
+  return mindx;
+}
+
 // Schedule initialisation
 int Initialise(tFleshConfig *config) {
   DECLARE_CCTK_PARAMETERS;
@@ -1038,6 +1065,11 @@ int Initialise(tFleshConfig *config) {
       !CCTK_EQUALS(presync_mode, "presync-only"))
     CCTK_ERROR("CarpetX currently requires Cactus::presync_mode = "
                "\"mixed-error\" or \"presync-only\"");
+
+  // Check restrict_during_sync when use_subcycling is on
+  if (ghext->use_subcycling && restrict_during_sync)
+    CCTK_ERROR("CarpetX requires CarpetX::restrict_during_sync = "
+               "\"no\" when CarpetX::use_subcycling = \"yes\"");
 
   // Initialise iteration and time
   cctkGH->cctk_iteration = 0;
@@ -1112,6 +1144,14 @@ int Initialise(tFleshConfig *config) {
     CCTK_Traverse(cctkGH, "CCTK_RECOVER_VARIABLES");
     CCTK_Traverse(cctkGH, "CCTK_POST_RECOVER_VARIABLES");
 
+    // Here we assume that all levels have caught up to the coarsest one when
+    // checkpointing.
+    // TODO: checkpoint level.iteration instead.
+    const int iteration_ratio = 1 << (ghext->num_levels() - 1);
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      leveldata.iteration = rat64(cctkGH->cctk_iteration) / iteration_ratio;
+    });
+
     active_levels = optional<active_levels_t>();
 
     // Enable regridding
@@ -1122,18 +1162,11 @@ int Initialise(tFleshConfig *config) {
     if (CCTK_EQUALS(timestep_choice, "timestep")) {
       cctkGH->cctk_delta_time = timestep;
     } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
-      CCTK_REAL mindx = 1.0 / 0.0;
-      for (const auto &patchdata : ghext->patchdata) {
-        const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
-        const CCTK_REAL *restrict const dx = geom.CellSize();
-        CCTK_REAL mindx1 = 1.0 / 0.0;
-        for (int d = 0; d < dim; ++d)
-          mindx1 = fmin(mindx1, dx[d]);
-        mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
-        mindx = fmin(mindx, mindx1);
-      }
-      cctkGH->cctk_delta_time = dtfac * mindx;
+      cctkGH->cctk_delta_time =
+          dtfac *
+          (ghext->use_subcycling ? get_coarse_mindx() : get_finest_mindx());
     } else {
+      CCTK_ERROR("Unexpected value for 'CarpetX::timestep_choice'");
       abort();
     }
     assert(isfinite(cctkGH->cctk_delta_time));
@@ -1160,18 +1193,11 @@ int Initialise(tFleshConfig *config) {
       if (CCTK_EQUALS(timestep_choice, "timestep")) {
         cctkGH->cctk_delta_time = timestep;
       } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
-        CCTK_REAL mindx = 1.0 / 0.0;
-        for (const auto &patchdata : ghext->patchdata) {
-          const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
-          const CCTK_REAL *restrict const dx = geom.CellSize();
-          CCTK_REAL mindx1 = 1.0 / 0.0;
-          for (int d = 0; d < dim; ++d)
-            mindx1 = fmin(mindx1, dx[d]);
-          mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
-          mindx = fmin(mindx, mindx1);
-        }
-        cctkGH->cctk_delta_time = dtfac * mindx;
+        cctkGH->cctk_delta_time =
+            dtfac *
+            (ghext->use_subcycling ? get_coarse_mindx() : get_finest_mindx());
       } else {
+        CCTK_ERROR("Unexpected value for 'CarpetX::timestep_choice'");
         abort();
       }
       assert(isfinite(cctkGH->cctk_delta_time));
@@ -1321,18 +1347,11 @@ int Initialise(tFleshConfig *config) {
           if (CCTK_EQUALS(timestep_choice, "timestep")) {
             cctkGH->cctk_delta_time = timestep;
           } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
-            CCTK_REAL mindx = 1.0 / 0.0;
-            for (const auto &patchdata : ghext->patchdata) {
-              const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
-              const CCTK_REAL *restrict const dx = geom.CellSize();
-              CCTK_REAL mindx1 = 1.0 / 0.0;
-              for (int d = 0; d < dim; ++d)
-                mindx1 = fmin(mindx1, dx[d]);
-              mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
-              mindx = fmin(mindx, mindx1);
-            }
-            cctkGH->cctk_delta_time = dtfac * mindx;
+            cctkGH->cctk_delta_time =
+                dtfac * (ghext->use_subcycling ? get_coarse_mindx()
+                                               : get_finest_mindx());
           } else {
+            CCTK_ERROR("Unexpected value for 'CarpetX::timestep_choice'");
             abort();
           }
           assert(isfinite(cctkGH->cctk_delta_time));
@@ -1367,6 +1386,8 @@ int Initialise(tFleshConfig *config) {
       if (leveldata.level != ghext->num_levels() - 1)
         Restrict(cctkGH, leveldata.level);
     });
+    // Prolongation
+    SyncRestrictedGFs(cctkGH);
     CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
   }
 
@@ -1494,8 +1515,6 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
   static Timer timer("CycleTimelevels");
   Interval interval(timer);
 
-  cctkGH->cctk_iteration += 1;
-  cctkGH->cctk_time += cctkGH->cctk_delta_time;
   update_cctkGHs(cctkGH);
 
   // TODO: Parallelize over groups
@@ -1630,6 +1649,14 @@ int Evolve(tFleshConfig *config) {
 
     assert(!active_levels);
 
+    // Find smallest iteration number. Levels at this iteration will
+    // be evolved.
+    rat64 iteration = ghext->patchdata.at(0).leveldata.at(0).iteration;
+    using std::min;
+    for (const auto &patchdata : ghext->patchdata)
+      for (const auto &leveldata : patchdata.leveldata)
+        iteration = min(iteration, leveldata.iteration);
+
     // TODO: Move regridding into a function
     if (regrid_every > 0 && cctkGH->cctk_iteration % regrid_every == 0) {
 #pragma omp critical
@@ -1638,6 +1665,16 @@ int Evolve(tFleshConfig *config) {
       Interval interval(timer);
 
       for (const auto &patchdata : ghext->patchdata) {
+
+        int min_active_level = -1;
+        for (int level = patchdata.leveldata.size() - 1; level >= 0; --level) {
+          if (patchdata.leveldata.at(level).iteration != iteration) {
+            break;
+          }
+          min_active_level = level;
+        }
+        assert(min_active_level != -1);
+
         const int old_numlevels = patchdata.amrcore->finestLevel() + 1;
         patchdata.amrcore->level_modified.clear();
         patchdata.amrcore->level_modified.resize(old_numlevels, false);
@@ -1662,7 +1699,7 @@ int Evolve(tFleshConfig *config) {
         }
         patchdata.amrcore->SetMaxGridSize(max_grid_sizes_vec);
 
-        patchdata.amrcore->regrid(0, time);
+        patchdata.amrcore->regrid(min_active_level, time);
 
         const int new_numlevels = patchdata.amrcore->finestLevel() + 1;
         const int max_numlevels = patchdata.amrcore->maxLevel() + 1;
@@ -1717,18 +1754,11 @@ int Evolve(tFleshConfig *config) {
         if (CCTK_EQUALS(timestep_choice, "timestep")) {
           cctkGH->cctk_delta_time = timestep;
         } else if (CCTK_EQUALS(timestep_choice, "dtfac")) {
-          CCTK_REAL mindx = 1.0 / 0.0;
-          for (const auto &patchdata : ghext->patchdata) {
-            const amrex::Geometry &geom = patchdata.amrcore->Geom(0);
-            const CCTK_REAL *restrict const dx = geom.CellSize();
-            CCTK_REAL mindx1 = 1.0 / 0.0;
-            for (int d = 0; d < dim; ++d)
-              mindx1 = fmin(mindx1, dx[d]);
-            mindx1 = ldexp(mindx1, -(int(patchdata.leveldata.size()) - 1));
-            mindx = fmin(mindx, mindx1);
-          }
-          cctkGH->cctk_delta_time = dtfac * mindx;
+          cctkGH->cctk_delta_time =
+              dtfac *
+              (ghext->use_subcycling ? get_coarse_mindx() : get_finest_mindx());
         } else {
+          CCTK_ERROR("Unexpected value for 'CarpetX::timestep_choice'");
           abort();
         }
         assert(isfinite(cctkGH->cctk_delta_time));
@@ -1746,21 +1776,21 @@ int Evolve(tFleshConfig *config) {
       }
     } // Regrid
 
-    // Find smallest iteration number. Levels at this iteration will
-    // be evolved.
-    rat64 iteration = ghext->patchdata.at(0).leveldata.at(0).iteration;
-    using std::min;
+    rat64 delta_iteration =
+        ghext->patchdata.at(0).leveldata.at(0).delta_iteration;
     for (const auto &patchdata : ghext->patchdata)
       for (const auto &leveldata : patchdata.leveldata)
-        iteration = min(iteration, leveldata.iteration);
+        delta_iteration = min(delta_iteration, leveldata.delta_iteration);
+
+    cctkGH->cctk_iteration += 1;
 
     // Loop over all levels, in batches that combine levels that don't
     // subcycle. The level range is [min_level, max_level).
-    int min_level = 0;
-    while (min_level < ghext->num_levels()) {
-      // Find end of batch
-      int max_level = min_level + 1;
+    for (int min_level = 0, max_level; min_level < ghext->num_levels();
+         min_level = max_level) {
+      max_level = min_level + 1;
 
+      // Find end of batch
       while (max_level < ghext->num_levels()) {
         bool level_is_subcycling_level = false;
         for (const auto &patchdata : ghext->patchdata)
@@ -1775,18 +1805,30 @@ int Evolve(tFleshConfig *config) {
       // Skip this batch of levels if it is not active at the current
       // iteration
       rat64 level_iteration = -1;
-      for (const auto &patchdata : ghext->patchdata)
-        if (min_level < int(patchdata.leveldata.size()))
+      rat64 level_delta_iteration = -1;
+      for (const auto &patchdata : ghext->patchdata) {
+        if (min_level < int(patchdata.leveldata.size())) {
           level_iteration = patchdata.leveldata.at(min_level).iteration;
+          level_delta_iteration =
+              patchdata.leveldata.at(min_level).delta_iteration;
+          break;
+        }
+      }
       assert(level_iteration != -1);
+      assert(level_delta_iteration != -1);
+      // Skip those evolved coarse levels while evolving the fine levels to
+      // catch up
       if (level_iteration > iteration)
-        break;
+        continue;
 
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
       // Advance iteration number on this batch of levels
+      level_iteration += level_delta_iteration;
       active_levels->loop_serially([&](auto &restrict leveldata) {
         leveldata.iteration += leveldata.delta_iteration;
+        assert(level_iteration == leveldata.iteration);
+        assert(level_delta_iteration == leveldata.delta_iteration);
       });
 
       // We cannot invalidate all non-evolved variables. ODESolvers
@@ -1795,6 +1837,12 @@ int Evolve(tFleshConfig *config) {
       // InvalidateTimelevels(cctkGH);
 
       CycleTimelevels(cctkGH);
+
+      cctkGH->cctk_timefac = ghext->use_subcycling ? (1 << min_level) : 1;
+      cctkGH->cctk_time =
+          ghext->use_subcycling
+              ? cctkGH->cctk_delta_time * double(level_iteration)
+              : cctkGH->cctk_time + cctkGH->cctk_delta_time;
 
       CCTK_Traverse(cctkGH, "CCTK_PRESTEP");
       CCTK_Traverse(cctkGH, "CCTK_EVOL");
@@ -1805,24 +1853,42 @@ int Evolve(tFleshConfig *config) {
       for (int level = ghext->num_levels() - 2; level >= 0; --level)
         Reflux(cctkGH, level);
 
-      if (!restrict_during_sync) {
-        // Restrict
-        // TODO: These loop bounds are wrong for subcycling
-        for (int level = ghext->num_levels() - 2; level >= 0; --level)
-          Restrict(cctkGH, level);
-        CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
+      // reset active_levels to include all levels that have caught up to the
+      // current timestep
+      for (int level = min_level - 1; level >= 0; --level) {
+        rat64 coarse_iteration =
+            ghext->patchdata.at(0).leveldata.at(level).iteration;
+        if (coarse_iteration == level_iteration)
+          min_level = level;
+        else
+          break;
+      }
+      active_levels = make_optional<active_levels_t>(min_level, max_level);
+
+      if (max_level == ghext->num_levels()) {
+        if (!restrict_during_sync) {
+          // Restrict
+          active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
+            Restrict(cctkGH, leveldata.level);
+          });
+          // Prolongation
+          SyncRestrictedGFs(cctkGH);
+          CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
+        }
       }
 
       CCTK_Traverse(cctkGH, "CCTK_POSTSTEP");
-      CCTK_Traverse(cctkGH, "CCTK_CHECKPOINT");
       CCTK_Traverse(cctkGH, "CCTK_ANALYSIS");
-      const double output_start_time = gettime();
-      CCTK_OutputGH(cctkGH);
-      const double output_finish_time = gettime();
-      total_evolution_output_time += output_finish_time - output_start_time;
+    } // for min_level, max_level
 
-      active_levels = optional<active_levels_t>();
-    } // for min_level
+    CCTK_Traverse(cctkGH, "CCTK_CHECKPOINT");
+    const double output_start_time = gettime();
+    CCTK_OutputGH(cctkGH);
+    const double output_finish_time = gettime();
+    total_evolution_output_time += output_finish_time - output_start_time;
+
+    // Mark all levels inactive now that we are done processing a time step
+    active_levels = optional<active_levels_t>();
 
     const double waiting_start_time = gettime();
     MPI_Barrier(MPI_COMM_WORLD);
@@ -2323,7 +2389,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                      const int *groups0, const int *directions) {
   DECLARE_CCTK_PARAMETERS;
 
-  assert(in_global_mode(cctkGH));
+  assert(in_global_mode(cctkGH) || in_level_mode(cctkGH));
 
   mark_sync_active marked;
 
@@ -2846,6 +2912,24 @@ void Restrict(const cGH *cctkGH, int level) {
     }
   }
   Restrict(cctkGH, level, groups);
+}
+
+void SyncRestrictedGFs(const cGH *cctkGH) {
+  const int numgroups = CCTK_NumGroups();
+  vector<int> groups;
+  groups.reserve(numgroups);
+  const auto &patchdata0 = ghext->patchdata.at(0);
+  const auto &leveldata0 = patchdata0.leveldata.at(0);
+  for (const auto &groupdataptr : leveldata0.groupdata) {
+    // Sync only grid functions
+    if (groupdataptr) {
+      auto &restrict groupdata = *groupdataptr;
+      // Sync only evolved grid functions
+      if (groupdata.do_checkpoint)
+        groups.push_back(groupdata.groupindex);
+    }
+  }
+  SyncGroupsByDirI(cctkGH, groups.size(), groups.data(), nullptr);
 }
 
 // storage handling

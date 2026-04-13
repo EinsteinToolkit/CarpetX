@@ -715,7 +715,7 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
     : patch(patch), level(level) {
   DECLARE_CCTK_PARAMETERS;
 
-  const int timereffact = use_subcycling_wip ? 2 : 1;
+  const int timereffact = use_subcycling ? 2 : 1;
   if (level == 0) {
     // We are creating the coarsest level
     is_subcycling_level = false; // unused
@@ -724,7 +724,7 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
   } else {
     // We are creating a new refined level
     auto &coarseleveldata = ghext->patchdata.at(patch).leveldata.at(level - 1);
-    is_subcycling_level = use_subcycling_wip;
+    is_subcycling_level = use_subcycling;
     iteration = coarseleveldata.iteration;
     delta_iteration = coarseleveldata.delta_iteration / timereffact;
   }
@@ -1224,19 +1224,28 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
 #pragma omp critical
     CCTK_VINFO("MakeNewLevelFromCoarse patch %d level %d", patch, level);
 
-  assert(!use_subcycling_wip);
   assert(level > 0);
 
   SetupLevel(level, ba, dm, []() { return "MakeNewLevelFromCoarse"; });
 
   // Prolongate
-  assert(!use_subcycling_wip);
   auto &patchdata = ghext->patchdata.at(patch);
   auto &leveldata = patchdata.leveldata.at(level);
   auto &coarseleveldata = patchdata.leveldata.at(level - 1);
   const active_levels_t active_levels(level, level + 1, patch, patch + 1);
   const active_levels_t active_coarse_levels(level - 1, level, patch,
                                              patch + 1);
+
+  // only allow creation of new levels when the source and target are aligned
+  // in time
+  if (leveldata.iteration != coarseleveldata.iteration) {
+    ostringstream msg;
+    msg << "Coarse (rl=" << (level-1) <<", it=" << coarseleveldata.iteration <<
+           ") and fine (rl=" << level << ", it=" << leveldata.iteration <<
+           ") grid do not align in time when regridding";
+#pragma omp critical
+    CCTK_VERROR(msg.str().c_str());
+  }
 
   const int num_groups = CCTK_NumGroups();
   for (int gi = 0; gi < num_groups; ++gi) {
@@ -1332,8 +1341,16 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   const active_levels_t active_coarse_levels(level - 1, level, patch,
                                              patch + 1);
 
-  // Copy or prolongate
-  assert(!use_subcycling_wip);
+  // only allow modfication of levels when the source and target are aligned in
+  // time
+  if (leveldata.iteration != coarseleveldata.iteration) {
+    ostringstream msg;
+    msg << "Coarse (rl=" << (level-1) <<", it=" << coarseleveldata.iteration <<
+           ") and fine (rl=" << level << ", it=" << leveldata.iteration <<
+           ") grid do not align in time when regridding";
+#pragma omp critical
+    CCTK_VERROR(msg.str().c_str());
+  }
 
   // Check old level
   const int num_groups = CCTK_NumGroups();
@@ -1975,6 +1992,9 @@ int InitGH(cGH *restrict cctkGH) {
   // Set up all patches
   for (int patch = 0; patch < num_patches; ++patch)
     ghext->patchdata.emplace_back(patch);
+
+  // Set up use_subcycling
+  ghext->use_subcycling = use_subcycling;
 
   return 0; // unused
 }

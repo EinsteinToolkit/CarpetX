@@ -450,6 +450,8 @@ struct GHExt {
   };
   std::vector<PatchData> patchdata; // [patch]
 
+  bool use_subcycling = false;
+
   int num_patches() const { return patchdata.size(); }
   int num_levels(const int patch) const {
     return patchdata.at(patch).leveldata.size();
