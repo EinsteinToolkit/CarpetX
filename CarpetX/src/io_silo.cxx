@@ -385,6 +385,8 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
     nlevels.resize(npatches);
   MPI_Bcast(nlevels.data(), npatches, MPI_INT, metafile_ioproc, mpi_comm);
 
+  ghext->recovered_level_iterations.resize(ghext->num_patches());
+
   // Read FabArrayBase (component positions and shapes)
   for (int patch = 0; patch < npatches; ++patch) {
     CCTK_VINFO("Reading patch %d...", patch);
@@ -392,6 +394,7 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
     CCTK_VINFO("  Found %d levels on patch %d", nlevels.at(patch), patch);
     auto &patchdata = ghext->patchdata.at(patch);
     patchdata.amrcore->SetFinestLevel(nlevels.at(patch) - 1);
+    ghext->recovered_level_iterations.at(patch).resize(nlevels.at(patch));
 
     for (int level = 0; level < nlevels.at(patch); ++level) {
       CCTK_VINFO("  Reading level %d...", level);
@@ -444,6 +447,40 @@ void InputSiloGridStructure(cGH *restrict const cctkGH,
 
       patchdata.amrcore->SetupLevel(level, boxarray, dm,
                                     []() { return "Recovering"; });
+
+      // Read per-level iteration if present (new checkpoint format)
+      {
+        const std::string varname_num =
+            dirname + "/" +
+            DB::legalize_name("iteration_num.m" + std::to_string(patch) +
+                              ".rl" + std::to_string(level));
+        const std::string varname_den =
+            dirname + "/" +
+            DB::legalize_name("iteration_den.m" + std::to_string(patch) +
+                              ".rl" + std::to_string(level));
+
+        long long iter_num = 0, iter_den = 0;
+        bool have_iteration = false;
+        if (read_metafile) {
+          if (DBInqVarExists(metafile.get(), varname_num.c_str()) &&
+              DBInqVarExists(metafile.get(), varname_den.c_str())) {
+            int ierr;
+            ierr = DBReadVar(metafile.get(), varname_num.c_str(), &iter_num);
+            assert(!ierr);
+            ierr = DBReadVar(metafile.get(), varname_den.c_str(), &iter_den);
+            assert(!ierr);
+            have_iteration = true;
+          }
+        }
+        MPI_Bcast(&have_iteration, 1, MPI_C_BOOL, metafile_ioproc, mpi_comm);
+        if (have_iteration) {
+          MPI_Bcast(&iter_num, 1, MPI_LONG_LONG, metafile_ioproc, mpi_comm);
+          MPI_Bcast(&iter_den, 1, MPI_LONG_LONG, metafile_ioproc, mpi_comm);
+          ghext->recovered_level_iterations.at(patch).at(level) =
+              rat64(iter_num, iter_den);
+        }
+        // else: old checkpoint without per-level iteration — leave as nullopt
+      }
     } // for level
   } // for patch
 
@@ -1800,6 +1837,36 @@ void OutputSilo(const cGH *restrict const cctkGH,
           ierr = DBWrite(metafile.get(), varname.c_str(), boxes.data(), dims, 2,
                          DB_INT);
           assert(!ierr);
+        }
+      }
+
+      // Write per-level iteration as rational (numerator/denominator)
+      for (const auto &patchdata : ghext->patchdata) {
+        for (const auto &leveldata : patchdata.leveldata) {
+          {
+            const std::string varname =
+                dirname + "/" +
+                DB::legalize_name("iteration_num.m" +
+                                  std::to_string(patchdata.patch) + ".rl" +
+                                  std::to_string(leveldata.level));
+            long long val = leveldata.iteration.num;
+            int dims = 1;
+            ierr = DBWrite(metafile.get(), varname.c_str(), &val, &dims, 1,
+                           DB_LONG_LONG);
+            assert(!ierr);
+          }
+          {
+            const std::string varname =
+                dirname + "/" +
+                DB::legalize_name("iteration_den.m" +
+                                  std::to_string(patchdata.patch) + ".rl" +
+                                  std::to_string(leveldata.level));
+            long long val = leveldata.iteration.den;
+            int dims = 1;
+            ierr = DBWrite(metafile.get(), varname.c_str(), &val, &dims, 1,
+                           DB_LONG_LONG);
+            assert(!ierr);
+          }
         }
       }
     }

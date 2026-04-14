@@ -86,6 +86,8 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
   grid.loop_int_device<0, 0, 0>(grid.nghostzones,
                                 [=] CCTK_DEVICE(const Loop::PointDesc &p)
                                     CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                      u_p(p.I) = 0.0;
+                                      rho_p(p.I) = 0.0;
                                       u_k1(p.I) = 0.0;
                                       u_k2(p.I) = 0.0;
                                       u_k3(p.I) = 0.0;

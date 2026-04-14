@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <type_traits>
 #include <vector>
@@ -451,6 +452,10 @@ struct GHExt {
   std::vector<PatchData> patchdata; // [patch]
 
   bool use_subcycling = false;
+
+  // Per-level iteration values read from checkpoint; consumed by recovery fixup
+  // in schedule.cxx. Indexed [patch][level]. Empty outside of recovery window.
+  std::vector<std::vector<std::optional<rat64> > > recovered_level_iterations;
 
   int num_patches() const { return patchdata.size(); }
   int num_levels(const int patch) const {
