@@ -610,6 +610,8 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
                          .get<std::vector<std::string> >();
   }
 
+  ghext->recovered_level_iterations.resize(ghext->num_patches());
+
   for (auto &patchdata : ghext->patchdata) {
     const int patch = patchdata.patch;
     const int nlevels =
@@ -637,6 +639,7 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
     assert(ndims == 3);
     assert(nlevels > 0);
     patchdata.amrcore->SetFinestLevel(nlevels - 1);
+    ghext->recovered_level_iterations.at(patch).resize(nlevels);
 
     for (int level = 0; level < nlevels; ++level) {
       const std::vector<std::int64_t> chunk_infos =
@@ -671,6 +674,21 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
 
       patchdata.amrcore->SetupLevel(level, boxarray, dm,
                                     []() { return "Recovering"; });
+
+      // Read per-level iteration if present (new checkpoint format)
+      const std::string iter_num_attr =
+          "iteration_num" + level_suffixes.at(level);
+      const std::string iter_den_attr =
+          "iteration_den" + level_suffixes.at(level);
+      if (read_iter->containsAttribute(iter_num_attr) &&
+          read_iter->containsAttribute(iter_den_attr)) {
+        const auto num =
+            read_iter->getAttribute(iter_num_attr).get<std::int64_t>();
+        const auto den =
+            read_iter->getAttribute(iter_den_attr).get<std::int64_t>();
+        ghext->recovered_level_iterations.at(patch).at(level) = rat64(num, den);
+      }
+      // else: old checkpoint without per-level iteration — leave as nullopt
     } // for level
   } // for patch
 }
@@ -1482,6 +1500,14 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         }
         write_iter.setAttribute("chunkInfo" + level_suffixes.at(level),
                                 chunk_infos);
+
+        // Write per-level iteration as rational (numerator/denominator)
+        write_iter.setAttribute(
+            "iteration_num" + level_suffixes.at(level),
+            static_cast<std::int64_t>(leveldata.iteration.num));
+        write_iter.setAttribute(
+            "iteration_den" + level_suffixes.at(level),
+            static_cast<std::int64_t>(leveldata.iteration.den));
       }
     }
   } // if ioproc
