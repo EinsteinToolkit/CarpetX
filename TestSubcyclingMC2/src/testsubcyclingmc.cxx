@@ -85,6 +85,21 @@ extern "C" void TestSubcyclingMC2_Initial(CCTK_ARGUMENTS) {
   } else {
     CCTK_ERROR("Unknown initial condition");
   }
+
+  grid.loop_int_device<0, 0, 0>(grid.nghostzones,
+                                [=] CCTK_DEVICE(const PointDesc &p)
+                                    CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                      u_old(p.I) = 0.0;
+                                      rho_old(p.I) = 0.0;
+                                      u_k1(p.I) = 0.0;
+                                      rho_k1(p.I) = 0.0;
+                                      u_k2(p.I) = 0.0;
+                                      rho_k2(p.I) = 0.0;
+                                      u_k3(p.I) = 0.0;
+                                      rho_k3(p.I) = 0.0;
+                                      u_k4(p.I) = 0.0;
+                                      rho_k4(p.I) = 0.0;
+                                    });
 }
 
 extern "C" void TestSubcyclingMC2_RHS(CCTK_ARGUMENTS) {
