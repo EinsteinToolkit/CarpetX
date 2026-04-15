@@ -140,6 +140,7 @@ struct GHExt {
     int numvars;
 
     bool do_checkpoint; // whether to checkpoint
+    bool do_evolve;     // whether this is an evolved state variable
     bool do_restrict;   // whether to restrict
 
     std::vector<std::vector<why_valid_t> > valid; // [time level][var index]
