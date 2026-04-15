@@ -7,9 +7,7 @@ SCHEDULE TestSubcyclingMC2_Initial AT initial
 {
   LANG: C
   WRITES: state(interior)
-  WRITES: old(interior) k1(interior) k2(interior) k3(interior) k4(interior)
   SYNC: state
-  SYNC: old k1 k2 k3 k4
 } "Initialize scalar wave state"
 
 SCHEDULE TestSubcyclingMC2_Sync AT postregrid
