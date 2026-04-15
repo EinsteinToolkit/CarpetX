@@ -40,6 +40,21 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
       const int rhs_gi = get_group_rhs(groupdata.groupindex);
       const int old_gi = get_group_old(groupdata.groupindex);
       const auto &ks_gi = get_group_ks<int, rkstages>(groupdata.groupindex);
+      if (rhs_gi >= 0 && old_gi < 0)
+        CCTK_VERROR("Variable group \"%s\" declares rhs but is missing "
+                    "required subcycling tag old=\"...\". Add old=\"...\" "
+                    "to the group's TAGS in interface.ccl.",
+                    CCTK_FullGroupName(groupdata.groupindex));
+      if (rhs_gi >= 0) {
+        for (int i = 0; i < rkstages; i++) {
+          if (ks_gi[i] < 0)
+            CCTK_VERROR("Variable group \"%s\" declares rhs but is missing "
+                        "required subcycling tag ks=\"...\". Add "
+                        "ks=\"k1 k2 k3 k4\" to the group's TAGS in "
+                        "interface.ccl.",
+                        CCTK_FullGroupName(groupdata.groupindex));
+        }
+      }
       if (rhs_gi >= 0) {
         assert(rhs_gi != groupdata.groupindex);
         auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
