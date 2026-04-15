@@ -17,6 +17,10 @@ SCHEDULE TestSubcyclingMC2_Sync AT postregrid
   SYNC: state
 } "Synchronize"
 
+# Checkpoints only save the interior of GFs, leaving ghost zones invalid.
+# We sync here to repopulate them. Note: if recovering from a mid-subcycling
+# checkpoint, the ghost data may correspond to the wrong time slice, but
+# ODESolver corrects this at the start of its next iteration.
 SCHEDULE TestSubcyclingMC2_Sync AT post_recover_variables
 {
   LANG: C
