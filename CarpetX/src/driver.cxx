@@ -339,7 +339,30 @@ bool get_group_restrict_flag(const int gi) {
   char buf[100];
   int iret = Util_TableGetString(tags, sizeof buf, buf, "restrict");
   if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    return true;
+    // Default to checkpoint flag value when not explicitly set
+    return get_group_checkpoint_flag(gi);
+  } else if (iret >= 0) {
+    std::string str(buf);
+    for (auto &c : str)
+      c = tolower(c);
+    if (str == "yes")
+      return true;
+    if (str == "no")
+      return false;
+    assert(0);
+  } else {
+    assert(0);
+  }
+}
+
+bool get_group_evolve_flag(const int gi) {
+  int tags = CCTK_GroupTagsTableI(gi);
+  assert(tags >= 0);
+  char buf[100];
+  int iret = Util_TableGetString(tags, sizeof buf, buf, "evolve");
+  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
+    // Default to checkpoint flag value when not explicitly set
+    return get_group_checkpoint_flag(gi);
   } else if (iret >= 0) {
     std::string str(buf);
     for (auto &c : str)
@@ -823,6 +846,7 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
   firstvarindex = CCTK_FirstVarIndexI(gi);
   numvars = group.numvars;
   do_checkpoint = get_group_checkpoint_flag(gi);
+  do_evolve = get_group_evolve_flag(gi);
   do_restrict = get_group_restrict_flag(gi);
   indextype = get_group_indextype(gi);
   nghostzones = get_group_nghostzones(gi);
@@ -1098,6 +1122,7 @@ void SetupGlobals() {
     arraygroupdata.firstvarindex = CCTK_FirstVarIndexI(gi);
     arraygroupdata.numvars = group.numvars;
     arraygroupdata.do_checkpoint = get_group_checkpoint_flag(gi);
+    arraygroupdata.do_evolve = get_group_evolve_flag(gi);
     arraygroupdata.do_restrict = get_group_restrict_flag(gi);
 
     CCTK_INT const *const *const sz = CCTK_GroupSizesI(gi);
@@ -1129,7 +1154,7 @@ void SetupGlobals() {
     }
 
     // Allocate data
-    const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
+    const nan_handling_t nan_handling = arraygroupdata.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
     arraygroupdata.data.resize(group.numtimelevels);
@@ -1265,8 +1290,8 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
     // We only prolongate the state vector. And if there is more than
     // one time level, then we don't prolongate the oldest.
     const int prolongate_tl =
-        groupdata.do_checkpoint ? (ntls > 1 ? ntls - 1 : ntls) : 0;
-    const nan_handling_t nan_handling = groupdata.do_checkpoint
+        groupdata.do_evolve ? (ntls > 1 ? ntls - 1 : ntls) : 0;
+    const nan_handling_t nan_handling = groupdata.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
 
@@ -1370,8 +1395,8 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
     // We only prolongate the state vector. And if there is more than
     // one time level, then we don't prolongate the oldest.
     const int prolongate_tl =
-        groupdata.do_checkpoint ? (ntls > 1 ? ntls - 1 : ntls) : 0;
-    const nan_handling_t nan_handling = groupdata.do_checkpoint
+        groupdata.do_evolve ? (ntls > 1 ? ntls - 1 : ntls) : 0;
+    const nan_handling_t nan_handling = groupdata.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
 
@@ -1431,7 +1456,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
                                  : valid_t();
     assert(outer_valid == make_valid_outer());
 
-    const nan_handling_t nan_handling = groupdata.do_checkpoint
+    const nan_handling_t nan_handling = groupdata.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
 
@@ -1439,7 +1464,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
     // We only prolongate the state vector. And if there is more than
     // one time level, then we don't prolongate the oldest.
     const int prolongate_tl =
-        groupdata.do_checkpoint ? (ntls > 1 ? ntls - 1 : ntls) : 0;
+        groupdata.do_evolve ? (ntls > 1 ? ntls - 1 : ntls) : 0;
 
     for (int tl = 0; tl < ntls; ++tl) {
       if (tl < prolongate_tl) {
@@ -1642,6 +1667,7 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml,
   yaml << YAML::EndSeq;
   yaml << YAML::Key << "do_checkpoint" << YAML::Value
        << commongroupdata.do_checkpoint;
+  yaml << YAML::Key << "do_evolve" << YAML::Value << commongroupdata.do_evolve;
   yaml << YAML::Key << "do_restrict" << YAML::Value
        << commongroupdata.do_restrict;
   yaml << YAML::Key << "valid" << YAML::Value << commongroupdata.valid;

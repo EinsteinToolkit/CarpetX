@@ -1478,7 +1478,7 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      if (!groupdata0.do_checkpoint) {
+      if (!groupdata0.do_evolve) {
         const int ntls0 = groupdata0.mfab.size();
         assert(active_levels);
         active_levels->loop_serially([&](const auto &restrict leveldata) {
@@ -1502,7 +1502,7 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
 
       auto &restrict globaldata = ghext->globaldata;
       auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
-      if (!arraygroupdata.do_checkpoint) {
+      if (!arraygroupdata.do_evolve) {
         // Invalidate all time levels
         const int ntls = arraygroupdata.data.size();
         for (int tl = 0; tl < ntls; ++tl)
@@ -1544,7 +1544,7 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
       const int ntls0 = groupdata0.mfab.size();
-      const nan_handling_t nan_handling = groupdata0.do_checkpoint
+      const nan_handling_t nan_handling = groupdata0.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
 
@@ -1566,7 +1566,7 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
         }
         // All time levels (except the current) must be valid everywhere for
         // checkpointed groups
-        if (groupdata.do_checkpoint) {
+        if (groupdata.do_evolve) {
           for (int tl = (ntls == 1 ? 0 : 1); tl < ntls; ++tl) {
             // it is only possible to sync time-level zero
             if (tl == 0 && presync_only) {
@@ -1592,7 +1592,7 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
 
       auto &restrict globaldata = ghext->globaldata;
       auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
-      const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
+      const nan_handling_t nan_handling = arraygroupdata.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
       const int ntls = arraygroupdata.data.size();
@@ -2077,7 +2077,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         const auto &patchdata0 = ghext->patchdata.at(0);
         const auto &leveldata0 = patchdata0.leveldata.at(0);
         const auto &groupdata0 = *leveldata0.groupdata.at(rd.gi);
-        const nan_handling_t nan_handling = groupdata0.do_checkpoint
+        const nan_handling_t nan_handling = groupdata0.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
 
@@ -2106,7 +2106,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
         const auto &restrict arraygroupdata =
             *ghext->globaldata.arraygroupdata.at(rd.gi);
-        const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
+        const nan_handling_t nan_handling = arraygroupdata.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
         const valid_t &need = rd.valid;
@@ -2259,7 +2259,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         const auto &patchdata0 = ghext->patchdata.at(0);
         const auto &leveldata0 = patchdata0.leveldata.at(0);
         const auto &groupdata0 = *leveldata0.groupdata.at(wr.gi);
-        const nan_handling_t nan_handling = groupdata0.do_checkpoint
+        const nan_handling_t nan_handling = groupdata0.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
 
@@ -2290,7 +2290,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
       } else { // CCTK_ARRAY or CCTK_SCALAR
         auto &restrict arraygroupdata =
             *ghext->globaldata.arraygroupdata.at(wr.gi);
-        const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
+        const nan_handling_t nan_handling = arraygroupdata.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
         const valid_t &provided = wr.valid;
@@ -2325,7 +2325,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         const auto &patchdata0 = ghext->patchdata.at(0);
         const auto &leveldata0 = patchdata0.leveldata.at(0);
         const auto &groupdata0 = *leveldata0.groupdata.at(inv.gi);
-        const nan_handling_t nan_handling = groupdata0.do_checkpoint
+        const nan_handling_t nan_handling = groupdata0.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
 
@@ -2356,7 +2356,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
       } else { // CCTK_ARRAY or CCTK_SCALAR
         auto &restrict arraygroupdata =
             *ghext->globaldata.arraygroupdata.at(inv.gi);
-        const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
+        const nan_handling_t nan_handling = arraygroupdata.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
         const valid_t &invalidated = inv.valid;
@@ -2490,7 +2490,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     const auto &patchdata0 = ghext->patchdata.at(0);
     const auto &leveldata0 = patchdata0.leveldata.at(0);
     const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-    const nan_handling_t nan_handling = groupdata0.do_checkpoint
+    const nan_handling_t nan_handling = groupdata0.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
     // We always sync all directions.
@@ -2639,7 +2639,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     const auto &patchdata0 = ghext->patchdata.at(0);
     const auto &leveldata0 = patchdata0.leveldata.at(0);
     const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-    const nan_handling_t nan_handling = groupdata0.do_checkpoint
+    const nan_handling_t nan_handling = groupdata0.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
     // We always sync all directions.
@@ -2692,7 +2692,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata0.do_checkpoint
+      const nan_handling_t nan_handling = groupdata0.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
       // We always sync all directions.
@@ -2846,7 +2846,7 @@ int SyncGroupsByDirINoRestrict(const cGH *restrict cctkGH, int numgroups,
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata0.do_checkpoint
+      const nan_handling_t nan_handling = groupdata0.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
       // We always sync all directions.
@@ -2996,7 +2996,7 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata0.do_checkpoint
+      const nan_handling_t nan_handling = groupdata0.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
       // We always sync all directions.
@@ -3118,7 +3118,7 @@ int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata0.do_checkpoint
+      const nan_handling_t nan_handling = groupdata0.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
       // We always sync all directions.
@@ -3171,7 +3171,7 @@ void Reflux(const cGH *cctkGH, int level) {
 
         auto &groupdata = *leveldata.groupdata.at(gi);
         const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
-        const nan_handling_t nan_handling = groupdata.do_checkpoint
+        const nan_handling_t nan_handling = groupdata.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
 
@@ -3265,15 +3265,12 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
         auto &groupdata = *leveldata.groupdata.at(gi);
         const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
         const amrex::IntVect reffact{2, 2, 2};
-        const nan_handling_t nan_handling = groupdata.do_checkpoint
+        const nan_handling_t nan_handling = groupdata.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
 
         // Don't restrict the regridding error
         if (gi == gi_regrid_error)
-          continue;
-        // Don't restrict groups that have restriction disabled
-        if (!groupdata.do_restrict)
           continue;
 
         // If there is more than one time level, then we don't restrict the
@@ -3384,7 +3381,7 @@ void RestrictNoPoison(const cGH *cctkGH, int level, const vector<int> &groups) {
         auto &groupdata = *leveldata.groupdata.at(gi);
         const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
         const amrex::IntVect reffact{2, 2, 2};
-        const nan_handling_t nan_handling = groupdata.do_checkpoint
+        const nan_handling_t nan_handling = groupdata.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
 
@@ -3463,8 +3460,8 @@ void Restrict(const cGH *cctkGH, int level) {
     // Restrict only grid functions
     if (groupdataptr) {
       auto &restrict groupdata = *groupdataptr;
-      // Restrict only evolved grid functions
-      if (groupdata.do_checkpoint)
+      // Restrict only grid functions with restriction enabled
+      if (groupdata.do_restrict)
         groups.push_back(groupdata.groupindex);
     }
   }
@@ -3481,8 +3478,8 @@ void SyncRestrictedGFs(const cGH *cctkGH) {
     // Sync only grid functions
     if (groupdataptr) {
       auto &restrict groupdata = *groupdataptr;
-      // Sync only evolved grid functions
-      if (groupdata.do_checkpoint)
+      // Sync only grid functions with restriction enabled
+      if (groupdata.do_restrict)
         groups.push_back(groupdata.groupindex);
     }
   }
