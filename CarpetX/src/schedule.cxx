@@ -2400,6 +2400,86 @@ struct mark_sync_active {
   ~mark_sync_active() { sync_active = false; }
 };
 
+static void sync_log_groups(const char *label, int numgroups,
+                            const int *groups0) {
+  DECLARE_CCTK_PARAMETERS;
+  if (verbose) {
+    std::ostringstream buf;
+    for (int n = 0; n < numgroups; ++n) {
+      if (n != 0)
+        buf << ", ";
+      buf << CCTK_FullGroupName(groups0[n]);
+    }
+#pragma omp critical
+    CCTK_VINFO("%s %s", label, buf.str().c_str());
+  }
+}
+
+static std::vector<int> sync_filter_groups(int numgroups, const int *groups0) {
+  static const int gi_regrid_error =
+      CCTK_GroupIndex("CarpetXRegrid::regrid_error");
+  assert(gi_regrid_error >= 0);
+
+  std::vector<int> groups;
+  for (int n = 0; n < numgroups; ++n) {
+    const int gi = groups0[n];
+    if (CCTK_GroupTypeI(gi) != CCTK_GF)
+      continue;
+    // Don't restrict the regridding error
+    if (gi == gi_regrid_error)
+      continue;
+    groups.push_back(gi);
+  }
+  return groups;
+}
+
+static void sync_multipatch_postcheck(const cGH *cctkGH,
+                                      const std::vector<int> &groups,
+                                      const char *label,
+                                      bool assert_max_level_1) {
+  static const bool have_multipatch_boundaries =
+      CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+
+  if (have_multipatch_boundaries) {
+    std::vector<CCTK_INT> cactusvarinds;
+    for (int group : groups) {
+      const auto &groupdata =
+          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(group);
+      for (int var = 0; var < groupdata.numvars; ++var)
+        cactusvarinds.push_back(groupdata.firstvarindex + var);
+    }
+    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
+
+    for (const int gi : groups) {
+      const auto &patchdata0 = ghext->patchdata.at(0);
+      const auto &leveldata0 = patchdata0.leveldata.at(0);
+      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+      const nan_handling_t nan_handling = groupdata0.do_evolve
+                                              ? nan_handling_t::forbid_nans
+                                              : nan_handling_t::allow_nans;
+      // We always sync all directions.
+      // If there is more than one time level, then we don't sync the
+      // oldest.
+      // TODO: during evolution, sync only one time level
+      const int ntls0 = groupdata0.mfab.size();
+      const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
+
+      if (assert_max_level_1)
+        assert(active_levels->max_level == 1);
+
+      for (int tl = 0; tl < sync_tl0; ++tl)
+        for (int vi = 0; vi < groupdata0.numvars; ++vi)
+          check_valid_gf(*active_levels, gi, vi, tl, nan_handling, [label]() {
+            return std::string(label) + " after syncing";
+          });
+
+    } // for gi
+
+  } else {
+    assert(ghext->num_patches() == 1);
+  }
+}
+
 int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                      const int *groups0, const int *directions) {
   DECLARE_CCTK_PARAMETERS;
@@ -2415,30 +2495,9 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   assert(numgroups >= 0);
   assert(groups0);
 
-  if (verbose) {
-    std::ostringstream buf;
-    for (int n = 0; n < numgroups; ++n) {
-      if (n != 0)
-        buf << ", ";
-      buf << CCTK_FullGroupName(groups0[n]);
-    }
-#pragma omp critical
-    CCTK_VINFO("SyncGroups %s", buf.str().c_str());
-  }
+  sync_log_groups("SyncGroups", numgroups, groups0);
 
-  const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
-  assert(gi_regrid_error >= 0);
-
-  std::vector<int> groups;
-  for (int n = 0; n < numgroups; ++n) {
-    const int gi = groups0[n];
-    if (CCTK_GroupTypeI(gi) != CCTK_GF)
-      continue;
-    // Don't restrict the regridding error
-    if (gi == gi_regrid_error)
-      continue;
-    groups.push_back(gi);
-  }
+  std::vector<int> groups = sync_filter_groups(numgroups, groups0);
 
   // Skip groups that have valid ghosts and boundaries
   if (CCTK_EQUALS(presync_mode, "presync-only")) {
@@ -2678,194 +2737,8 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     } // for tl
   } // for gi
 
-  if (have_multipatch_boundaries) {
-    std::vector<CCTK_INT> cactusvarinds;
-    for (int group : groups) {
-      const auto &groupdata =
-          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(group);
-      for (int var = 0; var < groupdata.numvars; ++var)
-        cactusvarinds.push_back(groupdata.firstvarindex + var);
-    }
-    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
-
-    for (const int gi : groups) {
-      const auto &patchdata0 = ghext->patchdata.at(0);
-      const auto &leveldata0 = patchdata0.leveldata.at(0);
-      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata0.do_evolve
-                                              ? nan_handling_t::forbid_nans
-                                              : nan_handling_t::allow_nans;
-      // We always sync all directions.
-      // If there is more than one time level, then we don't sync the
-      // oldest.
-      // TODO: during evolution, sync only one time level
-      const int ntls0 = groupdata0.mfab.size();
-      const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
-
-      for (int tl = 0; tl < sync_tl0; ++tl)
-        for (int vi = 0; vi < groupdata0.numvars; ++vi)
-          check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
-                         []() { return "SyncGroupsByDirI after syncing"; });
-
-    } // for gi
-
-  } else {
-    assert(ghext->num_patches() == 1);
-  }
-
-  assert(sync_active);
-
-  return numgroups; // number of groups synchronized
-}
-
-int SyncGroupsByDirINoRestrict(const cGH *restrict cctkGH, int numgroups,
-                               const int *groups0, const int *directions) {
-  DECLARE_CCTK_PARAMETERS;
-
-  assert(in_global_mode(cctkGH) || in_level_mode(cctkGH));
-
-  mark_sync_active marked;
-
-  static Timer timer("Sync");
-  Interval interval(timer);
-
-  assert(cctkGH);
-  assert(numgroups >= 0);
-  assert(groups0);
-
-  if (verbose) {
-    std::ostringstream buf;
-    for (int n = 0; n < numgroups; ++n) {
-      if (n != 0)
-        buf << ", ";
-      buf << CCTK_FullGroupName(groups0[n]);
-    }
-#pragma omp critical
-    CCTK_VINFO("SyncGroups %s", buf.str().c_str());
-  }
-
-  const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
-  assert(gi_regrid_error >= 0);
-
-  std::vector<int> groups;
-  for (int n = 0; n < numgroups; ++n) {
-    const int gi = groups0[n];
-    if (CCTK_GroupTypeI(gi) != CCTK_GF)
-      continue;
-    // Don't restrict the regridding error
-    if (gi == gi_regrid_error)
-      continue;
-    groups.push_back(gi);
-  }
-
-  static const bool have_multipatch_boundaries =
-      CCTK_IsFunctionAliased("MultiPatch_Interpolate");
-
-  // We need to loop over groups, patches, and levels in a definite
-  // order so that AMReX's communication pattern does not get
-  // confused. Therefore all the loops here are serial. The only
-  // parallelization happens within AMReX and within our boundary
-  // conditions. This is not efficient.
-
-  task_manager tasks1;
-  task_manager tasks2;
-  task_manager tasks3;
-
-  for (const int gi : groups) {
-    active_levels->loop_serially([&](auto &restrict leveldata) {
-      auto &restrict groupdata = *leveldata.groupdata.at(gi);
-
-      // We always sync all directions.
-      // If there is more than one time level, then we don't sync the
-      // oldest.
-      // TODO: during evolution, sync only one time level
-      const int ntls = groupdata.mfab.size();
-      const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
-
-      if (leveldata.level == 0) {
-        // Copy from adjacent boxes on same level
-
-        for (int tl = 0; tl < sync_tl; ++tl) {
-          tasks1.submit_serially([&tasks2, &leveldata, &groupdata, tl]() {
-            FillPatch_Sync(tasks2, groupdata, *groupdata.mfab.at(tl),
-                           ghext->patchdata.at(leveldata.patch)
-                               .amrcore->Geom(leveldata.level));
-          });
-        } // for tl
-
-      } else { // if leveldata.level > 0
-        // Copy from adjacent boxes on same level, and interpolate
-        // from next coarser level
-
-        const int level = leveldata.level;
-        const auto &restrict coarseleveldata =
-            ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
-        auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
-        assert(coarsegroupdata.numvars == groupdata.numvars);
-
-        amrex::Interpolater *const interpolator = groupdata.interpolator;
-
-        for (int tl = 0; tl < sync_tl; ++tl) {
-
-          tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
-                                  &coarsegroupdata, interpolator, tl]() {
-            FillPatch_ProlongateGhosts(tasks2, tasks3, groupdata,
-                                       coarsegroupdata, *groupdata.mfab.at(tl),
-                                       *coarsegroupdata.mfab.at(tl),
-                                       ghext->patchdata.at(leveldata.patch)
-                                           .amrcore->Geom(leveldata.level),
-                                       ghext->patchdata.at(leveldata.patch)
-                                           .amrcore->Geom(leveldata.level - 1),
-                                       interpolator, groupdata.bcrecs);
-          });
-
-        } // for tl
-
-      } // if leveldata.level > 0
-    });
-  } // for gi
-
-  tasks1.run_tasks_serially();
-  synchronize();
-  tasks2.run_tasks_serially();
-  synchronize();
-  tasks3.run_tasks_serially();
-  synchronize();
-
-  if (have_multipatch_boundaries) {
-    std::vector<CCTK_INT> cactusvarinds;
-    for (int group : groups) {
-      const auto &groupdata =
-          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(group);
-      for (int var = 0; var < groupdata.numvars; ++var)
-        cactusvarinds.push_back(groupdata.firstvarindex + var);
-    }
-    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
-
-    for (const int gi : groups) {
-      const auto &patchdata0 = ghext->patchdata.at(0);
-      const auto &leveldata0 = patchdata0.leveldata.at(0);
-      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata0.do_evolve
-                                              ? nan_handling_t::forbid_nans
-                                              : nan_handling_t::allow_nans;
-      // We always sync all directions.
-      // If there is more than one time level, then we don't sync the
-      // oldest.
-      // TODO: during evolution, sync only one time level
-      const int ntls0 = groupdata0.mfab.size();
-      const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
-
-      for (int tl = 0; tl < sync_tl0; ++tl)
-        for (int vi = 0; vi < groupdata0.numvars; ++vi)
-          check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
-                         []() { return "SyncGroupsByDirI after syncing"; });
-
-    } // for gi
-
-  } else {
-    assert(ghext->num_patches() == 1);
-  }
+  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirI",
+                            /*assert_max_level_1=*/false);
 
   assert(sync_active);
 
@@ -2887,33 +2760,9 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
   assert(numgroups >= 0);
   assert(groups0);
 
-  if (verbose) {
-    std::ostringstream buf;
-    for (int n = 0; n < numgroups; ++n) {
-      if (n != 0)
-        buf << ", ";
-      buf << CCTK_FullGroupName(groups0[n]);
-    }
-#pragma omp critical
-    CCTK_VINFO("SyncGroupsProlongateOnly %s", buf.str().c_str());
-  }
+  sync_log_groups("SyncGroupsProlongateOnly", numgroups, groups0);
 
-  const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
-  assert(gi_regrid_error >= 0);
-
-  std::vector<int> groups;
-  for (int n = 0; n < numgroups; ++n) {
-    const int gi = groups0[n];
-    if (CCTK_GroupTypeI(gi) != CCTK_GF)
-      continue;
-    // Don't restrict the regridding error
-    if (gi == gi_regrid_error)
-      continue;
-    groups.push_back(gi);
-  }
-
-  static const bool have_multipatch_boundaries =
-      CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+  std::vector<int> groups = sync_filter_groups(numgroups, groups0);
 
   // We need to loop over groups, patches, and levels in a definite
   // order so that AMReX's communication pattern does not get
@@ -2982,43 +2831,8 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
   tasks3.run_tasks_serially();
   synchronize();
 
-  if (have_multipatch_boundaries) {
-    std::vector<CCTK_INT> cactusvarinds;
-    for (int group : groups) {
-      const auto &groupdata =
-          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(group);
-      for (int var = 0; var < groupdata.numvars; ++var)
-        cactusvarinds.push_back(groupdata.firstvarindex + var);
-    }
-    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
-
-    for (const int gi : groups) {
-      const auto &patchdata0 = ghext->patchdata.at(0);
-      const auto &leveldata0 = patchdata0.leveldata.at(0);
-      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata0.do_evolve
-                                              ? nan_handling_t::forbid_nans
-                                              : nan_handling_t::allow_nans;
-      // We always sync all directions.
-      // If there is more than one time level, then we don't sync the
-      // oldest.
-      // TODO: during evolution, sync only one time level
-      const int ntls0 = groupdata0.mfab.size();
-      const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
-
-      assert(active_levels->max_level == 1);
-
-      for (int tl = 0; tl < sync_tl0; ++tl)
-        for (int vi = 0; vi < groupdata0.numvars; ++vi)
-          check_valid_gf(*active_levels, gi, vi, tl, nan_handling, []() {
-            return "SyncGroupsByDirIProlongateOnly after syncing";
-          });
-
-    } // for gi
-
-  } else {
-    assert(ghext->num_patches() == 1);
-  }
+  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirIProlongateOnly",
+                            /*assert_max_level_1=*/true);
 
   assert(sync_active);
 
@@ -3040,33 +2854,9 @@ int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
   assert(numgroups >= 0);
   assert(groups0);
 
-  if (verbose) {
-    ostringstream buf;
-    for (int n = 0; n < numgroups; ++n) {
-      if (n != 0)
-        buf << ", ";
-      buf << CCTK_FullGroupName(groups0[n]);
-    }
-#pragma omp critical
-    CCTK_VINFO("SyncGroupsGhostOnly %s", buf.str().c_str());
-  }
+  sync_log_groups("SyncGroupsGhostOnly", numgroups, groups0);
 
-  const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
-  assert(gi_regrid_error >= 0);
-
-  vector<int> groups;
-  for (int n = 0; n < numgroups; ++n) {
-    const int gi = groups0[n];
-    if (CCTK_GroupTypeI(gi) != CCTK_GF)
-      continue;
-    // Don't restrict the regridding error
-    if (gi == gi_regrid_error)
-      continue;
-    groups.push_back(gi);
-  }
-
-  static const bool have_multipatch_boundaries =
-      CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+  std::vector<int> groups = sync_filter_groups(numgroups, groups0);
 
   // We need to loop over groups, patches, and levels in a definite
   // order so that AMReX's communication pattern does not get
@@ -3104,43 +2894,8 @@ int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
   tasks2.run_tasks_serially();
   synchronize();
 
-  if (have_multipatch_boundaries) {
-    std::vector<CCTK_INT> cactusvarinds;
-    for (int group : groups) {
-      const auto &groupdata =
-          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(group);
-      for (int var = 0; var < groupdata.numvars; ++var)
-        cactusvarinds.push_back(groupdata.firstvarindex + var);
-    }
-    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
-
-    for (const int gi : groups) {
-      const auto &patchdata0 = ghext->patchdata.at(0);
-      const auto &leveldata0 = patchdata0.leveldata.at(0);
-      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const nan_handling_t nan_handling = groupdata0.do_evolve
-                                              ? nan_handling_t::forbid_nans
-                                              : nan_handling_t::allow_nans;
-      // We always sync all directions.
-      // If there is more than one time level, then we don't sync the
-      // oldest.
-      // TODO: during evolution, sync only one time level
-      const int ntls0 = groupdata0.mfab.size();
-      const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
-
-      assert(active_levels->max_level == 1);
-
-      for (int tl = 0; tl < sync_tl0; ++tl)
-        for (int vi = 0; vi < groupdata0.numvars; ++vi)
-          check_valid_gf(*active_levels, gi, vi, tl, nan_handling, []() {
-            return "SyncGroupsByDirIGhostOnly after syncing";
-          });
-
-    } // for gi
-
-  } else {
-    assert(ghext->num_patches() == 1);
-  }
+  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirIGhostOnly",
+                            /*assert_max_level_1=*/true);
 
   assert(sync_active);
 
@@ -3232,7 +2987,9 @@ void Reflux(const cGH *cctkGH, int level) {
   } // for patchdata
 }
 
-void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
+static void Restrict_impl(const cGH *cctkGH, int level,
+                          const vector<int> &groups,
+                          const bool do_validity_tracking) {
   DECLARE_CCTK_PARAMETERS;
 
 #warning "TODO"
@@ -3243,8 +3000,11 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
   static Timer timer("Restrict");
   Interval interval(timer);
 
-  const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
-  assert(gi_regrid_error >= 0);
+  int gi_regrid_error = -1;
+  if (do_validity_tracking) {
+    gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
+    assert(gi_regrid_error >= 0);
+  }
 
   for (const auto &patchdata : ghext->patchdata) {
     const int patch = patchdata.patch;
@@ -3270,7 +3030,7 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
                                                 : nan_handling_t::allow_nans;
 
         // Don't restrict the regridding error
-        if (gi == gi_regrid_error)
+        if (do_validity_tracking && gi == gi_regrid_error)
           continue;
 
         // If there is more than one time level, then we don't restrict the
@@ -3332,17 +3092,19 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
           }
 #endif
 
-          // TODO: Also remember old why_valid for interior?
-          for (int vi = 0; vi < groupdata.numvars; ++vi) {
-            // Should we mark ghosts and maybe outer boundaries as
-            // valid as well?
-            groupdata.valid.at(tl).at(vi).set_invalid(
-                make_valid_outer() | make_valid_ghosts(),
-                []() { return "Restrict"; });
-            poison_invalid_gf(active_levels, gi, vi, tl);
-            check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
-              return "Restrict on coarse level after restricting";
-            });
+          if (do_validity_tracking) {
+            // TODO: Also remember old why_valid for interior?
+            for (int vi = 0; vi < groupdata.numvars; ++vi) {
+              // Should we mark ghosts and maybe outer boundaries as
+              // valid as well?
+              groupdata.valid.at(tl).at(vi).set_invalid(
+                  make_valid_outer() | make_valid_ghosts(),
+                  []() { return "Restrict"; });
+              poison_invalid_gf(active_levels, gi, vi, tl);
+              check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
+                return "Restrict on coarse level after restricting";
+              });
+            }
           }
 
         } // for tl
@@ -3351,103 +3113,12 @@ void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
   } // for patchdata
 }
 
+void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
+  Restrict_impl(cctkGH, level, groups, /*do_validity_tracking=*/true);
+}
+
 void RestrictNoPoison(const cGH *cctkGH, int level, const vector<int> &groups) {
-  DECLARE_CCTK_PARAMETERS;
-
-#warning "TODO"
-  assert(do_restrict);
-  if (!do_restrict)
-    return;
-
-  static Timer timer("Restrict");
-  Interval interval(timer);
-
-  for (const auto &patchdata : ghext->patchdata) {
-    const int patch = patchdata.patch;
-    if (level + 1 < int(patchdata.leveldata.size())) {
-      auto &leveldata = patchdata.leveldata.at(level);
-      const auto &fineleveldata = patchdata.leveldata.at(level + 1);
-      const active_levels_t active_levels(level, level + 1, patch, patch + 1);
-      const active_levels_t active_fine_levels(level + 1, level + 2, patch,
-                                               patch + 1);
-
-      for (const int gi : groups) {
-        cGroup group;
-        int ierr = CCTK_GroupData(gi, &group);
-        assert(!ierr);
-
-        assert(group.grouptype == CCTK_GF);
-
-        auto &groupdata = *leveldata.groupdata.at(gi);
-        const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
-        const amrex::IntVect reffact{2, 2, 2};
-        const nan_handling_t nan_handling = groupdata.do_evolve
-                                                ? nan_handling_t::forbid_nans
-                                                : nan_handling_t::allow_nans;
-
-        // If there is more than one time level, then we don't restrict the
-        // oldest.
-        // TODO: during evolution, restrict only one time level
-        int ntls = groupdata.mfab.size();
-        int restrict_tl = ntls > 1 ? ntls - 1 : ntls;
-        for (int tl = 0; tl < restrict_tl; ++tl) {
-
-          for (int vi = 0; vi < groupdata.numvars; ++vi) {
-
-            // Restriction only uses the interior
-            error_if_invalid(finegroupdata, vi, tl, make_valid_int(), []() {
-              return "Restrict on fine level before restricting";
-            });
-            poison_invalid_gf(active_fine_levels, gi, vi, tl);
-            check_valid_gf(active_fine_levels, gi, vi, tl, nan_handling, []() {
-              return "Restrict on fine level before restricting";
-            });
-            error_if_invalid(groupdata, vi, tl, make_valid_int(), []() {
-              return "Restrict on coarse level before restricting";
-            });
-            poison_invalid_gf(active_levels, gi, vi, tl);
-            check_valid_gf(active_levels, gi, vi, tl, nan_handling, []() {
-              return "Restrict on coarse level before restricting";
-            });
-          }
-
-#if 1
-          {
-            static Timer timer("Restrict::average_down");
-            Interval interval(timer);
-#warning                                                                       \
-    "TODO: Allow different restriction operators, and ensure this is conservative"
-            // rank: 0: vertex, 1: edge, 2: face, 3: volume
-            int rank = 0;
-            for (int d = 0; d < dim; ++d)
-              rank += groupdata.indextype.at(d);
-            switch (rank) {
-            case 0:
-              average_down_nodal(*finegroupdata.mfab.at(tl),
-                                 *groupdata.mfab.at(tl), reffact);
-              break;
-            case 1:
-              average_down_edges(*finegroupdata.mfab.at(tl),
-                                 *groupdata.mfab.at(tl), reffact);
-              break;
-            case 2:
-              average_down_faces(*finegroupdata.mfab.at(tl),
-                                 *groupdata.mfab.at(tl), reffact);
-              break;
-            case 3:
-              average_down(*finegroupdata.mfab.at(tl), *groupdata.mfab.at(tl),
-                           0, groupdata.numvars, reffact);
-              break;
-            default:
-              assert(0);
-            }
-          }
-#endif
-
-        } // for tl
-      } // for gi
-    } // if level exists
-  } // for patchdata
+  Restrict_impl(cctkGH, level, groups, /*do_validity_tracking=*/false);
 }
 
 void Restrict(const cGH *cctkGH, int level) {

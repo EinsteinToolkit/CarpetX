@@ -28,9 +28,6 @@ void RestrictNoPoison(const cGH *cctkGH, int level,
 int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                      const int *groups, const int *directions);
 
-int SyncGroupsByDirINoRestrict(const cGH *restrict cctkGH, int numgroups,
-                               const int *groups, const int *directions);
-
 int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
                                    const int *groups, const int *directions);
 
