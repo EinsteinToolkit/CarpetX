@@ -2435,8 +2435,7 @@ static std::vector<int> sync_filter_groups(int numgroups, const int *groups0) {
 
 static void sync_multipatch_postcheck(const cGH *cctkGH,
                                       const std::vector<int> &groups,
-                                      const char *label,
-                                      bool assert_max_level_1) {
+                                      const char *label) {
   static const bool have_multipatch_boundaries =
       CCTK_IsFunctionAliased("MultiPatch_Interpolate");
 
@@ -2463,9 +2462,6 @@ static void sync_multipatch_postcheck(const cGH *cctkGH,
       // TODO: during evolution, sync only one time level
       const int ntls0 = groupdata0.mfab.size();
       const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
-
-      if (assert_max_level_1)
-        assert(active_levels->max_level == 1);
 
       for (int tl = 0; tl < sync_tl0; ++tl)
         for (int vi = 0; vi < groupdata0.numvars; ++vi)
@@ -2737,8 +2733,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     } // for tl
   } // for gi
 
-  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirI",
-                            /*assert_max_level_1=*/false);
+  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirI");
 
   assert(sync_active);
 
@@ -2831,8 +2826,7 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
   tasks3.run_tasks_serially();
   synchronize();
 
-  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirIProlongateOnly",
-                            /*assert_max_level_1=*/true);
+  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirIProlongateOnly");
 
   assert(sync_active);
 
@@ -2894,8 +2888,7 @@ int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
   tasks2.run_tasks_serially();
   synchronize();
 
-  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirIGhostOnly",
-                            /*assert_max_level_1=*/true);
+  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirIGhostOnly");
 
   assert(sync_active);
 
