@@ -1395,7 +1395,7 @@ int Initialise(tFleshConfig *config) {
       // Restrict
       assert(active_levels);
       active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
-        if (leveldata.level != ghext->num_levels() - 1)
+        if (leveldata.level < ghext->num_levels() - 1)
           Restrict(cctkGH, leveldata.level);
       });
       // Prolongation
@@ -1884,7 +1884,8 @@ int Evolve(tFleshConfig *config) {
         if (!restrict_during_sync) {
           // Restrict
           active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
-            Restrict(cctkGH, leveldata.level);
+            if (leveldata.level < ghext->num_levels() - 1)
+              Restrict(cctkGH, leveldata.level);
           });
           // Prolongation
           SyncRestrictedGFs(cctkGH);
