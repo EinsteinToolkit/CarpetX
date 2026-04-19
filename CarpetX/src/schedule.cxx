@@ -2986,10 +2986,7 @@ static void Restrict_impl(const cGH *cctkGH, int level,
                           const bool do_validity_tracking) {
   DECLARE_CCTK_PARAMETERS;
 
-#warning "TODO"
   assert(do_restrict);
-  if (!do_restrict)
-    return;
 
   static Timer timer("Restrict");
   Interval interval(timer);
