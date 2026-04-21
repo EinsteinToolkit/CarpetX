@@ -1,0 +1,7 @@
+# Main make.code.defn file for thorn CenterOfMass
+
+# Source files in this directory
+SRCS = centerofmass.cc
+
+# Subdirectories containing source files
+SUBDIRS = 

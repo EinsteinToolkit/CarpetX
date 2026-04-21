@@ -1,0 +1,9 @@
+# Interface definition for thorn CenterOfMass
+implements: CenterOfMass
+inherits: CoordinatesX
+
+USES INCLUDE HEADER: reduction.hxx
+USES INCLUDE HEADER: loop_device.hxx
+
+CCTK_REAL rho TYPE=GF "density"
+CCTK_REAL x_rho TYPE=GF "dipole density"

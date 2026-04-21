@@ -1,0 +1,16 @@
+# Schedule definitions for thorn CenterOfMass
+
+STORAGE: rho x_rho
+
+schedule CenterOfMass_ComputeIntegrands in CCTK_POSTSTEP
+{
+  LANG: C
+  READS: CoordinatesX::vertex_coords(everywhere)
+  WRITES: rho(everywhere), x_rho(everywhere)
+} "Compute integrands"
+
+schedule CenterOfMass_ComputeIntegrals in CCTK_POSTSTEP after centerofmass_compute_integrands
+{
+  LANG: C
+  READS: rho, x_rho
+} "Compute integral"

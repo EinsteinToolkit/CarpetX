@@ -1,0 +1,55 @@
+ActiveThorns = "
+    CarpetX
+    CoordinatesX
+    IOUtil
+    CenterOfMass
+"
+
+$nlevels = 2
+$ncells = 20
+$blocking_factor = 2
+
+Cactus::cctk_show_schedule = "no"
+Cactus::cctk_full_warnings = "yes"
+
+Cactus::presync_mode = "mixed-error"
+
+Cactus::cctk_itlast = 10
+
+CarpetX::ghost_size = 1
+CarpetX::prolongation_type = "conservative"
+CarpetX::prolongation_order = 1
+CarpetX::verbose = yes
+
+CarpetX::xmin = -1.
+CarpetX::ymin = -1.
+CarpetX::zmin = -1.
+CarpetX::xmax = +1.
+CarpetX::ymax = +1.
+CarpetX::zmax = +1.
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::blocking_factor_x = $blocking_factor
+CarpetX::blocking_factor_y = $blocking_factor
+CarpetX::blocking_factor_z = $blocking_factor
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 1
+Driver::regrid_error_threshold = 0.01
+
+CarpetX::dtfac = 0.5
+
+IO::parfile_write = "no"
+IO::out_fileinfo = "axis labels"
+
+IO::out_dir = $parfile
+IO::out_every = 1
+IO::truncate_files = yes
+
+CarpetX::out_metadata = no
+CarpetX::out_norm_vars = "CenterOfMass::rho CenterOfMass::x_rho"
+CarpetX::out_norm_omit_unstable = yes
+CarpetX::out_norm_omit_sumloc_for_backward_compatibility = yes
