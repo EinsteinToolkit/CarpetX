@@ -174,18 +174,12 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     {
       Interval interval_poststep(timer_poststep);
       *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + c;
-      if (use_odesolvers_poststep_during_rksubsteps) {
-        CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
-      } else {
-        SyncGroupsByDirIGhostOnly(cctkGH, var_groups.size(), var_groups.data(),
-                                  nullptr);
-      }
     }
   };
   // calling ODESolvers_PostStep Group
-  const auto calcpostsubstep = [&]() {
+  const auto calcpoststep = [&]() {
     if (!use_odesolvers_poststep_during_rksubsteps) {
-      CallScheduleGroup(cctkGH, "ODESolvers_PostSubStep");
+      CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
     }
   };
   // calculate Ys from ks and old on the mesh refinement boundary
@@ -301,21 +295,21 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     setks(1); // interior only
     calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&rhs});
     calcys_rmbnd(2); // refinement boundary only
-    calcpostsubstep();
+    calcpoststep();
 
     // k2 = f(Y2)
     calcrhs(2);
     setks(2); // interior only
     calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
     calcys_rmbnd(3); // refinement boundary only
-    calcpostsubstep();
+    calcpoststep();
 
     // k3 = f(Y3)
     calcrhs(3);
     setks(3); // interior only
     calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
     calcys_rmbnd(4); // refinement boundary only
-    calcpostsubstep();
+    calcpoststep();
 
     // k4 = f(Y4)
     calcrhs(4);
@@ -323,7 +317,7 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     calcupdate(4, dt, 0.0, reals<5>{1.0, dt / 6, dt / 3, dt / 3, dt / 6},
                states<5>{&old, &ks[0], &ks[1], &ks[2], &ks[3]});
     calcys_rmbnd(5); // refinement boundary only
-    calcpostsubstep();
+    calcpoststep();
 
     // In the interprocess_ghost_sync_during_substep case, the refinement
     // boundary is not synchronized at this point. Instead, we rely on the SYNCs
