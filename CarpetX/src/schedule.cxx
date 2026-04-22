@@ -3393,7 +3393,11 @@ void Restrict(const cGH *cctkGH, int level) {
         groups.push_back(groupdata.groupindex);
     }
   }
-  Restrict(cctkGH, level, groups);
+  if (ghext->use_subcycling) {
+    RestrictNoPoison(cctkGH, level, groups);
+  } else {
+    Restrict(cctkGH, level, groups);
+  }
 }
 
 void SyncRestrictedGFs(const cGH *cctkGH) {
