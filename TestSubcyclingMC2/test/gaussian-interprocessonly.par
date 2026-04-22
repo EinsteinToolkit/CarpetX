@@ -72,7 +72,6 @@ Cactus::cctk_final_time = 2.0
 
 ODESolvers::method = "RK4"
 #ODESolvers::verbose = yes
-ODESolvers::use_odesolvers_poststep_during_rksubsteps = no
 
 IO::out_dir = $parfile
 IO::out_every = $out_every

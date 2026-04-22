@@ -178,9 +178,7 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
   };
   // calling ODESolvers_PostStep Group
   const auto calcpoststep = [&]() {
-    if (!use_odesolvers_poststep_during_rksubsteps) {
-      CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
-    }
+    CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
   };
   // calculate Ys from ks and old on the mesh refinement boundary
   const auto calcys_rmbnd = [&](const int stage) {

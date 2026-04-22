@@ -22,11 +22,6 @@ BOOLEAN verbose "Verbose output" STEERABLE=always
 
 RESTRICTED:
 
-BOOLEAN use_odesolvers_poststep_during_rksubsteps "Use ODESolvers_PostStep or PostSubStep (with sophisticated syncs) during RK substeps" STEERABLE=always
-{
-} "yes"
-
-
 SHARES: Driver
 
 USES BOOLEAN use_subcycling_wip
