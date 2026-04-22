@@ -2477,6 +2477,7 @@ static void sync_multipatch_postcheck(const cGH *cctkGH,
   }
 }
 
+// Subcycling-aware variant: SyncGroupsByDirISubcycling below.
 int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                      const int *groups0, const int *directions) {
   DECLARE_CCTK_PARAMETERS;
@@ -2735,6 +2736,271 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   } // for gi
 
   sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirI");
+
+  assert(sync_active);
+
+  return numgroups; // number of groups synchronized
+}
+
+// Non-subcycling variant: SyncGroupsByDirI above. Keep the two bodies
+// in sync except at the four marked modification sites.
+int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
+                               const int *groups0, const int *directions) {
+  DECLARE_CCTK_PARAMETERS;
+
+  assert(in_global_mode(cctkGH) || in_level_mode(cctkGH));
+
+  mark_sync_active marked;
+
+  static Timer timer("Sync");
+  Interval interval(timer);
+
+  assert(cctkGH);
+  assert(numgroups >= 0);
+  assert(groups0);
+
+  sync_log_groups("SyncGroupsBySubcycling", numgroups, groups0);
+
+  std::vector<int> groups = sync_filter_groups(numgroups, groups0);
+
+  static const bool have_multipatch_boundaries =
+      CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+
+  // Check preconditions
+  for (const int gi : groups) {
+    const auto &patchdata0 = ghext->patchdata.at(0);
+    const auto &leveldata0 = patchdata0.leveldata.at(0);
+    const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+    const nan_handling_t nan_handling = groupdata0.do_evolve
+                                            ? nan_handling_t::forbid_nans
+                                            : nan_handling_t::allow_nans;
+    // We always sync all directions.
+    // If there is more than one time level, then we don't sync the
+    // oldest.
+    // TODO: during evolution, sync only one time level
+    const int ntls0 = groupdata0.mfab.size();
+    const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
+
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+
+      if (leveldata.level > 0) {
+
+        const int level = leveldata.level;
+        const auto &restrict coarseleveldata =
+            ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
+        auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
+        assert(coarsegroupdata.numvars == groupdata.numvars);
+
+        // Modification A: skip the coarse-level validity check on the
+        // mid-substep arm; that arm does not prolongate from coarse,
+        // so the check has no content.
+        const bool mid_substep =
+            groupdata.do_evolve &&
+            leveldata.iteration != coarseleveldata.iteration;
+        if (!mid_substep) {
+          for (int tl = 0; tl < sync_tl0; ++tl) {
+            for (int vi = 0; vi < groupdata.numvars; ++vi) {
+              error_if_invalid(coarsegroupdata, vi, tl, make_valid_int(), []() {
+                return "SyncGroupsByDirISubcycling on coarse level before "
+                       "prolongation";
+              });
+            }
+          } // for tl
+        }
+
+      } // if leveldata.level > 0
+
+      // Modification B: guard the valid_ghosts invalidation on the
+      // mid-substep arm. The interior-validity assertion stays
+      // unconditional — both arms require it.
+      const bool mid_substep =
+          groupdata.do_evolve && leveldata.level > 0 &&
+          leveldata.iteration != ghext->patchdata.at(leveldata.patch)
+                                     .leveldata.at(leveldata.level - 1)
+                                     .iteration;
+
+      for (int tl = 0; tl < sync_tl0; ++tl) {
+        for (int vi = 0; vi < groupdata.numvars; ++vi) {
+          // Synchronization only uses the interior
+          error_if_invalid(groupdata, vi, tl, make_valid_int(), []() {
+            return "SyncGroupsByDirISubcycling before syncing";
+          });
+          if (!mid_substep) {
+            groupdata.valid.at(tl).at(vi).set_invalid(
+                make_valid_ghosts(), []() {
+                  return "SyncGroupsByDirISubcycling before syncing: "
+                         "Mark ghost zones as invalid";
+                });
+          }
+        }
+      } // for tl
+    });
+
+    active_levels_t active_fine_levels = *active_levels;
+    using std::max;
+    active_fine_levels.min_level = max(active_fine_levels.min_level, 1);
+    for (int tl = 0; tl < sync_tl0; ++tl) {
+      for (int vi = 0; vi < groupdata0.numvars; ++vi) {
+        check_valid_gf(active_fine_levels, gi, vi, tl, nan_handling, []() {
+          return "SyncGroupsByDirISubcycling on coarse level before "
+                 "prolongation";
+        });
+        poison_invalid_gf(*active_levels, gi, vi, tl);
+        check_valid_gf(*active_levels, gi, vi, tl, nan_handling, []() {
+          return "SyncGroupsByDirISubcycling before syncing";
+        });
+      }
+    } // for tl
+  } // for gi
+
+  // We need to loop over groups, patches, and levels in a definite
+  // order so that AMReX's communication pattern does not get
+  // confused. Therefore all the loops here are serial. The only
+  // parallelization happens within AMReX and within our boundary
+  // conditions. This is not efficient.
+
+  task_manager tasks1;
+  task_manager tasks2;
+  task_manager tasks3;
+
+  for (const int gi : groups) {
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+
+      // We always sync all directions.
+      // If there is more than one time level, then we don't sync the
+      // oldest.
+      // TODO: during evolution, sync only one time level
+      const int ntls = groupdata.mfab.size();
+      const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+
+      if (leveldata.level == 0) {
+        // Copy from adjacent boxes on same level
+
+        for (int tl = 0; tl < sync_tl; ++tl) {
+          tasks1.submit_serially([&tasks2, &leveldata, &groupdata, tl]() {
+            FillPatch_Sync(tasks2, groupdata, *groupdata.mfab.at(tl),
+                           ghext->patchdata.at(leveldata.patch)
+                               .amrcore->Geom(leveldata.level));
+          });
+        } // for tl
+
+      } else { // if leveldata.level > 0
+
+        const int level = leveldata.level;
+        const auto &restrict coarseleveldata =
+            ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
+        auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
+        assert(coarsegroupdata.numvars == groupdata.numvars);
+
+        // Modification C: evolved groups mid-substep have coarse at a
+        // different physical time than fine, so prolongation would
+        // pull in temporally-misaligned data. Refinement-boundary
+        // ghosts are kept valid separately by the subcycling ODE
+        // solver (SyncGroupsByDirIProlongateOnly on old/k_i buffers),
+        // so a same-level FillPatch_Sync is sufficient here.
+        const bool mid_substep =
+            groupdata.do_evolve &&
+            leveldata.iteration != coarseleveldata.iteration;
+
+        if (mid_substep) {
+          // Copy from adjacent boxes on same level only
+          for (int tl = 0; tl < sync_tl; ++tl) {
+            tasks1.submit_serially([&tasks2, &leveldata, &groupdata, tl]() {
+              FillPatch_Sync(tasks2, groupdata, *groupdata.mfab.at(tl),
+                             ghext->patchdata.at(leveldata.patch)
+                                 .amrcore->Geom(leveldata.level));
+            });
+          } // for tl
+        } else {
+          // Copy from adjacent boxes on same level, and interpolate
+          // from next coarser level
+          amrex::Interpolater *const interpolator = groupdata.interpolator;
+
+          for (int tl = 0; tl < sync_tl; ++tl) {
+            tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
+                                    &coarsegroupdata, interpolator, tl]() {
+              FillPatch_ProlongateGhosts(
+                  tasks2, tasks3, groupdata, coarsegroupdata,
+                  *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
+                  ghext->patchdata.at(leveldata.patch)
+                      .amrcore->Geom(leveldata.level),
+                  ghext->patchdata.at(leveldata.patch)
+                      .amrcore->Geom(leveldata.level - 1),
+                  interpolator, groupdata.bcrecs);
+            });
+          } // for tl
+        }
+
+      } // if leveldata.level > 0
+    });
+  } // for gi
+
+  tasks1.run_tasks_serially();
+  synchronize();
+  tasks2.run_tasks_serially();
+  synchronize();
+  tasks3.run_tasks_serially();
+  synchronize();
+
+  // Check postconditions
+  for (const int gi : groups) {
+    const auto &patchdata0 = ghext->patchdata.at(0);
+    const auto &leveldata0 = patchdata0.leveldata.at(0);
+    const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+    const nan_handling_t nan_handling = groupdata0.do_evolve
+                                            ? nan_handling_t::forbid_nans
+                                            : nan_handling_t::allow_nans;
+    // We always sync all directions.
+    // If there is more than one time level, then we don't sync the
+    // oldest.
+    // TODO: during evolution, sync only one time level
+    const int ntls0 = groupdata0.mfab.size();
+    const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
+
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+
+      // Modification D: guard only the set_ghosts(true, ...) call on
+      // the mid-substep arm. set_outer(true, ...) stays unconditional
+      // because FillPatch_Sync calls apply_boundary_conditions.
+      const bool mid_substep =
+          groupdata.do_evolve && leveldata.level > 0 &&
+          leveldata.iteration != ghext->patchdata.at(leveldata.patch)
+                                     .leveldata.at(leveldata.level - 1)
+                                     .iteration;
+
+      for (int tl = 0; tl < sync_tl0; ++tl) {
+        for (int vi = 0; vi < groupdata.numvars; ++vi) {
+          if (!mid_substep) {
+            groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
+              return "SyncGroupsByDirISubcycling after syncing: "
+                     "Mark ghost zones as valid";
+            });
+          }
+          if (groupdata.all_faces_have_symmetries_or_boundaries())
+            groupdata.valid.at(tl).at(vi).set_outer(true, []() {
+              return "SyncGroupsByDirISubcycling after syncing: "
+                     "Mark outer boundaries as valid";
+            });
+        }
+      } // for tl
+    });
+
+    for (int tl = 0; tl < sync_tl0; ++tl) {
+      for (int vi = 0; vi < groupdata0.numvars; ++vi) {
+        poison_invalid_gf(*active_levels, gi, vi, tl);
+        // TODO: Check after applying multi-patch boundaries
+        if (!have_multipatch_boundaries)
+          check_valid_gf(*active_levels, gi, vi, tl, nan_handling, []() {
+            return "SyncGroupsByDirISubcycling after syncing";
+          });
+      }
+    } // for tl
+  } // for gi
+
+  sync_multipatch_postcheck(cctkGH, groups, "SyncGroupsByDirISubcycling");
 
   assert(sync_active);
 
