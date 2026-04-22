@@ -3007,8 +3007,9 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
   return numgroups; // number of groups synchronized
 }
 
-int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
-                                   const int *groups0, const int *directions) {
+int SyncGroupsByDirIProlongateOnly_impl(
+    const cGH *restrict cctkGH, int numgroups, const int *groups0,
+    const int *directions, const bool prolongate_on_same_iteration) {
   DECLARE_CCTK_PARAMETERS;
 
   assert(in_global_mode(cctkGH) || in_level_mode(cctkGH));
@@ -3058,9 +3059,13 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
       const auto &restrict coarseleveldata =
           ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
 
-      if (ghext->use_subcycling &&
-          (leveldata.iteration == coarseleveldata.iteration)) {
-        return;
+      if (ghext->use_subcycling) {
+        const bool iterations_match =
+            (leveldata.iteration == coarseleveldata.iteration);
+        const bool should_prolongate =
+            (prolongate_on_same_iteration == iterations_match);
+        if (!should_prolongate)
+          return;
       }
 
       auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
@@ -3098,6 +3103,12 @@ int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
   assert(sync_active);
 
   return numgroups; // number of groups synchronized
+}
+
+int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
+                                   const int *groups0, const int *directions) {
+  return SyncGroupsByDirIProlongateOnly_impl(cctkGH, numgroups, groups0,
+                                             directions, false);
 }
 
 int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
