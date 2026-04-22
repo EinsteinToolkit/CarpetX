@@ -3175,10 +3175,8 @@ static void Restrict_impl(const cGH *cctkGH, int level,
   Interval interval(timer);
 
   int gi_regrid_error = -1;
-  if (do_validity_tracking) {
-    gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
-    assert(gi_regrid_error >= 0);
-  }
+  gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
+  assert(gi_regrid_error >= 0);
 
   for (const auto &patchdata : ghext->patchdata) {
     const int patch = patchdata.patch;
@@ -3204,7 +3202,7 @@ static void Restrict_impl(const cGH *cctkGH, int level,
                                                 : nan_handling_t::allow_nans;
 
         // Don't restrict the regridding error
-        if (do_validity_tracking && gi == gi_regrid_error)
+        if (gi == gi_regrid_error)
           continue;
 
         // If there is more than one time level, then we don't restrict the
