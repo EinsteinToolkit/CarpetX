@@ -2605,27 +2605,6 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     }
     MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
 
-    // Re-apply the outer boundary conditions after interpatch interpolation.
-    //
-    // The outer BC runs inside FillPatch_Sync (earlier in this function), before
-    // MultiPatch_Interpolate.  At that point the angular interpatch ghost zones
-    // are not yet filled, so any corner ghost zone cell — one that touches both
-    // an angular interpatch boundary and the outer radial boundary — is
-    // extrapolated/filled from uninitialized source cells.
-    // MultiPatch_Interpolate then fills those angular ghost zones but
-    // deliberately skips the corner cells (they lie outside every patch's
-    // interior at r > r_outer).  A second BC pass, now that the angular ghost
-    // zones are valid, fixes those corner cells for any configured BC type.
-    active_levels->loop_serially([&](auto &restrict leveldata) {
-      for (const int gi : groups) {
-        auto &restrict groupdata = *leveldata.groupdata.at(gi);
-        const int ntls = static_cast<int>(groupdata.mfab.size());
-        const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
-        for (int tl = 0; tl < sync_tl; ++tl)
-          groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl));
-      }
-    });
-
     for (const int gi : groups) {
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
