@@ -93,6 +93,21 @@ amrex::Orientation orient(int d, int f) {
 }
 int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
                        const int *requested_tls, int *status, const bool inc);
+
+// Reads only patch 0; cross-patch agreement is enforced by
+// assert_consistent_iterations() at the next loop_* call.
+int WidenMinLevel(int initial_min_level, rat64 target_iteration) {
+  int min_level = initial_min_level;
+  for (int level = min_level - 1; level >= 0; --level) {
+    const rat64 coarse_iteration =
+        ghext->patchdata.at(0).leveldata.at(level).iteration;
+    if (coarse_iteration == target_iteration)
+      min_level = level;
+    else
+      break;
+  }
+  return min_level;
+}
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1388,24 +1403,30 @@ int Initialise(tFleshConfig *config) {
   CCTK_VINFO("Initialized %d levels", ghext->num_levels());
 
   assert(!active_levels);
-  active_levels = make_optional<active_levels_t>();
+  // Widen from the finest level so the range matches the one under which
+  // a checkpoint was written (recovery under subcycling).
+  const int max_level = ghext->num_levels();
+  const rat64 finest_iteration =
+      ghext->patchdata.at(0).leveldata.at(max_level - 1).iteration;
+  const int min_level = WidenMinLevel(max_level - 1, finest_iteration);
+  active_levels = make_optional<active_levels_t>(min_level, max_level);
 
+  if (!restrict_during_sync) {
+    // Restrict
+    assert(active_levels);
+    active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
+      if (leveldata.level < ghext->num_levels() - 1)
+        Restrict(cctkGH, leveldata.level);
+    });
+    // Prolongation
+    SyncRestrictedGFs(cctkGH);
+    CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
+  }
+
+  // Checkpoint, analysis, output
+  CCTK_Traverse(cctkGH, "CCTK_POSTSTEP");
+  CCTK_Traverse(cctkGH, "CCTK_CPINITIAL");
   if (!config->recovered) {
-    if (!restrict_during_sync) {
-      // Restrict
-      assert(active_levels);
-      active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
-        if (leveldata.level < ghext->num_levels() - 1)
-          Restrict(cctkGH, leveldata.level);
-      });
-      // Prolongation
-      SyncRestrictedGFs(cctkGH);
-      CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
-    }
-
-    // Checkpoint, analysis, output
-    CCTK_Traverse(cctkGH, "CCTK_POSTSTEP");
-    CCTK_Traverse(cctkGH, "CCTK_CPINITIAL");
     CCTK_Traverse(cctkGH, "CCTK_ANALYSIS");
   }
   CCTK_OutputGH(cctkGH);
@@ -1870,14 +1891,7 @@ int Evolve(tFleshConfig *config) {
 
       // reset active_levels to include all levels that have caught up to the
       // current timestep
-      for (int level = min_level - 1; level >= 0; --level) {
-        rat64 coarse_iteration =
-            ghext->patchdata.at(0).leveldata.at(level).iteration;
-        if (coarse_iteration == level_iteration)
-          min_level = level;
-        else
-          break;
-      }
+      min_level = WidenMinLevel(min_level, level_iteration);
       active_levels = make_optional<active_levels_t>(min_level, max_level);
 
       if (max_level == ghext->num_levels()) {
