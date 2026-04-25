@@ -411,6 +411,16 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
                                    int /*component*/, const cGH *local_cctkGH) {
     if (level == 0)
       return;
+
+    // When this level is time-aligned with its parent, SyncRestrictGFs fills
+    // the refinement-boundary ghosts; skip CalcYfFromKcs to avoid overwriting
+    // them with a stale interpolation from old/k_i.
+    const auto &patchdata = ghext->patchdata.at(patch);
+    const auto &leveldata = patchdata.leveldata.at(level);
+    const auto &prev_leveldata = patchdata.leveldata.at(level - 1);
+    if (leveldata.iteration == prev_leveldata.iteration)
+      return;
+
     constexpr CCTK_REAL xsi = 0.5;
     constexpr int stage0 = 1;
     update_cctkGH(const_cast<cGH *>(local_cctkGH), cctkGH);
