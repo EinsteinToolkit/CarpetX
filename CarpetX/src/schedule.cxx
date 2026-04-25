@@ -1411,6 +1411,10 @@ int Initialise(tFleshConfig *config) {
   const int min_level = WidenMinLevel(max_level - 1, finest_iteration);
   active_levels = make_optional<active_levels_t>(min_level, max_level);
 
+  // After widening active_levels from min_level, sync cctk_timefac with the
+  // finest level traversed; mirrors the assignment in the evolve loop.
+  cctkGH->cctk_timefac = ghext->use_subcycling ? (1 << min_level) : 1;
+
   if (!restrict_during_sync) {
     // Restrict
     assert(active_levels);
