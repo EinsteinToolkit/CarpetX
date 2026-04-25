@@ -2016,7 +2016,14 @@ int Shutdown(tFleshConfig *config) {
   CCTK_VINFO("Shutting down...");
 
   assert(!active_levels);
-  active_levels = std::make_optional<active_levels_t>();
+  // CCTK_TERMINATE must run on the same level range that completed the last
+  // full iteration; under subcycling, that includes coarser time-aligned
+  // levels.
+  const int max_level = ghext->num_levels();
+  const rat64 finest_iteration =
+      ghext->patchdata.at(0).leveldata.at(max_level - 1).iteration;
+  const int min_level = WidenMinLevel(max_level - 1, finest_iteration);
+  active_levels = make_optional<active_levels_t>(min_level, max_level);
 
   CCTK_Traverse(cctkGH, "CCTK_TERMINATE");
 
