@@ -5,29 +5,21 @@ namespace ODESolvers {
 
 constexpr int rkstages = 4;
 
-extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ODESolvers_Solve_Subcycling;
-  DECLARE_CCTK_PARAMETERS;
+namespace {
 
-  static bool did_output = false;
-  if (verbose || !did_output)
-    CCTK_VINFO("Integrator is %s", method);
-  did_output = true;
-
-  static Timer timer("ODESolvers::Solve");
-  Interval interval(timer);
-
-  const CCTK_REAL dt = CCTK_DELTA_TIME;
-  const int tl = 0;
-
-  static Timer timer_setup("ODESolvers::Solve::setup");
-  std::optional<Interval> interval_setup(timer_setup);
-
+struct solve_setup_t {
   statecomp_t var, rhs, old;
   std::array<statecomp_t, rkstages> ks;
   std::vector<int> var_groups, rhs_groups, dep_groups, old_groups;
   std::array<std::vector<int>, rkstages> ks_groups;
   int nvars = 0;
+};
+
+// Collect evolved groups and their old=/ks= companions into statecomp_t
+// bundles. Operates on CarpetX::active_levels; no cGH needed.
+solve_setup_t collect_solve_setup() {
+  const int tl = 0;
+  solve_setup_t s;
   bool do_accumulate_nvars = true;
   assert(CarpetX::active_levels);
   CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
@@ -59,79 +51,114 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
         assert(rhs_gi != groupdata.groupindex);
         auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
         assert(rhs_groupdata.numvars == groupdata.numvars);
-        var.groupdatas.push_back(&groupdata);
-        var.mfabs.push_back(groupdata.mfab.at(tl).get());
-        rhs.groupdatas.push_back(&rhs_groupdata);
-        rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
+        s.var.groupdatas.push_back(&groupdata);
+        s.var.mfabs.push_back(groupdata.mfab.at(tl).get());
+        s.rhs.groupdatas.push_back(&rhs_groupdata);
+        s.rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
         auto &old_groupdata = *leveldata.groupdata.at(old_gi);
-        old.groupdatas.push_back(&old_groupdata);
-        old.mfabs.push_back(old_groupdata.mfab.at(tl).get());
+        s.old.groupdatas.push_back(&old_groupdata);
+        s.old.mfabs.push_back(old_groupdata.mfab.at(tl).get());
         for (int i = 0; i < rkstages; i++) {
           auto &ki_groupdata = *leveldata.groupdata.at(ks_gi[i]);
-          ks[i].groupdatas.push_back(&ki_groupdata);
-          ks[i].mfabs.push_back(ki_groupdata.mfab.at(tl).get());
+          s.ks[i].groupdatas.push_back(&ki_groupdata);
+          s.ks[i].mfabs.push_back(ki_groupdata.mfab.at(tl).get());
         }
 
         if (do_accumulate_nvars) {
-          nvars += groupdata.numvars;
-          var_groups.push_back(groupdata.groupindex);
-          rhs_groups.push_back(rhs_gi);
-          old_groups.push_back(old_gi);
+          s.nvars += groupdata.numvars;
+          s.var_groups.push_back(groupdata.groupindex);
+          s.rhs_groups.push_back(rhs_gi);
+          s.old_groups.push_back(old_gi);
           for (int i = 0; i < rkstages; i++) {
-            ks_groups[i].push_back(ks_gi[i]);
+            s.ks_groups[i].push_back(ks_gi[i]);
           }
           const auto &dependents = get_group_dependents(groupdata.groupindex);
-          dep_groups.insert(dep_groups.end(), dependents.begin(),
-                            dependents.end());
+          s.dep_groups.insert(s.dep_groups.end(), dependents.begin(),
+                              dependents.end());
         }
       }
     }
     do_accumulate_nvars = false;
   });
+
+  {
+    std::sort(s.var_groups.begin(), s.var_groups.end());
+    const auto last = std::unique(s.var_groups.begin(), s.var_groups.end());
+    assert(last == s.var_groups.end());
+  }
+
+  {
+    std::sort(s.rhs_groups.begin(), s.rhs_groups.end());
+    const auto last = std::unique(s.rhs_groups.begin(), s.rhs_groups.end());
+    assert(last == s.rhs_groups.end());
+  }
+
+  {
+    std::sort(s.old_groups.begin(), s.old_groups.end());
+    const auto last = std::unique(s.old_groups.begin(), s.old_groups.end());
+    assert(last == s.old_groups.end());
+  }
+
+  for (int i = 0; i < rkstages; i++) {
+    std::sort(s.ks_groups[i].begin(), s.ks_groups[i].end());
+    const auto last = std::unique(s.ks_groups[i].begin(), s.ks_groups[i].end());
+    assert(last == s.ks_groups[i].end());
+  }
+
+  // Add RHS variables to dependent variables
+  s.dep_groups.insert(s.dep_groups.end(), s.rhs_groups.begin(),
+                      s.rhs_groups.end());
+
+  {
+    std::sort(s.dep_groups.begin(), s.dep_groups.end());
+    const auto last = std::unique(s.dep_groups.begin(), s.dep_groups.end());
+    s.dep_groups.erase(last, s.dep_groups.end());
+  }
+
+  for (const int gi : s.var_groups)
+    assert(std::find(s.dep_groups.begin(), s.dep_groups.end(), gi) ==
+           s.dep_groups.end());
+  for (const int gi : s.rhs_groups)
+    assert(std::find(s.var_groups.begin(), s.var_groups.end(), gi) ==
+           s.var_groups.end());
+
+  return s;
+}
+
+} // namespace
+
+extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ODESolvers_Solve_Subcycling;
+  DECLARE_CCTK_PARAMETERS;
+
+  static bool did_output = false;
+  if (verbose || !did_output)
+    CCTK_VINFO("Integrator is %s", method);
+  did_output = true;
+
+  static Timer timer("ODESolvers::Solve");
+  Interval interval(timer);
+
+  const CCTK_REAL dt = CCTK_DELTA_TIME;
+
+  static Timer timer_setup("ODESolvers::Solve::setup");
+  std::optional<Interval> interval_setup(timer_setup);
+
+  auto setup = collect_solve_setup();
+  auto &var = setup.var;
+  auto &rhs = setup.rhs;
+  auto &old = setup.old;
+  auto &ks = setup.ks;
+  auto &var_groups = setup.var_groups;
+  auto &rhs_groups = setup.rhs_groups;
+  auto &dep_groups = setup.dep_groups;
+  auto &old_groups = setup.old_groups;
+  auto &ks_groups = setup.ks_groups;
+  const int nvars = setup.nvars;
   if (verbose)
     CCTK_VINFO("  Integrating %d variables", nvars);
   if (nvars == 0)
     CCTK_VWARN(CCTK_WARN_ALERT, "Integrating %d variables", nvars);
-
-  {
-    std::sort(var_groups.begin(), var_groups.end());
-    const auto last = std::unique(var_groups.begin(), var_groups.end());
-    assert(last == var_groups.end());
-  }
-
-  {
-    std::sort(rhs_groups.begin(), rhs_groups.end());
-    const auto last = std::unique(rhs_groups.begin(), rhs_groups.end());
-    assert(last == rhs_groups.end());
-  }
-
-  {
-    std::sort(old_groups.begin(), old_groups.end());
-    const auto last = std::unique(old_groups.begin(), old_groups.end());
-    assert(last == old_groups.end());
-  }
-
-  for (int i = 0; i < rkstages; i++) {
-    std::sort(ks_groups[i].begin(), ks_groups[i].end());
-    const auto last = std::unique(ks_groups[i].begin(), ks_groups[i].end());
-    assert(last == ks_groups[i].end());
-  }
-
-  // Add RHS variables to dependent variables
-  dep_groups.insert(dep_groups.end(), rhs_groups.begin(), rhs_groups.end());
-
-  {
-    std::sort(dep_groups.begin(), dep_groups.end());
-    const auto last = std::unique(dep_groups.begin(), dep_groups.end());
-    dep_groups.erase(last, dep_groups.end());
-  }
-
-  for (const int gi : var_groups)
-    assert(std::find(dep_groups.begin(), dep_groups.end(), gi) ==
-           dep_groups.end());
-  for (const int gi : rhs_groups)
-    assert(std::find(var_groups.begin(), var_groups.end(), gi) ==
-           var_groups.end());
 
   interval_setup.reset();
 
@@ -268,13 +295,13 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     // set in previous steps.
     // CallScheduleGroup(cctkGH, "ODESolvers_SyncKsOld");
     if (old_groups.size() > 0) {
-      old.set_valid(make_valid_int()); // mark interior valid to work around
-                                       // poison mechanism
+      // mark interior valid to work around poison mechanism
+      old.set_valid(make_valid_int());
       SyncGroupsByDirIProlongateOnly(cctkGH, old_groups.size(),
                                      old_groups.data(), nullptr);
       for (int s = 0; s < rkstages; ++s) {
-        ks[s].set_valid(make_valid_int()); // mark interior valid to work around
-                                           // poison mechanism
+        // mark interior valid to work around poison mechanism
+        ks[s].set_valid(make_valid_int());
         SyncGroupsByDirIProlongateOnly(cctkGH, ks_groups[s].size(),
                                        ks_groups[s].data(), nullptr);
       }
@@ -285,8 +312,6 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     // they need to be accessed in subsequent CallScheduleGroup functions,
     // which do not yet support access to temporary variables.
     setold();
-
-    calcys_rmbnd(1); // refinement boundary only
 
     // k1 = f(Y1)
     calcrhs(1);
@@ -317,11 +342,9 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     calcys_rmbnd(5); // refinement boundary only
     calcpoststep();
 
-    // In the interprocess_ghost_sync_during_substep case, the refinement
-    // boundary is not synchronized at this point. Instead, we rely on the SYNCs
-    // in CCTK_POSTRESTRICT to fill in these ghost zones. If the fine level is
-    // not properly aligned with the coarse level in time, the filled-in values
-    // may be incorrect. However, they will be corrected during calcys_rmbnd(1).
+    // No calcys_rmbnd(1) here: refinement-boundary ghosts are kept aligned by
+    // subcycling-aware POSTRESTRICT SYNCs. The post-recovery case is handled
+    // by ODESolvers_Solve_Subcycling_Recovery at CCTK_CPINITIAL.
 
   } else {
     assert(0);
@@ -337,6 +360,66 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
   *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = saved_time;
 
   // TODO: Update time here, and not during time level cycling in the driver
+}
+
+extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ODESolvers_Solve_Subcycling_Recovery;
+  DECLARE_CCTK_PARAMETERS;
+
+  // Skip on fresh initialization; cctk_iteration > 0 only on recovery.
+  if (cctk_iteration <= 0)
+    return;
+
+  if (verbose)
+    CCTK_VINFO("Subcycling recovery: replaying calcys_rmbnd(1) prerequisites "
+               "for the first post-recovery RK4 step");
+
+  static Timer timer("ODESolvers::Solve_Subcycling_Recovery");
+  Interval interval(timer);
+
+  auto setup = collect_solve_setup();
+  auto &var = setup.var;
+  auto &old = setup.old;
+  auto &ks = setup.ks;
+  auto &var_groups = setup.var_groups;
+  auto &old_groups = setup.old_groups;
+  auto &ks_groups = setup.ks_groups;
+  if (setup.nvars == 0)
+    return;
+
+  const CCTK_REAL dt = CCTK_DELTA_TIME;
+
+  // Prolongate old and ks from the coarse level: the checkpoint restored only
+  // GF interiors, so refinement-boundary ghosts must be rebuilt here.
+  if (old_groups.size() > 0) {
+    // mark interior valid to work around poison mechanism
+    old.set_valid(make_valid_int());
+    SyncGroupsByDirIProlongateOnly(cctkGH, old_groups.size(), old_groups.data(),
+                                   nullptr);
+    for (int s = 0; s < rkstages; ++s) {
+      // mark interior valid to work around poison mechanism
+      ks[s].set_valid(make_valid_int());
+      SyncGroupsByDirIProlongateOnly(cctkGH, ks_groups[s].size(),
+                                     ks_groups[s].data(), nullptr);
+    }
+  }
+
+  // calcys_rmbnd(1) body: fill refinement-boundary ghosts of var_groups.
+  // xsi=0.5 and stage0=1 are the values calcys_rmbnd(1) would have computed
+  // at the start of the first post-recovery RK step.
+  active_levels->loop_parallel([&](int patch, int level, int /*index*/,
+                                   int /*component*/, const cGH *local_cctkGH) {
+    if (level == 0)
+      return;
+    constexpr CCTK_REAL xsi = 0.5;
+    constexpr int stage0 = 1;
+    update_cctkGH(const_cast<cGH *>(local_cctkGH), cctkGH);
+    Subcycling::CalcYfFromKcs<rkstages>(const_cast<cGH *>(local_cctkGH),
+                                        var_groups, old_groups, ks_groups,
+                                        dt * 2, xsi, stage0);
+  });
+  synchronize();
+  var.set_valid(make_valid_all());
 }
 
 } // namespace ODESolvers
