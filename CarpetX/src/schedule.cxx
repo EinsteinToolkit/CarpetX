@@ -2502,7 +2502,6 @@ static void sync_multipatch_postcheck(const cGH *cctkGH,
   }
 }
 
-// Subcycling-aware variant: SyncGroupsByDirISubcycling below.
 int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                      const int *groups0, const int *directions) {
   DECLARE_CCTK_PARAMETERS;
@@ -2767,8 +2766,6 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   return numgroups; // number of groups synchronized
 }
 
-// Non-subcycling variant: SyncGroupsByDirI above. Keep the two bodies
-// in sync except at the four marked modification sites.
 int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
                                const int *groups0, const int *directions) {
   DECLARE_CCTK_PARAMETERS;
@@ -2831,15 +2828,10 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
         auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
         assert(coarsegroupdata.numvars == groupdata.numvars);
 
-        // Modification C: evolved groups mid-substep have coarse at a
-        // different physical time than fine, so prolongation would
-        // pull in temporally-misaligned data. Refinement-boundary
-        // ghosts are kept valid separately by the subcycling ODE
-        // solver (SyncGroupsByDirIProlongateOnly on old/k_i buffers),
-        // so a same-level FillPatch_Sync is sufficient here.
-        const bool mid_substep = groupdata.do_evolve && leveldata.iteration > 0;
+        const bool evolving_subiter =
+            groupdata.do_evolve && leveldata.iteration > 0;
 
-        if (mid_substep) {
+        if (evolving_subiter) {
           // Copy from adjacent boxes on same level only
           for (int tl = 0; tl < sync_tl; ++tl) {
             tasks1.submit_serially([&tasks2, &leveldata, &groupdata, tl]() {
@@ -2897,14 +2889,12 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
 
-      // Modification D: guard only the set_ghosts(true, ...) call on
-      // the mid-substep arm. set_outer(true, ...) stays unconditional
-      // because FillPatch_Sync calls apply_boundary_conditions.
-      const bool mid_substep = groupdata.do_evolve && leveldata.iteration > 0;
+      const bool evolving_subiter =
+          groupdata.do_evolve && leveldata.iteration > 0;
 
       for (int tl = 0; tl < sync_tl0; ++tl) {
         for (int vi = 0; vi < groupdata.numvars; ++vi) {
-          if (!mid_substep) {
+          if (!evolving_subiter) {
             groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
               return "SyncGroupsByDirISubcycling after syncing: "
                      "Mark ghost zones as valid";
