@@ -54,6 +54,7 @@ SRCS =							\
 	prolongate_3d_rf2_impl_poly_eno3lfb.cxx		\
 	reduction.cxx					\
 	schedule.cxx					\
+	sync_restrict.cxx				\
 	task_manager.cxx				\
 	timer.cxx					\
 	valid.cxx
