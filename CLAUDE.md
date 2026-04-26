@@ -13,6 +13,22 @@ This repository is organized as Cactus thorns. Each top-level directory such as 
 ./agent_scripts/test.sh
 ```
 
+Both scripts run the build/tests inside a Docker container — the host
+checkout is bind-mounted, but build artifacts (object files, configs,
+testsuite logs) live **inside the container**, not on the host. To
+inspect them (e.g. `nm` on a `.o`, tailing a testsuite log), exec into
+the same container the scripts use:
+
+```bash
+docker exec "$CONTAINERLOCAL" zsh -c '
+  find "$CONTAINERLOCALCACTUS/configs/sim-carpetx" -name "<file>"
+'
+```
+
+The relevant env vars (`CONTAINERLOCAL`, `CONTAINERLOCALCACTUS`,
+`CONTAINERLOCALMACHINE`) are already set in the host shell that runs
+`agent_scripts/*.sh`.
+
 ## Commit & Pull Request Guidelines
 
 Recent history favors short subject lines with a thorn prefix, for example `ODESolvers: update comments` or `CarpetX: add par poison_undefined_arrays`. Keep commits focused on one thorn or one behavior change. PRs should explain the scientific or runtime impact, list the tests run, and link the relevant issue or discussion. Include plots or output snippets when a change affects diagnostics, IO, or visible simulation results.
