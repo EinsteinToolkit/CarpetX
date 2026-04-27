@@ -1419,7 +1419,7 @@ int Initialise(tFleshConfig *config) {
         Restrict(cctkGH, leveldata.level);
     });
     // Prolongation
-    SyncRestrictedGFs(cctkGH);
+    ProlongateRestrictedGFs(cctkGH);
     CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
   }
 
@@ -1902,7 +1902,7 @@ int Evolve(tFleshConfig *config) {
               Restrict(cctkGH, leveldata.level);
           });
           // Prolongation
-          SyncRestrictedGFs(cctkGH);
+          ProlongateRestrictedGFs(cctkGH);
           CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
         }
       }

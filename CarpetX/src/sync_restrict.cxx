@@ -732,7 +732,7 @@ int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
   return numgroups; // number of groups synchronized
 }
 
-void SyncRestrictedGFs(const cGH *cctkGH) {
+void ProlongateRestrictedGFs(const cGH *cctkGH) {
   const std::vector<int> groups = collect_restrictable_groups();
   SyncGroupsByDirIProlongateOnly_impl(cctkGH, groups.size(), groups.data(),
                                       nullptr, true);
