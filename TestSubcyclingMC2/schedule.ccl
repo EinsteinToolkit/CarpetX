@@ -29,14 +29,12 @@ SCHEDULE TestSubcyclingMC2_Sync AT post_recover_variables
   SYNC: old k1 k2 k3 k4
 } "Synchronize"
 
-if(!use_subcycling_wip || use_odesolvers_poststep_during_rksubsteps) {
-  SCHEDULE TestSubcyclingMC2_Sync IN ODESolvers_PostStep
-  {
-    LANG: C
-    OPTIONS: global
-    SYNC: state
-  } "Synchronize"
-}
+SCHEDULE TestSubcyclingMC2_Sync IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Synchronize"
 
 SCHEDULE TestSubcyclingMC2_RHS IN ODESolvers_RHS
 {

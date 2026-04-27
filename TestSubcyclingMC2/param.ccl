@@ -40,7 +40,3 @@ SHARES: Driver
 
 USES BOOLEAN use_subcycling_wip
 
-
-SHARES: ODESolvers
-
-USES BOOLEAN use_odesolvers_poststep_during_rksubsteps

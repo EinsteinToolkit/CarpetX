@@ -1,7 +1,4 @@
-.claude/
 thoughts/
-
-.clang-format
 
 *.pyc
 .vscode

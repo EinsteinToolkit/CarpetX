@@ -18,9 +18,15 @@ if(use_subcycling_wip) {
     OPTIONS: level
   } "Solve ODEs using Subcycling"
 
-  SCHEDULE GROUP ODESolvers_PostSubStep
+  # Refill refinement-boundary ghosts of the evolved state so they match
+  # what a normal-step trajectory would have produced at the same point.
+  # Scheduled at CCTK_CPINITIAL, which fires on both fresh init and
+  # recovery; the body early-returns when cctk_iteration <= 0.
+  SCHEDULE ODESolvers_Solve_Subcycling_Recovery AT CCTK_CPINITIAL
   {
-  } "Apply operations after each RK substep, after Sync and CalcYs at refinement boundries"
+    LANG: C
+    OPTIONS: level
+  } "Refill refinement-boundary ghosts of evolved state after checkpoint recovery"
 
 } else {
 
