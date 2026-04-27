@@ -28,10 +28,6 @@ if(use_subcycling_wip) {
     OPTIONS: level
   } "Refill refinement-boundary ghosts of evolved state after checkpoint recovery"
 
-  SCHEDULE GROUP ODESolvers_PostSubStep
-  {
-  } "Apply operations after each RK substep, after Sync and CalcYs at refinement boundries"
-
 } else {
 
   SCHEDULE ODESolvers_Solve AT evol
