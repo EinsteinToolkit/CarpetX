@@ -10,7 +10,7 @@ namespace CarpetX {
 
 void Reflux(const cGH *cctkGH, int level);
 void Restrict(const cGH *cctkGH, int level);
-void SyncRestrictedGFs(const cGH *cctkGH);
+void ProlongateRestrictedGFs(const cGH *cctkGH);
 
 } // namespace CarpetX
 
