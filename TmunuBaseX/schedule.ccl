@@ -5,12 +5,6 @@ SCHEDULE GROUP TmunuBaseX_SetTmunuVars AT initial AFTER ADMBaseX_SetADMVars
 } "Schedule group for setting T_munu"
 
 if (CCTK_IsThornActive("ODESolvers")) {
-  if(use_subcycling_wip) {
-    SCHEDULE GROUP TmunuBaseX_SetTmunuVars IN ODESolvers_PostSubStep AFTER ADMBaseX_SetADMVars
-    {
-    } "Schedule group for setting T_munu"
-  }
-
   SCHEDULE GROUP TmunuBaseX_SetTmunuVars IN ODESolvers_PostStep AFTER ADMBaseX_SetADMVars
   {
   } "Schedule group for setting T_munu"
