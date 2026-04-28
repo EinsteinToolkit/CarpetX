@@ -4,7 +4,7 @@ CarpetX is a Cactus driver based on AMReX for block-structured adaptive mesh ref
 
 ## Project Structure & Module Organization
 
-This repository is organized as Cactus thorns. Each top-level directory such as `CarpetX/`, `ODESolvers/`, `WaveToyX/`, or `TestSubcycling/` is a thorn with Cactus metadata files like `interface.ccl`, `param.ccl`, `schedule.ccl`, and implementation under `src/`. Tests usually live beside the thorn in `test/` and use parameter files plus checked-in reference output, for example `WaveToyX/test/presync.par` and `WaveToyX/test/presync/*.tsv`.
+This repository is organized as Cactus thorns. Each top-level directory such as `CarpetX/`, `ODESolvers/`, `TestSubcyclingMC/`, or `TestSubcyclingMC2/` is a thorn with Cactus metadata files like `interface.ccl`, `param.ccl`, `schedule.ccl`, and implementation under `src/`. Tests usually live beside the thorn in `test/` and use parameter files plus checked-in reference output, for example `TestSubcyclingMC2/test/gaussian-interprocessonly.par` and `TestSubcyclingMC2/test/gaussian-interprocessonly/*.tsv`.
 
 ## Build & Test
 
@@ -35,6 +35,4 @@ Recent history favors short subject lines with a thorn prefix, for example `ODES
 
 ## Further Reading
 
-- `README.md` — project overview, links to talks and getting-started wiki
-- `CarpetX/doc/` — architecture and design documentation
 - `.github/workflows/ci.yml` — CI matrix and environment variable combinations
