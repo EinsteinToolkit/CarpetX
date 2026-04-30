@@ -680,9 +680,21 @@ INT out_tsv_every "Output in TSV format every that many iterations" STEERABLE=al
   1:* :: "every that many iterations"
 } -1
 
-BOOLEAN output_boundary_points "Output outer boundary points in 1d TSV files" STEERABLE=always
+KEYWORD out_tsv_header "How to output TSV column header" STEERABLE=always
+{
+  "none" :: "no header"
+  "comment" :: "as comment (for backward compatibility)"
+  "plain" :: "plain TSV header"
+} "comment"
+
+BOOLEAN out_tsv_combine_iterations "Combine all iterations into a single TSV file" STEERABLE=recover
+{
+} no
+
+BOOLEAN out_tsv_output_boundary_points "Output outer boundary points in 1d TSV files" STEERABLE=always
 {
 } yes
+
 
 
 SHARES: Cactus
