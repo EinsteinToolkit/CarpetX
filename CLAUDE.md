@@ -15,21 +15,15 @@ Do **not** read reference test data files (e.g. `*/test/*/*.tsv`, `*/test/*/*.h5
 ./agent_scripts/test.sh
 ```
 
-Both scripts run the build/tests inside a Docker container — the host
-checkout is bind-mounted, but build artifacts (object files, configs,
-testsuite logs) live **inside the container**, not on the host. To
-inspect them (e.g. `nm` on a `.o`, tailing a testsuite log), exec into
-the same container the scripts use:
+Both scripts run inside the running container named `$CONTAINERLOCAL`; build artifacts and testsuite logs live **inside the container**, not on the host. `$CONTAINERLOCAL` and `$CONTAINERLOCALCACTUS` are pre-set in the host shell — pass `CONTAINERLOCALCACTUS` through with `-e` (it's not in the container's default env, and a bare `"$CONTAINERLOCALCACTUS"` inside the `zsh -c` string expands to empty):
 
 ```bash
-docker exec "$CONTAINERLOCAL" zsh -c '
-  find "$CONTAINERLOCALCACTUS/configs/sim-carpetx" -name "<file>"
-'
+docker exec -e CONTAINERLOCALCACTUS="$CONTAINERLOCALCACTUS" \
+  "$CONTAINERLOCAL" zsh -c 'tail -80 "$CONTAINERLOCALCACTUS/<path>"'
 ```
 
-The relevant env vars (`CONTAINERLOCAL`, `CONTAINERLOCALCACTUS`,
-`CONTAINERLOCALMACHINE`) are already set in the host shell that runs
-`agent_scripts/*.sh`.
+Per-test logs: `$CONTAINERLOCALCACTUS/TEST/sim-carpetx/<Thorn>/<test>.log`.
+Build artifacts: `$CONTAINERLOCALCACTUS/configs/sim-carpetx/`.
 
 ## Commit & Pull Request Guidelines
 
