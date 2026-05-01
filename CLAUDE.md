@@ -6,6 +6,8 @@ CarpetX is a Cactus driver based on AMReX for block-structured adaptive mesh ref
 
 This repository is organized as Cactus thorns. Each top-level directory such as `CarpetX/`, `ODESolvers/`, `TestSubcyclingMC/`, or `TestSubcyclingMC2/` is a thorn with Cactus metadata files like `interface.ccl`, `param.ccl`, `schedule.ccl`, and implementation under `src/`. Tests usually live beside the thorn in `test/` and use parameter files plus checked-in reference output, for example `TestSubcyclingMC2/test/gaussian-interprocessonly.par` and `TestSubcyclingMC2/test/gaussian-interprocessonly/*.tsv`.
 
+Do **not** read reference test data files (e.g. `*/test/*/*.tsv`, `*/test/*/*.h5`, or other large numerical output) unless the user explicitly asks for it. They are large, binary-like, and rarely informative for code-level reasoning. Inspect the `.par` parameter file and the thorn source instead.
+
 ## Build & Test
 
 ```bash
