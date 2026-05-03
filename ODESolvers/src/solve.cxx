@@ -33,9 +33,9 @@ void statecomp_t::free_tmp_mfabs() {
 
 // State that the state vector has valid data in the interior
 void statecomp_t::set_valid(const valid_t valid) const {
+  const int tl = this->timelevel;
   for (auto groupdata : groupdatas) {
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
-      const int tl = 0;
       groupdata->valid.at(tl).at(vi).set_int(valid.valid_int, [=]() {
         ostringstream buf;
         buf << "ODESolvers after lincomb: Mark interior as "
@@ -83,28 +83,28 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
     }
   }
 
+  const int dst_tl = dst.timelevel;
   for (int group = 0; group < ngroups; ++group) {
     const auto &dstgroup = dst.groupdatas.at(group);
     const int nvars = dstgroup->numvars;
-    const int tl = 0;
     for (int vi = 0; vi < nvars; ++vi) {
       valid_t valid = where;
       bool did_set_valid = false;
       if (scale != 0) {
-        valid &= dstgroup->valid.at(tl).at(vi).get();
+        valid &= dstgroup->valid.at(dst_tl).at(vi).get();
         did_set_valid = true;
       }
       for (size_t m = 0; m < srcs.size(); ++m) {
         if (factors.at(m) != 0) {
           const auto &src = srcs.at(m);
           const auto &srcgroup = src->groupdatas.at(group);
-          valid &= srcgroup->valid.at(tl).at(vi).get();
+          valid &= srcgroup->valid.at(src->timelevel).at(vi).get();
           did_set_valid = true;
         }
       }
       if (!did_set_valid)
         valid = valid_t(false);
-      dstgroup->valid.at(tl).at(vi) =
+      dstgroup->valid.at(dst_tl).at(vi) =
           why_valid_t(valid, []() { return "Set from RHS in ODESolvers"; });
     }
   }
@@ -113,9 +113,9 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
 // Ensure a state vector has valid data in the interior
 void statecomp_t::check_valid(const valid_t required,
                               const function<string()> &why) const {
+  const int tl = this->timelevel;
   for (const auto groupdata : groupdatas) {
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
-      const int tl = 0;
       CarpetX::error_if_invalid(*groupdata, vi, tl, required, why);
       // TODO: Parallelize over pathces, levels, group, variables, and
       // timelevels
@@ -132,6 +132,7 @@ void statecomp_t::check_valid(const valid_t required,
 statecomp_t statecomp_t::copy(const valid_t where) const {
   const size_t size = mfabs.size();
   statecomp_t result;
+  result.timelevel = this->timelevel;
   result.groupdatas.reserve(size);
   result.mfabs.reserve(size);
   for (size_t n = 0; n < size; ++n) {
@@ -302,42 +303,46 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
       if (!read_dst) {
 
         amrex::launch(
-            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
-                     __always_inline__, __flatten__)) {
-              const int i = box.smallEnd()[0];
-              // const int j = box.smallEnd()[1];
-              // const int k = box.smallEnd()[2];
-              CCTK_REAL accum = 0;
-              // The ROCM 6.2 compiler can't handle `std::array::operator[]`, so
-              // we avoid it via pointers: for (size_t n = 0; n < N; ++n)
-              //   accum += factors[n] * srcptrs[n][i];
-              const CCTK_REAL *restrict const factors_ptr = factors.data();
-              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
-                  srcptrs.data();
-              for (size_t n = 0; n < N; ++n)
-                accum += factors_ptr[n] * srcptrs_ptr[n][i];
-              dstptr[i] = accum;
-            });
+            box,
+            [=] CCTK_DEVICE(const amrex::Box &box)
+                __attribute__((__always_inline__, __flatten__)) {
+                  const int i = box.smallEnd()[0];
+                  // const int j = box.smallEnd()[1];
+                  // const int k = box.smallEnd()[2];
+                  CCTK_REAL accum = 0;
+                  // The ROCM 6.2 compiler can't handle
+                  // `std::array::operator[]`, so we avoid it via pointers: for
+                  // (size_t n = 0; n < N; ++n)
+                  //   accum += factors[n] * srcptrs[n][i];
+                  const CCTK_REAL *restrict const factors_ptr = factors.data();
+                  const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
+                      srcptrs.data();
+                  for (size_t n = 0; n < N; ++n)
+                    accum += factors_ptr[n] * srcptrs_ptr[n][i];
+                  dstptr[i] = accum;
+                });
 
       } else {
 
         amrex::launch(
-            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
-                     __always_inline__, __flatten__)) {
-              const int i = box.smallEnd()[0];
-              // const int j = box.smallEnd()[1];
-              // const int k = box.smallEnd()[2];
-              CCTK_REAL accum = scale1 * dstptr[i];
-              // The ROCM 6.2 compiler can't handle `std::array::operator[]`, so
-              // we avoid it via pointers: for (size_t n = 0; n < N; ++n)
-              //   accum += factors[n] * srcptrs[n][i];
-              const CCTK_REAL *restrict const factors_ptr = factors.data();
-              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
-                  srcptrs.data();
-              for (size_t n = 0; n < N; ++n)
-                accum += factors_ptr[n] * srcptrs_ptr[n][i];
-              dstptr[i] = accum;
-            });
+            box,
+            [=] CCTK_DEVICE(const amrex::Box &box)
+                __attribute__((__always_inline__, __flatten__)) {
+                  const int i = box.smallEnd()[0];
+                  // const int j = box.smallEnd()[1];
+                  // const int k = box.smallEnd()[2];
+                  CCTK_REAL accum = scale1 * dstptr[i];
+                  // The ROCM 6.2 compiler can't handle
+                  // `std::array::operator[]`, so we avoid it via pointers: for
+                  // (size_t n = 0; n < N; ++n)
+                  //   accum += factors[n] * srcptrs[n][i];
+                  const CCTK_REAL *restrict const factors_ptr = factors.data();
+                  const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
+                      srcptrs.data();
+                  for (size_t n = 0; n < N; ++n)
+                    accum += factors_ptr[n] * srcptrs_ptr[n][i];
+                  dstptr[i] = accum;
+                });
       }
 
 #endif

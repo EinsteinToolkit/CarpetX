@@ -142,7 +142,8 @@ static std::vector<int> collect_restrictable_groups() {
 static int
 SyncGroupsByDirIProlongateOnly_impl(const cGH *restrict cctkGH, int numgroups,
                                     const int *groups0, const int *directions,
-                                    const bool prolongate_on_same_iteration) {
+                                    const bool prolongate_on_same_iteration,
+                                    const int tl_arg = -1) {
   DECLARE_CCTK_PARAMETERS;
 
   assert(in_global_mode(cctkGH) || in_level_mode(cctkGH));
@@ -175,11 +176,14 @@ SyncGroupsByDirIProlongateOnly_impl(const cGH *restrict cctkGH, int numgroups,
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
 
       // We always sync all directions.
-      // If there is more than one time level, then we don't sync the
-      // oldest.
+      // tl_arg >= 0 syncs only that timelevel; tl_arg = -1 syncs every
+      // timelevel except the oldest (or the only one, if ntls == 1).
       // TODO: during evolution, sync only one time level
       const int ntls = groupdata.mfab.size();
-      const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+      const int tl_lo = (tl_arg < 0) ? 0 : tl_arg;
+      const int tl_hi =
+          (tl_arg < 0) ? (ntls > 1 ? ntls - 1 : ntls) : (tl_arg + 1);
+      assert(tl_lo >= 0 && tl_hi <= ntls);
 
       if (leveldata.level == 0) {
         // Level 0 requires no interpolation, so return early
@@ -206,7 +210,7 @@ SyncGroupsByDirIProlongateOnly_impl(const cGH *restrict cctkGH, int numgroups,
 
       amrex::Interpolater *const interpolator = groupdata.interpolator;
 
-      for (int tl = 0; tl < sync_tl; ++tl) {
+      for (int tl = tl_lo; tl < tl_hi; ++tl) {
 
         tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
                                 &coarsegroupdata, interpolator, tl]() {
@@ -665,13 +669,15 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
 }
 
 int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
-                                   const int *groups0, const int *directions) {
+                                   const int *groups0, const int *directions,
+                                   const int tl) {
   return SyncGroupsByDirIProlongateOnly_impl(cctkGH, numgroups, groups0,
-                                             directions, false);
+                                             directions, false, tl);
 }
 
 int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
-                              const int *groups0, const int *directions) {
+                              const int *groups0, const int *directions,
+                              const int tl_arg) {
   DECLARE_CCTK_PARAMETERS;
 
   assert(in_global_mode(cctkGH) || in_level_mode(cctkGH));
@@ -703,14 +709,17 @@ int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
 
       // We always sync all directions.
-      // If there is more than one time level, then we don't sync the
-      // oldest.
+      // tl_arg >= 0 syncs only that timelevel; tl_arg = -1 syncs every
+      // timelevel except the oldest (or the only one, if ntls == 1).
       // TODO: during evolution, sync only one time level
       const int ntls = groupdata.mfab.size();
-      const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+      const int tl_lo = (tl_arg < 0) ? 0 : tl_arg;
+      const int tl_hi =
+          (tl_arg < 0) ? (ntls > 1 ? ntls - 1 : ntls) : (tl_arg + 1);
+      assert(tl_lo >= 0 && tl_hi <= ntls);
 
       // Copy from adjacent boxes on same level
-      for (int tl = 0; tl < sync_tl; ++tl) {
+      for (int tl = tl_lo; tl < tl_hi; ++tl) {
         tasks1.submit_serially([&tasks2, &leveldata, &groupdata, tl]() {
           FillPatch_Sync(tasks2, groupdata, *groupdata.mfab.at(tl),
                          ghext->patchdata.at(leveldata.patch)

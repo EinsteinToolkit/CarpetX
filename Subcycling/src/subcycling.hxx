@@ -175,16 +175,18 @@ CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
   }
 }
 
-/* Varlist version */
+namespace detail {
+
+/* Shared varlist implementation: Yf written at Yf_tl, u0 read at u0_tl.
+   kcs are scratch groups read at tl=0. isrmbndry is read at tl=0. */
 template <int RKSTAGES>
-CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &Yfs, vector<int> &u0s,
-              const array<vector<int>, RKSTAGES> &kcss, const CCTK_REAL dtc,
-              const CCTK_REAL xsi, const CCTK_INT stage) {
+CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void CalcYfFromKcs_impl(
+    CCTK_ARGUMENTS, vector<int> &Yfs, const int Yf_tl, vector<int> &u0s,
+    const int u0_tl, const array<vector<int>, RKSTAGES> &kcss,
+    const CCTK_REAL dtc, const CCTK_REAL xsi, const CCTK_INT stage) {
 
   const Loop::GridDescBaseDevice grid(cctkGH);
   const auto isrmbndry_map = construct_index_map();
-  const int tl = 0;
 
   // Helper to find the isrmbndry gf for a given indextype
   auto get_isrmbndry =
@@ -193,7 +195,7 @@ CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &Yfs, vector<int> &u0s,
     auto it = isrmbndry_map.find(indextype);
     if (it != isrmbndry_map.end()) {
       return {layout, static_cast<CCTK_REAL *>(
-                          CCTK_VarDataPtrI(cctkGH, tl, it->second))};
+                          CCTK_VarDataPtrI(cctkGH, /*tl=*/0, it->second))};
     }
     CCTK_ERROR("get_isrmbndry: No matching indextype found.");
   };
@@ -210,26 +212,29 @@ CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &Yfs, vector<int> &u0s,
     for (int vi = 0; vi < nvars; ++vi) {
       const Loop::GF3D2<CCTK_REAL> Yf(
           layout,
-          static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, tl, Yf_0 + vi)));
+          static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, Yf_tl, Yf_0 + vi)));
       const Loop::GF3D2<const CCTK_REAL> u0(
           layout,
-          static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, tl, u0_0 + vi)));
+          static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, u0_tl, u0_0 + vi)));
       switch (RKSTAGES) {
       case 4: {
         array<const Loop::GF3D2<const CCTK_REAL>, 4> kcs{
             Loop::GF3D2<const CCTK_REAL>(
-                layout, static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
-                            cctkGH, tl, CCTK_FirstVarIndexI(kcss[0][i]) + vi))),
-            Loop::GF3D2<const CCTK_REAL>(
-                layout, static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
-                            cctkGH, tl, CCTK_FirstVarIndexI(kcss[1][i]) + vi))),
-            Loop::GF3D2<const CCTK_REAL>(
-                layout, static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
-                            cctkGH, tl, CCTK_FirstVarIndexI(kcss[2][i]) + vi))),
+                layout,
+                static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
+                    cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[0][i]) + vi))),
             Loop::GF3D2<const CCTK_REAL>(
                 layout,
                 static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
-                    cctkGH, tl, CCTK_FirstVarIndexI(kcss[3][i]) + vi)))};
+                    cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[1][i]) + vi))),
+            Loop::GF3D2<const CCTK_REAL>(
+                layout,
+                static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
+                    cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[2][i]) + vi))),
+            Loop::GF3D2<const CCTK_REAL>(
+                layout,
+                static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
+                    cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[3][i]) + vi)))};
         CalcYfFromKcs<4>(grid, indextype, Yf, u0, kcs, isrmbndry, dtc, xsi,
                          stage);
         break;
@@ -241,6 +246,31 @@ CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &Yfs, vector<int> &u0s,
       }
     }
   }
+}
+
+} // namespace detail
+
+/* Varlist version (legacy two-group form): Yf and u0 are separate groups,
+   both at tl=0. Used by TestSubcyclingMC. */
+template <int RKSTAGES>
+CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
+CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &Yfs, vector<int> &u0s,
+              const array<vector<int>, RKSTAGES> &kcss, const CCTK_REAL dtc,
+              const CCTK_REAL xsi, const CCTK_INT stage) {
+  detail::CalcYfFromKcs_impl<RKSTAGES>(CCTK_PASS_CTOC, Yfs, /*Yf_tl=*/0, u0s,
+                                       /*u0_tl=*/0, kcss, dtc, xsi, stage);
+}
+
+/* Varlist version (single-group form): Yf is written at tl=0 and u0 is read
+   at tl=1 of the same evolved group. Used by the subcycling integrator after
+   the timelevels-for-old refactor. */
+template <int RKSTAGES>
+CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
+CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &vars,
+              const array<vector<int>, RKSTAGES> &kcss, const CCTK_REAL dtc,
+              const CCTK_REAL xsi, const CCTK_INT stage) {
+  detail::CalcYfFromKcs_impl<RKSTAGES>(CCTK_PASS_CTOC, vars, /*Yf_tl=*/0, vars,
+                                       /*u0_tl=*/1, kcss, dtc, xsi, stage);
 }
 
 CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void

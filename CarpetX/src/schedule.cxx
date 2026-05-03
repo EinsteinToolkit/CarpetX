@@ -352,6 +352,27 @@ GridPtrDesc1::GridPtrDesc1(
               2 * (nghostzones[d] - groupdata.nghostzones.at(d));
 }
 
+GridPtrDesc1::GridPtrDesc1(
+    const GHExt::PatchData::LevelData &leveldata,
+    const GHExt::PatchData::LevelData::GroupData &groupdata,
+    const int component)
+    : GridDesc(leveldata, component) {
+  const amrex::Box &fbx = leveldata.fab->fabbox(component); // allocated array
+  cactus_offset = lbound(fbx);
+  for (int d = 0; d < dim; ++d) {
+    assert(groupdata.nghostzones.at(d) >= 0);
+    assert(groupdata.nghostzones.at(d) <= nghostzones[d]);
+  }
+  for (int d = 0; d < dim; ++d)
+    gimin[d] = nghostzones[d] - groupdata.nghostzones.at(d);
+  for (int d = 0; d < dim; ++d)
+    gimax[d] = lsh[d] - groupdata.indextype.at(d) -
+               (nghostzones[d] - groupdata.nghostzones.at(d));
+  for (int d = 0; d < dim; ++d)
+    gash[d] = ash[d] - groupdata.indextype.at(d) -
+              2 * (nghostzones[d] - groupdata.nghostzones.at(d));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 cGH *copy_cctkGH(const cGH *restrict const sourceGH) {
@@ -1584,6 +1605,21 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
             groupdata.valid.at(0).at(vi).set_all(valid_t(), []() {
               return "CycletimeLevels (invalidate current time level)";
             });
+          // enter_local_mode caches mfab pointers into local_cctkGH->data;
+          // after rotating mfab we must rebind so CCTK_VarDataPtrI sees
+          // the new slots.
+          for (auto &restrict local_cctkGH_ptr : leveldata.local_cctkGHs) {
+            cGH *const local_cctkGH = local_cctkGH_ptr.get();
+            const int component = local_cctkGH->cctk_component;
+            const GridPtrDesc1 grid1(leveldata, groupdata, component);
+            for (int tl = 0; tl < ntls; ++tl) {
+              const amrex::Array4<CCTK_REAL> vars =
+                  groupdata.mfab.at(tl)->array(component);
+              for (int vi = 0; vi < groupdata.numvars; ++vi)
+                local_cctkGH->data[groupdata.firstvarindex + vi][tl] =
+                    grid1.ptr(vars, vi);
+            }
+          }
         }
         // All time levels (except the current) must be valid everywhere for
         // checkpointed groups

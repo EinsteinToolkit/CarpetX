@@ -86,6 +86,9 @@ struct statecomp_t {
 
   vector<GHExt::PatchData::LevelData::GroupData *> groupdatas;
   vector<amrex::MultiFab *> mfabs;
+  // Timelevel of every mfab/groupdata entry. Subcycling aliases the previous
+  // step at tl=1; all other paths use tl=0.
+  int timelevel = 0;
 
   static void init_tmp_mfabs();
   static void free_tmp_mfabs();
