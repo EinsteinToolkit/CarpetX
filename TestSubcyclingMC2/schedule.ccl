@@ -1,6 +1,6 @@
 # Schedule definitions for thorn TestSubcyclingMC2
 
-STORAGE: state old rhs k1 k2 k3 k4
+STORAGE: state[2] rhs k1 k2 k3 k4
 
 
 SCHEDULE TestSubcyclingMC2_Initial AT initial
@@ -26,7 +26,7 @@ SCHEDULE TestSubcyclingMC2_Sync AT post_recover_variables
   LANG: C
   OPTIONS: global
   SYNC: state
-  SYNC: old k1 k2 k3 k4
+  SYNC: k1 k2 k3 k4
 } "Synchronize"
 
 SCHEDULE TestSubcyclingMC2_Sync IN ODESolvers_PostStep

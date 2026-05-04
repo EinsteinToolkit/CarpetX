@@ -196,12 +196,8 @@ SyncGroupsByDirIProlongateOnly_impl(const cGH *restrict cctkGH, int numgroups,
       const auto &restrict coarseleveldata =
           ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
 
-      if (ghext->use_subcycling) {
-        const bool iterations_match =
-            (leveldata.iteration == coarseleveldata.iteration);
-        const bool should_prolongate =
-            (prolongate_on_same_iteration == iterations_match);
-        if (!should_prolongate)
+      if (ghext->use_subcycling && prolongate_on_same_iteration) {
+        if (leveldata.iteration != coarseleveldata.iteration)
           return;
       }
 
