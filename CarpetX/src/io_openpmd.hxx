@@ -10,17 +10,21 @@
 
 namespace CarpetX {
 
+enum class TimeLevelMode { Current, All };
+
 int InputOpenPMDParameters(const std::string &input_dir,
                            const std::string &input_file);
 void InputOpenPMDGridStructure(cGH *cctkGH, const std::string &input_dir,
                                const std::string &input_file,
                                int input_iteration);
 void InputOpenPMD(const cGH *cctkGH, const std::vector<bool> &input_group,
-                  const std::string &input_dir, const std::string &input_file);
+                  const std::string &input_dir, const std::string &input_file,
+                  TimeLevelMode tl_mode = TimeLevelMode::Current);
 
 void OutputOpenPMD(const cGH *cctkGH, const std::vector<bool> &output_group,
                    const std::string &output_dir,
-                   const std::string &output_file);
+                   const std::string &output_file,
+                   TimeLevelMode tl_mode = TimeLevelMode::Current);
 
 } // namespace CarpetX
 

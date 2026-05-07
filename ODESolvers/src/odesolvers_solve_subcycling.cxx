@@ -377,8 +377,12 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
   // restored only GF interiors, so refinement-boundary ghosts must be rebuilt
   // here.
   if (var_groups.size() > 0) {
-    // mark interior valid to work around poison mechanism
-    old.set_valid(make_valid_int());
+    // Verify the IO layer populated tl=1 interior on recovery; this assertion
+    // catches regressions where a checkpoint read fails to mark every
+    // timelevel valid.
+    old.check_valid(make_valid_int(),
+                    "ODESolvers_Solve_Subcycling_Recovery requires tl=1 "
+                    "interior to be populated by checkpoint recovery");
     SyncGroupsByDirIProlongateOnly(cctkGH, var_groups.size(), var_groups.data(),
                                    nullptr, /*tl=*/1);
     for (int s = 0; s < rkstages; ++s) {

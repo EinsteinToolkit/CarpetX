@@ -365,7 +365,7 @@ struct carpetx_openpmd_t {
 
   // Allowed characters are only [A-Za-z_]
   static std::string make_meshname(const int gi, const int patch,
-                                   const int level) {
+                                   const int level, const int tl = 0) {
     std::string groupname = CCTK_FullGroupName(gi);
     groupname = std::regex_replace(groupname, std::regex("::"), "_");
     for (auto &ch : groupname)
@@ -377,6 +377,8 @@ struct carpetx_openpmd_t {
     if (level != -1)
       // The suffix should be `_lvl<N>`. No `setfill`?
       buf << "_lev" << setw(2) << setfill('0') << level;
+    if (tl > 0)
+      buf << "_tl" << setw(2) << setfill('0') << tl;
     return buf.str();
   }
 
@@ -422,13 +424,14 @@ struct carpetx_openpmd_t {
                                  int input_iteration);
   void InputOpenPMD(const cGH *const cctkGH,
                     const std::vector<bool> &input_group,
-                    const std::string &input_dir,
-                    const std::string &input_file);
+                    const std::string &input_dir, const std::string &input_file,
+                    TimeLevelMode tl_mode = TimeLevelMode::Current);
 
   void OutputOpenPMD(const cGH *const cctkGH,
                      const std::vector<bool> &output_group,
                      const std::string &output_dir,
-                     const std::string &output_file);
+                     const std::string &output_file,
+                     TimeLevelMode tl_mode = TimeLevelMode::Current);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -450,21 +453,22 @@ void InputOpenPMDGridStructure(cGH *cctkGH, const std::string &input_dir,
       cctkGH, input_dir, input_file, input_iteration);
 }
 void InputOpenPMD(const cGH *cctkGH, const std::vector<bool> &input_group,
-                  const std::string &input_dir, const std::string &input_file) {
+                  const std::string &input_dir, const std::string &input_file,
+                  TimeLevelMode tl_mode) {
   if (!carpetx_openpmd_t::self)
     carpetx_openpmd_t::self = std::make_optional<carpetx_openpmd_t>();
   carpetx_openpmd_t::self->InputOpenPMD(cctkGH, input_group, input_dir,
-                                        input_file);
+                                        input_file, tl_mode);
 }
 
 void OutputOpenPMD(const cGH *const cctkGH,
                    const std::vector<bool> &output_group,
                    const std::string &output_dir,
-                   const std::string &output_file) {
+                   const std::string &output_file, TimeLevelMode tl_mode) {
   if (!carpetx_openpmd_t::self)
     carpetx_openpmd_t::self = std::make_optional<carpetx_openpmd_t>();
   carpetx_openpmd_t::self->OutputOpenPMD(cctkGH, output_group, output_dir,
-                                         output_file);
+                                         output_file, tl_mode);
 }
 
 void ShutdownOpenPMD() { carpetx_openpmd_t::self.reset(); }
@@ -696,7 +700,8 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
 void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                                      const std::vector<bool> &input_group,
                                      const std::string &input_dir,
-                                     const std::string &input_file) {
+                                     const std::string &input_file,
+                                     TimeLevelMode tl_mode) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
@@ -900,7 +905,11 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
           auto &groupdata = *leveldata.groupdata.at(gi);
           // const int firstvarindex = groupdata.firstvarindex;
           const int numvars = groupdata.numvars;
-          const int tl = 0;
+
+          const int tl_count = tl_mode == TimeLevelMode::All
+                                   ? int(groupdata.mfab.size())
+                                   : 1;
+          for (int tl = 0; tl < tl_count; ++tl) {
           amrex::MultiFab &mfab = *groupdata.mfab[tl];
           const amrex::IndexType &indextype = mfab.ixType();
           const Arith::vect<bool, 3> is_cell_centred{indextype.cellCentered(0),
@@ -912,7 +921,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
           // Read mesh
 
           const std::string meshname =
-              make_meshname(gi, leveldata.patch, leveldata.level);
+              make_meshname(gi, leveldata.patch, leveldata.level, tl);
           if (io_verbose)
             CCTK_VINFO("Reading mesh %s...", meshname.c_str());
           assert(read_iter->meshes.count(meshname));
@@ -1078,6 +1087,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                 input_ghosts || group_has_no_ghosts ? make_valid_all()
                                                     : make_valid_int(),
                 []() { return "read from openPMD file"; });
+          } // for tl
         }
       } // for gi
 
@@ -1356,7 +1366,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
 void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                                       const std::vector<bool> &output_group,
                                       const std::string &output_dir,
-                                      const std::string &output_file) {
+                                      const std::string &output_file,
+                                      TimeLevelMode tl_mode) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
@@ -1592,7 +1603,11 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
           const auto &groupdata = *leveldata.groupdata.at(gi);
           // const int firstvarindex = groupdata.firstvarindex;
           const int numvars = groupdata.numvars;
-          const int tl = 0;
+
+          const int tl_count = tl_mode == TimeLevelMode::All
+                                   ? int(groupdata.mfab.size())
+                                   : 1;
+          for (int tl = 0; tl < tl_count; ++tl) {
           const amrex::MultiFab &mfab = *groupdata.mfab[tl];
           const amrex::IndexType &indextype = mfab.ixType();
           const Arith::vect<bool, 3> is_cell_centred{indextype.cellCentered(0),
@@ -1604,7 +1619,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
           // Create mesh
 
           const std::string meshname =
-              make_meshname(gi, leveldata.patch, leveldata.level);
+              make_meshname(gi, leveldata.patch, leveldata.level, tl);
           if (io_verbose)
             CCTK_VINFO("Defining mesh %s...", meshname.c_str());
           assert(!write_iter.meshes.contains(meshname));
@@ -1758,6 +1773,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
               }
             } // for vi
           } // for local_component
+          } // for tl
         }
       } // for gi
 
