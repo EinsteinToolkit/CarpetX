@@ -386,8 +386,9 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
     SyncGroupsByDirIProlongateOnly(cctkGH, var_groups.size(), var_groups.data(),
                                    nullptr, /*tl=*/1);
     for (int s = 0; s < rkstages; ++s) {
-      // mark interior valid to work around poison mechanism
-      ks[s].set_valid(make_valid_int());
+      ks[s].check_valid(make_valid_int(),
+                        "ODESolvers_Solve_Subcycling_Recovery requires ks "
+                        "interior to be populated by checkpoint recovery");
       SyncGroupsByDirIProlongateOnly(cctkGH, ks_groups[s].size(),
                                      ks_groups[s].data(), nullptr);
     }
