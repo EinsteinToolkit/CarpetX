@@ -1,4 +1,7 @@
 # Schedule definitions for thorn CarpetXRegrid
+
+STORAGE: regrid_error
+
 SCHEDULE CarpetXRegrid_InitError AT basegrid
 {
   LANG: C

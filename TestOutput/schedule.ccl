@@ -1,6 +1,6 @@
 # Schedule definitions for thorn TestOutput
 
-STORAGE: gf sc a1 a2 a3
+STORAGE: gf gf_tmp sc a1 a2 a3
 STORAGE: sc_int a1_int a2_int a3_int
 STORAGE: sc_complex a1_complex a2_complex a3_complex
 

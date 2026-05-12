@@ -1,5 +1,10 @@
 # Schedule definitions for thorn TestSymmetries
 
+STORAGE: var_vvv_ppp var_vvc_ppp var_vcv_ppp var_vcc_ppp
+STORAGE: var_cvv_ppp var_cvc_ppp var_ccv_ppp var_ccc_ppp
+STORAGE: var_vvv_mmm var_vvc_mmm var_vcv_mmm var_vcc_mmm
+STORAGE: var_cvv_mmm var_cvc_mmm var_ccv_mmm var_ccc_mmm
+
 SCHEDULE TestSymmetries_Init AT initial
 {
   LANG: C

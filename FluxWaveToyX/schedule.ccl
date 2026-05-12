@@ -1,6 +1,6 @@
 # Schedule definitions for thorn FluxWaveToyX
 
-STORAGE: state
+STORAGE: state cons flux_x flux_y flux_z rhs energy error
 
 SCHEDULE FluxWaveToyX_Initial AT initial
 {

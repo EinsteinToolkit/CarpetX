@@ -1,5 +1,7 @@
 # Schedule definitions for thorn CoordinatesX
 
+STORAGE: vertex_coords cell_coords cell_volume
+
 SCHEDULE CoordinatesX_Setup AT basegrid
 {
   LANG: C

@@ -1,6 +1,6 @@
 # Schedule definitions for thorn TestSubcyclingMC
 
-STORAGE: ustate pstate k1 k2 k3 k4
+STORAGE: ustate pstate k1 k2 k3 k4 error
 
 
 SCHEDULE TestSubcyclingMC_Initial AT initial
