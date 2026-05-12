@@ -41,11 +41,10 @@ struct InterpolationSetup {
   using ParticleTile = Container::ParticleTileType;
 
   const int npoints{0};
-  std::vector<char> symmetry_reflected_z;
+  std::vector<bool> symmetry_reflected_z;
   std::vector<std::shared_ptr<Container> > containers{}; // [patch]
 
-  InterpolationSetup(const CCTK_POINTER_TO_CONST cctkGH_,
-                     const CCTK_INT npoints,
+  InterpolationSetup(const cGH *restrict const cctkGH, const CCTK_INT npoints,
                      const CCTK_REAL *restrict const globalsx,
                      const CCTK_REAL *restrict const globalsy,
                      const CCTK_REAL *restrict const globalsz);
@@ -56,7 +55,7 @@ void InterpolateUsingSetup(
     const CCTK_INT *restrict const varinds,
     const CCTK_INT *restrict const operations,
     const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
-        &outer_boundary_per_patch, //  [face][direction]
+        &allowed_boundaries, //  [patch][face][direction]
     const CCTK_POINTER resultptrs_);
 
 // a dummy routine for now
