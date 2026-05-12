@@ -36,6 +36,11 @@ CCTK_REAL epsdiss "Dissipation coefficient <arXiv:gr-qc/0610128>" STEERABLE=alwa
   0.0:* :: ""
 } 0.0
 
+INT timelevels "Number of time levels for the state" STEERABLE=recover
+{
+  0:3 :: ""
+} 2
+
 SHARES: Driver
 
 USES BOOLEAN use_subcycling_wip
