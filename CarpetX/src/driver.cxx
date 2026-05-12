@@ -44,7 +44,7 @@ int ghext_handle = -1;
 amrex::AMReX *restrict pamrex = nullptr;
 std::unique_ptr<GHExt> ghext;
 
-std::atomic<CCTK_INT> carpetx_epoch{1};
+std::atomic<CCTK_INT> carpetx_epoch{0};
 
 // Registered functions
 
