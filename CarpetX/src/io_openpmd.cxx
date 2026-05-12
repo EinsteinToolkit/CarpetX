@@ -903,6 +903,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
             CCTK_VINFO("Reading group %s...", CCTK_FullGroupName(gi));
 
           auto &groupdata = *leveldata.groupdata.at(gi);
+          if (groupdata.mfab.empty())
+            continue;
           // const int firstvarindex = groupdata.firstvarindex;
           const int numvars = groupdata.numvars;
 
@@ -1116,6 +1118,8 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
           CCTK_VINFO("Reading group %d %s...", gi, CCTK_FullGroupName(gi));
 
         auto &groupdata = *ghext->globaldata.arraygroupdata.at(gi);
+        if (groupdata.data.empty())
+          continue;
         // const int firstvarindex = groupdata.firstvarindex;
         const int numvars = groupdata.numvars;
         const int tl = 0;
@@ -1601,6 +1605,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             CCTK_VINFO("Writing group %d %s...", gi, CCTK_FullGroupName(gi));
 
           const auto &groupdata = *leveldata.groupdata.at(gi);
+          if (groupdata.mfab.empty())
+            continue;
           // const int firstvarindex = groupdata.firstvarindex;
           const int numvars = groupdata.numvars;
 
@@ -1802,6 +1808,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
           CCTK_VINFO("Writing group %d %s...", gi, CCTK_FullGroupName(gi));
 
         const auto &groupdata = *ghext->globaldata.arraygroupdata.at(gi);
+        if (groupdata.data.empty())
+          continue;
         // const int firstvarindex = groupdata.firstvarindex;
         const int numvars = groupdata.numvars;
         const int tl = 0;

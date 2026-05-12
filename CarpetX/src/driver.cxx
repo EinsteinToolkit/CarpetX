@@ -967,6 +967,8 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     amrex::MultiFab &mfab) const {
   DECLARE_CCTK_PARAMETERS;
 
+  assert(!this->mfab.empty());
+
   static Timer timer("apply_boundary_conditions");
   Interval interval(timer);
 
@@ -1884,6 +1886,7 @@ extern "C" int CarpetX_Startup() {
   CCTK_OverloadDisableGroupStorage(DisableGroupStorage);
   CCTK_OverloadGroupStorageIncrease(GroupStorageIncrease);
   CCTK_OverloadGroupStorageDecrease(GroupStorageDecrease);
+  CCTK_OverloadQueryGroupStorageB(QueryGroupStorageB);
 
   if (use_subcycling_wip)
     CCTK_OverloadSyncGroupsByDirI(SyncGroupsByDirISubcycling);
@@ -2002,6 +2005,12 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
 
   // Create grid structure
   ghext = make_unique<GHExt>();
+
+  // Initialize the STORAGE registry. It is populated from schedule.ccl by
+  // CCTKi_ScheduleGHInit (which calls back into our GroupStorageIncrease
+  // overload) and frozen before the first allocation pass.
+  ghext->active_timelevels.assign(CCTK_NumGroups(), 0);
+  ghext->storage_frozen = false;
 
   return ghext.get();
 }

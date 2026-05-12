@@ -196,7 +196,8 @@ void RecoverGH(const cGH *restrict cctkGH) {
       const GHExt::GlobalData &globaldata = ghext->globaldata;
       if (globaldata.arraygroupdata.at(gi)) {
         // grid array
-        enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint;
+        enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint &&
+                         !globaldata.arraygroupdata.at(gi)->data.empty();
       } else {
         // grid function
         const int patch = 0;
@@ -204,7 +205,8 @@ void RecoverGH(const cGH *restrict cctkGH) {
         const GHExt::PatchData::LevelData &leveldata =
             ghext->patchdata.at(patch).leveldata.at(level);
         assert(leveldata.groupdata.at(gi));
-        enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint;
+        enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint &&
+                         !leveldata.groupdata.at(gi)->mfab.empty();
       }
     }
     return enabled;
@@ -651,7 +653,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
         const GHExt::GlobalData &globaldata = ghext->globaldata;
         if (globaldata.arraygroupdata.at(gi)) {
           // grid array
-          enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint;
+          enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint &&
+                           !globaldata.arraygroupdata.at(gi)->data.empty();
         } else {
           // grid function
           const int patch = 0;
@@ -660,7 +663,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
           const GHExt::PatchData::LevelData &leveldata =
               patchdata.leveldata.at(level);
           assert(leveldata.groupdata.at(gi));
-          enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint;
+          enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint &&
+                           !leveldata.groupdata.at(gi)->mfab.empty();
         }
       }
       return enabled;
@@ -683,7 +687,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
         const GHExt::GlobalData &globaldata = ghext->globaldata;
         if (globaldata.arraygroupdata.at(gi)) {
           // grid array
-          enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint;
+          enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint &&
+                           !globaldata.arraygroupdata.at(gi)->data.empty();
         } else {
           // grid function
           const int patch = 0;
@@ -692,7 +697,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
           const GHExt::PatchData::LevelData &leveldata =
               patchdata.leveldata.at(level);
           assert(leveldata.groupdata.at(gi));
-          enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint;
+          enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint &&
+                           !leveldata.groupdata.at(gi)->mfab.empty();
         }
       }
       return enabled;
