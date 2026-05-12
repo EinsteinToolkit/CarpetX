@@ -905,9 +905,11 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
               indextype[0] ? amrex::IndexType::CELL : amrex::IndexType::NODE,
               indextype[1] ? amrex::IndexType::CELL : amrex::IndexType::NODE,
               indextype[2] ? amrex::IndexType::CELL : amrex::IndexType::NODE));
-  mfab.resize(group.numtimelevels);
-  valid.resize(group.numtimelevels);
-  for (int tl = 0; tl < int(mfab.size()); ++tl) {
+  const int ntls = ghext->active_timelevels.at(gi);
+  assert(ntls >= 0 and ntls <= group.numtimelevels);
+  mfab.resize(ntls);
+  valid.resize(ntls);
+  for (int tl = 0; tl < ntls; ++tl) {
     mfab.at(tl) = make_unique<amrex::MultiFab>(gba, dm, numvars,
                                                amrex::IntVect(nghostzones));
     valid.at(tl).resize(numvars, why_valid_t(why));
@@ -1159,9 +1161,11 @@ void SetupGlobals() {
     const nan_handling_t nan_handling = arraygroupdata.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
-    arraygroupdata.data.resize(group.numtimelevels);
-    arraygroupdata.valid.resize(group.numtimelevels);
-    for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
+    const int ntls = ghext->active_timelevels.at(gi);
+    assert(ntls >= 0 and ntls <= group.numtimelevels);
+    arraygroupdata.data.resize(ntls);
+    arraygroupdata.valid.resize(ntls);
+    for (int tl = 0; tl < ntls; ++tl) {
       arraygroupdata.data.at(tl).alloc(
           group.vartype, arraygroupdata.numvars * arraygroupdata.array_size);
       why_valid_t why([]() { return "SetupGlobals"; });

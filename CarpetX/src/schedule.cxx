@@ -2143,6 +2143,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     const std::vector<clause_t> &reads =
         decode_clauses(attribute, rdwr_t::read);
     for (const auto &rd : reads) {
+      if (ghext->active_timelevels.at(rd.gi) == 0)
+        continue;
       if (CCTK_GroupTypeI(rd.gi) == CCTK_GF) {
         const auto &patchdata0 = ghext->patchdata.at(0);
         const auto &leveldata0 = patchdata0.leveldata.at(0);
@@ -2214,6 +2216,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     const std::vector<clause_t> &writes =
         decode_clauses(attribute, rdwr_t::write);
     for (const auto &wr : writes) {
+      if (ghext->active_timelevels.at(wr.gi) == 0)
+        continue;
       clause_t cl = wr;
       cl.valid = valid_t();
       valid_t need;
@@ -2535,10 +2539,23 @@ int GroupStorageDecrease(const cGH *cctkGH, int n_groups, const int *groups,
   return GroupStorageCrease(cctkGH, n_groups, groups, tls, status, false);
 }
 
-int QueryGroupStorageB(const cGH *cctkGH, int gi, const char * /*groupname*/) {
+int QueryGroupStorageB(const cGH *cctkGH, int gi, const char *groupname) {
   assert(cctkGH);
   assert(ghext);
-  assert(gi >= 0 and gi < CCTK_NumGroups());
+  if (gi < 0) {
+    if (!groupname) {
+      CCTK_WARN(CCTK_WARN_ALERT,
+                "QueryGroupStorageB called with negative group index and "
+                "no group name");
+      return -1;
+    }
+    gi = CCTK_GroupIndex(groupname);
+    if (gi < 0) {
+      CCTK_VWARN(CCTK_WARN_ALERT, "Group '%s' not found", groupname);
+      return -1;
+    }
+  }
+  assert(gi < CCTK_NumGroups());
   return ghext->active_timelevels.at(gi) > 0 ? 1 : 0;
 }
 
