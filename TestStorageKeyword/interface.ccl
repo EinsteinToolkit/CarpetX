@@ -1,0 +1,23 @@
+# Interface definition for thorn TestStorageKeyword
+
+IMPLEMENTS: TestStorageKeyword
+
+CCTK_REAL storaged_gf TYPE=gf TIMELEVELS=2 TAGS='checkpoint="no"'
+{
+  sg
+} "GF, STORAGE'd in schedule.ccl"
+
+CCTK_REAL unstoraged_gf TYPE=gf TIMELEVELS=2 TAGS='checkpoint="no"'
+{
+  ug
+} "GF, declared but not STORAGE'd"
+
+CCTK_REAL storaged_arr TYPE=array TIMELEVELS=2 DIM=1 SIZE=4 DISTRIB=constant
+{
+  sa
+} "Array, STORAGE'd in schedule.ccl"
+
+CCTK_REAL unstoraged_arr TYPE=array TIMELEVELS=2 DIM=1 SIZE=4 DISTRIB=constant
+{
+  ua
+} "Array, declared but not STORAGE'd"
