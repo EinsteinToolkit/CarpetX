@@ -1,0 +1,9 @@
+# Schedule definitions for thorn TestStorageKeyword
+
+STORAGE: storaged_gf[2] storaged_arr[2]
+
+SCHEDULE TestStorageKeyword_Probe AT PostInitial
+{
+  LANG: C
+  OPTIONS: global
+} "Verify STORAGE registry matches schedule.ccl"

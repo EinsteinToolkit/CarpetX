@@ -115,6 +115,8 @@ void OutputNorms(const cGH *restrict cctkGH) {
             patchdata.leveldata.at(level);
         const GHExt::PatchData::LevelData::GroupData &restrict groupdata =
             *leveldata.groupdata.at(gi);
+        if (groupdata.mfab.empty())
+          continue;
 
         bool group_has_valid_variables = false;
         for (int vi = 0; vi < groupdata.numvars; ++vi) {
@@ -171,6 +173,8 @@ void OutputNorms(const cGH *restrict cctkGH) {
         patchdata.leveldata.at(level);
     const GHExt::PatchData::LevelData::GroupData &restrict groupdata =
         *leveldata.groupdata.at(gi);
+    if (groupdata.mfab.empty())
+      continue;
 
     bool group_has_valid_variables = false;
     for (int vi = 0; vi < groupdata.numvars; ++vi) {

@@ -1,5 +1,7 @@
 # Schedule definitions for thorn PDESolvers
 
+STORAGE: communication_indicator point_type idx
+
 SCHEDULE PDESolvers_Setup AT wragh
 {
   LANG: C

@@ -102,45 +102,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     statecomp_t::init_tmp_mfabs();
   }
 
-  static Timer timer_lincomb("ODESolvers::Solve::lincomb");
-
-  // Seed tl=0 from tl=1 for evolved groups with TIMELEVELS>=2.
-  // CarpetX::CycleTimelevels rotates mfab/valid by one slot and invalidates
-  // the new tl=0 for any group with ntls>1; the previous step's state now
-  // lives at tl=1. ODESolvers_Solve writes the new state into tl=0, so seed
-  // tl=0 from tl=1 before any copy_state(var, ...) or RHS evaluation reads
-  // var. Mirrors ODESolvers_Solve_Subcycling::init_substep.
-  {
-    statecomp_t old, var_subset;
-    old.timelevel = 1;
-    var_subset.timelevel = 0;
-    CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
-      for (const auto &groupdataptr : leveldata.groupdata) {
-        if (groupdataptr == nullptr)
-          continue;
-        auto &groupdata = *groupdataptr;
-        const int rhs_gi = get_group_rhs(groupdata.groupindex);
-        if (rhs_gi < 0)
-          continue;
-        if (int(groupdata.mfab.size()) < 2)
-          continue;
-        var_subset.groupdatas.push_back(&groupdata);
-        var_subset.mfabs.push_back(groupdata.mfab.at(0).get());
-        old.groupdatas.push_back(&groupdata);
-        old.mfabs.push_back(groupdata.mfab.at(1).get());
-      }
-    });
-    if (!var_subset.mfabs.empty()) {
-      Interval interval_lincomb(timer_lincomb);
-      statecomp_t::lincomb(var_subset, 0.0, reals<1>{1.0}, states<1>{&old},
-                           make_valid_all());
-      var_subset.set_valid(make_valid_all());
-    }
-  }
-
   const CCTK_REAL saved_time = cctkGH->cctk_time;
   const CCTK_REAL old_time = cctkGH->cctk_time - dt;
 
+  static Timer timer_lincomb("ODESolvers::Solve::lincomb");
   static Timer timer_rhs("ODESolvers::Solve::rhs");
   static Timer timer_poststep("ODESolvers::Solve::poststep");
 

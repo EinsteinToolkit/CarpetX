@@ -905,9 +905,11 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
               indextype[0] ? amrex::IndexType::CELL : amrex::IndexType::NODE,
               indextype[1] ? amrex::IndexType::CELL : amrex::IndexType::NODE,
               indextype[2] ? amrex::IndexType::CELL : amrex::IndexType::NODE));
-  mfab.resize(group.numtimelevels);
-  valid.resize(group.numtimelevels);
-  for (int tl = 0; tl < int(mfab.size()); ++tl) {
+  const int ntls = ghext->active_timelevels.at(gi);
+  assert(ntls >= 0 and ntls <= group.numtimelevels);
+  mfab.resize(ntls);
+  valid.resize(ntls);
+  for (int tl = 0; tl < ntls; ++tl) {
     mfab.at(tl) = make_unique<amrex::MultiFab>(gba, dm, numvars,
                                                amrex::IntVect(nghostzones));
     valid.at(tl).resize(numvars, why_valid_t(why));
@@ -966,6 +968,8 @@ bool GHExt::PatchData::LevelData::GroupData::
 void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     amrex::MultiFab &mfab) const {
   DECLARE_CCTK_PARAMETERS;
+
+  assert(!this->mfab.empty());
 
   static Timer timer("apply_boundary_conditions");
   Interval interval(timer);
@@ -1132,7 +1136,7 @@ void SetupGlobals() {
 
     // Set up dynamic data
     arraygroupdata.dimension = group.dim;
-    arraygroupdata.activetimelevels = 1;
+    arraygroupdata.activetimelevels = ghext->active_timelevels.at(gi);
     for (int d = 0; d < group.dim; ++d) {
       arraygroupdata.lsh[d] = *sz[d];
       arraygroupdata.ash[d] = *sz[d];
@@ -1157,9 +1161,11 @@ void SetupGlobals() {
     const nan_handling_t nan_handling = arraygroupdata.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
-    arraygroupdata.data.resize(group.numtimelevels);
-    arraygroupdata.valid.resize(group.numtimelevels);
-    for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
+    const int ntls = ghext->active_timelevels.at(gi);
+    assert(ntls >= 0 and ntls <= group.numtimelevels);
+    arraygroupdata.data.resize(ntls);
+    arraygroupdata.valid.resize(ntls);
+    for (int tl = 0; tl < ntls; ++tl) {
       arraygroupdata.data.at(tl).alloc(
           group.vartype, arraygroupdata.numvars * arraygroupdata.array_size);
       why_valid_t why([]() { return "SetupGlobals"; });
@@ -1670,6 +1676,9 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml,
   yaml << YAML::Key << "do_evolve" << YAML::Value << commongroupdata.do_evolve;
   yaml << YAML::Key << "do_restrict" << YAML::Value
        << commongroupdata.do_restrict;
+  yaml << YAML::Key << "active_timelevels" << YAML::Value
+       << (ghext ? ghext->active_timelevels.at(commongroupdata.groupindex)
+                 : -1);
   yaml << YAML::Key << "valid" << YAML::Value << commongroupdata.valid;
   yaml << YAML::EndMap;
   return yaml;
@@ -1884,6 +1893,7 @@ extern "C" int CarpetX_Startup() {
   CCTK_OverloadDisableGroupStorage(DisableGroupStorage);
   CCTK_OverloadGroupStorageIncrease(GroupStorageIncrease);
   CCTK_OverloadGroupStorageDecrease(GroupStorageDecrease);
+  CCTK_OverloadQueryGroupStorageB(QueryGroupStorageB);
 
   if (use_subcycling_wip)
     CCTK_OverloadSyncGroupsByDirI(SyncGroupsByDirISubcycling);
@@ -2002,6 +2012,12 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
 
   // Create grid structure
   ghext = make_unique<GHExt>();
+
+  // Initialize the STORAGE registry. It is populated from schedule.ccl by
+  // CCTKi_ScheduleGHInit (which calls back into our GroupStorageIncrease
+  // overload) and frozen before the first allocation pass.
+  ghext->active_timelevels.assign(CCTK_NumGroups(), 0);
+  ghext->storage_frozen = false;
 
   return ghext.get();
 }

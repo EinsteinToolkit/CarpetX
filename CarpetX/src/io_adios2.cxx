@@ -286,10 +286,11 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
               // cGroupDynamicData cgroupdynamicdata;
               // ierr = CCTK_GroupDynamicData(cctkGH, gi, &cgroupdynamicdata);
               // assert(!ierr);
-              // TODO: Check whether group has storage
               // TODO: Check whether data are valid
 
               const auto &groupdata = *leveldata.groupdata.at(gi);
+              if (groupdata.mfab.empty())
+                continue;
               // const int firstvarindex = groupdata.firstvarindex;
               const int numvars = groupdata.numvars;
 
@@ -372,10 +373,11 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
             // cGroupDynamicData cgroupdynamicdata;
             // ierr = CCTK_GroupDynamicData(cctkGH, gi, &cgroupdynamicdata);
             // assert(!ierr);
-            // TODO: Check whether group has storage
             // TODO: Check whether data are valid
 
             const auto &groupdata = *leveldata.groupdata.at(gi);
+            if (groupdata.mfab.empty())
+              continue;
             // const int firstvarindex = groupdata.firstvarindex;
             const int numvars = groupdata.numvars;
             const int tl = 0;

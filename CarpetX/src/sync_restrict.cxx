@@ -94,6 +94,7 @@ static void sync_multipatch_postcheck(const cGH *cctkGH,
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+    assert(!groupdata0.mfab.empty());
       const nan_handling_t nan_handling = groupdata0.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
@@ -127,6 +128,9 @@ static std::vector<int> collect_restrictable_groups() {
     // Only grid functions
     if (groupdataptr) {
       auto &restrict groupdata = *groupdataptr;
+      // Only grid functions with storage
+      if (groupdata.mfab.empty())
+        continue;
       // Only grid functions with restriction enabled
       if (groupdata.do_restrict)
         groups.push_back(groupdata.groupindex);
@@ -174,6 +178,7 @@ SyncGroupsByDirIProlongateOnly_impl(const cGH *restrict cctkGH, int numgroups,
   for (const int gi : groups) {
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      assert(!groupdata.mfab.empty());
 
       // We always sync all directions.
       // tl_arg >= 0 syncs only that timelevel; tl_arg = -1 syncs every
@@ -202,6 +207,7 @@ SyncGroupsByDirIProlongateOnly_impl(const cGH *restrict cctkGH, int numgroups,
       }
 
       auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
+      assert(!coarsegroupdata.mfab.empty());
       assert(coarsegroupdata.numvars == groupdata.numvars);
 
       amrex::Interpolater *const interpolator = groupdata.interpolator;
@@ -263,6 +269,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       std::vector<int> new_groups;
       for (const int gi : groups) {
         auto &restrict groupdata = *leveldata.groupdata.at(gi);
+        assert(!groupdata.mfab.empty());
         bool need_sync = false;
         for (int tl = 0; tl < int(groupdata.valid.size()); tl++) {
           if (need_sync)
@@ -307,6 +314,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     const auto &patchdata0 = ghext->patchdata.at(0);
     const auto &leveldata0 = patchdata0.leveldata.at(0);
     const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+    assert(!groupdata0.mfab.empty());
     const nan_handling_t nan_handling = groupdata0.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
@@ -319,6 +327,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      assert(!groupdata.mfab.empty());
 
       if (leveldata.level > 0) {
 
@@ -326,6 +335,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
         const auto &restrict coarseleveldata =
             ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
         auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
+        assert(!coarsegroupdata.mfab.empty());
         assert(coarsegroupdata.numvars == groupdata.numvars);
 
         for (int tl = 0; tl < sync_tl0; ++tl) {
@@ -379,6 +389,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   for (const int gi : groups) {
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      assert(!groupdata.mfab.empty());
 
       // We always sync all directions.
       // If there is more than one time level, then we don't sync the
@@ -420,6 +431,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
         const auto &restrict coarseleveldata =
             ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
         auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
+        assert(!coarsegroupdata.mfab.empty());
         assert(coarsegroupdata.numvars == groupdata.numvars);
 
         amrex::Interpolater *const interpolator = groupdata.interpolator;
@@ -456,6 +468,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     const auto &patchdata0 = ghext->patchdata.at(0);
     const auto &leveldata0 = patchdata0.leveldata.at(0);
     const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+    assert(!groupdata0.mfab.empty());
     const nan_handling_t nan_handling = groupdata0.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
@@ -468,6 +481,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      assert(!groupdata.mfab.empty());
 
       for (int tl = 0; tl < sync_tl0; ++tl) {
         for (int vi = 0; vi < groupdata.numvars; ++vi) {
@@ -537,6 +551,7 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
   for (const int gi : groups) {
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      assert(!groupdata.mfab.empty());
 
       // We always sync all directions.
       // If there is more than one time level, then we don't sync the
@@ -562,6 +577,7 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
         const auto &restrict coarseleveldata =
             ghext->patchdata.at(leveldata.patch).leveldata.at(level - 1);
         auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
+        assert(!coarsegroupdata.mfab.empty());
         assert(coarsegroupdata.numvars == groupdata.numvars);
 
         const bool evolving_subiter =
@@ -612,6 +628,7 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
     const auto &patchdata0 = ghext->patchdata.at(0);
     const auto &leveldata0 = patchdata0.leveldata.at(0);
     const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+    assert(!groupdata0.mfab.empty());
     const nan_handling_t nan_handling = groupdata0.do_evolve
                                             ? nan_handling_t::forbid_nans
                                             : nan_handling_t::allow_nans;
@@ -624,6 +641,7 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
 
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      assert(!groupdata.mfab.empty());
 
       const bool evolving_subiter =
           groupdata.do_evolve && leveldata.iteration > 0;
@@ -703,6 +721,7 @@ int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
   for (const int gi : groups) {
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      assert(!groupdata.mfab.empty());
 
       // We always sync all directions.
       // tl_arg >= 0 syncs only that timelevel; tl_arg = -1 syncs every
@@ -770,7 +789,10 @@ void Reflux(const cGH *cctkGH, int level) {
           continue;
 
         auto &groupdata = *leveldata.groupdata.at(gi);
+        if (groupdata.mfab.empty())
+          continue;
         const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
+        assert(!finegroupdata.mfab.empty());
         const nan_handling_t nan_handling = groupdata.do_evolve
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
@@ -867,7 +889,9 @@ static void Restrict_impl(const cGH *cctkGH, int level,
         assert(group.grouptype == CCTK_GF);
 
         auto &groupdata = *leveldata.groupdata.at(gi);
+        assert(!groupdata.mfab.empty());
         const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
+        assert(!finegroupdata.mfab.empty());
         const amrex::IntVect reffact{2, 2, 2};
         const nan_handling_t nan_handling = groupdata.do_evolve
                                                 ? nan_handling_t::forbid_nans

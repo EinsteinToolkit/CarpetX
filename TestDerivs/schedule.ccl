@@ -3,6 +3,10 @@
 STORAGE: chi
 STORAGE: dchi
 STORAGE: ddchi
+STORAGE: beta
+STORAGE: chi_upwind chi_upwind_error
+STORAGE: chi_diss chi_diss_error
+STORAGE: dchi_error ddchi_error
 
 SCHEDULE TestDerivs_SetError AT postinitial
 {

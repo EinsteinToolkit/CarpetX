@@ -490,6 +490,14 @@ void OutputTSV(const cGH *restrict cctkGH) {
   const int numgroups = CCTK_NumGroups();
   for (int gi = 0; gi < numgroups; ++gi) {
     if (group_enabled.at(gi)) {
+      const int grouptype = CCTK_GroupTypeI(gi);
+      if (grouptype == CCTK_GF) {
+        if (ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi)->mfab.empty())
+          continue;
+      } else {
+        if (ghext->globaldata.arraygroupdata.at(gi)->data.empty())
+          continue;
+      }
       std::string groupname = CCTK_FullGroupName(gi);
       groupname = regex_replace(groupname, regex("::"), "-");
       for (auto &ch : groupname)
@@ -498,7 +506,7 @@ void OutputTSV(const cGH *restrict cctkGH) {
       buf << out_dir << "/" << groupname << ".it" << setw(6) << setfill('0')
           << cctk_iteration;
       const std::string basename = buf.str();
-      switch (CCTK_GroupTypeI(gi)) {
+      switch (grouptype) {
       case CCTK_SCALAR:
         WriteTSVScalars(cctkGH, basename + ".tsv", gi);
         break;

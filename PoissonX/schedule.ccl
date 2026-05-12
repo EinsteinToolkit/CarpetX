@@ -1,5 +1,7 @@
 # Schedule definitions for thorn PoissonX
 
+STORAGE: sol res src
+
 SCHEDULE PoissonX_Source AT initial BEFORE PDESolvers_Solve
 {
   LANG: C

@@ -1,6 +1,6 @@
 # Schedule definitions for thorn WaveToyX
 
-STORAGE: state
+STORAGE: state rhs energy error
 
 SCHEDULE WaveToyX_Initial AT initial
 {

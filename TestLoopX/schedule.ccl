@@ -1,6 +1,6 @@
 # Schedule definitions for thorn TestLoopX
 
-STORAGE: testloop_gf
+STORAGE: testloop_gf testloop_gf_fx testloop_gf_fy testloop_gf_fz
 
 SCHEDULE TestLoopX_Init AT initial
 {
