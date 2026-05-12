@@ -307,17 +307,17 @@ template <typename T, int order, int centering> struct interpolator {
       const bool is_allowed = all(i >= i0_allowed && i < i1_allowed);
 
       if (!is_allowed) {
-        CCTK_VWARN(0,
-                   "Interpolation anchor is not allowed:\n"
-                   "  patch = %d\n"
-                   "  n = %d\n"
-                   "  i = (%d, %d, %d)\n"
-                   "  i0_allowed = (%d, %d, %d)\n"
-                   "  i1_allowed = (%d, %d, %d)\n"
-                   "  x = (%f, %f, %f)",
-                   grid.patch, n, i[0], i[1], i[2], i0_allowed[0],
-                   i0_allowed[1], i0_allowed[2], i1_allowed[0], i1_allowed[1],
-                   i1_allowed[2], x[0], x[1], x[2]);
+        CCTK_VERROR("Interpolation anchor is not allowed, as it lies outside "
+                    "of the interior region: "
+                    "patch = %d "
+                    "n = %d "
+                    "i = (%d, %d, %d) "
+                    "i0_allowed = (%d, %d, %d) "
+                    "i1_allowed = (%d, %d, %d) "
+                    "x = (%f, %f, %f).",
+                    grid.patch, n, i[0], i[1], i[2], i0_allowed[0],
+                    i0_allowed[1], i0_allowed[2], i1_allowed[0], i1_allowed[1],
+                    i1_allowed[2], x[0], x[1], x[2]);
       }
 
       assert(is_allowed);
@@ -496,7 +496,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     constexpr int patch = 0;
     const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
     const CCTK_REAL *restrict const xmin = geom.ProbLo();
-#pragma omp parallel for simd
+#pragma omp simd
     for (int n = 0; n < npoints; ++n) {
       const auto refl = localsz[n] < xmin[2];
       symmetry_reflected_z[n] = refl;
@@ -516,7 +516,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   std::vector<CCTK_REAL> posy(npoints);
   std::vector<CCTK_REAL> posz(npoints);
 
-#pragma omp parallel for simd
+#pragma omp simd
   for (int n = 0; n < npoints; ++n) {
     const int patch = patches.at(n);
     const amrex::Geometry &geom = ghext->patchdata.at(patch).amrcore->Geom(0);
@@ -651,11 +651,40 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   }
 }
 
-void InterpolateFromSetup(
+/*
+ * InterpolateUsingSetup performs the actual grid interpolation given a
+ * pre-built InterpolationSetup.
+ *
+ * allowed_boundary_policy[patch][f][d] controls, for each patch face
+ * (face f=0/1, direction d), whether an interpolation stencil is permitted to
+ * anchor in the boundary/ghost-zone region on that face. The convention matches
+ * the one used by the interpolator struct (see its comment near i0_allowed):
+ *
+ * true = stencil may anchor right up to that face (ghost zone data there is
+ * assumed valid).
+ *
+ * false = stencil is pushed inward by nghostzones on that face (ghost zone data
+ * is considered unavailable).
+ *
+ * The per-box `allowed_boundaries` passed to each interpolator is derived from
+ * this policy via grid.bbox[f][d], which AMReX sets to true when the box face
+ * touches the outer boundary of its patch's AMReX domain:
+ *
+ * When bbox[f][d] is true true, the box face is at the patch outer boundary. In
+ * this case we read allowed_boundary_policy for that face. If
+ * allowed_boundary_policy is true, that means some routine (i.e., BCs) has
+ * filled the ghost zones. When its false ghost zones are filled by inter-patch
+ * interpolation and we push the stencil anchor inward.
+ *
+ * When bbox[f][d] is false, the box face is interior to the patch, between
+ * AMReX boxes. In this case we return always true, because AMReX fill-patch
+ * operations guarantee these ghost zones are valid.
+ */
+void InterpolateUsingSetup(
     const InterpolationSetup &setup, const CCTK_INT nvars,
     const CCTK_INT *restrict const varinds,
     const CCTK_INT *restrict const operations,
-    const std::vector<vect<vect<bool, 3>, 2> > &outer_boundary_per_patch,
+    const std::vector<vect<vect<bool, 3>, 2> > &allowed_boundary_policy,
     const CCTK_POINTER resultptrs_) {
   DECLARE_CCTK_PARAMETERS;
 
@@ -691,14 +720,18 @@ void InterpolateFromSetup(
         const GridDesc grid(leveldata, mfp);
         // const int component = mfp.index();
 
-        // Compute per-box allowed_boundaries from per-patch outer boundary
-        // policy and AMReX bbox (which box faces touch the patch boundary)
-        vect<vect<bool, dim>, 2> ab;
+        // Derive per-box stencil-anchor permissions. bbox[f][d] is true when
+        // the box face touches the patch's AMReX domain boundary (both physical
+        // outer boundaries and inter-patch boundaries). Interior intra-patch
+        // faces (bbox=false) unconditionally allow anchoring because AMReX
+        // guarantees their ghost zones are filled. See function comment above
+        // for the semantics of allowed_boundary_policy.
+        vect<vect<bool, dim>, 2> allowed_boundaries;
         for (int f = 0; f < 2; ++f)
           for (int d = 0; d < dim; ++d)
-            ab[f][d] = grid.bbox[f][d]
-                           ? outer_boundary_per_patch.at(patch)[f][d]
-                           : true;
+            allowed_boundaries[f][d] =
+                grid.bbox[f][d] ? allowed_boundary_policy.at(patch)[f][d]
+                                : true;
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
@@ -737,31 +770,31 @@ void InterpolateFromSetup(
             switch (interpolation_order) {
             case 0: {
               const interpolator<CCTK_REAL, 0, 0b000> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
               const interpolator<CCTK_REAL, 1, 0b000> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
               const interpolator<CCTK_REAL, 2, 0b000> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
               const interpolator<CCTK_REAL, 3, 0b000> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
               const interpolator<CCTK_REAL, 4, 0b000> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
@@ -780,31 +813,31 @@ void InterpolateFromSetup(
             switch (interpolation_order) {
             case 0: {
               const interpolator<CCTK_REAL, 0, 0b111> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 1: {
               const interpolator<CCTK_REAL, 1, 0b111> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 2: {
               const interpolator<CCTK_REAL, 2, 0b111> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 3: {
               const interpolator<CCTK_REAL, 3, 0b111> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
             case 4: {
               const interpolator<CCTK_REAL, 4, 0b111> interp{
-                  grid, gi, vi, patch, level, vars, derivs, ab};
+                  grid, gi, vi, patch, level, vars, derivs, allowed_boundaries};
               interp.interpolate3d(particles, varresult);
               break;
             }
@@ -950,7 +983,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         bool(allow_boundaries)}}};
   const std::vector<vect<vect<bool, dim>, 2> > policy(npatches, uniform);
 
-  InterpolateFromSetup(setup, nvars, varinds, operations, policy, resultptrs_);
+  InterpolateUsingSetup(setup, nvars, varinds, operations, policy, resultptrs_);
 }
 
 } // namespace CarpetX

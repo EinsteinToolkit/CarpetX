@@ -9,8 +9,7 @@
 #include <AMReX_Particles.H>
 
 #include <vector>
-#include <array>
-#include <memory>
+#include <vect.hxx>
 
 // Scheduled functions
 extern "C" int CarpetX_InterpGridArrays(
@@ -41,9 +40,9 @@ struct InterpolationSetup {
       Particle, 0, 0, amrex::PinnedArenaAllocator>::ParticleTileType;
   using ParticleTile = Container::ParticleTileType;
 
-  const CCTK_INT npoints{0};
+  const int npoints{0};
   std::vector<char> symmetry_reflected_z;
-  std::vector<std::shared_ptr<Container> > containers{};
+  std::vector<std::shared_ptr<Container> > containers{}; // [patch]
 
   InterpolationSetup(const CCTK_POINTER_TO_CONST cctkGH_,
                      const CCTK_INT npoints,
@@ -52,12 +51,12 @@ struct InterpolationSetup {
                      const CCTK_REAL *restrict const globalsz);
 };
 
-void InterpolateFromSetup(
+void InterpolateUsingSetup(
     const InterpolationSetup &setup, const CCTK_INT nvars,
     const CCTK_INT *restrict const varinds,
     const CCTK_INT *restrict const operations,
     const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
-        &outer_boundary_per_patch,
+        &outer_boundary_per_patch, //  [face][direction]
     const CCTK_POINTER resultptrs_);
 
 // a dummy routine for now

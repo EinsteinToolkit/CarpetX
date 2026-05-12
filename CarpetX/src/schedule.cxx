@@ -1327,6 +1327,7 @@ int Initialise(tFleshConfig *config) {
         did_modify_any_level = last_modified_level >= first_modified_level;
 
         if (did_modify_any_level) {
+          IncrementEpoch();
           // Determine time step size
           if (CCTK_EQUALS(timestep_choice, "timestep")) {
             cctkGH->cctk_delta_time = timestep;
@@ -1354,7 +1355,6 @@ int Initialise(tFleshConfig *config) {
           assert(!active_levels);
           active_levels = make_optional<active_levels_t>(
               first_modified_level, last_modified_level + 1);
-          IncrementEpoch();
           CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
           CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
           active_levels = optional<active_levels_t>();
@@ -1724,6 +1724,8 @@ int Evolve(tFleshConfig *config) {
           last_modified_level >= first_modified_level;
 
       if (did_modify_any_level) {
+        IncrementEpoch();
+
         // Determine time step size
         if (CCTK_EQUALS(timestep_choice, "timestep")) {
           cctkGH->cctk_delta_time = timestep;
@@ -1751,7 +1753,6 @@ int Evolve(tFleshConfig *config) {
         assert(!active_levels);
         active_levels = make_optional<active_levels_t>(first_modified_level,
                                                        last_modified_level + 1);
-        IncrementEpoch();
         CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
         CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
         active_levels = optional<active_levels_t>();
