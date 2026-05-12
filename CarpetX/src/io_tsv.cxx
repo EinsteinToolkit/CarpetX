@@ -492,7 +492,10 @@ void OutputTSV(const cGH *restrict cctkGH) {
     if (group_enabled.at(gi)) {
       const int grouptype = CCTK_GroupTypeI(gi);
       if (grouptype == CCTK_GF) {
-        if (ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi)->mfab.empty())
+        if (ghext->patchdata.at(0)
+                .leveldata.at(0)
+                .groupdata.at(gi)
+                ->mfab.empty())
           continue;
       } else {
         if (ghext->globaldata.arraygroupdata.at(gi)->data.empty())

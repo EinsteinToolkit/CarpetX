@@ -94,7 +94,7 @@ static void sync_multipatch_postcheck(const cGH *cctkGH,
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-    assert(!groupdata0.mfab.empty());
+      assert(!groupdata0.mfab.empty());
       const nan_handling_t nan_handling = groupdata0.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
