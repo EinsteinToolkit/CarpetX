@@ -1136,7 +1136,7 @@ void SetupGlobals() {
 
     // Set up dynamic data
     arraygroupdata.dimension = group.dim;
-    arraygroupdata.activetimelevels = 1;
+    arraygroupdata.activetimelevels = ghext->active_timelevels.at(gi);
     for (int d = 0; d < group.dim; ++d) {
       arraygroupdata.lsh[d] = *sz[d];
       arraygroupdata.ash[d] = *sz[d];
@@ -1676,6 +1676,9 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml,
   yaml << YAML::Key << "do_evolve" << YAML::Value << commongroupdata.do_evolve;
   yaml << YAML::Key << "do_restrict" << YAML::Value
        << commongroupdata.do_restrict;
+  yaml << YAML::Key << "active_timelevels" << YAML::Value
+       << (ghext ? ghext->active_timelevels.at(commongroupdata.groupindex)
+                 : -1);
   yaml << YAML::Key << "valid" << YAML::Value << commongroupdata.valid;
   yaml << YAML::EndMap;
   return yaml;

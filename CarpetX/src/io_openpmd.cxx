@@ -896,7 +896,6 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
           // cGroupDynamicData cgroupdynamicdata;
           // ierr = CCTK_GroupDynamicData(cctkGH, gi, &cgroupdynamicdata);
           // assert(!ierr);
-          // TODO: Check whether group has storage
           // TODO: Check whether data are valid
 
           if (io_verbose)
@@ -1598,7 +1597,6 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
           // cGroupDynamicData cgroupdynamicdata;
           // ierr = CCTK_GroupDynamicData(cctkGH, gi, &cgroupdynamicdata);
           // assert(!ierr);
-          // TODO: Check whether group has storage
           // TODO: Check whether data are valid
 
           if (io_verbose)
