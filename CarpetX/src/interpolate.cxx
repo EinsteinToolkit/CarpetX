@@ -440,8 +440,8 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
 }
 
 CarpetX::InterpolationSetup::InterpolationSetup(
-    [[maybe_unused]] const cGH *restrict const cctkGH, const CCTK_INT npoints,
-    const CCTK_REAL *restrict const globalsx,
+    CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
+    const CCTK_INT npoints, const CCTK_REAL *restrict const globalsx,
     const CCTK_REAL *restrict const globalsy,
     const CCTK_REAL *restrict const globalsz)
     : npoints(npoints) {
@@ -680,7 +680,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
  * operations guarantee these ghost zones are valid.
  */
 void InterpolateUsingSetup(
-    [[maybe_unused]] const cGH *restrict const cctkGH,
+    CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
     const InterpolationSetup &setup, const CCTK_INT nvars,
     const CCTK_INT *restrict const varinds,
     const CCTK_INT *restrict const operations,

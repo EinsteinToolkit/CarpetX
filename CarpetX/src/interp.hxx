@@ -44,7 +44,7 @@ struct InterpolationSetup {
   std::vector<bool> symmetry_reflected_z;
   std::vector<Container> containers{}; // [patch]
 
-  InterpolationSetup([[maybe_unused]] const cGH *restrict const cctkGH,
+  InterpolationSetup(CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
                      const CCTK_INT npoints,
                      const CCTK_REAL *restrict const globalsx,
                      const CCTK_REAL *restrict const globalsy,
@@ -52,7 +52,7 @@ struct InterpolationSetup {
 };
 
 void InterpolateUsingSetup(
-    [[maybe_unused]] const cGH *restrict const cctkGH,
+    CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
     const InterpolationSetup &setup, const CCTK_INT nvars,
     const CCTK_INT *restrict const varinds,
     const CCTK_INT *restrict const operations,
