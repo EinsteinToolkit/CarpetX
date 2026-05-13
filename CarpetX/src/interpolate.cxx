@@ -680,7 +680,6 @@ CarpetX::InterpolationSetup::InterpolationSetup(
  * operations guarantee these ghost zones are valid.
  */
 void InterpolateUsingSetup(
-    // const InterpolationSetup &setup, const CCTK_INT nvars,
     [[maybe_unused]] const cGH *restrict const cctkGH,
     const InterpolationSetup &setup, const CCTK_INT nvars,
     const CCTK_INT *restrict const varinds,
