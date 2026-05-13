@@ -33,6 +33,21 @@ KEYWORD initial_dtshift "Initial dtshift value"
   "zero" :: "Dtshift is zero"
 } "zero"
 
+INT lapse_timelevels "Number of time levels for the lapse" STEERABLE=recover
+{
+  0:3 :: ""
+} 1
+
+INT shift_timelevels "Number of time levels for the shift" STEERABLE=recover
+{
+  0:3 :: ""
+} 1
+
+INT metric_timelevels "Number of time levels for the metric and extrinsic curvature" STEERABLE=recover
+{
+  0:3 :: ""
+} 1
+
 
 
 PRIVATE:

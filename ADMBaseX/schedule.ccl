@@ -1,5 +1,12 @@
 # Schedule definitions for thorn ADMBaseX
 
+STORAGE: lapse[lapse_timelevels]
+STORAGE: shift[shift_timelevels]
+STORAGE: metric[metric_timelevels], curv[metric_timelevels]
+
+STORAGE: dtlapse[lapse_timelevels]
+STORAGE: dtshift[shift_timelevels]
+
 if (CCTK_IsThornActive("ODESolvers")) {
 
   SCHEDULE GROUP ADMBaseX_InitialData IN ODESolvers_Initial
