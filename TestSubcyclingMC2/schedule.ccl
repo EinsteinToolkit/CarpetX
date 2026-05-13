@@ -1,6 +1,10 @@
 # Schedule definitions for thorn TestSubcyclingMC2
 
-STORAGE: state[timelevels] rhs k1 k2 k3 k4 error
+STORAGE: state[timelevels] rhs error
+
+if(use_subcycling_wip) {
+  STORAGE: k1 k2 k3 k4
+}
 
 
 SCHEDULE TestSubcyclingMC2_Initial AT initial
@@ -9,6 +13,12 @@ SCHEDULE TestSubcyclingMC2_Initial AT initial
   WRITES: state(interior)
   SYNC: state
 } "Initialize scalar wave state"
+
+SCHEDULE TestSubcyclingMC2_Probe AT PostInitial
+{
+  LANG: C
+  OPTIONS: global
+} "Verify STORAGE registry matches schedule.ccl"
 
 SCHEDULE TestSubcyclingMC2_Sync AT postregrid
 {
