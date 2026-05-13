@@ -1,5 +1,7 @@
 # Schedule definitions for thorn TmunuBaseX
 
+STORAGE: eTtt eTti eTij
+
 SCHEDULE GROUP TmunuBaseX_SetTmunuVars AT initial AFTER ADMBaseX_SetADMVars
 {
 } "Schedule group for setting T_munu"
