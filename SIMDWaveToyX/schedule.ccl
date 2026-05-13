@@ -1,6 +1,6 @@
 # Schedule definitions for thorn SIMDWaveToyX
 
-STORAGE: state
+STORAGE: state rhs energy error
 
 SCHEDULE SIMDWaveToyX_Initial AT initial
 {

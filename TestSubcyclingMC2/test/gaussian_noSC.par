@@ -11,6 +11,7 @@ $out_every = 64
 $nlevels = 3
 $ncells = 32
 
+TestSubcyclingMC2::timelevels = 1
 TestSubcyclingMC2::initial_condition = "Gaussian"
 TestSubcyclingMC2::gaussian_width = 0.17677669529 # sqrt(2)*W = 0.25
 

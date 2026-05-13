@@ -352,6 +352,27 @@ GridPtrDesc1::GridPtrDesc1(
               2 * (nghostzones[d] - groupdata.nghostzones.at(d));
 }
 
+GridPtrDesc1::GridPtrDesc1(
+    const GHExt::PatchData::LevelData &leveldata,
+    const GHExt::PatchData::LevelData::GroupData &groupdata,
+    const int component)
+    : GridDesc(leveldata, component) {
+  const amrex::Box &fbx = leveldata.fab->fabbox(component); // allocated array
+  cactus_offset = lbound(fbx);
+  for (int d = 0; d < dim; ++d) {
+    assert(groupdata.nghostzones.at(d) >= 0);
+    assert(groupdata.nghostzones.at(d) <= nghostzones[d]);
+  }
+  for (int d = 0; d < dim; ++d)
+    gimin[d] = nghostzones[d] - groupdata.nghostzones.at(d);
+  for (int d = 0; d < dim; ++d)
+    gimax[d] = lsh[d] - groupdata.indextype.at(d) -
+               (nghostzones[d] - groupdata.nghostzones.at(d));
+  for (int d = 0; d < dim; ++d)
+    gash[d] = ash[d] - groupdata.indextype.at(d) -
+              2 * (nghostzones[d] - groupdata.nghostzones.at(d));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 cGH *copy_cctkGH(const cGH *restrict const sourceGH) {
@@ -1091,6 +1112,10 @@ int Initialise(tFleshConfig *config) {
   // Initialise schedule
   CCTKi_ScheduleGHInit(cctkGH);
 
+  // STORAGE registry is now populated from schedule.ccl. Lock it before
+  // the first allocation pass (SetupGlobals via CCTKi_InitGHExtensions).
+  ghext->storage_frozen = true;
+
   // Initialise all grid extensions
   CCTKi_InitGHExtensions(cctkGH);
 
@@ -1501,6 +1526,8 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
       if (!groupdata0.do_evolve) {
         const int ntls0 = groupdata0.mfab.size();
+        if (ntls0 == 0)
+          continue;
         assert(active_levels);
         active_levels->loop_serially([&](const auto &restrict leveldata) {
           auto &restrict groupdata = *leveldata.groupdata.at(gi);
@@ -1526,6 +1553,8 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
       if (!arraygroupdata.do_evolve) {
         // Invalidate all time levels
         const int ntls = arraygroupdata.data.size();
+        if (ntls == 0)
+          continue;
         for (int tl = 0; tl < ntls; ++tl)
           for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
             // TODO: handle this more nicely
@@ -1565,6 +1594,8 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
       const auto &leveldata0 = patchdata0.leveldata.at(0);
       const auto &groupdata0 = *leveldata0.groupdata.at(gi);
       const int ntls0 = groupdata0.mfab.size();
+      if (ntls0 == 0)
+        continue;
       const nan_handling_t nan_handling = groupdata0.do_evolve
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
@@ -1584,6 +1615,21 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
             groupdata.valid.at(0).at(vi).set_all(valid_t(), []() {
               return "CycletimeLevels (invalidate current time level)";
             });
+          // enter_local_mode caches mfab pointers into local_cctkGH->data;
+          // after rotating mfab we must rebind so CCTK_VarDataPtrI sees
+          // the new slots.
+          for (auto &restrict local_cctkGH_ptr : leveldata.local_cctkGHs) {
+            cGH *const local_cctkGH = local_cctkGH_ptr.get();
+            const int component = local_cctkGH->cctk_component;
+            const GridPtrDesc1 grid1(leveldata, groupdata, component);
+            for (int tl = 0; tl < ntls; ++tl) {
+              const amrex::Array4<CCTK_REAL> vars =
+                  groupdata.mfab.at(tl)->array(component);
+              for (int vi = 0; vi < groupdata.numvars; ++vi)
+                local_cctkGH->data[groupdata.firstvarindex + vi][tl] =
+                    grid1.ptr(vars, vi);
+            }
+          }
         }
         // All time levels (except the current) must be valid everywhere for
         // checkpointed groups
@@ -1617,6 +1663,8 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
                                               ? nan_handling_t::forbid_nans
                                               : nan_handling_t::allow_nans;
       const int ntls = arraygroupdata.data.size();
+      if (ntls == 0)
+        continue;
       // Rotate time levels and invalidate current time level
       if (ntls > 1) {
         rotate(arraygroupdata.data.begin(), arraygroupdata.data.end() - 1,
@@ -2095,6 +2143,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     const std::vector<clause_t> &reads =
         decode_clauses(attribute, rdwr_t::read);
     for (const auto &rd : reads) {
+      if (ghext->active_timelevels.at(rd.gi) == 0)
+        continue;
       if (CCTK_GroupTypeI(rd.gi) == CCTK_GF) {
         const auto &patchdata0 = ghext->patchdata.at(0);
         const auto &leveldata0 = patchdata0.leveldata.at(0);
@@ -2166,6 +2216,8 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
     const std::vector<clause_t> &writes =
         decode_clauses(attribute, rdwr_t::write);
     for (const auto &wr : writes) {
+      if (ghext->active_timelevels.at(wr.gi) == 0)
+        continue;
       clause_t cl = wr;
       cl.valid = valid_t();
       valid_t need;
@@ -2418,56 +2470,64 @@ int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
   assert(n_groups >= 0);
   assert(groups);
   assert(requested_tls);
+  assert(ghext);
+  assert(int(ghext->active_timelevels.size()) == CCTK_NumGroups());
+
   for (int n = 0; n < n_groups; ++n) {
     if (groups[n] < 0 or groups[n] >= CCTK_NumGroups()) {
       CCTK_VWARN(CCTK_WARN_ALERT, "Group index %d is illegal", groups[n]);
       return -1;
     }
-    assert(groups[n] >= 0 and groups[n] < CCTK_NumGroups());
     assert(requested_tls[n] >= 0 or requested_tls[n] == -1);
   }
 
-  // sanitize list of requested timelevels
-  std::vector<int> tls(n_groups);
+  int min_num_timelevels = INT_MAX;
   for (int n = 0; n < n_groups; ++n) {
+    const int gid = groups[n];
+    const int declared_tls = CCTK_DeclaredTimeLevelsGI(gid);
     int ntls = requested_tls[n];
-    int const declared_tls = CCTK_DeclaredTimeLevelsGI(groups[n]);
+    if (ntls == -1)
+      ntls = declared_tls;
     if (inc and declared_tls < 2 and ntls > declared_tls) {
       CCTK_VWARN(CCTK_WARN_ALERT,
                  "Attempting to activate %d timelevels for group '%s' which "
                  "only has a single timelevel declared in interface.ccl. "
-                 "Please declared at least 2 timelevels in interface.ccl to "
+                 "Please declare at least 2 timelevels in interface.ccl to "
                  "allow more timelevels to be created at runtime.",
-                 ntls, CCTK_FullGroupName(groups[n]));
+                 ntls, CCTK_FullGroupName(gid));
       ntls = declared_tls;
     }
-    if (ntls == -1) {
+    if (ntls > declared_tls)
       ntls = declared_tls;
+
+    const int previous = ghext->active_timelevels.at(gid);
+    if (status)
+      status[n] = previous;
+
+    // Legacy flesh convention: CCTK_ActiveTimeLevels* routes through
+    // CCTK_GroupStorageIncrease with requested_tls = 0 to query the current
+    // number of active timelevels. Treat this as a pure read.
+    if (inc and requested_tls[n] == 0) {
+      min_num_timelevels = min(min_num_timelevels, previous);
+      continue;
     }
-    tls.at(n) = ntls;
+
+    if (!ghext->storage_frozen) {
+      ghext->active_timelevels.at(gid) = ntls;
+    } else if (ntls != previous) {
+      CCTK_VWARN(CCTK_WARN_ALERT,
+                 "Attempting to %s storage for group '%s' from %d to %d "
+                 "timelevels after the STORAGE registry has been frozen; "
+                 "ignoring",
+                 inc ? "increase" : "decrease", CCTK_FullGroupName(gid),
+                 previous, ntls);
+    }
+
+    const int current = ghext->active_timelevels.at(gid);
+    min_num_timelevels = min(min_num_timelevels, current);
   }
-
-  // TODO: actually do something
-  int min_num_timelevels = INT_MAX;
-  for (int n = 0; n < n_groups; ++n) {
-    int const gid = groups[n];
-
-    cGroup group;
-    int ierr = CCTK_GroupData(gid, &group);
-    assert(not ierr);
-
-    // Record previous number of allocated time levels
-    if (status) {
-      // Note: This remembers only the last level
-      status[n] = group.numtimelevels;
-    }
-
-    // Record (minimum of) current number of time levels
-    min_num_timelevels = min(min_num_timelevels, group.numtimelevels);
-  } // for n
-  if (min_num_timelevels == INT_MAX) {
+  if (min_num_timelevels == INT_MAX)
     min_num_timelevels = 0;
-  }
 
   return min_num_timelevels;
 }
@@ -2485,6 +2545,26 @@ int GroupStorageDecrease(const cGH *cctkGH, int n_groups, const int *groups,
   DECLARE_CCTK_PARAMETERS;
 
   return GroupStorageCrease(cctkGH, n_groups, groups, tls, status, false);
+}
+
+int QueryGroupStorageB(const cGH *cctkGH, int gi, const char *groupname) {
+  assert(cctkGH);
+  assert(ghext);
+  if (gi < 0) {
+    if (!groupname) {
+      CCTK_WARN(CCTK_WARN_ALERT,
+                "QueryGroupStorageB called with negative group index and "
+                "no group name");
+      return -1;
+    }
+    gi = CCTK_GroupIndex(groupname);
+    if (gi < 0) {
+      CCTK_VWARN(CCTK_WARN_ALERT, "Group '%s' not found", groupname);
+      return -1;
+    }
+  }
+  assert(gi < CCTK_NumGroups());
+  return ghext->active_timelevels.at(gi) > 0 ? 1 : 0;
 }
 
 int EnableGroupStorage(const cGH *cctkGH, const char *groupname) {

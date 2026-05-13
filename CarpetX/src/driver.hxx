@@ -452,6 +452,12 @@ struct GHExt {
   };
   std::vector<PatchData> patchdata; // [patch]
 
+  // Number of active timelevels per group, populated from schedule.ccl STORAGE
+  // statements during CCTKi_ScheduleGHInit. Indexed by group index; 0 means no
+  // storage. Frozen between schedule init and the first allocation pass.
+  std::vector<int> active_timelevels; // [group index]
+  bool storage_frozen = false;
+
   bool use_subcycling = false;
 
   // Per-level iteration values read from checkpoint; consumed by recovery fixup

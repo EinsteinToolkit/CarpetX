@@ -11,17 +11,11 @@ USES INCLUDE HEADER: derivs.hxx
 
 
 
-CCTK_REAL state TYPE=gf TAGS='rhs="rhs" old="old" ks="k1 k2 k3 k4" dependents="error"'
+CCTK_REAL state TYPE=gf TIMELEVELS=2 TAGS='rhs="rhs" ks="k1 k2 k3 k4" dependents="error"'
 {
   u
   rho
 } "Scalar wave state vector"
-
-CCTK_REAL old TYPE=gf TAGS='checkpoint="yes" evolve="no" restrict="no"'
-{
-  u_old
-  rho_old
-} "Scalar wave old state vector"
 
 CCTK_REAL rhs TYPE=gf TAGS='checkpoint="no"'
 {

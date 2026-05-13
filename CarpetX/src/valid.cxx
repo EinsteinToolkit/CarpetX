@@ -100,6 +100,7 @@ YAML::Emitter &operator<<(YAML::Emitter &yaml, const why_valid_t &why) {
 void error_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
                       int vi, int tl, const valid_t &required,
                       const std::function<std::string()> &msg) {
+  assert(!groupdata.mfab.empty());
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
     CCTK_VERROR("%s: Grid function \"%s\" is invalid on patch %d, refinement "
@@ -112,6 +113,7 @@ void error_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
 void warn_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
                      int vi, int tl, const valid_t &required,
                      const std::function<std::string()> &msg) {
+  assert(!groupdata.mfab.empty());
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
     CCTK_VWARN(CCTK_WARN_ALERT,
@@ -127,6 +129,7 @@ void warn_if_invalid(const GHExt::PatchData::LevelData::GroupData &groupdata,
 void error_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata,
                       int vi, int tl, const valid_t &required,
                       const std::function<std::string()> &msg) {
+  assert(!groupdata.data.empty());
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
     CCTK_VERROR(
@@ -138,6 +141,7 @@ void error_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata,
 void warn_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata, int vi,
                      int tl, const valid_t &required,
                      const std::function<std::string()> &msg) {
+  assert(!groupdata.data.empty());
   const valid_t &have = groupdata.valid.at(tl).at(vi).get();
   if (CCTK_BUILTIN_EXPECT((required & ~have).valid_any(), false))
     CCTK_VWARN(
@@ -172,6 +176,7 @@ void poison_invalid_gf(const active_levels_t &active_levels, const int gi,
     const auto &patchdata = ghext->patchdata.at(patch);
     const auto &leveldata = patchdata.leveldata.at(level);
     auto &restrict groupdata = *leveldata.groupdata.at(gi);
+    assert(!groupdata.mfab.empty());
 
     const valid_t &valid = groupdata.valid.at(tl).at(vi).get();
     if (valid.valid_all())
@@ -222,6 +227,7 @@ void poison_invalid_ga(const int gi, const int vi, const int tl) {
 
   auto &restrict globaldata = ghext->globaldata;
   auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
+  assert(!arraygroupdata.data.empty());
   cGroup group;
   int ierr = CCTK_GroupData(gi, &group);
   assert(!ierr);
@@ -306,6 +312,7 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
     const auto &patchdata = ghext->patchdata.at(patch);
     const auto &leveldata = patchdata.leveldata.at(level);
     auto &restrict groupdata = *leveldata.groupdata.at(gi);
+    assert(!groupdata.mfab.empty());
 
     const valid_t &valid = groupdata.valid.at(tl).at(vi).get();
     if (!valid.valid_any())
@@ -370,6 +377,7 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
     const auto &patchdata = ghext->patchdata.at(patch);
     const auto &leveldata = patchdata.leveldata.at(level);
     auto &restrict groupdata = *leveldata.groupdata.at(gi);
+    assert(!groupdata.mfab.empty());
 
     const valid_t &valid = groupdata.valid.at(tl).at(vi).get();
     if (!valid.valid_any())
@@ -485,6 +493,7 @@ void check_valid_ga(const int gi, const int vi, const int tl,
 
   auto &restrict globaldata = ghext->globaldata;
   auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
+  assert(!arraygroupdata.data.empty());
   const valid_t &valid = arraygroupdata.valid.at(tl).at(vi).get();
 
   // arrays have no boundary so we expect them to alway be valid
@@ -581,6 +590,8 @@ checksums_t calculate_checksums(
     for (const auto &groupdataptr : leveldata.groupdata) {
       if (!groupdataptr)
         continue;
+      if (groupdataptr->mfab.empty())
+        continue;
       const auto &restrict groupdata = *groupdataptr;
 
       const Loop::GridDescBaseDevice grid(cctkGH);
@@ -655,6 +666,8 @@ void check_checksums(const checksums_t &checksums,
     const auto &leveldata = patchdata.leveldata.at(level);
     for (const auto &groupdataptr : leveldata.groupdata) {
       if (!groupdataptr)
+        continue;
+      if (groupdataptr->mfab.empty())
         continue;
       const auto &restrict groupdata = *groupdataptr;
 

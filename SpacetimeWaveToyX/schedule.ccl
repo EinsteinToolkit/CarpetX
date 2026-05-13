@@ -1,6 +1,9 @@
 # Schedule definitions for thorn SpacetimeWaveToyX
 
 STORAGE: ustate ftstate fxstate fystate fzstate
+STORAGE: curlfx curlfy curlfz
+STORAGE: energy
+STORAGE: uerror fterror fxerror fyerror fzerror
 
 SCHEDULE SpacetimeWaveToyX_Initial AT initial
 {

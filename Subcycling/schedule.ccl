@@ -1,6 +1,9 @@
 # Schedule definitions for thorn Subcycling
 
 if(use_subcycling_wip) {
+  STORAGE: isrmbndry_ccc isrmbndry_vcc isrmbndry_cvc isrmbndry_ccv
+  STORAGE: isrmbndry_cvv isrmbndry_vcv isrmbndry_vvc isrmbndry_vvv
+
   SCHEDULE GROUP Subcycling_RMBndryGroup AT initial
   {
   } "Check if the ghost points are at refinement boundary"

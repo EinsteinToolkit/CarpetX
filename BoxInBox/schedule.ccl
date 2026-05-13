@@ -1,5 +1,7 @@
 # Schedule definitions for thorn BoxInBox
 
+STORAGE: active num_levels positions radii radiixyz
+
 SCHEDULE BoxInBox_Init AT initial
 {
   LANG: C

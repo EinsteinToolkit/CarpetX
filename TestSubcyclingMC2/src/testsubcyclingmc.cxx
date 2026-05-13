@@ -159,6 +159,13 @@ extern "C" void TestSubcyclingMC2_RHS(CCTK_ARGUMENTS) {
   apply_diss(rho, rho_rhs);
 }
 
+extern "C" void TestSubcyclingMC2_Probe(CCTK_ARGUMENTS) {
+  for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
+    const int got = CCTK_ActiveTimeLevelsGI(cctkGH, gi);
+    CCTK_VINFO("%s has %d timelevels", CCTK_FullGroupName(gi), got);
+  }
+}
+
 extern "C" void TestSubcyclingMC2_Sync(CCTK_ARGUMENTS) {
   // do nothing
 }

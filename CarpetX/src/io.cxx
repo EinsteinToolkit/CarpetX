@@ -80,6 +80,26 @@ std::string get_simulation_name() {
     name = name.substr(0, last_dot);
   return name;
 }
+
+void check_silo_no_multi_tl(const std::vector<bool> &group_mask,
+                            const char *operation) {
+  for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
+    if (!group_mask.at(gi))
+      continue;
+    const GHExt::GlobalData &globaldata = ghext->globaldata;
+    if (globaldata.arraygroupdata.at(gi))
+      continue;
+    const int patch = 0;
+    const int level = 0;
+    const auto &leveldata = ghext->patchdata.at(patch).leveldata.at(level);
+    const auto *gd = leveldata.groupdata.at(gi).get();
+    if (gd && gd->mfab.size() > 1)
+      CCTK_VERROR("Silo %s does not support groups with ntls > 1 "
+                  "(group \"%s\" has %zu time levels). "
+                  "Use \"openpmd\" instead.",
+                  operation, CCTK_FullGroupName(gi), gd->mfab.size());
+  }
+}
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -176,7 +196,8 @@ void RecoverGH(const cGH *restrict cctkGH) {
       const GHExt::GlobalData &globaldata = ghext->globaldata;
       if (globaldata.arraygroupdata.at(gi)) {
         // grid array
-        enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint;
+        enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint &&
+                         !globaldata.arraygroupdata.at(gi)->data.empty();
       } else {
         // grid function
         const int patch = 0;
@@ -184,7 +205,8 @@ void RecoverGH(const cGH *restrict cctkGH) {
         const GHExt::PatchData::LevelData &leveldata =
             ghext->patchdata.at(patch).leveldata.at(level);
         assert(leveldata.groupdata.at(gi));
-        enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint;
+        enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint &&
+                         !leveldata.groupdata.at(gi)->mfab.empty();
       }
     }
     return enabled;
@@ -193,7 +215,8 @@ void RecoverGH(const cGH *restrict cctkGH) {
   if (CCTK_EQUALS(recover_method, "openpmd")) {
 
 #ifdef HAVE_CAPABILITY_openPMD_api
-    InputOpenPMD(cctkGH, group_enabled, recover_dir, recover_file);
+    InputOpenPMD(cctkGH, group_enabled, recover_dir, recover_file,
+                 TimeLevelMode::All);
 #else
     CCTK_VERROR(
         "CarpetX::recover_method is set to \"openpmd\", but openPMD_api "
@@ -203,6 +226,7 @@ void RecoverGH(const cGH *restrict cctkGH) {
   } else if (CCTK_EQUALS(recover_method, "silo")) {
 
 #ifdef HAVE_CAPABILITY_Silo
+    check_silo_no_multi_tl(group_enabled, "recovery");
     InputSilo(cctkGH, group_enabled, recover_dir, recover_file);
 #else
     CCTK_VERROR("CarpetX::recover_method is set to \"silo\", but Silo "
@@ -629,7 +653,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
         const GHExt::GlobalData &globaldata = ghext->globaldata;
         if (globaldata.arraygroupdata.at(gi)) {
           // grid array
-          enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint;
+          enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint &&
+                           !globaldata.arraygroupdata.at(gi)->data.empty();
         } else {
           // grid function
           const int patch = 0;
@@ -638,12 +663,14 @@ void Checkpoint(const cGH *const restrict cctkGH) {
           const GHExt::PatchData::LevelData &leveldata =
               patchdata.leveldata.at(level);
           assert(leveldata.groupdata.at(gi));
-          enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint;
+          enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint &&
+                           !leveldata.groupdata.at(gi)->mfab.empty();
         }
       }
       return enabled;
     }();
-    OutputOpenPMD(cctkGH, checkpoint_group, checkpoint_dir, checkpoint_file);
+    OutputOpenPMD(cctkGH, checkpoint_group, checkpoint_dir, checkpoint_file,
+                  TimeLevelMode::All);
 #else
     // TODO: Check this at paramcheck
     CCTK_VERROR(
@@ -660,7 +687,8 @@ void Checkpoint(const cGH *const restrict cctkGH) {
         const GHExt::GlobalData &globaldata = ghext->globaldata;
         if (globaldata.arraygroupdata.at(gi)) {
           // grid array
-          enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint;
+          enabled.at(gi) = globaldata.arraygroupdata.at(gi)->do_checkpoint &&
+                           !globaldata.arraygroupdata.at(gi)->data.empty();
         } else {
           // grid function
           const int patch = 0;
@@ -669,11 +697,13 @@ void Checkpoint(const cGH *const restrict cctkGH) {
           const GHExt::PatchData::LevelData &leveldata =
               patchdata.leveldata.at(level);
           assert(leveldata.groupdata.at(gi));
-          enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint;
+          enabled.at(gi) = leveldata.groupdata.at(gi)->do_checkpoint &&
+                           !leveldata.groupdata.at(gi)->mfab.empty();
         }
       }
       return enabled;
     }();
+    check_silo_no_multi_tl(checkpoint_group, "checkpoint");
     OutputSilo(cctkGH, checkpoint_group, checkpoint_dir, checkpoint_file);
 #else
     // TODO: Check this at paramcheck

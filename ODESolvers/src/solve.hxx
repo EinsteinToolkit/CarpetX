@@ -86,6 +86,9 @@ struct statecomp_t {
 
   vector<GHExt::PatchData::LevelData::GroupData *> groupdatas;
   vector<amrex::MultiFab *> mfabs;
+  // Timelevel of every mfab/groupdata entry. Subcycling aliases the previous
+  // step at tl=1; all other paths use tl=0.
+  int timelevel = 0;
 
   static void init_tmp_mfabs();
   static void free_tmp_mfabs();
@@ -183,35 +186,6 @@ inline int get_group_rhs(const int gi) {
   assert(rhs != gi);
 
   return rhs;
-}
-
-inline int get_group_old(const int gi) {
-  assert(gi >= 0);
-  const int tags = CCTK_GroupTagsTableI(gi);
-  assert(tags >= 0);
-  std::vector<char> old_buf(1000);
-  const int iret =
-      Util_TableGetString(tags, old_buf.size(), old_buf.data(), "old");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    old_buf[0] = '\0'; // default: empty (no old)
-  } else if (iret >= 0) {
-    // do nothing
-  } else {
-    assert(0);
-  }
-
-  const std::string str(old_buf.data());
-  if (str.empty())
-    return -1; // No old specified
-
-  const int old_gi = groupindex(gi, str);
-  if (old_gi < 0)
-    CCTK_VERROR("Variable group \"%s\" declares an old group \"%s\". "
-                "That group does not exist.",
-                CCTK_FullGroupName(gi), str.c_str());
-  assert(old_gi != gi);
-
-  return old_gi;
 }
 
 template <typename T, int D> inline array<T, D> get_group_ks(const int gi) {

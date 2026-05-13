@@ -31,11 +31,15 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
                                const int *groups, const int *directions);
 
+// `tl >= 0` syncs only that timelevel; `tl = -1` syncs every timelevel
+// except the oldest.
 int SyncGroupsByDirIProlongateOnly(const cGH *restrict cctkGH, int numgroups,
-                                   const int *groups, const int *directions);
+                                   const int *groups, const int *directions,
+                                   int tl = -1);
 
 int SyncGroupsByDirIGhostOnly(const cGH *restrict cctkGH, int numgroups,
-                              const int *groups, const int *directions);
+                              const int *groups, const int *directions,
+                              int tl = -1);
 
 int CallFunction(void *function, cFunctionData *attribute, void *data);
 
@@ -45,6 +49,7 @@ int GroupStorageDecrease(const cGH *cctkGH, int n_groups, const int *groups,
                          const int *tls, int *status);
 int EnableGroupStorage(const cGH *cctkGH, const char *groupname);
 int DisableGroupStorage(const cGH *cctkGH, const char *groupname);
+int QueryGroupStorageB(const cGH *cctkGH, int gi, const char *groupname);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -184,6 +189,9 @@ struct GridPtrDesc1 : GridDesc {
   GridPtrDesc1(const GHExt::PatchData::LevelData &leveldata,
                const GHExt::PatchData::LevelData::GroupData &groupdata,
                const MFPointer &mfp);
+  GridPtrDesc1(const GHExt::PatchData::LevelData &leveldata,
+               const GHExt::PatchData::LevelData::GroupData &groupdata,
+               int component);
 
   template <typename T> T *ptr(const amrex::Array4<T> &vars, int vi) const {
     return vars.ptr(cactus_offset.x + gimin[0], cactus_offset.y + gimin[1],

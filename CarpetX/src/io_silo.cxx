@@ -578,6 +578,8 @@ void InputSilo(const cGH *restrict const cctkGH,
             CCTK_VINFO("  Reading group %s", CCTK_FullGroupName(gi));
 
           auto &groupdata = *leveldata.groupdata.at(gi);
+          if (groupdata.mfab.empty())
+            continue;
           // TODO: Check that group has the default number of ghost zones
           const int numvars = groupdata.numvars;
           const int tl = 0;
@@ -879,6 +881,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
             continue;
 
           const auto &groupdata = *leveldata.groupdata.at(gi);
+          if (groupdata.mfab.empty())
+            continue;
           // TODO: Check that group has the default number of ghost zones
           const int numvars = groupdata.numvars;
           const int tl = 0;

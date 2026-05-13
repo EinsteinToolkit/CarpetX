@@ -699,6 +699,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
           const int gi = givis.at(v).gi;
           const int vi = givis.at(v).vi;
           const auto &restrict groupdata = *leveldata.groupdata.at(gi);
+          assert(!groupdata.mfab.empty());
           const int centering = groupdata.indextype[0] * 0b100 +
                                 groupdata.indextype[1] * 0b010 +
                                 groupdata.indextype[2] * 0b001;

@@ -1,5 +1,17 @@
 # Schedule definitions for thorn HydroBaseX
 
+STORAGE: rho[timelevels]
+STORAGE: vel[timelevels]
+STORAGE: eps[timelevels]
+STORAGE: press[timelevels]
+STORAGE: temperature[timelevels]
+STORAGE: entropy[timelevels]
+STORAGE: Ye[timelevels]
+STORAGE: Bvec[timelevels]
+STORAGE: Avecx[timelevels]
+STORAGE: Avecy[timelevels]
+STORAGE: Avecz[timelevels]
+
 if (CCTK_IsThornActive("ODESolvers")) {
 
   SCHEDULE GROUP HydroBaseX_InitialData IN ODESolvers_Initial
