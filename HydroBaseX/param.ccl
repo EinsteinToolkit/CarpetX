@@ -6,3 +6,9 @@ KEYWORD initial_hydro "Initial conditions for hydro"
 {
   "vacuum" :: "vacuum (without atmosphere)"
 } "vacuum"
+
+INT timelevels "Number of time levels in evolution scheme" STEERABLE=recover
+{
+  1:3 :: ""
+} 1
+
