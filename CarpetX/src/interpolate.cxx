@@ -440,7 +440,7 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
 }
 
 CarpetX::InterpolationSetup::InterpolationSetup(
-    const cGH *restrict const cctkGH, const CCTK_INT npoints,
+    [[maybe_unused]] const cGH *restrict const cctkGH, const CCTK_INT npoints,
     const CCTK_REAL *restrict const globalsx,
     const CCTK_REAL *restrict const globalsy,
     const CCTK_REAL *restrict const globalsz)
@@ -564,7 +564,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
         pinned_particle_tiles.at(patch);
 
     const auto &restrict patchdata = ghext->patchdata.at(patch);
-    containers.at(patch) = std::make_shared<Container>(patchdata.amrcore.get());
+    containers.at(patch) = patchdata.amrcore.get();
     const int level = 0;
     const auto &restrict leveldata = patchdata.leveldata.at(level);
     const amrex::MFIter mfi(*leveldata.fab);
@@ -574,7 +574,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
       continue;
     }
 
-    ParticleTile &particle_tile = containers.at(patch)->GetParticles(
+    ParticleTile &particle_tile = containers.at(patch).GetParticles(
         level)[make_pair(mfi.index(), mfi.LocalTileIndex())];
 
     const auto old_np = particle_tile.numParticles();
@@ -592,10 +592,10 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     std::size_t old_nparticles = 0;
     std::set<int> oldids;
     {
-      const auto &levels = container->GetParticles();
+      const auto &levels = container.GetParticles();
       for (const auto &level : levels) {
         const int lev = int(&level - levels.data());
-        for (amrex::ParConstIter<3, 2> pti(*container, lev); pti.isValid();
+        for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
              ++pti) {
           const auto &particles = pti.GetArrayOfStructs();
           const int component = MFPointer(pti).index();
@@ -610,16 +610,16 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     }
 #endif
 
-    container->Redistribute();
+    container.Redistribute();
 
 #ifdef CCTK_DEBUG
     std::size_t new_nparticles = 0;
     std::set<int> newids;
     {
-      const auto &levels = container->GetParticles();
+      const auto &levels = container.GetParticles();
       for (const auto &level : levels) {
         const int lev = int(&level - levels.data());
-        for (amrex::ParConstIter<3, 2> pti(*container, lev); pti.isValid();
+        for (amrex::ParConstIter<3, 2> pti(container, lev); pti.isValid();
              ++pti) {
           const int component = MFPointer(pti).index();
           const auto &particles = pti.GetArrayOfStructs();
@@ -680,6 +680,8 @@ CarpetX::InterpolationSetup::InterpolationSetup(
  * operations guarantee these ghost zones are valid.
  */
 void InterpolateUsingSetup(
+    // const InterpolationSetup &setup, const CCTK_INT nvars,
+    [[maybe_unused]] const cGH *restrict const cctkGH,
     const InterpolationSetup &setup, const CCTK_INT nvars,
     const CCTK_INT *restrict const varinds,
     const CCTK_INT *restrict const operations,
@@ -713,7 +715,7 @@ void InterpolateUsingSetup(
       const int level = leveldata.level;
 
       // TODO: use OpenMP
-      for (amrex::ParIter<3, 2> pti(*setup.containers.at(patch), level);
+      for (amrex::ParConstIter<3, 2> pti(setup.containers.at(patch), level);
            pti.isValid(); ++pti) {
         const MFPointer mfp(pti);
         const GridDesc grid(leveldata, mfp);
@@ -993,8 +995,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
   const std::vector<vect<vect<bool, dim>, 2> > allowed_boundaries(npatches,
                                                                   uniform);
 
-  InterpolateUsingSetup(setup, nvars, varinds, operations, allowed_boundaries,
-                        resultptrs_);
+  InterpolateUsingSetup(cctkGH, setup, nvars, varinds, operations,
+                        allowed_boundaries, resultptrs_);
 }
 
 } // namespace CarpetX
