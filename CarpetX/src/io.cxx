@@ -212,6 +212,9 @@ void RecoverGH(const cGH *restrict cctkGH) {
   } else {
     CCTK_ERROR("unknown value for paramater CarpetX::recover_method");
   }
+
+  // Increment epoch
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed);
 }
 
 void InputGH(const cGH *restrict cctkGH) {

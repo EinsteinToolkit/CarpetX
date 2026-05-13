@@ -76,6 +76,10 @@ extern "C" CCTK_INT CarpetX_GetBoundarySizesAndTypes(
     CCTK_INT *restrict const bndsize, CCTK_INT *restrict const is_ghostbnd,
     CCTK_INT *restrict const is_symbnd, CCTK_INT *restrict const is_physbnd);
 
+extern "C" CCTK_INT CarpetX_GetEpoch(void) {
+  return carpetx_epoch.load(std::memory_order_relaxed);
+}
+
 // Local functions
 void SetupGlobals();
 
@@ -1176,6 +1180,7 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
   if (level >= int(level_modified.size()))
     level_modified.resize(level + 1, true);
   level_modified.at(level) = true;
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
   const active_levels_t active_levels(level, level + 1, patch, patch + 1);
 
   // Initialize data
@@ -1451,6 +1456,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   } // for gi
 
   level_modified.at(level) = true;
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
 
   if (verbose)
 #pragma omp critical
@@ -1468,6 +1474,7 @@ void CactusAmrCore::ClearLevel(const int level) {
   leveldata.erase(leveldata.begin() + level, leveldata.end());
 
   level_modified.resize(level);
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
 
   if (verbose)
 #pragma omp critical
