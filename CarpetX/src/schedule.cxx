@@ -2504,6 +2504,14 @@ int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
     if (status)
       status[n] = previous;
 
+    // Legacy flesh convention: CCTK_ActiveTimeLevels* routes through
+    // CCTK_GroupStorageIncrease with requested_tls = 0 to query the current
+    // number of active timelevels. Treat this as a pure read.
+    if (inc and requested_tls[n] == 0) {
+      min_num_timelevels = min(min_num_timelevels, previous);
+      continue;
+    }
+
     if (!ghext->storage_frozen) {
       ghext->active_timelevels.at(gid) = ntls;
     } else if (ntls != previous) {
