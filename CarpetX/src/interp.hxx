@@ -33,7 +33,8 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
 namespace CarpetX {
 
 // Create a cache of data required for interpolation
-struct InterpolationSetup {
+class InterpolationSetup {
+private:
   using Container = amrex::AmrParticleContainer<3, 2>;
   using Particle = Container::ParticleType;
   using PinnedParticleTile = amrex::ParticleContainer_impl<
@@ -44,21 +45,20 @@ struct InterpolationSetup {
   std::vector<bool> symmetry_reflected_z;
   std::vector<Container> containers{}; // [patch]
 
+public:
   InterpolationSetup(CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
                      const CCTK_INT npoints,
                      const CCTK_REAL *restrict const globalsx,
                      const CCTK_REAL *restrict const globalsy,
                      const CCTK_REAL *restrict const globalsz);
-};
 
-void InterpolateUsingSetup(
-    CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
-    const InterpolationSetup &setup, const CCTK_INT nvars,
-    const CCTK_INT *restrict const varinds,
-    const CCTK_INT *restrict const operations,
-    const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
-        &allowed_boundaries, //  [patch][face][direction]
-    const CCTK_POINTER resultptrs_);
+  void Interpolate(CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
+                   const CCTK_INT nvars, const CCTK_INT *restrict const varinds,
+                   const CCTK_INT *restrict const operations,
+                   const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
+                       &allowed_boundaries, //  [patch][face][direction]
+                   const CCTK_POINTER resultptrs_) const;
+};
 
 // a dummy routine for now
 // TODO: implement this for actual local interpolation

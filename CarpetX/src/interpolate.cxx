@@ -651,7 +651,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
 }
 
 /*
- * InterpolateUsingSetup performs the actual grid interpolation given a
+ * Interpolate performs the actual grid interpolation given a
  * pre-built InterpolationSetup.
  *
  * allowed_boundaries[patch][f][d] controls, for each patch face
@@ -679,13 +679,13 @@ CarpetX::InterpolationSetup::InterpolationSetup(
  * AMReX boxes. In this case we return always true, because AMReX fill-patch
  * operations guarantee these ghost zones are valid.
  */
-void InterpolateUsingSetup(
+void CarpetX::InterpolationSetup::Interpolate(
     CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
-    const InterpolationSetup &setup, const CCTK_INT nvars,
-    const CCTK_INT *restrict const varinds,
+    const CCTK_INT nvars, const CCTK_INT *restrict const varinds,
     const CCTK_INT *restrict const operations,
-    const std::vector<vect<vect<bool, 3>, 2> > &allowed_boundaries,
-    const CCTK_POINTER resultptrs_) {
+    const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
+        &allowed_boundaries, //  [patch][face][direction]
+    const CCTK_POINTER resultptrs_) const {
   DECLARE_CCTK_PARAMETERS;
 
   // Define result variables
@@ -714,7 +714,7 @@ void InterpolateUsingSetup(
       const int level = leveldata.level;
 
       // TODO: use OpenMP
-      for (amrex::ParConstIter<3, 2> pti(setup.containers.at(patch), level);
+      for (amrex::ParConstIter<3, 2> pti(containers.at(patch), level);
            pti.isValid(); ++pti) {
         const MFPointer mfp(pti);
         const GridDesc grid(leveldata, mfp);
@@ -921,23 +921,23 @@ void InterpolateUsingSetup(
                 comm);
 #ifdef CCTK_DEBUG
   // Check consistency of received ids
-  std::vector<bool> idxs(setup.npoints, false);
-  for (int n = 0; n < setup.npoints; ++n) {
+  std::vector<bool> idxs(npoints, false);
+  for (int n = 0; n < npoints; ++n) {
     const int offset = (nvars + 1) * n;
     const int idx = int(recvbuf.at(offset));
     assert(!idxs.at(idx));
     idxs.at(idx) = true;
   }
-  for (int n = 0; n < setup.npoints; ++n)
+  for (int n = 0; n < npoints; ++n)
     assert(idxs.at(n));
 #endif
 
   // Set result
   CCTK_REAL *const restrict *const restrict resultptrs =
       static_cast<CCTK_REAL *const *>(resultptrs_);
-  if (int(recvbuf.size()) != (nvars + 1) * setup.npoints)
+  if (int(recvbuf.size()) != (nvars + 1) * npoints)
     CCTK_ERROR("Internal error");
-  for (int n = 0; n < setup.npoints; ++n) {
+  for (int n = 0; n < npoints; ++n) {
     const int offset = (nvars + 1) * n;
     const int idx = int(recvbuf.at(offset));
     for (int v = 0; v < nvars; ++v)
@@ -960,8 +960,8 @@ void InterpolateUsingSetup(
     // n^a = et^a - er^a
     // m^a = etheta^a + i ephi^a
     // Psi4 = C_abcd m-bar^b n^b m-bar^c n^d
-    for (int n = 0; n < setup.npoints; ++n) {
-      if (setup.symmetry_reflected_z[n]) {
+    for (int n = 0; n < npoints; ++n) {
+      if (symmetry_reflected_z[n]) {
         resultptrs[0][n] = -resultptrs[0][n];
         resultptrs[1][n] = +resultptrs[1][n];
       }
@@ -983,7 +983,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
   const InterpolationSetup setup(cctkGH, npoints, globalsx, globalsy, globalsz);
 
-  // Replicate old behaviour: scalar bool -> uniform per-patch policy
+  // Replicate OG behaviour:
   // allow_boundaries=true  -> allow stencil on all faces
   // allow_boundaries=false -> forbid stencil on all bbox faces
   const int npatches = ghext->num_patches();
@@ -993,9 +993,8 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
         bool(allow_boundaries)}}};
   const std::vector<vect<vect<bool, dim>, 2> > allowed_boundaries(npatches,
                                                                   uniform);
-
-  InterpolateUsingSetup(cctkGH, setup, nvars, varinds, operations,
-                        allowed_boundaries, resultptrs_);
+  setup.Interpolate(cctkGH, nvars, varinds, operations, allowed_boundaries,
+                    resultptrs_);
 }
 
 } // namespace CarpetX
