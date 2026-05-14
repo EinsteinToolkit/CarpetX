@@ -64,6 +64,8 @@ static std::vector<int> sync_filter_groups(int numgroups, const int *groups0) {
   std::vector<int> groups;
   for (int n = 0; n < numgroups; ++n) {
     const int gi = groups0[n];
+    if (ghext->active_timelevels.at(gi) == 0)
+      continue;
     if (CCTK_GroupTypeI(gi) != CCTK_GF)
       continue;
     // Don't restrict the regridding error
