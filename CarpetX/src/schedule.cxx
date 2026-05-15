@@ -42,6 +42,7 @@ static inline int omp_in_parallel() { return 0; }
 #include <optional>
 #include <tuple>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -2082,6 +2083,68 @@ int Shutdown(tFleshConfig *config) {
   return 0;
 }
 
+// Validate that every group referenced by READS/WRITES/INVALIDATES/SYNC
+// has storage activated. Aborts via CCTK_VERROR on the first scheduled
+// function that violates the invariant. See .tasks/storage-check/.
+static void check_storage_clauses(const cFunctionData *restrict attribute) {
+  int offender_count = 0;
+
+  const auto group_inactive = [](int gi) {
+    return ghext->active_timelevels.at(gi) == 0;
+  };
+
+  const auto report = [&](const char *clause_kind, int gi, int vi, int tl) {
+    ++offender_count;
+    const char *const groupname = CCTK_FullGroupName(gi);
+    if (vi >= 0) {
+      const int first_var = CCTK_FirstVarIndexI(gi);
+      const char *const varname = CCTK_VarName(first_var + vi);
+      CCTK_VWARN(CCTK_WARN_ALERT,
+                 "Storage check: %s::%s (%s) clause %s references "
+                 "group %s variable %s timelevel %d without active STORAGE",
+                 attribute->thorn, attribute->routine, attribute->where,
+                 clause_kind, groupname ? groupname : "<unknown>",
+                 varname ? varname : "<unknown>", tl);
+    } else {
+      CCTK_VWARN(CCTK_WARN_ALERT,
+                 "Storage check: %s::%s (%s) clause %s references "
+                 "group %s without active STORAGE",
+                 attribute->thorn, attribute->routine, attribute->where,
+                 clause_kind, groupname ? groupname : "<unknown>");
+    }
+  };
+
+  for (int n = 0; n < attribute->n_RDWR; ++n) {
+    const RDWR_entry &entry = attribute->RDWR[n];
+    if (entry.where_rd == 0 && entry.where_wr == 0 && entry.where_inv == 0)
+      continue;
+    const int gi = CCTK_GroupIndexFromVarI(entry.varindex);
+    assert(gi >= 0);
+    if (!group_inactive(gi))
+      continue;
+    const int vi = entry.varindex - CCTK_FirstVarIndexI(gi);
+    if (entry.where_rd != 0)
+      report("READS", gi, vi, entry.timelevel);
+    if (entry.where_wr != 0)
+      report("WRITES", gi, vi, entry.timelevel);
+    if (entry.where_inv != 0)
+      report("INVALIDATES", gi, vi, entry.timelevel);
+  }
+
+  for (int n = 0; n < attribute->n_SyncGroups; ++n) {
+    const int gi = attribute->SyncGroups[n];
+    if (!group_inactive(gi))
+      continue;
+    report("SYNC", gi, /*vi=*/-1, /*tl=*/0);
+  }
+
+  if (offender_count > 0)
+    CCTK_VERROR("Storage check: %s::%s (%s) has %d schedule clause%s "
+                "referencing groups without active STORAGE; aborting",
+                attribute->thorn, attribute->routine, attribute->where,
+                offender_count, offender_count == 1 ? "" : "s");
+}
+
 // Call a scheduled function
 int CallFunction(void *function, cFunctionData *restrict attribute,
                  void *data) {
@@ -2115,6 +2178,18 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
   Interval interval(timer);
 
   assert(active_levels);
+
+  {
+    static std::unordered_set<cFunctionData *> validated;
+    cFunctionData *const key = attribute;
+    bool needs_check;
+#pragma omp critical(CarpetX_CallFunction)
+    {
+      needs_check = validated.insert(key).second;
+    }
+    if (needs_check)
+      check_storage_clauses(attribute);
+  }
 
   if (CCTK_EQUALS(presync_mode, "presync-only")) {
     const std::vector<clause_t> &reads =
