@@ -31,13 +31,22 @@ SCHEDULE TestSubcyclingMC2_Sync AT postregrid
 # We sync here to repopulate them. Note: if recovering from a mid-subcycling
 # checkpoint, the ghost data may correspond to the wrong time slice, but
 # ODESolver corrects this at the start of its next iteration.
-SCHEDULE TestSubcyclingMC2_Sync AT post_recover_variables
-{
-  LANG: C
-  OPTIONS: global
-  SYNC: state
-  SYNC: k1 k2 k3 k4
-} "Synchronize"
+if(use_subcycling_wip) {
+  SCHEDULE TestSubcyclingMC2_Sync AT post_recover_variables
+  {
+    LANG: C
+    OPTIONS: global
+    SYNC: state
+    SYNC: k1 k2 k3 k4
+  } "Synchronize"
+} else {
+  SCHEDULE TestSubcyclingMC2_Sync AT post_recover_variables
+  {
+    LANG: C
+    OPTIONS: global
+    SYNC: state
+  } "Synchronize"
+}
 
 SCHEDULE TestSubcyclingMC2_Sync IN ODESolvers_PostStep
 {
