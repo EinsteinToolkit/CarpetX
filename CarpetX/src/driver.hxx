@@ -14,6 +14,7 @@
 #include <AMReX_FluxRegister.H>
 #include <AMReX_Interpolater.H>
 #include <AMReX_MultiFab.H>
+#include <AMReX_iMultiFab.H>
 
 #include <yaml-cpp/yaml.h>
 
@@ -374,6 +375,17 @@ struct GHExt {
       // iterating over grid functions. This stores the grid structure
       // and its distribution over all processes, but holds no data.
       std::unique_ptr<amrex::FabArrayBase> fab;
+
+      // Per-centering coarse-fine ghost masks, lazily built by get_cf_mask.
+      // Indexed by (indextype[0]<<2)|(indextype[1]<<1)|indextype[2].
+      mutable std::array<std::unique_ptr<amrex::iMultiFab>, 8> cf_masks;
+
+      // Returns the coarse-fine ghost mask for this (level, centering),
+      // building it on first request. Returns nullptr at level 0 or when
+      // subcycling is disabled.
+      amrex::iMultiFab *
+      get_cf_mask(const std::array<int, dim> &indextype,
+                  const std::array<int, dim> &nghostzones) const;
 
       cctkGHptr patch_cctkGH;
       std::vector<cctkGHptr> local_cctkGHs; // [component]
