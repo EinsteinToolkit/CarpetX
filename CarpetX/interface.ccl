@@ -93,10 +93,24 @@ PROVIDES FUNCTION GetLoopBoxInt WITH CarpetX_GetLoopBoxInt LANGUAGE C
 
 
 
+# I/O
+
+CCTK_INT FUNCTION IO_TruncateOutputFiles \
+  (CCTK_POINTER_TO_CONST IN GH)
+USES FUNCTION IO_TruncateOutputFiles
+
+
+
+# Call scheduled groups
+
 void FUNCTION CallScheduleGroup(
   CCTK_POINTER IN cctkGH,
   CCTK_STRING IN groupname)
 PROVIDES FUNCTION CallScheduleGroup WITH CarpetX_CallScheduleGroup LANGUAGE C
+
+
+
+# Solve elliptic equations
 
 void FUNCTION SolvePoisson(
   CCTK_INT IN gi_sol,
@@ -107,6 +121,10 @@ void FUNCTION SolvePoisson(
   CCTK_REAL OUT res_initial,
   CCTK_REAL OUT res_final)
 PROVIDES FUNCTION SolvePoisson WITH CarpetX_SolvePoisson LANGUAGE C
+
+
+
+# Interpolation
 
 void FUNCTION Interpolate(
   CCTK_POINTER_TO_CONST IN cctkGH,
@@ -122,8 +140,6 @@ void FUNCTION Interpolate(
 PROVIDES FUNCTION Interpolate WITH CarpetX_Interpolate LANGUAGE C
 
 
-
-# Interpolation
 
 #TODO: This will be needed for interface with SymmetryInterpolate
 #CCTK_INT FUNCTION SymmetryInterpolate(
