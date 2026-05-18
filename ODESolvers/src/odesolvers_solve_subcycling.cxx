@@ -1,6 +1,8 @@
 #include "solve.hxx"
 #include <subcycling.hxx>
 
+#include <AMReX_MultiFab.H>
+
 namespace ODESolvers {
 
 constexpr int rkstages = 4;
@@ -238,17 +240,25 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
       CCTK_VINFO(
           "Set interior Ks for stage #%d at t=%g, to be prolongated later",
           stage, double(cctkGH->cctk_time));
-    active_levels->loop_parallel([&](int patch, int level, int index,
-                                     int component, const cGH *local_cctkGH) {
-      update_cctkGH(const_cast<cGH *>(local_cctkGH), cctkGH);
-      Subcycling::SetK<rkstages>(const_cast<cGH *>(local_cctkGH), ks_groups,
-                                 rhs_groups, stage);
+    const int s = stage - 1;
+    active_levels->loop_coarse_to_fine([&](const auto &restrict leveldata) {
+      for (size_t i = 0; i < rhs_groups.size(); ++i) {
+        const auto &rhs_groupdata = *leveldata.groupdata.at(rhs_groups[i]);
+        const auto &k_groupdata = *leveldata.groupdata.at(ks_groups[s][i]);
+        auto &rhs_mf = *rhs_groupdata.mfab.at(0);
+        auto &k_mf = *k_groupdata.mfab.at(0);
+        assert(k_mf.ixType() == rhs_mf.ixType());
+        assert(k_mf.nComp() == rhs_mf.nComp());
+        assert(k_mf.nGrowVect().allGE(amrex::IntVect(0)));
+        assert(rhs_mf.nGrowVect().allGE(amrex::IntVect(0)));
+        amrex::MultiFab::Copy(k_mf, rhs_mf, 0, 0, k_mf.nComp(),
+                              amrex::IntVect(0));
+      }
     });
     synchronize();
 
     // apply boundary condition to account for mesh refinement overlapping the
     // outer boundary
-    const int s = stage - 1;
     SyncGroupsByDirIGhostOnly(cctkGH, ks_groups[s].size(), ks_groups[s].data(),
                               nullptr);
   };
