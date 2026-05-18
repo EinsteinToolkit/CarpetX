@@ -5,6 +5,8 @@
 #include <cassert>
 #include <cmath>
 
+using namespace std;
+
 namespace Arith {
 
 std::size_t flop_count, memop_count;

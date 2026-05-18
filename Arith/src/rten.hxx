@@ -18,7 +18,6 @@
 #include <vector>
 
 namespace Arith {
-using namespace std;
 
 // A rank-4 tensor with the same symmetries as the Riemann tensor
 template <typename T, int D> struct rten {
@@ -97,7 +96,8 @@ public:
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten(rten<U, D> x)
       : elts(std::move(x.elts)) {}
 
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten(initializer_list<T> x)
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  rten(std::initializer_list<T> x)
       : elts(x) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten(vect<T, N> elts)
       : elts(std::move(elts)) {}
@@ -124,7 +124,7 @@ public:
             if (D * i + j <= D * k + l)
               f(i, j, k, l);
   }
-  template <typename F, typename = result_of_t<F(int, int, int, int)> >
+  template <typename F, typename = std::result_of_t<F(int, int, int, int)> >
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten(const F &f)
       : rten(fmap(f, iota1(), iota2(), iota3(), iota4())) {}
 
@@ -171,8 +171,8 @@ public:
   }
 
   template <typename F, typename... Args,
-            typename R =
-                remove_cv_t<remove_reference_t<result_of_t<F(T, Args...)> > > >
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<F(T, Args...)> > > >
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST rten<R, D>
   fmap(const F &f, const rten &x, const rten<Args, D> &...args) {
     return rten<R, D>(fmap(f, x.elts, args.elts...));
@@ -183,16 +183,16 @@ public:
     fmap_(f, x.elts, args.elts...);
   }
 
-  template <
-      typename... Args,
-      typename R = remove_cv_t<remove_reference_t<result_of_t<T(Args...)> > > >
+  template <typename... Args,
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<T(Args...)> > > >
   ARITH_INLINE ARITH_DEVICE ARITH_HOST rten<R, D>
   operator()(const Args &...args) const {
     return fmap([&](const T &var) { return var(args...); }, *this);
   }
   template <typename Arg1, typename Arg2, typename U,
-            typename R = remove_cv_t<
-                remove_reference_t<result_of_t<T(Arg1, Arg2, U)> > > >
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<T(Arg1, Arg2, U)> > > >
   ARITH_INLINE ARITH_DEVICE ARITH_HOST rten<R, D>
   operator()(const Arg1 &arg1, const Arg2 &arg2, const rten<U, D> &val) const {
     return fmap([&](const T &var, const U &x) { return var(arg1, arg2, x); },
@@ -209,8 +209,8 @@ public:
   //        val);
   // }
   template <typename Arg1, typename Arg2, typename U, typename T1 = T,
-            typename = decltype(declval<T1>().store(
-                declval<Arg1>(), declval<Arg2>(), declval<U>()))>
+            typename = decltype(std::declval<T1>().store(
+                std::declval<Arg1>(), std::declval<Arg2>(), std::declval<U>()))>
   ARITH_INLINE ARITH_DEVICE ARITH_HOST void
   store(const Arg1 &arg1, const Arg2 &arg2, const rten<U, D> &val) const {
     fmap_([&](const T &var, const U &x) { return var.store(arg1, arg2, x); },
@@ -335,7 +335,7 @@ public:
     return sumabs(x.elts);
   }
 
-  friend ostream &operator<<(ostream &os, const rten<T, D> &x) {
+  friend std::ostream &operator<<(std::ostream &os, const rten<T, D> &x) {
     os << "[\n";
     rten<T, D>::loop([&](int i, int j, int k, int l) {
       os << i << "," << j << "," << k << "," << l << ":" << x(i, j, k, l)

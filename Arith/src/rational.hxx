@@ -17,7 +17,6 @@
 #include <type_traits>
 
 namespace Arith {
-using namespace std;
 
 // Rational numbers
 
@@ -27,6 +26,7 @@ template <typename I> struct rational {
   struct no_normalize {};
 
   constexpr void normalize() {
+    using std::gcd;
     const I x = gcd(num, den);
     num /= x;
     den /= x;
@@ -39,14 +39,16 @@ template <typename I> struct rational {
   constexpr rational &operator=(const rational &) = default;
   constexpr rational &operator=(rational &&) = default;
 
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   constexpr rational(const J &i) : num(i), den(1) {}
-  template <typename J, typename K, enable_if_t<is_integral_v<J> > * = nullptr,
-            enable_if_t<is_integral_v<K> > * = nullptr>
+  template <typename J, typename K,
+            std::enable_if_t<std::is_integral_v<J> > * = nullptr,
+            std::enable_if_t<std::is_integral_v<K> > * = nullptr>
   constexpr rational(const J &num, const K &den, no_normalize)
       : num(num), den(den) {}
-  template <typename J, typename K, enable_if_t<is_integral_v<J> > * = nullptr,
-            enable_if_t<is_integral_v<K> > * = nullptr>
+  template <typename J, typename K,
+            std::enable_if_t<std::is_integral_v<J> > * = nullptr,
+            std::enable_if_t<std::is_integral_v<K> > * = nullptr>
   constexpr rational(const J &num, const K &den) : num(num), den(den) {
     if (this->den < 0) {
       this->num = -this->num;
@@ -55,7 +57,8 @@ template <typename I> struct rational {
     normalize();
   }
 
-  template <typename F, enable_if_t<is_floating_point_v<F> > * = nullptr>
+  template <typename F,
+            std::enable_if_t<std::is_floating_point_v<F> > * = nullptr>
   constexpr rational(const F &f) : num(0), den(1) {
     const F f1 = nextafter(f);
     const F df = f1 - f;
@@ -66,7 +69,8 @@ template <typename I> struct rational {
     normalize();
   }
 
-  template <typename F, enable_if_t<is_floating_point_v<F> > * = nullptr>
+  template <typename F,
+            std::enable_if_t<std::is_floating_point_v<F> > * = nullptr>
   constexpr operator F() const {
     return F(num) / F(den);
   }
@@ -91,36 +95,36 @@ template <typename I> struct rational {
     return rational(x.num * y.den, x.den * y.num);
   }
 
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational operator+(const rational &x, const J &y) {
     return x + rational(y);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational operator-(const rational &x, const J &y) {
     return x - rational(y);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational operator*(const rational &x, const J &y) {
     return x * rational(y);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational operator/(const rational &x, const J &y) {
     return x / rational(y);
   }
 
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational operator+(const J &x, const rational &y) {
     return rational(x) + y;
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational operator-(const J &x, const rational &y) {
     return rational(x) - y;
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational operator*(const J &x, const rational &y) {
     return rational(x) * y;
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational operator/(const J &x, const rational &y) {
     return rational(x) / y;
   }
@@ -138,19 +142,19 @@ template <typename I> struct rational {
     return *this = *this / x;
   }
 
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   constexpr rational &operator+=(const J &x) {
     return *this = *this + rational(x);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   constexpr rational &operator-=(const J &x) {
     return *this = *this - rational(x);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   constexpr rational &operator*=(const J &x) {
     return *this = *this * rational(x);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   constexpr rational &operator/=(const J &x) {
     return *this = *this / rational(x);
   }
@@ -167,7 +171,7 @@ template <typename I> struct rational {
     return x <= y ? x : y;
   }
 
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr rational pown(rational x, J a) {
     if (a < 0) {
       x = 1 / x;
@@ -206,57 +210,57 @@ template <typename I> struct rational {
     return y <= x;
   }
 
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator==(const rational &x, const J &y) {
     return x == rational(y);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator!=(const rational &x, const J &y) {
     return x != rational(y);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator<(const rational &x, const J &y) {
     return x < rational(y);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator>(const rational &x, const J &y) {
     return x > rational(y);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator<=(const rational &x, const J &y) {
     return x <= rational(y);
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator>=(const rational &x, const J &y) {
     return x >= rational(y);
   }
 
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator==(const J &x, const rational &y) {
     return rational(x) == y;
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator!=(const J &x, const rational &y) {
     return rational(x) != y;
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator<(const J &x, const rational &y) {
     return rational(x) < y;
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator>(const J &x, const rational &y) {
     return rational(x) > y;
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator<=(const J &x, const rational &y) {
     return rational(x) <= y;
   }
-  template <typename J, enable_if_t<is_integral_v<J> > * = nullptr>
+  template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
   friend constexpr bool operator>=(const J &x, const rational &y) {
     return rational(x) >= y;
   }
 
-  friend ostream &operator<<(ostream &os, const rational &x) {
+  friend std::ostream &operator<<(std::ostream &os, const rational &x) {
     return os << "(" << x.num << "/" << x.den << ")";
   }
 
