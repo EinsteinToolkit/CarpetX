@@ -283,45 +283,6 @@ CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &vars,
                                        /*u0_tl=*/1, kcss, dtc, xsi, stage);
 }
 
-CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-SetStateInterior(const Loop::GridDescBaseDevice &grid,
-                 const array<int, Loop::dim> &indextype,
-                 const Loop::GF3D2<CCTK_REAL> &u,
-                 const Loop::GF3D2<const CCTK_REAL> &var) {
-  grid.loop_device_idx<Loop::where_t::interior>(
-      indextype, grid.nghostzones,
-      [=] CCTK_DEVICE(const Loop::PointDesc &p)
-          CCTK_ATTRIBUTE_ALWAYS_INLINE { u(p.I) = var(p.I); });
-}
-
-/* Varlist version */
-template <int RKSTAGES>
-CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-SetK(CCTK_ARGUMENTS, const array<vector<int>, RKSTAGES> &kss, vector<int> &rhss,
-     const CCTK_INT stage) {
-  assert(stage > 0 && stage <= 4);
-  const Loop::GridDescBaseDevice grid(cctkGH);
-  const int tl = 0;
-
-  for (size_t i = 0; i < rhss.size(); ++i) {
-    const int nvars = CCTK_NumVarsInGroupI(rhss[i]);
-    const array<int, Loop::dim> indextype = get_group_indextype(rhss[i]);
-    const Loop::GF3D2layout layout(cctkGH, indextype);
-
-    const int rhs_0 = CCTK_FirstVarIndexI(rhss[i]);
-    const int k_0 = CCTK_FirstVarIndexI(kss[stage - 1][i]);
-    for (int vi = 0; vi < nvars; ++vi) {
-      const Loop::GF3D2<CCTK_REAL> K(
-          layout,
-          static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, tl, k_0 + vi)));
-      const Loop::GF3D2<const CCTK_REAL> rhs(
-          layout,
-          static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, tl, rhs_0 + vi)));
-      SetStateInterior(grid, indextype, K, rhs);
-    }
-  }
-}
-
 } // namespace Subcycling
 
 #endif // #ifndef CARPETX_SUBCYCLING_SUBCYCLING_HXX
