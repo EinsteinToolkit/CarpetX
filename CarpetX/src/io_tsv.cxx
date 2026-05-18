@@ -293,7 +293,7 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const std::string &filename,
             file << sep << col++ << ":" << varname << ".real";
             file << sep << col++ << ":" << varname << ".imag";
           } else {
-            assert(0 && "Unexpected variable type");
+            CCTK_ERROR("internal error");
           }
         file << "\n";
       }
@@ -312,7 +312,7 @@ void WriteTSVScalars(const cGH *restrict cctkGH, const std::string &filename,
             file << sep << varname << "_real";
             file << sep << varname << "_imag";
           } else {
-            assert(0 && "Unexpected variable type");
+            CCTK_ERROR("internal error");
           }
         file << "\n";
       }
@@ -397,7 +397,7 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
             file << sep << col++ << ":" << varname << ".real";
             file << sep << col++ << ":" << varname << ".imag";
           } else {
-            assert(0 && "Unexpected variable type");
+            CCTK_ERROR("internal error");
           }
         file << "\n";
       }
@@ -419,7 +419,7 @@ void WriteTSVArrays(const cGH *restrict cctkGH, const std::string &filename,
             file << sep << varname << "_real";
             file << sep << varname << "_imag";
           } else {
-            assert(0 && "Unexpected variable type");
+            CCTK_ERROR("internal error");
           }
         file << "\n";
       }
@@ -782,7 +782,7 @@ void OutputTSV(const cGH *restrict cctkGH) {
                     out_fileinfo_val, out_header, output_boundary_points);
         break;
       default:
-        assert(0);
+        CCTK_ERROR("internal error");
       }
     }
   }
