@@ -197,8 +197,8 @@ void OutputNorms(const cGH *restrict cctkGH) {
 
       // get more precision for floats, could also use
       // https://stackoverflow.com/a/30968371
-      file << setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1)
-           << scientific;
+      file << std::setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1)
+           << std::scientific;
 
       file << cctk_iteration << sep << cctk_time;
     }

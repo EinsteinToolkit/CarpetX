@@ -9,6 +9,7 @@
 #include <cctk_Parameters.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <functional>
 #include <limits>
@@ -37,7 +38,7 @@ std::ostream &operator<<(std::ostream &os, const valid_t v) {
             << ",ghosts:" << str(v.valid_ghosts) << "]";
 }
 
-valid_t::operator string() const {
+valid_t::operator std::string() const {
   std::ostringstream buf;
   buf << *this;
   return buf.str();
@@ -73,7 +74,7 @@ std::ostream &operator<<(std::ostream &os, const why_valid_t &why) {
             << "ghosts:" << why.why_ghosts() << "}";
 }
 
-why_valid_t::operator string() const {
+why_valid_t::operator std::string() const {
   std::ostringstream buf;
   buf << *this;
   return buf.str();
@@ -386,6 +387,7 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
       if (CCTK_BUILTIN_EXPECT(!is_poison(gf(p.I)), true))
         return;
 
+      using std::fmax, std::fmin, std::max, std::min;
       ++nan_count;
       nan_imin[0] = min(nan_imin[0], grid.lbnd[0] + p.i);
       nan_imin[1] = min(nan_imin[1], grid.lbnd[1] + p.j);
@@ -458,7 +460,7 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
   });
 
   std::ostringstream buf;
-  buf << setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1);
+  buf << std::setprecision(std::numeric_limits<CCTK_REAL>::digits10 + 1);
   for (const auto &info : infos)
     buf << "\n"
         << info.where << " level " << info.level << " patch " << info.patch
@@ -588,8 +590,8 @@ checksums_t calculate_checksums(
 
       for (int vi = 0; vi < groupdata.numvars; ++vi) {
         for (int tl = 0; tl < int(groupdata.valid.size()); ++tl) {
-          const tiletag_t tiletag{patch, level, component, groupdata.groupindex,
-                                  vi,    tl};
+          const int gi = groupdata.groupindex;
+          const tiletag_t tiletag(patch, level, component, gi, vi, tl);
 
           const auto &valid = groupdata.valid.at(tl).at(vi).get();
           // No information given for this timelevel; assume not written
@@ -663,8 +665,8 @@ void check_checksums(const checksums_t &checksums,
 
       for (int vi = 0; vi < groupdata.numvars; ++vi) {
         for (int tl = 0; tl < int(groupdata.valid.size()); ++tl) {
-          const tiletag_t tiletag{patch, level, component, groupdata.groupindex,
-                                  vi,    tl};
+          const int gi = groupdata.groupindex;
+          const tiletag_t tiletag(patch, level, component, gi, vi, tl);
 
           if (!checksums.count(tiletag))
             continue;

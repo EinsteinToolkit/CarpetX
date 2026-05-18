@@ -87,8 +87,8 @@ struct mesh_props_t {
 
 std::string make_subdirname(const std::string &file_name, const int iteration) {
   std::ostringstream buf;
-  buf << file_name                                     //
-      << ".it" << setw(8) << setfill('0') << iteration //
+  buf << file_name                                               //
+      << ".it" << std::setw(8) << std::setfill('0') << iteration //
       << ".silo.dir";
   return buf.str();
 }
@@ -97,16 +97,16 @@ std::string make_filename(const std::string &file_name, const int iteration,
                           const int ioserver = -1) {
   std::ostringstream buf;
   buf << file_name //
-      << ".it" << setw(8) << setfill('0') << iteration;
+      << ".it" << std::setw(8) << std::setfill('0') << iteration;
   if (ioserver >= 0)
-    buf << ".p" << setw(6) << setfill('0') << ioserver;
+    buf << ".p" << std::setw(6) << std::setfill('0') << ioserver;
   buf << ".silo";
   return buf.str();
 }
 
 int match_filename(const std::string &file_name) {
   const std::regex filename_regex("[.]it(\\d+)[.]silo$",
-                                  regex_constants::ECMAScript);
+                                  std::regex_constants::ECMAScript);
   std::smatch sm;
   regex_search(file_name, sm, filename_regex);
   if (sm.empty())
@@ -128,12 +128,12 @@ std::string make_meshname(const std::array<int, dim> &nghosts,
   for (int d = 0; d < dim; ++d) {
     if (d > 0)
       buf << "_";
-    buf << setw(2) << setfill('0') << nghosts[d];
+    buf << std::setw(2) << std::setfill('0') << nghosts[d];
   }
   if (patch >= 0)
-    buf << ".m" << setw(4) << setfill('0') << patch     //
-        << ".rl" << setw(2) << setfill('0') << reflevel //
-        << ".c" << setw(8) << setfill('0') << component;
+    buf << ".m" << std::setw(4) << std::setfill('0') << patch     //
+        << ".rl" << std::setw(2) << std::setfill('0') << reflevel //
+        << ".c" << std::setw(8) << std::setfill('0') << component;
   return DB::legalize_name(buf.str());
 }
 
@@ -148,16 +148,16 @@ std::string make_varname(const int gi, const int vi, const int patch = -1,
   } else {
     const int v0 = CCTK_FirstVarIndexI(gi);
     varname = CCTK_FullVarName(v0 + vi);
-    varname = regex_replace(varname, regex("::"), "-");
+    varname = regex_replace(varname, std::regex("::"), "-");
     for (auto &ch : varname)
       ch = tolower(ch);
   }
   std::ostringstream buf;
   buf << varname;
   if (reflevel >= 0)
-    buf << ".m" << setw(4) << setfill('0') << patch     //
-        << ".rl" << setw(2) << setfill('0') << reflevel //
-        << ".c" << setw(8) << setfill('0') << component;
+    buf << ".m" << std::setw(4) << std::setfill('0') << patch     //
+        << ".rl" << std::setw(2) << std::setfill('0') << reflevel //
+        << ".c" << std::setw(8) << std::setfill('0') << component;
   return DB::legalize_name(buf.str());
 }
 
@@ -165,9 +165,9 @@ const std::string driver_name = "CarpetX";
 
 std::string make_fabarraybasename(const int patch, const int reflevel) {
   std::ostringstream buf;
-  buf << "FabArrayBase"                           //
-      << ".m" << setw(4) << setfill('0') << patch //
-      << ".rl" << setw(2) << setfill('0') << reflevel;
+  buf << "FabArrayBase"                                     //
+      << ".m" << std::setw(4) << std::setfill('0') << patch //
+      << ".rl" << std::setw(2) << std::setfill('0') << reflevel;
   return DB::legalize_name(buf.str());
 }
 
@@ -213,6 +213,7 @@ int InputSiloParameters(const std::string &input_dir,
       for (const auto &direntry : filesystem::directory_iterator(input_dir)) {
         const auto &filename = direntry.path().filename().string();
         const int iter = match_filename(filename);
+        using std::max;
         input_iteration = max(input_iteration, iter);
       }
     } catch (const filesystem::filesystem_error &) {
@@ -763,7 +764,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
     const std::string subdirname = make_subdirname(output_file, cctk_iteration);
     const std::string pathname = std::string(output_dir) + "/" + subdirname;
     const int mode = 0755;
-    static once_flag create_directory;
+    static std::once_flag create_directory;
     call_once(create_directory, [&]() {
       const int ierr = CCTK_CreateDirectory(mode, output_dir.c_str());
       assert(ierr >= 0);
@@ -1276,7 +1277,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                   const amrex::Box &box = mfab.box(component); // interior
                   amrex::Box refined_box(box);
                   refined_box.refine(2);
-                  const std::vector<pair<int, amrex::Box> > child_boxes =
+                  const std::vector<std::pair<int, amrex::Box> > child_boxes =
                       fine_boxarray.intersections(refined_box);
                   std::vector<int> children;
                   children.reserve(child_boxes.size());
@@ -1810,7 +1811,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
         buf << output_dir << "/" << output_file << ".silo.visit";
         return buf.str();
       }();
-      ofstream visit(visitname, ios::app);
+      std::ofstream visit(visitname, std::ios::app);
       assert(visit.good());
       visit << make_filename(output_file, cctk_iteration) << "\n";
     }
