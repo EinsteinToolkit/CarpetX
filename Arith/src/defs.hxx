@@ -32,7 +32,6 @@
 #endif
 
 namespace Arith {
-using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -40,11 +39,11 @@ using namespace std;
 template <typename T> struct zero;
 // template <typename T> inline constexpr T zero_v = zero<T>::value;
 
-template <> struct zero<bool> : integral_constant<bool, 0> {};
-template <> struct zero<short> : integral_constant<short, 0> {};
-template <> struct zero<int> : integral_constant<int, 0> {};
-template <> struct zero<long> : integral_constant<long, 0> {};
-template <> struct zero<long long> : integral_constant<long long, 0> {};
+template <> struct zero<bool> : std::integral_constant<bool, 0> {};
+template <> struct zero<short> : std::integral_constant<short, 0> {};
+template <> struct zero<int> : std::integral_constant<int, 0> {};
+template <> struct zero<long> : std::integral_constant<long, 0> {};
+template <> struct zero<long long> : std::integral_constant<long long, 0> {};
 
 template <> struct zero<float> {
   typedef float value_type;
@@ -72,10 +71,10 @@ template <> struct zero<double> {
 template <typename T> struct one;
 // template <typename T> inline constexpr T one_v = one<T>::value;
 
-template <> struct one<bool> : integral_constant<bool, 1> {};
-template <> struct one<short> : integral_constant<short, 1> {};
-template <> struct one<int> : integral_constant<int, 1> {};
-template <> struct one<long> : integral_constant<long, 1> {};
+template <> struct one<bool> : std::integral_constant<bool, 1> {};
+template <> struct one<short> : std::integral_constant<short, 1> {};
+template <> struct one<int> : std::integral_constant<int, 1> {};
+template <> struct one<long> : std::integral_constant<long, 1> {};
 
 template <> struct one<float> {
   typedef float value_type;
@@ -104,17 +103,22 @@ template <typename T> struct nan;
 // template <typename T> inline constexpr T nan_v = nan<T>::value;
 
 template <>
-struct nan<bool> : integral_constant<bool, numeric_limits<bool>::max()> {};
+struct nan<bool>
+    : std::integral_constant<bool, std::numeric_limits<bool>::max()> {};
 template <>
-struct nan<short> : integral_constant<short, numeric_limits<short>::min()> {};
+struct nan<short>
+    : std::integral_constant<short, std::numeric_limits<short>::min()> {};
 template <>
-struct nan<int> : integral_constant<int, numeric_limits<int>::min()> {};
+struct nan<int> : std::integral_constant<int, std::numeric_limits<int>::min()> {
+};
 template <>
-struct nan<long> : integral_constant<long, numeric_limits<long>::min()> {};
+struct nan<long>
+    : std::integral_constant<long, std::numeric_limits<long>::min()> {};
 
 template <> struct nan<float> {
   typedef float value_type;
-  static constexpr value_type value = numeric_limits<value_type>::quiet_NaN();
+  static constexpr value_type value =
+      std::numeric_limits<value_type>::quiet_NaN();
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
     return value;
   }
@@ -125,7 +129,8 @@ template <> struct nan<float> {
 
 template <> struct nan<double> {
   typedef double value_type;
-  static constexpr value_type value = numeric_limits<value_type>::quiet_NaN();
+  static constexpr value_type value =
+      std::numeric_limits<value_type>::quiet_NaN();
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST operator value_type() const {
     return value;
   }

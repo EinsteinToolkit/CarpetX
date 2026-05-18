@@ -4,8 +4,9 @@
 
 #include <functional>
 
-namespace Arith {
 using namespace std;
+
+namespace Arith {
 
 template <typename T, typename U> constexpr bool eq(const T &x, const U &y) {
   using std::isnan;

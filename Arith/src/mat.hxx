@@ -21,7 +21,6 @@
 #include <vector>
 
 namespace Arith {
-using namespace std;
 
 // A matrix, i.e. a rank-2 tensor. It can have no symmetry (full
 // storage), or be symmetric, or anti-symmetric.
@@ -99,7 +98,8 @@ public:
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(gmat<U, D, symm> x)
       : elts(std::move(x.elts)) {}
 
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(initializer_list<T> x)
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  gmat(std::initializer_list<T> x)
       : elts(x) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(vect<T, N> elts)
       : elts(std::move(elts)) {}
@@ -132,7 +132,7 @@ public:
         for (int j = i + 1; j < D; ++j)
           f(i, j);
   }
-  template <typename F, typename = result_of_t<F(int, int)> >
+  template <typename F, typename = std::result_of_t<F(int, int)> >
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat(const F &f)
       : gmat(fmap(f, iota1(), iota2())) {}
 
@@ -166,8 +166,8 @@ public:
   }
 
   template <typename F, typename... Args,
-            typename R =
-                remove_cv_t<remove_reference_t<result_of_t<F(T, Args...)> > > >
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<F(T, Args...)> > > >
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, symm>
   fmap(const F &f, const gmat &x, const gmat<Args, D, symm> &...args) {
     return fmap(f, x.elts, args.elts...);
@@ -178,16 +178,16 @@ public:
     fmap_(f, x.elts, args.elts...);
   }
 
-  template <
-      typename... Args,
-      typename R = remove_cv_t<remove_reference_t<result_of_t<T(Args...)> > > >
+  template <typename... Args,
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<T(Args...)> > > >
   ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, symm>
   operator()(const Args &...args) const {
     return fmap([&](const T &var) { return var(args...); }, *this);
   }
   template <typename Arg1, typename Arg2, typename U, typename T1 = T,
-            typename R = remove_cv_t<
-                remove_reference_t<result_of_t<T(Arg1, Arg2, U)> > > >
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<T(Arg1, Arg2, U)> > > >
   ARITH_INLINE ARITH_DEVICE ARITH_HOST gmat<R, D, symm>
   operator()(const Arg1 &arg1, const Arg2 &arg2,
              const gmat<U, D, symm> &val) const {
@@ -204,8 +204,8 @@ public:
   //        val);
   // }
   template <typename Arg1, typename Arg2, typename U, typename T1 = T,
-            typename = decltype(declval<T1>().store(
-                declval<Arg1>(), declval<Arg2>(), declval<U>()))>
+            typename = decltype(std::declval<T1>().store(
+                std::declval<Arg1>(), std::declval<Arg2>(), std::declval<U>()))>
   ARITH_INLINE ARITH_DEVICE ARITH_HOST void
   store(const Arg1 &arg1, const Arg2 &arg2, const gmat<U, D, symm> &val) const {
     fmap_([&](const T &var, const U &x) { return var.store(arg1, arg2, x); },
@@ -215,12 +215,12 @@ public:
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST size_type size() const {
     return N;
   }
-  template <symm_t symm1 = symm, enable_if_t<symm1 != ANTI> * = nullptr>
+  template <symm_t symm1 = symm, std::enable_if_t<symm1 != ANTI> * = nullptr>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST const T &
   operator()(int i, int j) const {
     return elts[ind(i, j)];
   }
-  template <symm_t symm1 = symm, enable_if_t<symm1 == ANTI> * = nullptr>
+  template <symm_t symm1 = symm, std::enable_if_t<symm1 == ANTI> * = nullptr>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T operator()(int i,
                                                               int j) const {
     return sign(i, j) * elts[ind(i, j)];
@@ -232,7 +232,7 @@ public:
 #endif
     elts[ind(i, j)] = x;
   }
-  template <symm_t symm1 = symm, enable_if_t<symm1 != ANTI> * = nullptr>
+  template <symm_t symm1 = symm, std::enable_if_t<symm1 != ANTI> * = nullptr>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T &operator()(int i, int j) {
     return elts[ind(i, j)];
   }
@@ -333,7 +333,7 @@ public:
     return sumabs(x.elts);
   }
 
-  friend ostream &operator<<(ostream &os, const gmat<T, D, symm> &x) {
+  friend std::ostream &operator<<(std::ostream &os, const gmat<T, D, symm> &x) {
     os << "[";
     for (int j = 0; j < D; ++j) {
       if (j > 0)

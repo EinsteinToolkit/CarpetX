@@ -1,7 +1,6 @@
 #include "vect.hxx"
 
 namespace Arith {
-using namespace std;
 
 namespace TestVect {
 // constexpr vect<int, 3> vect1(make_tuple(0, 1, 2));
