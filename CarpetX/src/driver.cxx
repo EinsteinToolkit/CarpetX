@@ -1,6 +1,7 @@
 #include "driver.hxx"
 
 #include "boundaries.hxx"
+#include "cf_mask.hxx"
 #include "fillpatch.hxx"
 #include "interp.hxx"
 #include "io.hxx"
@@ -927,6 +928,50 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
   } else {
     fluxes.fill(-1);
   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+amrex::iMultiFab *GHExt::PatchData::LevelData::get_cf_mask(
+    const std::array<int, dim> &indextype,
+    const std::array<int, dim> &nghostzones) const {
+  // Nothing to mask at the coarsest level or outside subcycling runs.
+  if (level == 0 || !ghext->use_subcycling)
+    return nullptr;
+
+  const int s = (indextype[0] << 2) | (indextype[1] << 1) | indextype[2];
+  const amrex::IntVect ng(nghostzones[0], nghostzones[1], nghostzones[2]);
+
+  if (!cf_masks[s]) {
+    const amrex::BoxArray gba = amrex::convert(
+        fab->boxArray(),
+        amrex::IndexType(
+            indextype[0] ? amrex::IndexType::CELL : amrex::IndexType::NODE,
+            indextype[1] ? amrex::IndexType::CELL : amrex::IndexType::NODE,
+            indextype[2] ? amrex::IndexType::CELL : amrex::IndexType::NODE));
+
+    auto mask = std::make_unique<amrex::iMultiFab>(gba, fab->DistributionMap(),
+                                                   /*ncomp=*/1, ng);
+    const auto &geom = ghext->patchdata.at(patch).amrcore->Geom(level);
+    // covered=0  : ghosts filled by same-level FillBoundary (intra-/inter-
+    //              process and periodic-image — see getFB(ngrow, period)
+    //              overlay in AMReX_FabArray.H).
+    // notcovered : coarse-fine prolongation ghosts. Set to cf_ghost (truthy).
+    // physbnd=0  : physical-outer boundary ghosts.
+    // interior=0 : not read by the consumer (loop_device_idx<ghosts>).
+    mask->BuildMask(geom.Domain(), geom.periodicity(),
+                    /*covered=*/0,
+                    /*notcovered=*/cf_ghost,
+                    /*physbnd=*/0,
+                    /*interior=*/0);
+    cf_masks[s] = std::move(mask);
+  }
+
+  // Sharing assumption: all groups of this centering at this level use the
+  // same nghostzones. If this assert ever trips, widen the cache key from
+  // `centering` to `(centering, nghost)` inside this function.
+  assert(cf_masks[s]->nGrowVect() == ng);
+  return cf_masks[s].get();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

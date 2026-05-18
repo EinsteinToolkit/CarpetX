@@ -3,17 +3,19 @@
 
 #include <loop_device.hxx>
 
+#include "CarpetX/CarpetX/src/driver.hxx"
+
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 #include <util_Table.h>
 
+#include <AMReX_Array4.H>
+
 #include <array>
 #include <cassert>
 #include <cmath>
 #include <limits>
-
-#include "utils.hxx"
 
 namespace Subcycling {
 using namespace Arith;
@@ -66,6 +68,7 @@ inline array<int, Loop::dim> get_group_indextype(const int gi) {
  * \param kcs       RK substage derivatives (Ks) prolongated from the
  *                  coarse-grid to the fine-grid ghost points.
  * \param u0        Field values at the initial time t0.
+ * \param cf_mask   Coarse-fine ghost mask (truthy at CF ghosts).
  * \param dtc       Time step size on the coarse-grid.
  * \param xsi       Substep position within a coarse time step on the fine grid.
  *                  In an AMR simulation with subcycling and a refinement ratio
@@ -80,8 +83,8 @@ CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
               const Loop::GF3D2<CCTK_REAL> &Yf,
               const Loop::GF3D2<const CCTK_REAL> &u0,
               array<const Loop::GF3D2<const CCTK_REAL>, RKSTAGES> &kcs,
-              const Loop::GF3D2<const CCTK_REAL> &isrmbndry,
-              const CCTK_REAL dtc, const CCTK_REAL xsi, const CCTK_INT stage) {
+              const amrex::Array4<const int> &cf_mask, const CCTK_REAL dtc,
+              const CCTK_REAL xsi, const CCTK_INT stage) {
   assert(stage > 0 && stage <= 4);
 
   constexpr CCTK_REAL r =
@@ -119,12 +122,19 @@ CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
       4.0   // bttt4
   };
 
+  // Cactus PointDesc indices are local to the FAB (start at 0 for the first
+  // allocated cell). The Array4 cf_mask uses global indices; cf_mask.begin
+  // holds the global index of that same first allocated cell.
+  const int cf_ox = cf_mask.begin.x;
+  const int cf_oy = cf_mask.begin.y;
+  const int cf_oz = cf_mask.begin.z;
+
   // Create and launch the appropriate lambda based on the stage.
   if (stage == 1) {
     grid.loop_device_idx<Loop::where_t::ghosts>(
         indextype, grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          if (isrmbndry(p.I)) {
+          if (cf_mask(p.i + cf_ox, p.j + cf_oy, p.k + cf_oz)) {
             const array<CCTK_REAL, RKSTAGES> k = {kcs[0](p.I), kcs[1](p.I),
                                                   kcs[2](p.I), kcs[3](p.I)};
             const CCTK_REAL uu =
@@ -136,7 +146,7 @@ CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
     grid.loop_device_idx<Loop::where_t::ghosts>(
         indextype, grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          if (isrmbndry(p.I)) {
+          if (cf_mask(p.i + cf_ox, p.j + cf_oy, p.k + cf_oz)) {
             const array<CCTK_REAL, RKSTAGES> k = {kcs[0](p.I), kcs[1](p.I),
                                                   kcs[2](p.I), kcs[3](p.I)};
             const CCTK_REAL uu =
@@ -157,7 +167,7 @@ CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
     grid.loop_device_idx<Loop::where_t::ghosts>(
         indextype, grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          if (isrmbndry(p.I)) {
+          if (cf_mask(p.i + cf_ox, p.j + cf_oy, p.k + cf_oz)) {
             const array<CCTK_REAL, RKSTAGES> k = {kcs[0](p.I), kcs[1](p.I),
                                                   kcs[2](p.I), kcs[3](p.I)};
             const CCTK_REAL uu =
@@ -178,7 +188,8 @@ CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
 namespace detail {
 
 /* Shared varlist implementation: Yf written at Yf_tl, u0 read at u0_tl.
-   kcs are scratch groups read at tl=0. isrmbndry is read at tl=0. */
+   kcs are scratch groups read at tl=0. The coarse-fine ghost mask is fetched
+   per-group from CarpetX::LevelData::get_cf_mask. */
 template <int RKSTAGES>
 CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void CalcYfFromKcs_impl(
     CCTK_ARGUMENTS, vector<int> &Yfs, const int Yf_tl, vector<int> &u0s,
@@ -186,26 +197,25 @@ CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void CalcYfFromKcs_impl(
     const CCTK_REAL dtc, const CCTK_REAL xsi, const CCTK_INT stage) {
 
   const Loop::GridDescBaseDevice grid(cctkGH);
-  const auto isrmbndry_map = construct_index_map();
 
-  // Helper to find the isrmbndry gf for a given indextype
-  auto get_isrmbndry =
-      [&](const array<int, Loop::dim> &indextype,
-          const Loop::GF3D2layout &layout) -> Loop::GF3D2<const CCTK_REAL> {
-    auto it = isrmbndry_map.find(indextype);
-    if (it != isrmbndry_map.end()) {
-      return {layout, static_cast<CCTK_REAL *>(
-                          CCTK_VarDataPtrI(cctkGH, /*tl=*/0, it->second))};
-    }
-    CCTK_ERROR("get_isrmbndry: No matching indextype found.");
-  };
+  const int patch = cctkGH->cctk_patch;
+  const int level = cctkGH->cctk_level;
+  const int component = cctkGH->cctk_component;
+  const auto &leveldata =
+      CarpetX::ghext->patchdata.at(patch).leveldata.at(level);
 
   for (size_t i = 0; i < Yfs.size(); ++i) {
     const int nvars = CCTK_NumVarsInGroupI(Yfs[i]);
-    const array<int, Loop::dim> indextype = get_group_indextype(Yfs[i]);
+    const auto &groupdata = *leveldata.groupdata.at(Yfs[i]);
+    const array<int, Loop::dim> &indextype = groupdata.indextype;
     const Loop::GF3D2layout layout(cctkGH, indextype);
-    const Loop::GF3D2<const CCTK_REAL> isrmbndry =
-        get_isrmbndry(indextype, layout);
+
+    amrex::iMultiFab *const cf_mfab =
+        leveldata.get_cf_mask(groupdata.indextype, groupdata.nghostzones);
+    // No coarse-fine ghosts to fill at level 0 or when subcycling is disabled.
+    if (cf_mfab == nullptr)
+      continue;
+    const amrex::Array4<const int> cf_mask = cf_mfab->const_array(component);
 
     const int Yf_0 = CCTK_FirstVarIndexI(Yfs[i]);
     const int u0_0 = CCTK_FirstVarIndexI(u0s[i]);
@@ -235,7 +245,7 @@ CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void CalcYfFromKcs_impl(
                 layout,
                 static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
                     cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[3][i]) + vi)))};
-        CalcYfFromKcs<4>(grid, indextype, Yf, u0, kcs, isrmbndry, dtc, xsi,
+        CalcYfFromKcs<4>(grid, indextype, Yf, u0, kcs, cf_mask, dtc, xsi,
                          stage);
         break;
       }

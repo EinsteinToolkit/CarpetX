@@ -5,16 +5,3 @@ IMPLEMENTS: Subcycling
 USES INCLUDE HEADER: loop_device.hxx
 
 INCLUDES HEADER: subcycling.hxx IN subcycling.hxx
-
-
-
-PUBLIC:
-
-CCTK_REAL isrmbndry_ccc TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not (cell-centered)"
-CCTK_REAL isrmbndry_vcc TYPE=gf CENTERING={vcc} TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not (face-centered x-dir)"
-CCTK_REAL isrmbndry_cvc TYPE=gf CENTERING={cvc} TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not (face-centered y-dir)"
-CCTK_REAL isrmbndry_ccv TYPE=gf CENTERING={ccv} TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not (face-centered z-dir)"
-CCTK_REAL isrmbndry_cvv TYPE=gf CENTERING={cvv} TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not (edge-centered x-dir)"
-CCTK_REAL isrmbndry_vcv TYPE=gf CENTERING={vcv} TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not (edge-centered y-dir)"
-CCTK_REAL isrmbndry_vvc TYPE=gf CENTERING={vvc} TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not (edge-centered z-dir)"
-CCTK_REAL isrmbndry_vvv TYPE=gf CENTERING={vvv} TAGS='checkpoint="no"' "If this ghost point is at refinement boundary or not (vertex-centered)"
