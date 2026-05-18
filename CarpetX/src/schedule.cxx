@@ -349,9 +349,9 @@ cGH *copy_cctkGH(const cGH *restrict const sourceGH) {
 
   // Allocate most pointers anew
   const auto copy_array = [](const auto *restrict const srcptr, const int sz) {
-    using T = decay_t<decltype(*srcptr)>;
+    using T = std::decay_t<decltype(*srcptr)>;
     T *restrict const ptr = new T[sz];
-    copy(srcptr, srcptr + sz, ptr);
+    std::copy(srcptr, srcptr + sz, ptr);
     return ptr;
   };
   cctkGH->cctk_gsh = copy_array(sourceGH->cctk_gsh, dim);
@@ -972,12 +972,12 @@ struct clause_t {
   valid_t valid;
 
   friend bool operator==(const clause_t &x, const clause_t &y) {
-    return make_tuple(x.gi, x.vi, x.tl, x.valid) ==
-           make_tuple(y.gi, y.vi, y.tl, y.valid);
+    return std::make_tuple(x.gi, x.vi, x.tl, x.valid) ==
+           std::make_tuple(y.gi, y.vi, y.tl, y.valid);
   }
   friend bool operator<(const clause_t &x, const clause_t &y) {
-    return make_tuple(x.gi, x.vi, x.tl, x.valid) <
-           make_tuple(y.gi, y.vi, y.tl, y.valid);
+    return std::make_tuple(x.gi, x.vi, x.tl, x.valid) <
+           std::make_tuple(y.gi, y.vi, y.tl, y.valid);
   }
 
   friend std::ostream &operator<<(std::ostream &os, const clause_t &cl) {
@@ -1058,13 +1058,13 @@ int Initialise(tFleshConfig *config) {
   for (const auto &patchdata : ghext->patchdata)
     assert(patchdata.leveldata.empty());
   assert(!active_levels);
-  active_levels = make_optional<active_levels_t>(0, 0);
+  active_levels = std::make_optional<active_levels_t>(0, 0);
 
   CCTK_Traverse(cctkGH, "CCTK_WRAGH");
   CCTK_Traverse(cctkGH, "CCTK_PARAMCHECK");
   CCTKi_FinaliseParamWarn();
 
-  active_levels = optional<active_levels_t>();
+  active_levels = std::optional<active_levels_t>();
 
   // Set the initial value of max_grid_size for all levels
   CCTK_VINFO("Setting initial values for max_grid_size values for all levels");
@@ -1094,7 +1094,7 @@ int Initialise(tFleshConfig *config) {
     RecoverGridStructure(cctkGH);
 
     assert(!active_levels);
-    active_levels = make_optional<active_levels_t>();
+    active_levels = std::make_optional<active_levels_t>();
 
     CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
 
@@ -1112,7 +1112,7 @@ int Initialise(tFleshConfig *config) {
     CCTK_Traverse(cctkGH, "CCTK_RECOVER_VARIABLES");
     CCTK_Traverse(cctkGH, "CCTK_POST_RECOVER_VARIABLES");
 
-    active_levels = optional<active_levels_t>();
+    active_levels = std::optional<active_levels_t>();
 
     // Enable regridding
     for (auto &patchdata : ghext->patchdata)
@@ -1136,6 +1136,7 @@ int Initialise(tFleshConfig *config) {
     } else {
       abort();
     }
+    using std::isfinite;
     assert(isfinite(cctkGH->cctk_delta_time));
 #pragma omp critical
     CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
@@ -1174,6 +1175,7 @@ int Initialise(tFleshConfig *config) {
       } else {
         abort();
       }
+      using std::isfinite;
       assert(isfinite(cctkGH->cctk_delta_time));
 #pragma omp critical
       CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
@@ -1181,10 +1183,10 @@ int Initialise(tFleshConfig *config) {
                  double(cctkGH->cctk_delta_time));
 
       assert(!active_levels);
-      active_levels = make_optional<active_levels_t>(0, 1);
+      active_levels = std::make_optional<active_levels_t>(0, 1);
       CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
       // CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
-      active_levels = optional<active_levels_t>();
+      active_levels = std::optional<active_levels_t>();
     }
 
     // Output domain information
@@ -1244,14 +1246,14 @@ int Initialise(tFleshConfig *config) {
         assert(patchdata.amrcore->finestLevel() <= level);
 
       assert(!active_levels);
-      active_levels = make_optional<active_levels_t>(0, level + 1);
+      active_levels = std::make_optional<active_levels_t>(0, level + 1);
 
       InputGH(cctkGH);
       CCTK_Traverse(cctkGH, "CCTK_INITIAL");
       CCTK_Traverse(cctkGH, "CCTK_POSTINITIAL");
       CCTK_Traverse(cctkGH, "CCTK_POSTPOSTINITIAL");
 
-      active_levels = optional<active_levels_t>();
+      active_levels = std::optional<active_levels_t>();
 
       // Regrid
       bool did_modify_any_level;
@@ -1309,6 +1311,7 @@ int Initialise(tFleshConfig *config) {
           for (int lev = 0; lev < int(patchdata.amrcore->level_modified.size());
                ++lev) {
             if (patchdata.amrcore->level_modified.at(lev)) {
+              using std::max, std::min;
               first_modified_level = min(first_modified_level, lev);
               last_modified_level = max(last_modified_level, lev);
             }
@@ -1335,6 +1338,7 @@ int Initialise(tFleshConfig *config) {
           } else {
             abort();
           }
+          using std::isfinite;
           assert(isfinite(cctkGH->cctk_delta_time));
 #pragma omp critical
           CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
@@ -1342,11 +1346,11 @@ int Initialise(tFleshConfig *config) {
                      double(cctkGH->cctk_delta_time));
 
           assert(!active_levels);
-          active_levels = make_optional<active_levels_t>(
+          active_levels = std::make_optional<active_levels_t>(
               first_modified_level, last_modified_level + 1);
           CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
           CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
-          active_levels = optional<active_levels_t>();
+          active_levels = std::optional<active_levels_t>();
         }
       } // Regrid
 
@@ -1358,7 +1362,7 @@ int Initialise(tFleshConfig *config) {
   CCTK_VINFO("Initialized %d levels", ghext->num_levels());
 
   assert(!active_levels);
-  active_levels = make_optional<active_levels_t>();
+  active_levels = std::make_optional<active_levels_t>();
 
   if (!restrict_during_sync) {
     // Restrict
@@ -1376,7 +1380,7 @@ int Initialise(tFleshConfig *config) {
   CCTK_Traverse(cctkGH, "CCTK_ANALYSIS");
   CCTK_OutputGH(cctkGH);
 
-  active_levels = optional<active_levels_t>();
+  active_levels = std::optional<active_levels_t>();
 
   return 0;
 } // namespace CarpetX
@@ -1620,7 +1624,7 @@ int Evolve(tFleshConfig *config) {
       buf << out_dir << "/performance.yaml";
       const std::string filename = buf.str();
       performance_file.open(filename);
-      performance_file << "performance:\n" << flush;
+      performance_file << "performance:\n" << std::flush;
     }
   }
 
@@ -1704,6 +1708,7 @@ int Evolve(tFleshConfig *config) {
         for (int lev = 0; lev < int(patchdata.amrcore->level_modified.size());
              ++lev) {
           if (patchdata.amrcore->level_modified.at(lev)) {
+            using std::max, std::min;
             first_modified_level = min(first_modified_level, lev);
             last_modified_level = max(last_modified_level, lev);
           }
@@ -1731,6 +1736,7 @@ int Evolve(tFleshConfig *config) {
         } else {
           abort();
         }
+        using std::isfinite;
         assert(isfinite(cctkGH->cctk_delta_time));
 #pragma omp critical
         CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
@@ -1738,11 +1744,11 @@ int Evolve(tFleshConfig *config) {
                    double(cctkGH->cctk_delta_time));
 
         assert(!active_levels);
-        active_levels = make_optional<active_levels_t>(first_modified_level,
-                                                       last_modified_level + 1);
+        active_levels = std::make_optional<active_levels_t>(
+            first_modified_level, last_modified_level + 1);
         CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
         CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
-        active_levels = optional<active_levels_t>();
+        active_levels = std::optional<active_levels_t>();
       }
     } // Regrid
 
@@ -1782,7 +1788,7 @@ int Evolve(tFleshConfig *config) {
       if (level_iteration > iteration)
         break;
 
-      active_levels = make_optional<active_levels_t>(min_level, max_level);
+      active_levels = std::make_optional<active_levels_t>(min_level, max_level);
 
       // Advance iteration number on this batch of levels
       active_levels->loop_serially([&](auto &restrict leveldata) {
@@ -1821,7 +1827,7 @@ int Evolve(tFleshConfig *config) {
       const double output_finish_time = gettime();
       total_evolution_output_time += output_finish_time - output_start_time;
 
-      active_levels = optional<active_levels_t>();
+      active_levels = std::optional<active_levels_t>();
     } // for min_level
 
     const double waiting_start_time = gettime();
@@ -1892,7 +1898,7 @@ int Evolve(tFleshConfig *config) {
                          << "\n"
                          << "    evolution-iterations: " << total_iterations
                          << "\n"
-                         << flush;
+                         << std::flush;
     }
 
   } // main loop
@@ -2708,7 +2714,7 @@ void Reflux(const cGH *cctkGH, int level) {
   } // for patchdata
 }
 
-void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
+void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups) {
   DECLARE_CCTK_PARAMETERS;
 
 #warning "TODO"
@@ -2903,6 +2909,7 @@ int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
     }
 
     // Record (minimum of) current number of time levels
+    using std::min;
     min_num_timelevels = min(min_num_timelevels, group.numtimelevels);
   } // for n
   if (min_num_timelevels == INT_MAX) {

@@ -161,7 +161,7 @@ std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
       {{bool(periodic && periodic_x), bool(periodic && periodic_y),
         bool(periodic && periodic_z)}},
   }};
-  const array<array<bool, 3>, 2> is_reflection{{
+  const std::array<std::array<bool, 3>, 2> is_reflection{{
       {{bool(reflection_x), bool(reflection_y), bool(reflection_z)}},
       {{bool(reflection_upper_x), bool(reflection_upper_y),
         bool(reflection_upper_z)}},
@@ -409,7 +409,7 @@ std::array<int, dim> get_group_indextype(const int gi) {
   }
 
   // Convert to index type
-  array<int, dim> indextype;
+  std::array<int, dim> indextype;
   for (int d = 0; d < dim; ++d)
     indextype[d] = index[d];
 
@@ -436,7 +436,7 @@ std::array<int, dim> get_group_fluxes(const int gi) {
   std::size_t end = 0;
   while (end < str.size()) {
     const std::size_t begin = str.find_first_not_of(' ', end);
-    if (begin == string::npos)
+    if (begin == std::string::npos)
       break;
     end = str.find(' ', begin);
     strs.push_back(str.substr(begin, end - begin));
@@ -450,9 +450,9 @@ std::array<int, dim> get_group_fluxes(const int gi) {
   assert(strs.size() == dim); // Check number of fluxes
   for (int d = 0; d < dim; ++d) {
     auto str1 = strs[d];
-    if (str1.find(':') == string::npos) {
+    if (str1.find(':') == std::string::npos) {
       const char *const impl = CCTK_GroupImplementationI(gi);
-      str1 = string(impl) + "::" + str1;
+      str1 = std::string(impl) + "::" + str1;
     }
     int gi1 = CCTK_GroupIndex(str1.c_str());
     assert(gi1 >= 0); // Check fluxes are valid groups
@@ -716,8 +716,8 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
       symmetries[0][1] == symmetry_t::periodic,
       symmetries[0][2] == symmetry_t::periodic};
 
-  amrcore = make_unique<CactusAmrCore>(patch, domain, max_num_levels - 1,
-                                       ncells, coord, reffacts, is_periodic);
+  amrcore = std::make_unique<CactusAmrCore>(
+      patch, domain, max_num_levels - 1, ncells, coord, reffacts, is_periodic);
 
   if (verbose) {
 #pragma omp critical
@@ -725,7 +725,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
       const int maxnumlevels = amrcore->maxLevel() + 1;
       for (int level = 0; level < maxnumlevels; ++level) {
         CCTK_VINFO("amrex::Geometry level %d:", level);
-        cout << amrcore->Geom(level) << "\n";
+        std::cout << amrcore->Geom(level) << "\n";
       }
     }
   }
@@ -734,7 +734,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
 GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
                                        const amrex::BoxArray &ba,
                                        const amrex::DistributionMapping &dm,
-                                       const function<string()> &why)
+                                       const std::function<std::string()> &why)
     : patch(patch), level(level) {
   DECLARE_CCTK_PARAMETERS;
 
@@ -756,7 +756,7 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
       ghost_size >= 0 ? ghost_size : ghost_size_x,
       ghost_size >= 0 ? ghost_size : ghost_size_y,
       ghost_size >= 0 ? ghost_size : ghost_size_z};
-  fab = make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
+  fab = std::make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
   assert(ba.ixType() == amrex::IndexType(amrex::IndexType::CELL,
                                          amrex::IndexType::CELL,
                                          amrex::IndexType::CELL));
@@ -774,8 +774,9 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
     if (group.grouptype != CCTK_GF)
       groupdata.emplace_back(nullptr);
     else
-      groupdata.push_back(make_unique<GHExt::PatchData::LevelData::GroupData>(
-          patch, level, gi, ba, dm, why));
+      groupdata.push_back(
+          std::make_unique<GHExt::PatchData::LevelData::GroupData>(
+              patch, level, gi, ba, dm, why));
   }
 
   // Check flux register consistency
@@ -830,7 +831,8 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
 
 GHExt::PatchData::LevelData::GroupData::GroupData(
     const int patch, const int level, const int gi, const amrex::BoxArray &ba,
-    const amrex::DistributionMapping &dm, const function<string()> &why)
+    const amrex::DistributionMapping &dm,
+    const std::function<std::string()> &why)
     : patch(patch), level(level), next_tmp_mfab(0) {
   cGroup group;
   int ierr = CCTK_GroupData(gi, &group);
@@ -907,8 +909,8 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
   mfab.resize(group.numtimelevels);
   valid.resize(group.numtimelevels);
   for (int tl = 0; tl < int(mfab.size()); ++tl) {
-    mfab.at(tl) = make_unique<amrex::MultiFab>(gba, dm, numvars,
-                                               amrex::IntVect(nghostzones));
+    mfab.at(tl) = std::make_unique<amrex::MultiFab>(
+        gba, dm, numvars, amrex::IntVect(nghostzones));
     valid.at(tl).resize(numvars, why_valid_t(why));
   }
 
@@ -916,8 +918,8 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
     fluxes = get_group_fluxes(groupindex);
     const bool have_fluxes = fluxes[0] >= 0;
     if (have_fluxes) {
-      assert((indextype == array<int, dim>{1, 1, 1}));
-      freg = make_unique<amrex::FluxRegister>(
+      assert((indextype == std::array<int, dim>{1, 1, 1}));
+      freg = std::make_unique<amrex::FluxRegister>(
           gba, dm, ghext->patchdata.at(patch).amrcore->refRatio(level - 1),
           level, numvars);
     }
@@ -1113,7 +1115,7 @@ void SetupGlobals() {
     assert(group.dim <= dim);
 
     globaldata.arraygroupdata.at(gi) =
-        make_unique<GHExt::GlobalData::ArrayGroupData>();
+        std::make_unique<GHExt::GlobalData::ArrayGroupData>();
     GHExt::GlobalData::ArrayGroupData &arraygroupdata =
         *globaldata.arraygroupdata.at(gi);
     arraygroupdata.groupname = CCTK_FullGroupName(gi);
@@ -1405,7 +1407,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
       ghost_size >= 0 ? ghost_size : ghost_size_x,
       ghost_size >= 0 ? ghost_size : ghost_size_y,
       ghost_size >= 0 ? ghost_size : ghost_size_z};
-  leveldata.fab = make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
+  leveldata.fab = std::make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
   assert(ba.ixType() == amrex::IndexType(amrex::IndexType::CELL,
                                          amrex::IndexType::CELL,
                                          amrex::IndexType::CELL));
@@ -1806,7 +1808,7 @@ extern "C" int CarpetX_Startup() {
     CCTK_VINFO("Startup");
 
   // Output a startup message
-  const vector<string> features{
+  const std::vector<std::string> features{
 #ifdef AMREX_USE_MPI
       "MPI",
 #else
@@ -1976,7 +1978,7 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   args.clear();
 
   // Create grid structure
-  ghext = make_unique<GHExt>();
+  ghext = std::make_unique<GHExt>();
 
   return ghext.get();
 }

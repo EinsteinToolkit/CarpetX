@@ -575,7 +575,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     }
 
     ParticleTile &particle_tile = containers.at(patch).GetParticles(
-        level)[make_pair(mfi.index(), mfi.LocalTileIndex())];
+        level)[std::make_pair(mfi.index(), mfi.LocalTileIndex())];
 
     const auto old_np = particle_tile.numParticles();
     const auto new_np = old_np + pinned_particle_tile.numParticles();
