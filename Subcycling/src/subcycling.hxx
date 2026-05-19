@@ -1,50 +1,45 @@
 #ifndef CARPETX_SUBCYCLING_SUBCYCLING_HXX
 #define CARPETX_SUBCYCLING_SUBCYCLING_HXX
 
-#include <loop_device.hxx>
-
 #include "CarpetX/CarpetX/src/driver.hxx"
 
 #include <cctk.h>
-#include <cctk_Arguments.h>
-#include <cctk_Parameters.h>
-#include <util_Table.h>
 
-#include <AMReX_Array4.H>
+#include <AMReX_FabArray.H>      // MultiArray4, MultiFab::arrays()
+#include <AMReX_GpuContainers.H> // amrex::GpuArray
+#include <AMReX_IntVect.H>       // amrex::IntVect
+#include <AMReX_MFParallelFor.H> // amrex::ParallelFor(MF, IntVect, ncomp, F)
+#include <AMReX_MultiFab.H>      // amrex::MultiFab
 
 #include <array>
 #include <cassert>
-#include <cmath>
-#include <limits>
+#include <vector>
 
 namespace Subcycling {
-using namespace Arith;
 
 /**
- * \brief Compute fine-grid ghost points for Ys using the prolongated Ks from
- *        the coarse-grid
+ * \brief MF-level fused entry point. Dispatches one amrex::ParallelFor per
+ *        evolved group per level, fused across all local boxes and all
+ *        components of the group.
  *
- * \param Yf        RK substage values (Ys) at the fine-grid ghost points.
- * \param kcs       RK substage derivatives (Ks) prolongated from the
- *                  coarse-grid to the fine-grid ghost points.
- * \param u0        Field values at the initial time t0.
- * \param cf_mask   Coarse-fine ghost mask (truthy at CF ghosts).
- * \param dtc       Time step size on the coarse-grid.
- * \param xsi       Substep position within a coarse time step on the fine grid.
- *                  In an AMR simulation with subcycling and a refinement ratio
- *                  of 2, this value is either 0 (first substep) or 0.5 (second
- *                  substep).
- * \param stage     RK stage number (starting from 1).
+ * \param leveldata Per-level data (provides groupdata, get_cf_mask).
+ * \param Yfs       Cactus group indices receiving the dense-output value.
+ * \param Yf_tl     Time level of Yfs to write into.
+ * \param u0s       Cactus group indices providing u(t0).
+ * \param u0_tl     Time level of u0s to read from.
+ * \param kcss      Per-stage Cactus group indices for RK substage derivatives.
+ * \param dtc       Coarse-grid time step size.
+ * \param xsi       Substep position within the coarse step (0 or 0.5).
+ * \param stage     RK stage number (1..RKSTAGES).
  */
 template <int RKSTAGES>
-CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
-              const array<int, Loop::dim> &indextype,
-              const Loop::GF3D2<CCTK_REAL> &Yf,
-              const Loop::GF3D2<const CCTK_REAL> &u0,
-              array<const Loop::GF3D2<const CCTK_REAL>, RKSTAGES> &kcs,
-              const amrex::Array4<const int> &cf_mask, const CCTK_REAL dtc,
-              const CCTK_REAL xsi, const CCTK_INT stage) {
+CCTK_HOST inline void CalcYfFromKcs_MFlevel(
+    CarpetX::GHExt::PatchData::LevelData &leveldata,
+    const std::vector<int> &Yfs, const int Yf_tl, const std::vector<int> &u0s,
+    const int u0_tl, const std::array<std::vector<int>, RKSTAGES> &kcss,
+    const CCTK_REAL dtc, const CCTK_REAL xsi, const CCTK_INT stage) {
+  static_assert(RKSTAGES == 4,
+                "CalcYfFromKcs_MFlevel only supports RKSTAGES == 4");
   assert(stage > 0 && stage <= 4);
 
   constexpr CCTK_REAL r =
@@ -54,193 +49,119 @@ CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
   const CCTK_REAL xsi3 = xsi2 * xsi;
 
   // Coefficients for the dense output formulas (U, Ut, Utt, Uttt)
-  const array<CCTK_REAL, RKSTAGES> b = {
+  const std::array<CCTK_REAL, 4> b = {
       xsi - 1.5 * xsi2 + (2. / 3.) * xsi3, // b1
       xsi2 - (2. / 3.) * xsi3,             // b2
       xsi2 - (2. / 3.) * xsi3,             // b3
       -0.5 * xsi2 + (2. / 3.) * xsi3       // b4
   };
-
-  const array<CCTK_REAL, RKSTAGES> bt = {
+  const std::array<CCTK_REAL, 4> bt = {
       1.0 - 3.0 * xsi + 2.0 * xsi2, // bt1
       2.0 * xsi - 2.0 * xsi2,       // bt2
       2.0 * xsi - 2.0 * xsi2,       // bt3
       -xsi + 2.0 * xsi2             // bt4
   };
-
-  const array<CCTK_REAL, RKSTAGES> btt = {
+  const std::array<CCTK_REAL, 4> btt = {
       -3.0 + 4.0 * xsi, // btt1
       2.0 - 4.0 * xsi,  // btt2
       2.0 - 4.0 * xsi,  // btt3
       -1.0 + 4.0 * xsi  // btt4
   };
-
-  constexpr array<CCTK_REAL, RKSTAGES> bttt = {
+  constexpr std::array<CCTK_REAL, 4> bttt = {
       4.0,  // bttt1
       -4.0, // bttt2
       -4.0, // bttt3
       4.0   // bttt4
   };
 
-  // Cactus PointDesc indices are local to the FAB (start at 0 for the first
-  // allocated cell). The Array4 cf_mask uses global indices; cf_mask.begin
-  // holds the global index of that same first allocated cell.
-  const int cf_ox = cf_mask.begin.x;
-  const int cf_oy = cf_mask.begin.y;
-  const int cf_oz = cf_mask.begin.z;
-
-  // Create and launch the appropriate lambda based on the stage.
-  if (stage == 1) {
-    grid.loop_device_idx<Loop::where_t::ghosts>(
-        indextype, grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          if (cf_mask(p.i + cf_ox, p.j + cf_oy, p.k + cf_oz)) {
-            const array<CCTK_REAL, RKSTAGES> k = {kcs[0](p.I), kcs[1](p.I),
-                                                  kcs[2](p.I), kcs[3](p.I)};
-            const CCTK_REAL uu =
-                b[0] * k[0] + b[1] * k[1] + b[2] * k[2] + b[3] * k[3];
-            Yf(p.I) = u0(p.I) + dtc * uu;
-          }
-        });
-  } else if (stage == 2) {
-    grid.loop_device_idx<Loop::where_t::ghosts>(
-        indextype, grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          if (cf_mask(p.i + cf_ox, p.j + cf_oy, p.k + cf_oz)) {
-            const array<CCTK_REAL, RKSTAGES> k = {kcs[0](p.I), kcs[1](p.I),
-                                                  kcs[2](p.I), kcs[3](p.I)};
-            const CCTK_REAL uu =
-                b[0] * k[0] + b[1] * k[1] + b[2] * k[2] + b[3] * k[3];
-            const CCTK_REAL ut =
-                bt[0] * k[0] + bt[1] * k[1] + bt[2] * k[2] + bt[3] * k[3];
-            Yf(p.I) = u0(p.I) + dtc * (uu + 0.5 * r * ut);
-          }
-        });
-  } else { // stage 3 or stage 4
-    const CCTK_REAL r2 = r * r;
-    const CCTK_REAL r3 = r2 * r;
-    const CCTK_REAL at = (stage == 3) ? 0.5 * r : r;
-    const CCTK_REAL att = (stage == 3) ? 0.25 * r2 : 0.5 * r2;
-    const CCTK_REAL attt = (stage == 3) ? 0.0625 * r3 : 0.125 * r3;
-    const CCTK_REAL ak = (stage == 3) ? -4.0 : 4.0;
-
-    grid.loop_device_idx<Loop::where_t::ghosts>(
-        indextype, grid.nghostzones,
-        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          if (cf_mask(p.i + cf_ox, p.j + cf_oy, p.k + cf_oz)) {
-            const array<CCTK_REAL, RKSTAGES> k = {kcs[0](p.I), kcs[1](p.I),
-                                                  kcs[2](p.I), kcs[3](p.I)};
-            const CCTK_REAL uu =
-                b[0] * k[0] + b[1] * k[1] + b[2] * k[2] + b[3] * k[3];
-            const CCTK_REAL ut =
-                bt[0] * k[0] + bt[1] * k[1] + bt[2] * k[2] + bt[3] * k[3];
-            const CCTK_REAL utt =
-                btt[0] * k[0] + btt[1] * k[1] + btt[2] * k[2] + btt[3] * k[3];
-            const CCTK_REAL uttt = bttt[0] * k[0] + bttt[1] * k[1] +
-                                   bttt[2] * k[2] + bttt[3] * k[3];
-            Yf(p.I) = u0(p.I) + dtc * (uu + at * ut + att * utt +
-                                       attt * (uttt + ak * (k[2] - k[1])));
-          }
-        });
-  }
-}
-
-namespace detail {
-
-/* Shared varlist implementation: Yf written at Yf_tl, u0 read at u0_tl.
-   kcs are scratch groups read at tl=0. The coarse-fine ghost mask is fetched
-   per-group from CarpetX::LevelData::get_cf_mask. */
-template <int RKSTAGES>
-CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void CalcYfFromKcs_impl(
-    CCTK_ARGUMENTS, vector<int> &Yfs, const int Yf_tl, vector<int> &u0s,
-    const int u0_tl, const array<vector<int>, RKSTAGES> &kcss,
-    const CCTK_REAL dtc, const CCTK_REAL xsi, const CCTK_INT stage) {
-
-  const Loop::GridDescBaseDevice grid(cctkGH);
-
-  const int patch = cctkGH->cctk_patch;
-  const int level = cctkGH->cctk_level;
-  const int component = cctkGH->cctk_component;
-  const auto &leveldata =
-      CarpetX::ghext->patchdata.at(patch).leveldata.at(level);
-
   for (size_t i = 0; i < Yfs.size(); ++i) {
-    const int nvars = CCTK_NumVarsInGroupI(Yfs[i]);
     const auto &groupdata = *leveldata.groupdata.at(Yfs[i]);
-    const array<int, Loop::dim> &indextype = groupdata.indextype;
-    const Loop::GF3D2layout layout(cctkGH, indextype);
+    const auto &u0_groupdata = *leveldata.groupdata.at(u0s[i]);
+    const int nvars = groupdata.numvars;
+    assert(u0_groupdata.numvars == nvars);
 
     amrex::iMultiFab *const cf_mfab =
         leveldata.get_cf_mask(groupdata.indextype, groupdata.nghostzones);
     // No coarse-fine ghosts to fill at level 0 or when subcycling is disabled.
     if (cf_mfab == nullptr)
       continue;
-    const amrex::Array4<const int> cf_mask = cf_mfab->const_array(component);
 
-    const int Yf_0 = CCTK_FirstVarIndexI(Yfs[i]);
-    const int u0_0 = CCTK_FirstVarIndexI(u0s[i]);
-    for (int vi = 0; vi < nvars; ++vi) {
-      const Loop::GF3D2<CCTK_REAL> Yf(
-          layout,
-          static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, Yf_tl, Yf_0 + vi)));
-      const Loop::GF3D2<const CCTK_REAL> u0(
-          layout,
-          static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(cctkGH, u0_tl, u0_0 + vi)));
-      switch (RKSTAGES) {
-      case 4: {
-        array<const Loop::GF3D2<const CCTK_REAL>, 4> kcs{
-            Loop::GF3D2<const CCTK_REAL>(
-                layout,
-                static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
-                    cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[0][i]) + vi))),
-            Loop::GF3D2<const CCTK_REAL>(
-                layout,
-                static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
-                    cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[1][i]) + vi))),
-            Loop::GF3D2<const CCTK_REAL>(
-                layout,
-                static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
-                    cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[2][i]) + vi))),
-            Loop::GF3D2<const CCTK_REAL>(
-                layout,
-                static_cast<CCTK_REAL *>(CCTK_VarDataPtrI(
-                    cctkGH, /*tl=*/0, CCTK_FirstVarIndexI(kcss[3][i]) + vi)))};
-        CalcYfFromKcs<4>(grid, indextype, Yf, u0, kcs, cf_mask, dtc, xsi,
-                         stage);
-        break;
-      }
-      default: {
-        CCTK_ERROR("Unsupported RK stages with subcycling");
-        break;
-      }
-      }
+    amrex::MultiFab &Yf_mf = *groupdata.mfab.at(Yf_tl);
+    const amrex::MultiFab &u0_mf = *u0_groupdata.mfab.at(u0_tl);
+
+    auto Yf_arrs = Yf_mf.arrays();
+    auto u0_arrs = u0_mf.const_arrays();
+    auto cf_arrs = cf_mfab->const_arrays();
+
+    amrex::GpuArray<amrex::MultiArray4<const CCTK_REAL>, 4> kcs_arrs;
+    for (int s = 0; s < 4; ++s) {
+      const auto &kcs_groupdata = *leveldata.groupdata.at(kcss[s][i]);
+      assert(kcs_groupdata.numvars == nvars);
+      kcs_arrs[s] = kcs_groupdata.mfab.at(0)->const_arrays();
+    }
+
+    const amrex::IntVect ng(groupdata.nghostzones[0], groupdata.nghostzones[1],
+                            groupdata.nghostzones[2]);
+
+    if (stage == 1) {
+      amrex::ParallelFor(
+          Yf_mf, ng, nvars,
+          [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+            if (cf_arrs[b_](i, j, k)) {
+              const std::array<CCTK_REAL, 4> kk = {
+                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+              const CCTK_REAL uu =
+                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+              Yf_arrs[b_](i, j, k, n) = u0_arrs[b_](i, j, k, n) + dtc * uu;
+            }
+          });
+    } else if (stage == 2) {
+      amrex::ParallelFor(
+          Yf_mf, ng, nvars,
+          [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+            if (cf_arrs[b_](i, j, k)) {
+              const std::array<CCTK_REAL, 4> kk = {
+                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+              const CCTK_REAL uu =
+                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+              const CCTK_REAL ut =
+                  bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
+              Yf_arrs[b_](i, j, k, n) =
+                  u0_arrs[b_](i, j, k, n) + dtc * (uu + 0.5 * r * ut);
+            }
+          });
+    } else { // stage 3 or stage 4
+      const CCTK_REAL r2 = r * r;
+      const CCTK_REAL r3 = r2 * r;
+      const CCTK_REAL at = (stage == 3) ? 0.5 * r : r;
+      const CCTK_REAL att = (stage == 3) ? 0.25 * r2 : 0.5 * r2;
+      const CCTK_REAL attt = (stage == 3) ? 0.0625 * r3 : 0.125 * r3;
+      const CCTK_REAL ak = (stage == 3) ? -4.0 : 4.0;
+      amrex::ParallelFor(
+          Yf_mf, ng, nvars,
+          [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+            if (cf_arrs[b_](i, j, k)) {
+              const std::array<CCTK_REAL, 4> kk = {
+                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+              const CCTK_REAL uu =
+                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+              const CCTK_REAL ut =
+                  bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
+              const CCTK_REAL utt = btt[0] * kk[0] + btt[1] * kk[1] +
+                                    btt[2] * kk[2] + btt[3] * kk[3];
+              const CCTK_REAL uttt = bttt[0] * kk[0] + bttt[1] * kk[1] +
+                                     bttt[2] * kk[2] + bttt[3] * kk[3];
+              Yf_arrs[b_](i, j, k, n) =
+                  u0_arrs[b_](i, j, k, n) +
+                  dtc * (uu + at * ut + att * utt +
+                         attt * (uttt + ak * (kk[2] - kk[1])));
+            }
+          });
     }
   }
-}
-
-} // namespace detail
-
-/* Varlist version (legacy two-group form): Yf and u0 are separate groups,
-   both at tl=0. Used by TestSubcyclingMC. */
-template <int RKSTAGES>
-CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &Yfs, vector<int> &u0s,
-              const array<vector<int>, RKSTAGES> &kcss, const CCTK_REAL dtc,
-              const CCTK_REAL xsi, const CCTK_INT stage) {
-  detail::CalcYfFromKcs_impl<RKSTAGES>(CCTK_PASS_CTOC, Yfs, /*Yf_tl=*/0, u0s,
-                                       /*u0_tl=*/0, kcss, dtc, xsi, stage);
-}
-
-/* Varlist version (single-group form): Yf is written at tl=0 and u0 is read
-   at tl=1 of the same evolved group. Used by the subcycling integrator after
-   the timelevels-for-old refactor. */
-template <int RKSTAGES>
-CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-CalcYfFromKcs(CCTK_ARGUMENTS, vector<int> &vars,
-              const array<vector<int>, RKSTAGES> &kcss, const CCTK_REAL dtc,
-              const CCTK_REAL xsi, const CCTK_INT stage) {
-  detail::CalcYfFromKcs_impl<RKSTAGES>(CCTK_PASS_CTOC, vars, /*Yf_tl=*/0, vars,
-                                       /*u0_tl=*/1, kcss, dtc, xsi, stage);
 }
 
 } // namespace Subcycling

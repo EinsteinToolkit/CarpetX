@@ -1,5 +1,5 @@
 #include <loop_device.hxx>
-#include <subcycling.hxx>
+#include <subcycling_legacy.hxx>
 
 #include <sum.hxx>
 #include <vect.hxx>

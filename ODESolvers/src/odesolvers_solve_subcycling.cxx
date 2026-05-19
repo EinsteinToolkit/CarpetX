@@ -222,13 +222,12 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
           "Fill refinement boundary ghost zones using Ys for stage #%d at t=%g",
           stage, double(cctkGH->cctk_time));
 
-    active_levels->loop_parallel([&](int patch, int level, int index,
-                                     int component, const cGH *local_cctkGH) {
+    active_levels->loop_coarse_to_fine([&](auto &leveldata) {
+      const int level = leveldata.level;
       if (level == 0)
         return;
 
-      const auto &patchdata = ghext->patchdata.at(patch);
-      const auto &leveldata = patchdata.leveldata.at(level);
+      const auto &patchdata = ghext->patchdata.at(leveldata.patch);
       const auto &prev_leveldata = patchdata.leveldata.at(level - 1);
       CCTK_REAL xsi =
           (leveldata.iteration == prev_leveldata.iteration) ? 0.5 : 0.0;
@@ -236,10 +235,9 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
         xsi += 0.5;
       }
       const int stage0 = (stage == 5 ? 1 : stage);
-      update_cctkGH(const_cast<cGH *>(local_cctkGH), cctkGH);
-      Subcycling::CalcYfFromKcs<rkstages>(const_cast<cGH *>(local_cctkGH),
-                                          var_groups, ks_groups, dt * 2, xsi,
-                                          stage0);
+      Subcycling::CalcYfFromKcs_MFlevel<rkstages>(
+          leveldata, var_groups, /*Yf_tl=*/0, var_groups, /*u0_tl=*/1,
+          ks_groups, dt * 2, xsi, stage0);
     });
     synchronize();
     var.set_valid(make_valid_all());
@@ -426,26 +424,24 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
   // calcys_rmbnd(1) body: fill refinement-boundary ghosts of var_groups.
   // xsi=0.5 and stage0=1 are the values calcys_rmbnd(1) would have computed
   // at the start of the first post-recovery RK step.
-  active_levels->loop_parallel([&](int patch, int level, int /*index*/,
-                                   int /*component*/, const cGH *local_cctkGH) {
+  active_levels->loop_coarse_to_fine([&](auto &leveldata) {
+    const int level = leveldata.level;
     if (level == 0)
       return;
 
     // When this level is time-aligned with its parent, SyncRestrictGFs fills
     // the refinement-boundary ghosts; skip CalcYfFromKcs to avoid overwriting
     // them with a stale interpolation from old/k_i.
-    const auto &patchdata = ghext->patchdata.at(patch);
-    const auto &leveldata = patchdata.leveldata.at(level);
+    const auto &patchdata = ghext->patchdata.at(leveldata.patch);
     const auto &prev_leveldata = patchdata.leveldata.at(level - 1);
     if (leveldata.iteration == prev_leveldata.iteration)
       return;
 
     constexpr CCTK_REAL xsi = 0.5;
     constexpr int stage0 = 1;
-    update_cctkGH(const_cast<cGH *>(local_cctkGH), cctkGH);
-    Subcycling::CalcYfFromKcs<rkstages>(const_cast<cGH *>(local_cctkGH),
-                                        var_groups, ks_groups, dt * 2, xsi,
-                                        stage0);
+    Subcycling::CalcYfFromKcs_MFlevel<rkstages>(
+        leveldata, var_groups, /*Yf_tl=*/0, var_groups, /*u0_tl=*/1, ks_groups,
+        dt * 2, xsi, stage0);
   });
   synchronize();
   var.set_valid(make_valid_all());
