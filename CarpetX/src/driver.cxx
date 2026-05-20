@@ -19,7 +19,6 @@
 #include <AMReX_BCRec.H>
 #include <AMReX_ParmParse.H>
 
-#include <omp.h>
 #include <mpi.h>
 
 #include <algorithm>
