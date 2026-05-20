@@ -44,6 +44,8 @@ int ghext_handle = -1;
 amrex::AMReX *restrict pamrex = nullptr;
 std::unique_ptr<GHExt> ghext;
 
+std::atomic<CCTK_INT> carpetx_epoch{0};
+
 // Registered functions
 
 void *SetupGH(tFleshConfig *fc, int convLevel, cGH *cctkGH);
@@ -73,6 +75,28 @@ extern "C" CCTK_INT CarpetX_GetBoundarySizesAndTypes(
     const void *cctkGH_, CCTK_INT patch, CCTK_INT size,
     CCTK_INT *restrict const bndsize, CCTK_INT *restrict const is_ghostbnd,
     CCTK_INT *restrict const is_symbnd, CCTK_INT *restrict const is_physbnd);
+
+/* Return the current AMR grid epoch — a monotonically increasing counter that
+ * is incremented whenever the grid hierarchy is structurally modified.
+ *
+ * Specifically, the epoch advances on:
+ *   - Level creation   (MakeNewLevelFromScratch, MakeNewLevelFromCoarse)
+ *   - Level remeshing  (RemakeLevel)
+ *   - Level removal    (ClearLevel)
+ *   - Checkpoint recovery (InputInitial)
+ *
+ * Callers that cache data derived from the grid topology (e.g. interpolation
+ * setup objects) can use this value as a cheap validity stamp: if the epoch
+ * returned here differs from the one stored when the cache was built, the
+ * cached data must be rebuilt before use.
+ *
+ * The counter starts at 0 and is read atomically with relaxed ordering, which
+ * is safe for a simple snapshot — no synchronisation with other memory
+ * operations is implied or required.
+ */
+extern "C" CCTK_INT CarpetX_GetEpoch(void) {
+  return carpetx_epoch.load(std::memory_order_relaxed);
+}
 
 // Local functions
 void SetupGlobals();
@@ -1174,6 +1198,7 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
   if (level >= int(level_modified.size()))
     level_modified.resize(level + 1, true);
   level_modified.at(level) = true;
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
   const active_levels_t active_levels(level, level + 1, patch, patch + 1);
 
   // Initialize data
@@ -1449,6 +1474,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   } // for gi
 
   level_modified.at(level) = true;
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
 
   if (verbose)
 #pragma omp critical
@@ -1466,6 +1492,7 @@ void CactusAmrCore::ClearLevel(const int level) {
   leveldata.erase(leveldata.begin() + level, leveldata.end());
 
   level_modified.resize(level);
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
 
   if (verbose)
 #pragma omp critical

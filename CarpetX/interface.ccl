@@ -121,6 +121,9 @@ void FUNCTION Interpolate(
   CCTK_POINTER IN resultptrs)
 PROVIDES FUNCTION Interpolate WITH CarpetX_Interpolate LANGUAGE C
 
+CCTK_INT FUNCTION GetEpoch()
+PROVIDES FUNCTION GetEpoch WITH CarpetX_GetEpoch LANGUAGE C
+
 
 
 # Interpolation

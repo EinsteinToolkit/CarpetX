@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -482,6 +483,12 @@ struct GHExt {
 };
 
 extern std::unique_ptr<GHExt> ghext;
+
+// Monotonically increasing counter. Incremented whenever the AMR grid
+// hierarchy is invalidated (regridding, recovery). Starts at 0.
+extern std::atomic<CCTK_INT> carpetx_epoch;
+
+extern "C" CCTK_INT CarpetX_GetEpoch(void);
 
 } // namespace CarpetX
 
