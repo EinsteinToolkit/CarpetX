@@ -650,35 +650,6 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   }
 }
 
-/*
- * Interpolate performs the actual grid interpolation given a
- * pre-built InterpolationSetup.
- *
- * allowed_boundaries[patch][f][d] controls, for each patch face
- * (face f=0/1, direction d), whether an interpolation stencil is permitted to
- * anchor in the boundary/ghost-zone region on that face. The convention matches
- * the one used by the interpolator struct (see its comment near i0_allowed):
- *
- * true = stencil may anchor right up to that face (ghost zone data there is
- * assumed valid).
- *
- * false = stencil is pushed inward by nghostzones on that face (ghost zone data
- * is considered unavailable).
- *
- * The per-box `allowed_boundaries` passed to each interpolator is derived from
- * this policy via grid.bbox[f][d], which AMReX sets to true when the box face
- * touches the outer boundary of its patch's AMReX domain:
- *
- * When bbox[f][d] is true true, the box face is at the patch outer boundary. In
- * this case we read allowed_boundaries for that face. If
- * allowed_boundaries is true, that means some routine (i.e., BCs) has
- * filled the ghost zones. When its false ghost zones are filled by inter-patch
- * interpolation and we push the stencil anchor inward.
- *
- * When bbox[f][d] is false, the box face is interior to the patch, between
- * AMReX boxes. In this case we return always true, because AMReX fill-patch
- * operations guarantee these ghost zones are valid.
- */
 void CarpetX::InterpolationSetup::Interpolate(
     CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
     const CCTK_INT nvars, const CCTK_INT *restrict const varinds,
@@ -983,7 +954,7 @@ extern "C" void CarpetX_Interpolate(const CCTK_POINTER_TO_CONST cctkGH_,
 
   const InterpolationSetup setup(cctkGH, npoints, globalsx, globalsy, globalsz);
 
-  // Replicate OG behaviour:
+  // Replicate original behaviour:
   // allow_boundaries=true  -> allow stencil on all faces
   // allow_boundaries=false -> forbid stencil on all bbox faces
   const int npatches = ghext->num_patches();
