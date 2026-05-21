@@ -32,6 +32,12 @@ SCHEDULE GROUP TestSubcyclingMC_RK4Group AT evol
 {
 } "RK4"
 
+SCHEDULE TestSubcyclingMC_WarmCFMask IN TestSubcyclingMC_RK4Group BEFORE TestSubcyclingMC_SetP
+{
+  LANG: C
+  OPTIONS: global
+} "Warm the coarse-fine ghost mask cache single-threaded before the parallel CalcK functions"
+
 SCHEDULE TestSubcyclingMC_SetP IN TestSubcyclingMC_RK4Group
 {
   LANG: C
