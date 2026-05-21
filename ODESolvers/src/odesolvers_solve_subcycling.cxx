@@ -166,6 +166,16 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     statecomp_t::init_tmp_mfabs();
   }
 
+  // Warm the cf-mask cache single-threaded so the parallel calcys_rmbnd
+  // consume only reads it; building BuildMask's MFIter inside run_tasks's
+  // OpenMP region races AMReX's static MFIter::depth.
+  active_levels->loop_serially([&](const auto &leveldata) {
+    for (const int gi : var_groups) {
+      const auto &gd = *leveldata.groupdata.at(gi);
+      leveldata.build_cf_mask(gd.indextype, gd.nghostzones);
+    }
+  });
+
   const CCTK_REAL saved_time = cctkGH->cctk_time;
   const CCTK_REAL old_time = cctkGH->cctk_time - dt;
 
@@ -403,6 +413,15 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
                                      ks_groups[s].data(), nullptr);
     }
   }
+
+  // Warm the cf-mask cache single-threaded before the parallel consume below
+  // (same rationale as ODESolvers_Solve_Subcycling).
+  active_levels->loop_serially([&](const auto &leveldata) {
+    for (const int gi : var_groups) {
+      const auto &gd = *leveldata.groupdata.at(gi);
+      leveldata.build_cf_mask(gd.indextype, gd.nghostzones);
+    }
+  });
 
   // calcys_rmbnd(1) body: fill refinement-boundary ghosts of var_groups.
   // xsi=0.5 and stage0=1 are the values calcys_rmbnd(1) would have computed

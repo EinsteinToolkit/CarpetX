@@ -376,16 +376,26 @@ struct GHExt {
       // and its distribution over all processes, but holds no data.
       std::unique_ptr<amrex::FabArrayBase> fab;
 
-      // Per-centering coarse-fine ghost masks, lazily built by get_cf_mask.
+      // Per-centering coarse-fine ghost masks, built single-threaded by
+      // build_cf_mask and read by get_cf_mask.
       // Indexed by (indextype[0]<<2)|(indextype[1]<<1)|indextype[2].
       mutable std::array<std::unique_ptr<amrex::iMultiFab>, 8> cf_masks;
 
-      // Returns the coarse-fine ghost mask for this (level, centering),
-      // building it on first request. Returns nullptr at level 0 or when
-      // subcycling is disabled.
+      // Returns the coarse-fine ghost mask for this (level, centering), or
+      // nullptr at level 0 / when subcycling is disabled. Pure reader,
+      // side-effect-free and safe to call from a parallel consume; callers MUST
+      // warm the centerings single-threaded via build_cf_mask first.
       amrex::iMultiFab *
       get_cf_mask(const std::array<int, dim> &indextype,
                   const std::array<int, dim> &nghostzones) const;
+
+      // Build and cache the coarse-fine ghost mask for this (level,
+      // centering). Idempotent; a no-op at level 0 / when subcycling is
+      // disabled. The only caller of iMultiFab::BuildMask, which opens its own
+      // OpenMP region, so this must run single-threaded (no active MFIter, no
+      // enclosing parallel region).
+      void build_cf_mask(const std::array<int, dim> &indextype,
+                         const std::array<int, dim> &nghostzones) const;
 
       cctkGHptr patch_cctkGH;
       std::vector<cctkGHptr> local_cctkGHs; // [component]

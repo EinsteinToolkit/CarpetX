@@ -5,6 +5,7 @@
 #include <vect.hxx>
 
 #include "CarpetX/CarpetX/src/driver.hxx"
+#include "CarpetX/CarpetX/src/schedule.hxx"
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
@@ -200,6 +201,21 @@ extern "C" void TestSubcyclingMC_CalcYfFromKcs(CCTK_ARGUMENTS,
       0.5 * (((cctkGH->cctk_iteration - 1) >> shift_amount) & 1);
   Subcycling::CalcYfFromKcs<4>(CCTK_PASS_CTOC, u_groups, p_groups, ks_groups,
                                dt * 2, xsi, stage);
+}
+
+extern "C" void TestSubcyclingMC_WarmCFMask(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_PARAMETERS;
+  if (!use_subcycling_wip)
+    return;
+  // Warm the cf-mask cache single-threaded before the parallel CalcK1..K4
+  // read it via CalcYfFromKcs; building it inside run_tasks's OpenMP region
+  // races AMReX's static MFIter::depth. Only the `ustate` centering is used.
+  const int gi = CCTK_GroupIndex("TestSubcyclingMC::ustate");
+  assert(CarpetX::active_levels);
+  CarpetX::active_levels->loop_serially([&](const auto &restrict leveldata) {
+    const auto &gd = *leveldata.groupdata.at(gi);
+    leveldata.build_cf_mask(gd.indextype, gd.nghostzones);
+  });
 }
 
 extern "C" void TestSubcyclingMC_SetP(CCTK_ARGUMENTS) {
