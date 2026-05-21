@@ -727,6 +727,7 @@ CarpetX/TestODESolvers
 CarpetX/TestODESolvers2
 CarpetX/TestOutput
 CarpetX/TestProlongate
+CarpetX/TestProlongateStar
 CarpetX/TestSymmetries
 CarpetX/TmunuBaseX
 CarpetX/WaveToyX
