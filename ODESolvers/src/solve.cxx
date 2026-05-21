@@ -1,14 +1,12 @@
-// TODO: Don't include files from other thorns; create a proper interface
-#include "../../CarpetX/src/driver.hxx"
-#include "../../CarpetX/src/schedule.hxx"
-#include "../../CarpetX/src/timer.hxx"
-
 #include <cctk.h>
 #include <cctk_Parameters.h>
 #include <cctk_Arguments.h>
 #include <util_Table.h>
 
 #include <div.hxx>
+#include <driver.hxx>
+#include <schedule.hxx>
+#include <timer.hxx>
 
 #include <AMReX_MultiFab.H>
 
