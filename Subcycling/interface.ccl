@@ -5,3 +5,4 @@ IMPLEMENTS: Subcycling
 USES INCLUDE HEADER: loop_device.hxx
 
 INCLUDES HEADER: subcycling.hxx IN subcycling.hxx
+INCLUDES HEADER: subcycling_legacy.hxx IN subcycling_legacy.hxx

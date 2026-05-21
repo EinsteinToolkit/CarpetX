@@ -3,7 +3,7 @@
 IMPLEMENTS: TestSubcyclingMC
 
 USES INCLUDE HEADER: loop_device.hxx
-USES INCLUDE HEADER: subcycling.hxx
+USES INCLUDE HEADER: subcycling_legacy.hxx
 USES INCLUDE HEADER: vect.hxx
 
 
