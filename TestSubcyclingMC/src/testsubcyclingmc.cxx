@@ -83,19 +83,6 @@ extern "C" void TestSubcyclingMC_Initial(CCTK_ARGUMENTS) {
   } else {
     CCTK_ERROR("Unknown initial condition");
   }
-
-  grid.loop_int_device<0, 0, 0>(grid.nghostzones,
-                                [=] CCTK_DEVICE(const Loop::PointDesc &p)
-                                    CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                                      u_k1(p.I) = 0.0;
-                                      u_k2(p.I) = 0.0;
-                                      u_k3(p.I) = 0.0;
-                                      u_k4(p.I) = 0.0;
-                                      rho_k1(p.I) = 0.0;
-                                      rho_k2(p.I) = 0.0;
-                                      rho_k3(p.I) = 0.0;
-                                      rho_k4(p.I) = 0.0;
-                                    });
 }
 
 /**
@@ -336,6 +323,16 @@ extern "C" void TestSubcyclingMC_UpdateU(CCTK_ARGUMENTS) {
 
 extern "C" void TestSubcyclingMC_Sync(CCTK_ARGUMENTS) {
   // do nothing
+}
+
+extern "C" void TestSubcyclingMC_ProlongateKs(CCTK_ARGUMENTS) {
+  static const std::vector<int> groups = {
+      CCTK_GroupIndex("TestSubcyclingMC::k1"),
+      CCTK_GroupIndex("TestSubcyclingMC::k2"),
+      CCTK_GroupIndex("TestSubcyclingMC::k3"),
+      CCTK_GroupIndex("TestSubcyclingMC::k4")};
+
+  SyncGroupsByDirIProlongateOnly(cctkGH, groups.size(), groups.data(), nullptr);
 }
 
 extern "C" void TestSubcyclingMC_Error(CCTK_ARGUMENTS) {
