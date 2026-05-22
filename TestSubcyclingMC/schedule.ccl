@@ -7,9 +7,7 @@ SCHEDULE TestSubcyclingMC_Initial AT initial
 {
   LANG: C
   WRITES: ustate(interior)
-  WRITES: k1(interior) k2(interior) k3(interior) k4(interior)
   SYNC: ustate
-  SYNC: k1 k2 k3 k4
 } "Initialize scalar wave state"
 
 SCHEDULE TestSubcyclingMC_Sync AT postregrid
@@ -43,8 +41,16 @@ SCHEDULE TestSubcyclingMC_SetP IN TestSubcyclingMC_RK4Group
   LANG: C
   READS: ustate(interior)
   WRITES: pstate(interior)
-  SYNC: pstate k1 k2 k3 k4
-} "Save previous ustate and Sync ks"
+  SYNC: pstate
+} "Save previous ustate"
+
+if(use_subcycling_wip) {
+  SCHEDULE TestSubcyclingMC_ProlongateKs IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_SetP BEFORE TestSubcyclingMC_CalcK1
+  {
+    LANG: C
+    OPTIONS: global
+  } "Prolongate Ks"
+}
 
 SCHEDULE TestSubcyclingMC_CalcK1 IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_SetP
 {
