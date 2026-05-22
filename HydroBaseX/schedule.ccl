@@ -1,5 +1,33 @@
 # Schedule definitions for thorn HydroBaseX
 
+# CarpetX storage is unconditional (EinsteinToolkit/tickets#2913, #1929).
+STORAGE: rho press eps vel
+
+if (!CCTK_EQUALS(initial_Y_e, "none"))
+{
+  STORAGE: Ye
+}
+if (!CCTK_EQUALS(initial_Bvec, "none"))
+{
+  STORAGE: Bvec
+}
+if (!CCTK_EQUALS(initial_Avec, "none"))
+{
+  STORAGE: Avecx Avecy Avecz
+}
+if (!CCTK_EQUALS(initial_Aphi, "none"))
+{
+  STORAGE: Aphi
+}
+if (!CCTK_EQUALS(initial_temperature, "none"))
+{
+  STORAGE: temperature
+}
+if (!CCTK_EQUALS(initial_entropy, "none"))
+{
+  STORAGE: entropy
+}
+
 if (CCTK_IsThornActive("ODESolvers")) {
 
   SCHEDULE GROUP HydroBaseX_InitialData IN ODESolvers_Initial
@@ -42,22 +70,28 @@ if (CCTK_IsThornActive("ODESolvers")) {
 
 }
 
-
-
-if (CCTK_EQUALS(initial_hydro, "vacuum")) {
-  SCHEDULE HydroBaseX_initial_data IN HydroBaseX_InitialData
-  {
-    LANG: C
-    WRITES: rho(everywhere)
-    WRITES: vel(everywhere)
-    WRITES: eps(everywhere)
-    WRITES: press(everywhere)
+SCHEDULE HydroBaseX_initial_data IN HydroBaseX_InitialData
+{
+  LANG: C
+  if (CCTK_EQUALS(initial_hydro, "vacuum")) {
+    WRITES: rho(everywhere) vel(everywhere) eps(everywhere) press(everywhere)
+  }
+  if (CCTK_EQUALS(initial_temperature, "zero")) {
     WRITES: temperature(everywhere)
+  }
+  if (CCTK_EQUALS(initial_entropy, "zero")) {
     WRITES: entropy(everywhere)
+  }
+  if (CCTK_EQUALS(initial_Y_e, "one")) {
     WRITES: Ye(everywhere)
+  }
+  if (CCTK_EQUALS(initial_Bvec, "zero")) {
     WRITES: Bvec(everywhere)
-    WRITES: Avecx(everywhere)
-    WRITES: Avecy(everywhere)
-    WRITES: Avecz(everywhere)
-  } "Set up vacuum initial data"
-}
+  }
+  if (CCTK_EQUALS(initial_Avec, "zero")) {
+    WRITES: Avecx(everywhere) Avecy(everywhere) Avecz(everywhere)
+  }
+  if (CCTK_EQUALS(initial_Aphi, "zero")) {
+    WRITES: Aphi(everywhere)
+  }
+} "Set the selected vacuum, zero and one initial values"
