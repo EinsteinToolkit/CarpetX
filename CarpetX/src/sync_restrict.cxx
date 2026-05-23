@@ -623,7 +623,7 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
             // Only tl=0 is the "new" coarse snapshot whose old partner is tl=1.
             const bool do_blend = !aligned && old_valid && tl == 0;
             const amrex::MultiFab *const cmfab_old =
-                do_blend ? &*coarsegroupdata.mfab.at(1) : nullptr;
+                do_blend ? coarsegroupdata.mfab.at(1).get() : nullptr;
             const CCTK_REAL tl_w_new = do_blend ? w_new : CCTK_REAL(1);
             tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
                                     &coarsegroupdata, interpolator, tl,
