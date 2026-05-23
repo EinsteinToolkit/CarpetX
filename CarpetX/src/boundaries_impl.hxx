@@ -70,30 +70,80 @@ void BoundaryCondition::apply_on_face() const {
     const symmetry_t symmetry_x = patchdata.symmetries[f][0];
     const boundary_t boundary_x = groupdata.boundaries[f][0];
 
+    /*
+     * Assert that that a face that has interpatch symmetry does not have any
+     * kind of boundary applied to it. symmetry_boundary is reserved for
+     * periodic/reflection faces. interpatch is patch-specific. Both appearing
+     * at once is an internal inconsistency in the boundary setup.
+     */
+    if (symmetry_x == symmetry_t::interpatch &&
+        boundary_x == boundary_t::symmetry_boundary) {
+#pragma omp critical
+      CCTK_VERROR(
+          "Group '%s' patch %d: x-face f=%d is both symmetry_t::interpatch "
+          "(patchdata.symmetries) and boundary_t::symmetry_boundary "
+          "(groupdata.boundaries). This is an internal inconsistency: "
+          "interpatch and symmetry_boundary are mutually exclusive.",
+          groupdata.groupname.c_str(), patchdata.patch, f);
+    }
+
+    /*
+     * get_group_boundaries() uses get_symmetries(-1). The -1 means "ignore
+     * patches", so interpatch faces receive whatever outer BC is globally
+     * configured in groupdata.boundaries.  We detect and suppress that here,
+     * letting MultiPatch_Interpolate fill the interpatch ghost zone instead.
+     */
+#ifdef CCTK_DEBUG
+    {
+      if (symmetry_x == symmetry_t::interpatch &&
+          boundary_x != boundary_t::none &&
+          boundary_x != boundary_t::symmetry_boundary) {
+#pragma omp critical
+        {
+          CCTK_VINFO("apply_on_face: group '%s' patch %d x-face f=%d is "
+                     "symmetry_t::interpatch; suppressing configured outer BC "
+                     "(boundary=%d). Ghost zone will be filled by "
+                     "MultiPatch_Interpolate.",
+                     groupdata.groupname.c_str(), patchdata.patch, f,
+                     static_cast<int>(boundary_x));
+        }
+      }
+    }
+#endif // CCTK_DEBUG
+
+    /*
+     * The original condition required `boundary_x == none` for the interpatch
+     * branch, but get_group_boundaries() (which is patch-agnostic) sets
+     * boundary_x to the globally configured outer BC even for interpatch faces.
+     * The original condition therefore NEVER matched for interpatch faces with
+     * a configured outer BC, causing the outer BC to fire on interpatch ghost
+     * cells instead of being suppressed. Thus we treat ALL interpatch faces as
+     * none/none regardless of groupdata.boundaries.
+     */
     if ((symmetry_x == symmetry_t::none && boundary_x == boundary_t::none) ||
-        (symmetry_x == symmetry_t::interpatch &&
-         boundary_x == boundary_t::none) ||
-        symmetry_x == symmetry_t::periodic)
+        symmetry_x == symmetry_t::interpatch ||
+        symmetry_x == symmetry_t::periodic) {
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::none>(
           bmin, bmax);
-    else if (symmetry_x == symmetry_t::reflection)
+    } else if (symmetry_x == symmetry_t::reflection) {
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::reflection,
                            boundary_t::none>(bmin, bmax);
-    else if (boundary_x == boundary_t::dirichlet)
+    } else if (boundary_x == boundary_t::dirichlet) {
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::dirichlet>(
           bmin, bmax);
-    else if (boundary_x == boundary_t::linear_extrapolation)
+    } else if (boundary_x == boundary_t::linear_extrapolation) {
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none,
                            boundary_t::linear_extrapolation>(bmin, bmax);
-    else if (boundary_x == boundary_t::neumann)
+    } else if (boundary_x == boundary_t::neumann) {
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::neumann>(
           bmin, bmax);
-    else if (boundary_x == boundary_t::robin)
+    } else if (boundary_x == boundary_t::robin) {
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::robin>(
           bmin, bmax);
-    else
+    } else {
 #pragma omp critical
       CCTK_ERROR("internal error");
+    }
   }
 }
 
@@ -113,30 +163,56 @@ void BoundaryCondition::apply_on_face_symbcx(
     const symmetry_t symmetry_y = patchdata.symmetries[f][1];
     const boundary_t boundary_y = groupdata.boundaries[f][1];
 
+    // Hard invariant: interpatch and symmetry_boundary are mutually exclusive.
+    if (symmetry_y == symmetry_t::interpatch &&
+        boundary_y == boundary_t::symmetry_boundary) {
+#pragma omp critical
+      CCTK_VERROR(
+          "Group '%s' patch %d: y-face f=%d is both symmetry_t::interpatch "
+          "(patchdata.symmetries) and boundary_t::symmetry_boundary "
+          "(groupdata.boundaries). This is an internal inconsistency: "
+          "interpatch and symmetry_boundary are mutually exclusive.",
+          groupdata.groupname.c_str(), patchdata.patch, f);
+    }
+
+#ifdef CCTK_DEBUG
+    if (symmetry_y == symmetry_t::interpatch &&
+        boundary_y != boundary_t::none &&
+        boundary_y != boundary_t::symmetry_boundary) {
+#pragma omp critical
+      CCTK_VINFO("apply_on_face: group '%s' patch %d y-face f=%d is "
+                 "symmetry_t::interpatch; suppressing configured outer BC "
+                 "(boundary=%d). Ghost zone will be filled by "
+                 "MultiPatch_Interpolate.",
+                 groupdata.groupname.c_str(), patchdata.patch, f,
+                 static_cast<int>(boundary_y));
+    }
+#endif // CCTK_DEBUG
+
     if ((symmetry_y == symmetry_t::none && boundary_y == boundary_t::none) ||
-        (symmetry_y == symmetry_t::interpatch &&
-         boundary_y == boundary_t::none) ||
-        symmetry_y == symmetry_t::periodic)
+        symmetry_y == symmetry_t::interpatch ||
+        symmetry_y == symmetry_t::periodic) {
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::none>(bmin, bmax);
-    else if (symmetry_y == symmetry_t::reflection)
+    } else if (symmetry_y == symmetry_t::reflection) {
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::reflection,
                             boundary_t::none>(bmin, bmax);
-    else if (boundary_y == boundary_t::dirichlet)
+    } else if (boundary_y == boundary_t::dirichlet) {
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::dirichlet>(bmin, bmax);
-    else if (boundary_y == boundary_t::linear_extrapolation)
+    } else if (boundary_y == boundary_t::linear_extrapolation) {
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::linear_extrapolation>(bmin, bmax);
-    else if (boundary_y == boundary_t::neumann)
+    } else if (boundary_y == boundary_t::neumann) {
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::neumann>(bmin, bmax);
-    else if (boundary_y == boundary_t::robin)
+    } else if (boundary_y == boundary_t::robin) {
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::robin>(bmin, bmax);
-    else
+    } else {
 #pragma omp critical
       CCTK_ERROR("internal error");
+    }
   }
 }
 
@@ -157,31 +233,57 @@ void BoundaryCondition::apply_on_face_symbcxy(
     const symmetry_t symmetry_z = patchdata.symmetries[f][2];
     const boundary_t boundary_z = groupdata.boundaries[f][2];
 
+    // Hard invariant: interpatch and symmetry_boundary are mutually exclusive.
+    if (symmetry_z == symmetry_t::interpatch &&
+        boundary_z == boundary_t::symmetry_boundary) {
+#pragma omp critical
+      CCTK_VERROR(
+          "Group '%s' patch %d: z-face f=%d is both symmetry_t::interpatch "
+          "(patchdata.symmetries) and boundary_t::symmetry_boundary "
+          "(groupdata.boundaries). This is an internal inconsistency: "
+          "interpatch and symmetry_boundary are mutually exclusive.",
+          groupdata.groupname.c_str(), patchdata.patch, f);
+    }
+
+#ifdef CCTK_DEBUG
+    if (symmetry_z == symmetry_t::interpatch &&
+        boundary_z != boundary_t::none &&
+        boundary_z != boundary_t::symmetry_boundary) {
+#pragma omp critical
+      CCTK_VINFO("apply_on_face: group '%s' patch %d z-face f=%d is "
+                 "symmetry_t::interpatch; suppressing configured outer BC "
+                 "(boundary=%d). Ghost zone will be filled by "
+                 "MultiPatch_Interpolate.",
+                 groupdata.groupname.c_str(), patchdata.patch, f,
+                 static_cast<int>(boundary_z));
+    }
+#endif // CCTK_DEBUG
+
     if ((symmetry_z == symmetry_t::none && boundary_z == boundary_t::none) ||
-        (symmetry_z == symmetry_t::interpatch &&
-         boundary_z == boundary_t::none) ||
-        symmetry_z == symmetry_t::periodic)
+        symmetry_z == symmetry_t::interpatch ||
+        symmetry_z == symmetry_t::periodic) {
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::none>(bmin, bmax);
-    else if (symmetry_z == symmetry_t::reflection)
+    } else if (symmetry_z == symmetry_t::reflection) {
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ,
                              symmetry_t::reflection, boundary_t::none>(bmin,
                                                                        bmax);
-    else if (boundary_z == boundary_t::dirichlet)
+    } else if (boundary_z == boundary_t::dirichlet) {
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::dirichlet>(bmin, bmax);
-    else if (boundary_z == boundary_t::linear_extrapolation)
+    } else if (boundary_z == boundary_t::linear_extrapolation) {
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::linear_extrapolation>(bmin, bmax);
-    else if (boundary_z == boundary_t::neumann)
+    } else if (boundary_z == boundary_t::neumann) {
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::neumann>(bmin, bmax);
-    else if (boundary_z == boundary_t::robin)
+    } else if (boundary_z == boundary_t::robin) {
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::robin>(bmin, bmax);
-    else
+    } else {
 #pragma omp critical
       CCTK_ERROR("internal error");
+    }
   }
 }
 
@@ -199,7 +301,8 @@ void BoundaryCondition::apply_on_face_symbcxyz(
 
   const int ncomps = dest.nComp();
   if (CCTK_BUILTIN_EXPECT(ncomps > maxncomps, false))
-    CCTK_VERROR("Internal error: Found ncomps=%d, maxncomps=%d when applying "
+    CCTK_VERROR("apply_on_face_symbcxyz Internal error: Found ncomps=%d, "
+                "maxncomps=%d when applying "
                 "boundary conditions",
                 ncomps, maxncomps);
   const int cmin = 0;
@@ -207,6 +310,25 @@ void BoundaryCondition::apply_on_face_symbcxyz(
 
   // Periodic symmetries should have been translated to `none`
   static_assert(!any(symmetries == symmetry_t::periodic));
+
+  /*
+   * symmetry_t::interpatch must never reach this function. The fix in
+   * apply_on_face{,_symbcx,_symbcxy} translates every interpatch face to
+   * symmetry_t::none before the template chain reaches here.
+   */
+  static_assert(
+      !any(symmetries == symmetry_t::interpatch),
+      "symmetry_t::interpatch reached apply_on_face_symbcxyz. apply_on_face "
+      "must always map interpatch to symmetry_t::none.");
+
+  /*
+   * boundary_t::symmetry_boundary is a sentinel type only. It must never be
+   * forwarded for actual BC application.
+   */
+  static_assert(
+      !any(boundaries == boundary_t::symmetry_boundary),
+      "boundary_t::symmetry_boundary reached apply_on_face_symbcxyz. This "
+      "sentinel type must not be used for actual BC application.");
 
   if constexpr (all(symmetries == symmetry_t::none &&
                     boundaries == boundary_t::none)) {
@@ -217,6 +339,60 @@ void BoundaryCondition::apply_on_face_symbcxyz(
 
   } else {
     // This is the generic case for applying boundary conditions.
+
+    /*
+     * Detect the "corner cell catastrophe" scenario: a non-trivial BC is being
+     * applied but at least one pass-through direction (symmetry=none,
+     * boundary=none) has its bmin/bmax range extend into the ghost zone. This
+     * happens for cells at the intersection of an interpatch face (one
+     * direction) and an outer-BC face (another direction).
+     *
+     * In that situation the BC source for the pass-through direction is src[d]
+     * = dst[d], which may lie in the interpatch ghost zone (not yet populated
+     * by MultiPatch_Interpolate at the time apply_boundary_conditions runs).
+     * The resulting BC value written to these corner cells is therefore
+     * computed from uninitialized ghost data.
+     *
+     * IMPORTANT: CapyrX's MultiPatch_Interpolate skips corner cells that are on
+     * any outer-boundary face (see loop_bnd skip logic in
+     * CapyrX_MultiPatch/src/interpolate.cxx). There is currently NO second BC
+     * pass after MultiPatch_Interpolate in SyncGroupsByDirI, so these corner
+     * cells retain the incorrectly-sourced BC value. A second
+     * apply_boundary_conditions call after MultiPatch_Interpolate is needed to
+     * correct them.
+     */
+#ifdef CCTK_DEBUG
+    {
+      bool has_passthrough_in_ghost = false;
+
+      for (int d = 0; d < dim; ++d) {
+        if (symmetries[d] == symmetry_t::none &&
+            boundaries[d] == boundary_t::none) {
+          /*
+           * Pass-through: src[d] = dst[d].  If the destination region extends
+           * outside [imin,imax) in this direction the source is in the ghost
+           * zone.
+           */
+          if (bmin[d] < imin[d] || bmax[d] > imax[d])
+            has_passthrough_in_ghost = true;
+        }
+      }
+      if (has_passthrough_in_ghost) {
+#pragma omp critical
+        CCTK_VINFO("apply_on_face_symbcxyz: [group '%s' patch %d] Corner-cell "
+                   "catastrophe scenario: applying BC [NI=%d NJ=%d NK=%d] on "
+                   "bmin=[%d,%d,%d] bmax=[%d,%d,%d] with imin=[%d,%d,%d] "
+                   "imax=[%d,%d,%d]. One or more pass-through directions "
+                   "extend into the ghost zone. The BC source may read from "
+                   "uninitialized interpatch ghost cells. These corner cells "
+                   "are SKIPPED by MultiPatch_Interpolate and are NOT "
+                   "re-corrected by a second BC pass after interpolation.",
+                   groupdata.groupname.c_str(), patchdata.patch, NI, NJ, NK,
+                   bmin[0], bmin[1], bmin[2], bmax[0], bmax[1], bmax[2],
+                   imin[0], imin[1], imin[2], imax[0], imax[1], imax[2]);
+      }
+    }
+#endif // CCTK_DEBUG
 
     Arith::vect<CCTK_REAL, maxncomps> dirichlet_values;
     for (int comp = 0; comp < ncomps; ++comp)
@@ -306,125 +482,148 @@ void BoundaryCondition::apply_on_face_symbcxyz(
     const auto kernel =
         [
 #ifdef CCTK_DEBUG
-          dmin = dmin, dmax = dmax,
+            dmin = dmin, dmax = dmax, imin = imin, imax = imax,
 #endif
-          xmin = xmin, dx = dx, layout = layout, destptr = destptr1,
-          //
-          cmin, cmax, dirichlet_values, neumann_source,
-          linear_extrapolation_source, robin_source, robin_values,
-          reflection_offset,
-          reflection_parities
-        ] CCTK_DEVICE(const Arith::vect<int, dim> &dst)
+            xmin = xmin, dx = dx, layout = layout, destptr = destptr1,
+            //
+            cmin, cmax, dirichlet_values, neumann_source,
+            linear_extrapolation_source, robin_source, robin_values,
+            reflection_offset,
+            reflection_parities] CCTK_DEVICE(const Arith::vect<int, dim> &dst)
             __attribute__((__always_inline__, __flatten__)) {
-      constexpr Arith::vect<int, dim> inormal{NI, NJ, NK};
-      constexpr Arith::vect<boundary_t, dim> boundaries{BCI, BCJ, BCK};
-      constexpr Arith::vect<symmetry_t, dim> symmetries{SCI, SCJ, SCK};
+              constexpr Arith::vect<int, dim> inormal{NI, NJ, NK};
+              constexpr Arith::vect<boundary_t, dim> boundaries{BCI, BCJ, BCK};
+              constexpr Arith::vect<symmetry_t, dim> symmetries{SCI, SCJ, SCK};
 
-      // `src` is the point at which we are looking to determine
-      // the boundary value
-      Arith::vect<int, dim> src = dst;
-      // `delta` (if nonzero) describes a second point at which
-      // we are looking, so that we can calculate a gradient for
-      // the boundary value
-      Arith::vect<int, dim> delta{0, 0, 0};
-      for (int d = 0; d < dim; ++d) {
-        if (boundaries[d] == boundary_t::dirichlet) {
-          // do nothing
-        } else if (boundaries[d] == boundary_t::linear_extrapolation) {
-          // Same slope:
-          //   f'(0)       = f'(h)
-          //   f(h) - f(0) = f(2h) - f(h)
-          //          f(0) = 2 f(h) - f(2h)
-          // f(0) is the boundary point
-          src[d] = linear_extrapolation_source[d];
-          delta[d] = -inormal[d];
-        } else if (boundaries[d] == boundary_t::neumann) {
-          // Same value:
-          //   f(0) = f(h)
-          // f(0) is the boundary point
-          src[d] = neumann_source[d];
-        } else if (boundaries[d] == boundary_t::robin) {
-          // Robin condition, specialized to 1/r fall-off:
-          //   f(r) = finf + C/r
-          // Determine fall-off constant `C`:
-          //   C = r * (f(r) - finf)
-          // Solve for value at boundary:
-          //   f(r+h) = finf + C / (r + h)
-          //          = finf + r / (r + h) * (f(r) - finf)
-          // Rewrite using Cartesian coordinates:
-          //   C = |x| * (f(x) - finf)
-          //   f(x') = finf + C / |x'|
-          //         = finf + |x| / |x'| * (f(x) - finf)
-          // f(x') is the boundary point
-          src[d] = robin_source[d];
-        } else if (symmetries[d] == symmetry_t::reflection) {
-          src[d] = reflection_offset[d] - dst[d];
-        } else if (symmetries[d] == symmetry_t::none &&
-                   boundaries[d] == boundary_t::none) {
-          // this direction is not a boundary; do nothing
-        } else {
-          // std::cerr << " dst=" << dst << " d=" << d
-          //           << " boundaries=" << boundaries
-          //           << " symmetries=" << symmetries <<
-          //           "\n";
-          assert(0);
-        }
-      }
-#ifdef CCTK_DEBUG
-      assert(all(src >= dmin && src < dmax));
-#endif
-
-      for (int comp = cmin; comp < cmax; ++comp) {
-        const CCTK_REAL dirichlet_value = dirichlet_values[comp];
-        const CCTK_REAL robin_value = robin_values[comp];
-        const CCTK_REAL reflection_parity = reflection_parities[comp];
-        const Loop::GF3D2<CCTK_REAL> var(layout, destptr + comp * layout.np);
-
-#ifdef CCTK_DEBUG
-        using std::isnan;
-#endif
-        CCTK_REAL val;
-        if constexpr (any(boundaries == boundary_t::dirichlet)) {
-          val = dirichlet_value;
-        } else {
-          val = var(src);
-#ifdef CCTK_DEBUG
-          assert(!isnan(val));
-#endif
-          if constexpr (any(boundaries == boundary_t::robin)) {
-            for (int d = 0; d < dim; ++d) {
-              if (boundaries[d] == boundary_t::robin) {
-                using std::sqrt;
-                // boundary point
-                const auto xb = xmin + dst * dx;
-                const auto rb = sqrt(sum(pow2(xb)));
-                // interior point
-                const auto xi = xmin + src * dx;
-                const auto ri = sqrt(sum(pow2(xi)));
-                const auto q = ri / rb;
-                val = robin_value + q * (val - robin_value);
+              // `src` is the point at which we are looking to determine
+              // the boundary value
+              Arith::vect<int, dim> src = dst;
+              // `delta` (if nonzero) describes a second point at which
+              // we are looking, so that we can calculate a gradient for
+              // the boundary value
+              Arith::vect<int, dim> delta{0, 0, 0};
+              for (int d = 0; d < dim; ++d) {
+                if (boundaries[d] == boundary_t::dirichlet) {
+                  // do nothing
+                } else if (boundaries[d] == boundary_t::linear_extrapolation) {
+                  // Same slope:
+                  //   f'(0)       = f'(h)
+                  //   f(h) - f(0) = f(2h) - f(h)
+                  //          f(0) = 2 f(h) - f(2h)
+                  // f(0) is the boundary point
+                  src[d] = linear_extrapolation_source[d];
+                  delta[d] = -inormal[d];
+                } else if (boundaries[d] == boundary_t::neumann) {
+                  // Same value:
+                  //   f(0) = f(h)
+                  // f(0) is the boundary point
+                  src[d] = neumann_source[d];
+                } else if (boundaries[d] == boundary_t::robin) {
+                  // Robin condition, specialized to 1/r fall-off:
+                  //   f(r) = finf + C/r
+                  // Determine fall-off constant `C`:
+                  //   C = r * (f(r) - finf)
+                  // Solve for value at boundary:
+                  //   f(r+h) = finf + C / (r + h)
+                  //          = finf + r / (r + h) * (f(r) - finf)
+                  // Rewrite using Cartesian coordinates:
+                  //   C = |x| * (f(x) - finf)
+                  //   f(x') = finf + C / |x'|
+                  //         = finf + |x| / |x'| * (f(x) - finf)
+                  // f(x') is the boundary point
+                  src[d] = robin_source[d];
+                } else if (symmetries[d] == symmetry_t::reflection) {
+                  src[d] = reflection_offset[d] - dst[d];
+                } else if (symmetries[d] == symmetry_t::none &&
+                           boundaries[d] == boundary_t::none) {
+                  // this direction is not a boundary; do nothing
+                } else {
+                  // std::cerr << " dst=" << dst << " d=" << d
+                  //           << " boundaries=" << boundaries
+                  //           << " symmetries=" << symmetries <<
+                  //           "\n";
+                  assert(0);
+                }
               }
-            }
-          }
-          if constexpr (any(boundaries == boundary_t::linear_extrapolation)) {
-            // Calculate gradient
-            const CCTK_REAL grad = val - var(src + delta);
-            using std::sqrt;
-            val += sqrt(sum(pow2(dst - src)) / sum(pow2(delta))) * grad;
-          }
+
+      /*
+       * For each direction where a non-trivial BC is actively applied
+       * (non-dirichlet, non-none), the source coordinate must lie within the
+       * domain interior [imin, imax). Sources for
+       * Neumann/Robin/linear-extrapolation are always imin[d] or imax[d]-1.
+       * Reflection maps dst into the interior. A failure here means the BC
+       * stencil setup is internally broken (the source should never be in the
+       * ghost zone for an actively-BC'd direction).
+       */
 #ifdef CCTK_DEBUG
-          for (int d = 0; d < dim; ++d)
-            assert(dst[d] >= dmin[d] && dst[d] < dmax[d]);
-#endif
-          if constexpr (any(symmetries == symmetry_t::reflection))
-            val *= reflection_parity;
-        }
+              {
+                assert(all(src >= dmin && src < dmax));
+
+                for (int d_src = 0; d_src < dim; ++d_src) {
+                  if (boundaries[d_src] != boundary_t::none &&
+                      boundaries[d_src] != boundary_t::dirichlet) {
+                    assert(src[d_src] >= imin[d_src] &&
+                           src[d_src] < imax[d_src]);
+                  }
+                }
+              }
+#endif // CCTK_DEBUG
+
+              for (int comp = cmin; comp < cmax; ++comp) {
+                const CCTK_REAL dirichlet_value = dirichlet_values[comp];
+                const CCTK_REAL robin_value = robin_values[comp];
+                const CCTK_REAL reflection_parity = reflection_parities[comp];
+                const Loop::GF3D2<CCTK_REAL> var(layout,
+                                                 destptr + comp * layout.np);
+
 #ifdef CCTK_DEBUG
-        assert(!isnan(val));
+                using std::isnan;
 #endif
-        var.store(dst, val);
-      }
-    };
+
+                CCTK_REAL val;
+                if constexpr (any(boundaries == boundary_t::dirichlet)) {
+                  val = dirichlet_value;
+                } else {
+                  val = var(src);
+
+#ifdef CCTK_DEBUG
+                  assert(!isnan(val));
+#endif
+                  if constexpr (any(boundaries == boundary_t::robin)) {
+                    for (int d = 0; d < dim; ++d) {
+                      if (boundaries[d] == boundary_t::robin) {
+                        using std::sqrt;
+                        // boundary point
+                        const auto xb = xmin + dst * dx;
+                        const auto rb = sqrt(sum(pow2(xb)));
+                        // interior point
+                        const auto xi = xmin + src * dx;
+                        const auto ri = sqrt(sum(pow2(xi)));
+                        const auto q = ri / rb;
+                        val = robin_value + q * (val - robin_value);
+                      }
+                    }
+                  }
+                  if constexpr (any(boundaries ==
+                                    boundary_t::linear_extrapolation)) {
+                    // Calculate gradient
+                    const CCTK_REAL grad = val - var(src + delta);
+                    using std::sqrt;
+                    val += sqrt(sum(pow2(dst - src)) / sum(pow2(delta))) * grad;
+                  }
+#ifdef CCTK_DEBUG
+                  for (int d = 0; d < dim; ++d)
+                    assert(dst[d] >= dmin[d] && dst[d] < dmax[d]);
+#endif
+                  if constexpr (any(symmetries == symmetry_t::reflection))
+                    val *= reflection_parity;
+                }
+#ifdef CCTK_DEBUG
+                assert(!isnan(val));
+#endif
+                var.store(dst, val);
+              }
+            };
 
     // Note: Calling `loop_region` is much slower than calling `ParallelFor`
     // directly.
@@ -432,12 +631,12 @@ void BoundaryCondition::apply_on_face_symbcxyz(
     // loop_region(kernel, bmin, bmax);
     const amrex::Box box(amrex::IntVect(bmin[0], bmin[1], bmin[2]),
                          amrex::IntVect(bmax[0] - 1, bmax[1] - 1, bmax[2] - 1));
-    amrex::ParallelFor(
-        box, [=] CCTK_DEVICE(const int i, const int j, const int k)
-                 __attribute__((__always_inline__, __flatten__)) {
-                   const Arith::vect<int, dim> p{i, j, k};
-                   kernel(p);
-                 });
+    amrex::ParallelFor(box,
+                       [=] CCTK_DEVICE(const int i, const int j, const int k)
+                           __attribute__((__always_inline__, __flatten__)) {
+                             const Arith::vect<int, dim> p{i, j, k};
+                             kernel(p);
+                           });
   }
 }
 

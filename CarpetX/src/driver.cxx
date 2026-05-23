@@ -983,6 +983,50 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
 
   // Do not tile because the boundary boxes are likely already small
   const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync();
+
+  /*
+   * This will report once per level/group what boundaries and symmetries are
+   * being applied to each face. It will also check if a
+   * pure outer BC face (symmetry=none) somehow also has
+   * boundary=symmetry_boundary, which is an internal inconsistency.
+   */
+#ifdef CCTK_DEBUG
+  {
+    static bool reported_bc_config = false;
+
+    if (!reported_bc_config) {
+      reported_bc_config = true;
+
+      const auto &symm = ghext->patchdata.at(patch).symmetries;
+
+      for (int f = 0; f < 2; ++f) {
+        for (int d = 0; d < dim; ++d) {
+#pragma omp critical
+          {
+            CCTK_VINFO(
+                "apply_boundary_conditions: group=%s, patch=%d, level=%d, "
+                "face[%d][%d], symmetry=%d, boundary=%d",
+                groupname.c_str(), patch, level, f, d, symm[f][d],
+                boundaries[f][d]);
+          }
+
+          if (symm[f][d] == symmetry_t::none &&
+              boundaries[f][d] == boundary_t::symmetry_boundary) {
+#pragma omp critical
+            {
+              CCTK_VERROR(
+                  "Group '%s' patch %d face[%d][%d] has symmetry_t::none but "
+                  "boundary_t::symmetry_boundary, which is reserved for "
+                  "non-none symmetry faces, This is an internal inconsistency.",
+                  groupname.c_str(), patch, f, d);
+            }
+          }
+        }
+      }
+    }
+  }
+#endif // CCTK_DEBUG
+
 #pragma omp parallel
   for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi) {
     amrex::FArrayBox &dest = mfab[mfi];

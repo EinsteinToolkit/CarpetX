@@ -2593,6 +2593,70 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     }
     MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
 
+    // Second BC pass: correct corner ghost cells at the outer+interpatch face
+    // intersection.
+    //
+    // Background: MultiPatch_Interpolate fills interpatch ghost cells by
+    // interpolating from neighbouring patches.  However it skips any ghost
+    // cell where p.NI[d] != 0 in a direction that is an outer boundary
+    // (see loop_bnd skip logic in CapyrX_MultiPatch/src/interpolate.cxx).
+    // Those "corner" cells — simultaneously in an interpatch ghost zone in
+    // one direction and on an outer-BC face in another — are therefore never
+    // touched by MultiPatch_Interpolate.
+    //
+    // The first BC pass (inside FillPatch_Sync / FillPatch_ProlongateGhosts,
+    // which calls apply_boundary_conditions) DID write values to these corner
+    // cells, but using interpatch ghost sources that were not yet populated
+    // (MultiPatch had not run).  For non-Dirichlet BCs (Neumann, Robin,
+    // linear extrapolation) this produces wrong values: the stencil source
+    // src[d] = dst[d] is in the interpatch ghost zone and was NaN/stale.
+    //
+    // Now that MultiPatch_Interpolate has filled all pure interpatch ghost
+    // cells, their values are valid sources.  Re-running
+    // apply_boundary_conditions correctly computes the corner cell values.
+    //
+    // NOTE: This second pass must happen AFTER MultiPatch_Interpolate and
+    // BEFORE the validity checks below.
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      for (const int gi : groups) {
+        auto &restrict groupdata = *leveldata.groupdata.at(gi);
+        const int ntls = groupdata.mfab.size();
+        const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+        for (int tl = 0; tl < sync_tl; ++tl)
+          groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl));
+      }
+    });
+
+#ifdef CCTK_DEBUG
+    // Verify that the 2nd BC pass zeroed out NaN values from ghost zones for
+    // groups that forbid NaNs (do_checkpoint=yes).  A non-zero count after the
+    // 2nd pass indicates the corner-cell fix is incomplete.
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      for (const int gi : groups) {
+        const auto &restrict groupdata = *leveldata.groupdata.at(gi);
+        if (!groupdata.do_checkpoint)
+          continue; // allow NaNs in non-checkpointed groups
+        const int ntls = groupdata.mfab.size();
+        const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+        for (int tl = 0; tl < sync_tl; ++tl) {
+          const amrex::MultiFab &mf = *groupdata.mfab.at(tl);
+          // MultiFab::contains_nan() scans all cells including ghost zones.
+          if (mf.contains_nan()) {
+#pragma omp critical
+            CCTK_VERROR(
+                "CCTK_DEBUG SyncGroupsByDirI: After 2nd BC pass + "
+                "MultiPatch_Interpolate, group '%s' patch %d level %d tl=%d "
+                "still contains NaN. The 2nd BC pass should have cleared all "
+                "corner-cell NaNs sourced from valid interpatch ghost cells. "
+                "Remaining NaN indicates an unresolved ghost-zone bug.",
+                groupdata.groupname.c_str(), leveldata.patch, leveldata.level,
+                tl);
+          }
+        }
+      }
+    });
+#endif // CCTK_DEBUG
+
     for (const int gi : groups) {
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
