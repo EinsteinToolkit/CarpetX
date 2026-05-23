@@ -46,12 +46,18 @@ void FillPatch_Prolongate(
     const GHExt::PatchData::LevelData::GroupData &coarsegroupdata,
     MultiFab &mfab, const MultiFab &cmfab, const Geometry &fgeom,
     const Geometry &cgeom, Interpolater *const mapper,
-    const Vector<BCRec> &bcrecs, const bool do_sync) {
+    const Vector<BCRec> &bcrecs, const bool do_sync,
+    const MultiFab *const cmfab_old, const CCTK_REAL w_new) {
   assert(!groupdata.mfab.empty());
   assert(!coarsegroupdata.mfab.empty());
   const IntVect &nghosts = mfab.nGrowVect();
   if (nghosts.max() == 0)
     return;
+
+  // Time-blend: when an old coarse snapshot is provided and the weight is not
+  // unity, the coarse patch is filled as w_new*cmfab + (1-w_new)*cmfab_old
+  // before the spatial interpolation.
+  const bool do_blend = cmfab_old && w_new != CCTK_REAL(1);
 
   const int ncomps = mfab.nComp();
   const IntVect ratio{2, 2, 2};
@@ -96,9 +102,22 @@ void FillPatch_Prolongate(
       cmfab, 0, 0, ncomps, IntVect{0} /* don't use coarse ghosts */,
       mfab_crse_patch.nGrowVect(), cgeom.periodicity());
 
+  // Optionally copy the old coarse snapshot into a sibling buffer, to be
+  // blended with the new one before interpolation. Same lifetime/delete
+  // pattern as mfab_crse_patch; its copy is overlapped with the one above.
+  MultiFab *mfab_crse_patch_old_ptr = nullptr;
+  if (do_blend) {
+    mfab_crse_patch_old_ptr =
+        new MultiFab(make_mf_crse_patch<MultiFab>(fpc, ncomps));
+    mf_set_domain_bndry(*mfab_crse_patch_old_ptr, cgeom);
+    mfab_crse_patch_old_ptr->ParallelCopy_nowait(
+        *cmfab_old, 0, 0, ncomps, IntVect{0} /* don't use coarse ghosts */,
+        mfab_crse_patch_old_ptr->nGrowVect(), cgeom.periodicity());
+  }
+
   tasks2.submit_serially([&tasks3, &groupdata, &coarsegroupdata, &mfab, &cgeom,
                           &fgeom, mapper, &bcrecs, &fpc, mfab_crse_patch_ptr,
-                          do_sync]() {
+                          mfab_crse_patch_old_ptr, w_new, do_sync]() {
     const IntVect &nghosts = mfab.nGrowVect();
     const int ncomps = mfab.nComp();
     const IntVect ratio{2, 2, 2};
@@ -110,6 +129,19 @@ void FillPatch_Prolongate(
 
     // Finish copying parts of coarse grid into temporary buffer
     mfab_crse_patch.ParallelCopy_finish();
+
+    // Blend the new and old coarse snapshots in place, in physical time, before
+    // applying boundary conditions: applying the (linear) coarse BC after the
+    // blend is equivalent to blending the BCs and keeps a single code path.
+    if (mfab_crse_patch_old_ptr) {
+      MultiFab &mfab_crse_patch_old = *mfab_crse_patch_old_ptr;
+      mfab_crse_patch_old.ParallelCopy_finish();
+      const CCTK_REAL w_old = CCTK_REAL(1) - w_new;
+      // dst = w_new*new + w_old*old  (elementwise, in place)
+      MultiFab::LinComb(mfab_crse_patch, w_new, mfab_crse_patch, 0, w_old,
+                        mfab_crse_patch_old, 0, 0, ncomps, IntVect{0});
+      delete mfab_crse_patch_old_ptr;
+    }
 
     coarsegroupdata.apply_boundary_conditions(mfab_crse_patch);
 
