@@ -819,6 +819,29 @@ template <typename T, int D> struct nan<vect<T, D> > {
   }
 };
 
+// Namespace-scope overloads of all/any for vect.
+// On conforming compilers the hidden friends inside vect win overload
+// resolution (non-template beats template). On nvcc, whose ADL is
+// broken for these names, normal unqualified lookup finds these
+// templates instead. No call sites need to change.
+template <typename T, int D>
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto
+all(const vect<T, D> &x) {
+  auto r = one<T>()();
+  for (int d = 0; d < D; ++d)
+    r = r && x[d];
+  return r;
+}
+
+template <typename T, int D>
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto
+any(const vect<T, D> &x) {
+  auto r = zero<T>()();
+  for (int d = 0; d < D; ++d)
+    r = r || x[d];
+  return r;
+}
+
 } // namespace Arith
 namespace std {
 template <typename T, int D> struct equal_to<Arith::vect<T, D> > {
