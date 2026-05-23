@@ -732,6 +732,7 @@ CarpetX/TestStorageKeyword
 CarpetX/TestSubcycleStepping
 CarpetX/TestSubcyclingMC
 CarpetX/TestSubcyclingMC2
+CarpetX/TestSubcyclingProlong
 CarpetX/TestSymmetries
 CarpetX/TmunuBaseX
 CarpetX/WaveToyX

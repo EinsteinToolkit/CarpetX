@@ -1,0 +1,17 @@
+Cactus Code Thorn TestSubcyclingProlong
+Author(s)    : Liwei Ji <jiliwei.phys@gmail.com>
+Maintainer(s): Liwei Ji <jiliwei.phys@gmail.com>
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Test time-interpolated prolongation of a non-evolved, two-time-level grid
+function across mesh-refinement (coarse/fine) boundaries while the fine level
+is mid-subcycle and thus misaligned in time with its parent coarse level.
+
+The field w(t,x,y,z) = (a + b x + c y + d z) t is linear in both time and
+space, so with "linear extrapolation" outer boundaries the only ghost cells
+that can be wrong are the coarse/fine boundary ghosts. Without temporal
+interpolation in the prolongation those ghosts carry an O(dt) error at the
+misaligned (odd) output iterations; with the fix the error is round-off.

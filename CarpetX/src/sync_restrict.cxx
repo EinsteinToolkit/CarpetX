@@ -599,9 +599,35 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
           // from next coarser level
           amrex::Interpolater *const interpolator = groupdata.interpolator;
 
+          // Time-blend gate: only a non-evolved group can reach this branch
+          // while misaligned in time with its parent. When the fine level is
+          // ahead of the coarse, blend coarse tl=0 (new) with coarse tl=1
+          // (old) into the coarse patch before interpolating. Mirrors AMReX
+          // beta=(time-t0)/(t1-t0): with t0 = t_new - cdt (old coarse time),
+          // t1 = t_new (new coarse time), time = t_fin (fine time).
+          const bool aligned =
+              (leveldata.iteration == coarseleveldata.iteration);
+          const rat64 cdt = coarseleveldata.delta_iteration;
+          const rat64 t_new = coarseleveldata.iteration;
+          const rat64 t_fin = leveldata.iteration;
+          const CCTK_REAL w_new = CCTK_REAL((t_fin - t_new + cdt) / cdt);
+
+          // The blend needs a valid old coarse snapshot (tl=1).
+          bool old_valid = coarsegroupdata.mfab.size() >= 2;
+          if (old_valid)
+            for (int vi = 0; vi < coarsegroupdata.numvars; ++vi)
+              old_valid = old_valid &&
+                          coarsegroupdata.valid.at(1).at(vi).get().valid_int;
+
           for (int tl = 0; tl < sync_tl; ++tl) {
+            // Only tl=0 is the "new" coarse snapshot whose old partner is tl=1.
+            const bool do_blend = !aligned && old_valid && tl == 0;
+            const amrex::MultiFab *const cmfab_old =
+                do_blend ? coarsegroupdata.mfab.at(1).get() : nullptr;
+            const CCTK_REAL tl_w_new = do_blend ? w_new : CCTK_REAL(1);
             tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
-                                    &coarsegroupdata, interpolator, tl]() {
+                                    &coarsegroupdata, interpolator, tl,
+                                    cmfab_old, tl_w_new]() {
               FillPatch_ProlongateGhosts(
                   tasks2, tasks3, groupdata, coarsegroupdata,
                   *groupdata.mfab.at(tl), *coarsegroupdata.mfab.at(tl),
@@ -609,7 +635,7 @@ int SyncGroupsByDirISubcycling(const cGH *restrict cctkGH, int numgroups,
                       .amrcore->Geom(leveldata.level),
                   ghext->patchdata.at(leveldata.patch)
                       .amrcore->Geom(leveldata.level - 1),
-                  interpolator, groupdata.bcrecs);
+                  interpolator, groupdata.bcrecs, cmfab_old, tl_w_new);
             });
           } // for tl
         }
