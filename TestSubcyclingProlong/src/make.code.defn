@@ -1,0 +1,3 @@
+# Main make.code.defn file for thorn TestSubcyclingProlong
+SRCS = testsubcyclingprolong.cxx
+SUBDIRS =

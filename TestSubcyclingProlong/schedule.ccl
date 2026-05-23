@@ -1,0 +1,24 @@
+# Schedule definitions for thorn TestSubcyclingProlong
+
+STORAGE: snapshot[2] error
+
+SCHEDULE TestSubcyclingProlong_Init AT initial
+{
+  LANG: C
+  WRITES: snapshot(interior)
+  SYNC: snapshot
+} "Initialize snapshot = w(0,x) on every level"
+
+SCHEDULE TestSubcyclingProlong_Update AT evol
+{
+  LANG: C
+  WRITES: snapshot(interior)
+  SYNC: snapshot
+} "Set snapshot = w(cctk_time,x) each substep and sync (routes through SyncGroupsByDirISubcycling)"
+
+SCHEDULE TestSubcyclingProlong_Error AT analysis
+{
+  LANG: C
+  READS: snapshot(everywhere)
+  WRITES: error(everywhere)
+} "error = snapshot - w(cctk_time,x) over interior AND ghosts"

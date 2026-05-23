@@ -1,0 +1,9 @@
+# Parameter definitions for thorn TestSubcyclingProlong
+
+CCTK_REAL poly_a "constant term"     { *:* :: "" } 1.0
+CCTK_REAL poly_b "x-slope"           { *:* :: "" } 2.0
+CCTK_REAL poly_c "y-slope"           { *:* :: "" } 3.0
+CCTK_REAL poly_d "z-slope"           { *:* :: "" } 4.0
+
+SHARES: Driver
+USES BOOLEAN use_subcycling_wip
