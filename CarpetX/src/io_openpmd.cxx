@@ -279,12 +279,12 @@ struct carpetx_openpmd_t {
         return true;
       if (x.empty() || y.empty())
         return false;
-      return all(x.lo == y.lo) && all(x.hi == y.hi);
+      return Arith::all(x.lo == y.lo) && Arith::all(x.hi == y.hi);
     }
     constexpr friend bool operator!=(const box_t &x, const box_t &y) {
       return !(x == y);
     }
-    constexpr bool empty() const { return any(hi < lo); }
+    constexpr bool empty() const { return Arith::any(hi < lo); }
     constexpr Arith::vect<T, D> shape() const {
       Arith::vect<T, D> sh;
       for (std::size_t d = 0; d < D; ++d)
@@ -1248,7 +1248,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                   for (int j = extbox.lo[1]; j < extbox.hi[1]; ++j) {
                     for (int i = extbox.lo[0]; i < extbox.hi[0]; ++i) {
                       const Arith::vect<int, dim> I{i, j, k};
-                      if (any(I < box.lo || I >= box.hi))
+                      if (Arith::any(I < box.lo || I >= box.hi))
                         memcpy(cactus_var_ptr + (cactus_di * i + cactus_dj * j +
                                                  cactus_dk * k) *
                                                     vartypesize,

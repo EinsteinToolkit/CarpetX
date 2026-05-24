@@ -810,6 +810,7 @@ template <typename T, int D> struct nan<vect<T, D> > {
   }
 };
 
+
 // Defined at namespace scope rather than as hidden friends inside vect
 // to work around an nvcc bug where ADL fails to resolve hidden-friend
 // all/any (observed with nvcc 12.6 through 13.1 + g++ 13).
@@ -830,7 +831,6 @@ any(const vect<T, D> &x) {
     r = r || x[d];
   return r;
 }
-
 } // namespace Arith
 namespace std {
 template <typename T, int D> struct equal_to<Arith::vect<T, D> > {
