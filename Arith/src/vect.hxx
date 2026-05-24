@@ -626,17 +626,8 @@ template <typename T, int D> struct vect {
     return fmap([](const T &a) ARITH_INLINE { return abs(a); }, x);
   }
 
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  all(const vect &x) {
-    return fold([](const T &a, const T &b) ARITH_INLINE { return a && b; },
-                one<T>()(), x);
-  }
-
-  friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  any(const vect &x) {
-    return fold([](const T &a, const T &b) ARITH_INLINE { return a || b; },
-                zero<T>()(), x);
-  }
+  // all/any are defined at namespace scope (after the struct) to work
+  // around an nvcc ADL bug that fails to resolve hidden friends.
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
   allisfinite(const vect &x) {
@@ -819,11 +810,9 @@ template <typename T, int D> struct nan<vect<T, D> > {
   }
 };
 
-// Namespace-scope overloads of all/any for vect.
-// On conforming compilers the hidden friends inside vect win overload
-// resolution (non-template beats template). On nvcc, whose ADL is
-// broken for these names, normal unqualified lookup finds these
-// templates instead. No call sites need to change.
+// Defined at namespace scope rather than as hidden friends inside vect
+// to work around an nvcc bug where ADL fails to resolve hidden-friend
+// all/any (observed with nvcc 12.6 through 13.1 + g++ 13).
 template <typename T, int D>
 constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto
 all(const vect<T, D> &x) {
