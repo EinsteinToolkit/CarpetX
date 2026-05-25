@@ -18,6 +18,7 @@
 
 #include <AMReX.H>
 #include <AMReX_BCRec.H>
+#include <AMReX_FillPatchUtil.H>
 #include <AMReX_ParmParse.H>
 
 #include <omp.h>
@@ -985,6 +986,83 @@ amrex::iMultiFab *GHExt::PatchData::LevelData::get_cf_mask(
   // `(centering, nghost)` inside build_cf_mask.
   assert(cf_masks[s] && cf_masks[s]->nGrowVect() == ng);
   return cf_masks[s].get();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void GHExt::PatchData::LevelData::build_bands(
+    const GroupData &groupdata) const {
+  // Bands only exist for evolved groups under subcycling.
+  if (!ghext->use_subcycling || !groupdata.do_evolve)
+    return;
+
+  const std::array<int, dim> &indextype = groupdata.indextype;
+  // Sharing assumption (as for cf_masks): all groups of this centering at this
+  // level use the same nghostzones and interpolator, so the band geometry can
+  // be cached per (level, centering).
+  const int s = (indextype[0] << 2) | (indextype[1] << 1) | indextype[2];
+
+  const auto &patchdata = ghext->patchdata.at(patch);
+  const amrex::IntVect ratio{2, 2, 2};
+  const amrex::InterpolaterBoxCoarsener &coarsener =
+      groupdata.interpolator->BoxCoarsener(ratio);
+  const amrex::EB2::IndexSpace *const index_space = nullptr;
+
+  // ---- Band geometry, built once per (level, centering) ----
+  // A non-null source_band_ba[s] marks the geometry as built; the consumer and
+  // source slots are filled together, each possibly holding an empty BoxArray
+  // (level 0 has no consumer band, the finest level has no source band). This
+  // must run after all levels exist so the source band can see its children.
+  if (!source_band_ba[s]) {
+    // Consumer band == this level's cf-ghost region (fpc.ba_fine_patch w.r.t.
+    // the parent). Empty at level 0.
+    amrex::BoxArray fba;
+    amrex::DistributionMapping fdm;
+    if (level > 0) {
+      const auto &mfab = *groupdata.mfab.at(0);
+      const amrex::IntVect &nghosts = mfab.nGrowVect();
+      const auto &fgeom = patchdata.amrcore->Geom(level);
+      const auto &cgeom = patchdata.amrcore->Geom(level - 1);
+      const amrex::FabArrayBase::FPinfo &fpc = amrex::FabArrayBase::TheFPinfo(
+          mfab, mfab, nghosts, coarsener, fgeom, cgeom, index_space);
+      fba = fpc.ba_fine_patch;
+      fdm = fpc.dm_patch;
+    }
+    consumer_band_ba[s] = std::make_unique<amrex::BoxArray>(fba);
+    consumer_band_dm[s] = std::make_unique<amrex::DistributionMapping>(fdm);
+
+    // Source band == coarse cells under the next-finer level's cf-ghost
+    // footprint (child fpc.ba_crse_patch). Empty when this is the finest level.
+    amrex::BoxArray cba;
+    amrex::DistributionMapping cdm;
+    if (level + 1 < int(patchdata.leveldata.size())) {
+      const auto &childleveldata = patchdata.leveldata.at(level + 1);
+      const auto &childgroupdata =
+          *childleveldata.groupdata.at(groupdata.groupindex);
+      const auto &childmfab = *childgroupdata.mfab.at(0);
+      const amrex::IntVect &childnghosts = childmfab.nGrowVect();
+      const auto &fgeom = patchdata.amrcore->Geom(level + 1);
+      const auto &cgeom = patchdata.amrcore->Geom(level);
+      const amrex::FabArrayBase::FPinfo &fpc =
+          amrex::FabArrayBase::TheFPinfo(childmfab, childmfab, childnghosts,
+                                         coarsener, fgeom, cgeom, index_space);
+      cba = fpc.ba_crse_patch;
+      cdm = fpc.dm_patch;
+    }
+    source_band_ba[s] = std::make_unique<amrex::BoxArray>(cba);
+    source_band_dm[s] = std::make_unique<amrex::DistributionMapping>(cdm);
+  }
+
+  // ---- Per-group band MultiFab allocation (idempotent, zero ghost) ----
+  const int numvars = groupdata.numvars;
+  for (int stage = 0; stage < rkstages; ++stage) {
+    if (!groupdata.consumer_band[stage] && !consumer_band_ba[s]->empty())
+      groupdata.consumer_band[stage] = std::make_unique<amrex::MultiFab>(
+          *consumer_band_ba[s], *consumer_band_dm[s], numvars, 0);
+    if (!groupdata.source_band[stage] && !source_band_ba[s]->empty())
+      groupdata.source_band[stage] = std::make_unique<amrex::MultiFab>(
+          *source_band_ba[s], *source_band_dm[s], numvars, 0);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

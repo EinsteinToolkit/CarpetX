@@ -22,22 +22,30 @@ namespace Subcycling {
  *        evolved group per level, fused across all local boxes and all
  *        components of the group.
  *
- * \param leveldata Per-level data (provides groupdata, get_cf_mask).
+ * Band-native: the RK substage derivatives are read from each evolved group's
+ * coarse-fine consumer bands (zero-ghost MultiFabs over the level's cf-ghost
+ * region, filled by band->band prolongation from the parent's source bands).
+ * The fine old state u(t0) is staged onto a band of the same geometry, the
+ * dense-output value Yf is computed in place on that band, and Yf is scattered
+ * into the fine state's ghost halo. Iterating the band's own BoxArray makes the
+ * old cf-mask gate redundant: the band covers exactly the cf-ghost cells.
+ *
+ * \param leveldata Per-level data (provides groupdata / bands).
  * \param Yfs       Cactus group indices receiving the dense-output value.
  * \param Yf_tl     Time level of Yfs to write into.
  * \param u0s       Cactus group indices providing u(t0).
  * \param u0_tl     Time level of u0s to read from.
- * \param kcss      Per-stage Cactus group indices for RK substage derivatives.
  * \param dtc       Coarse-grid time step size.
  * \param xsi       Substep position within the coarse step (0 or 0.5).
  * \param stage     RK stage number (1..RKSTAGES).
  */
 template <int RKSTAGES>
-CCTK_HOST inline void CalcYfFromKcs_MFlevel(
-    CarpetX::GHExt::PatchData::LevelData &leveldata,
-    const std::vector<int> &Yfs, const int Yf_tl, const std::vector<int> &u0s,
-    const int u0_tl, const std::array<std::vector<int>, RKSTAGES> &kcss,
-    const CCTK_REAL dtc, const CCTK_REAL xsi, const CCTK_INT stage) {
+CCTK_HOST inline void
+CalcYfFromKcs_MFlevel(CarpetX::GHExt::PatchData::LevelData &leveldata,
+                      const std::vector<int> &Yfs, const int Yf_tl,
+                      const std::vector<int> &u0s, const int u0_tl,
+                      const CCTK_REAL dtc, const CCTK_REAL xsi,
+                      const CCTK_INT stage) {
   static_assert(RKSTAGES == 4,
                 "CalcYfFromKcs_MFlevel only supports RKSTAGES == 4");
   assert(stage > 0 && stage <= 4);
@@ -74,63 +82,69 @@ CCTK_HOST inline void CalcYfFromKcs_MFlevel(
       4.0   // bttt4
   };
 
+  const auto &geom = CarpetX::ghext->patchdata.at(leveldata.patch)
+                         .amrcore->Geom(leveldata.level);
+
   for (size_t i = 0; i < Yfs.size(); ++i) {
     const auto &groupdata = *leveldata.groupdata.at(Yfs[i]);
     const auto &u0_groupdata = *leveldata.groupdata.at(u0s[i]);
     const int nvars = groupdata.numvars;
     assert(u0_groupdata.numvars == nvars);
 
-    amrex::iMultiFab *const cf_mfab =
-        leveldata.get_cf_mask(groupdata.indextype, groupdata.nghostzones);
-    // No coarse-fine ghosts to fill at level 0 or when subcycling is disabled.
-    if (cf_mfab == nullptr)
+    // No coarse-fine bands at level 0 or when subcycling is disabled.
+    if (!groupdata.consumer_band[0])
       continue;
 
     amrex::MultiFab &Yf_mf = *groupdata.mfab.at(Yf_tl);
     const amrex::MultiFab &u0_mf = *u0_groupdata.mfab.at(u0_tl);
 
-    auto Yf_arrs = Yf_mf.arrays();
-    auto u0_arrs = u0_mf.const_arrays();
-    auto cf_arrs = cf_mfab->const_arrays();
-
-    amrex::GpuArray<amrex::MultiArray4<const CCTK_REAL>, 4> kcs_arrs;
-    for (int s = 0; s < 4; ++s) {
-      const auto &kcs_groupdata = *leveldata.groupdata.at(kcss[s][i]);
-      assert(kcs_groupdata.numvars == nvars);
-      kcs_arrs[s] = kcs_groupdata.mfab.at(0)->const_arrays();
-    }
+    // All bands of this group share one BoxArray/DistributionMapping (the
+    // level's cf-ghost region). The u0 / Yf scratch bands use the same.
+    const amrex::MultiFab &cb0 = *groupdata.consumer_band[0];
+    const amrex::BoxArray &ba = cb0.boxArray();
+    const amrex::DistributionMapping &dm = cb0.DistributionMap();
 
     const amrex::IntVect ng(groupdata.nghostzones[0], groupdata.nghostzones[1],
                             groupdata.nghostzones[2]);
 
+    // Stage the fine old state onto a band over the consumer-band geometry.
+    // The band cells are cf-ghost cells of the fine state, so read u0's ghost
+    // region (snghost = ng) to reach them. Yf is then computed in place on this
+    // band (yf_band currently holds u0).
+    amrex::MultiFab yf_band(ba, dm, nvars, 0);
+    yf_band.ParallelCopy(u0_mf, 0, 0, nvars, ng, amrex::IntVect{0},
+                         amrex::Periodicity::NonPeriodic());
+
+    auto yf_arrs = yf_band.arrays();
+    amrex::GpuArray<amrex::MultiArray4<const CCTK_REAL>, 4> kcs_arrs;
+    for (int s = 0; s < 4; ++s) {
+      assert(groupdata.consumer_band[s]);
+      kcs_arrs[s] = groupdata.consumer_band[s]->const_arrays();
+    }
+
     if (stage == 1) {
       amrex::ParallelFor(
-          Yf_mf, ng, nvars,
+          yf_band, amrex::IntVect{0}, nvars,
           [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
-            if (cf_arrs[b_](i, j, k)) {
-              const std::array<CCTK_REAL, 4> kk = {
-                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
-                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
-              const CCTK_REAL uu =
-                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
-              Yf_arrs[b_](i, j, k, n) = u0_arrs[b_](i, j, k, n) + dtc * uu;
-            }
+            const std::array<CCTK_REAL, 4> kk = {
+                kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+            const CCTK_REAL uu =
+                b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+            yf_arrs[b_](i, j, k, n) += dtc * uu;
           });
     } else if (stage == 2) {
       amrex::ParallelFor(
-          Yf_mf, ng, nvars,
+          yf_band, amrex::IntVect{0}, nvars,
           [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
-            if (cf_arrs[b_](i, j, k)) {
-              const std::array<CCTK_REAL, 4> kk = {
-                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
-                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
-              const CCTK_REAL uu =
-                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
-              const CCTK_REAL ut =
-                  bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
-              Yf_arrs[b_](i, j, k, n) =
-                  u0_arrs[b_](i, j, k, n) + dtc * (uu + 0.5 * r * ut);
-            }
+            const std::array<CCTK_REAL, 4> kk = {
+                kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+            const CCTK_REAL uu =
+                b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+            const CCTK_REAL ut =
+                bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
+            yf_arrs[b_](i, j, k, n) += dtc * (uu + 0.5 * r * ut);
           });
     } else { // stage 3 or stage 4
       const CCTK_REAL r2 = r * r;
@@ -140,27 +154,32 @@ CCTK_HOST inline void CalcYfFromKcs_MFlevel(
       const CCTK_REAL attt = (stage == 3) ? 0.0625 * r3 : 0.125 * r3;
       const CCTK_REAL ak = (stage == 3) ? -4.0 : 4.0;
       amrex::ParallelFor(
-          Yf_mf, ng, nvars,
+          yf_band, amrex::IntVect{0}, nvars,
           [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
-            if (cf_arrs[b_](i, j, k)) {
-              const std::array<CCTK_REAL, 4> kk = {
-                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
-                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
-              const CCTK_REAL uu =
-                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
-              const CCTK_REAL ut =
-                  bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
-              const CCTK_REAL utt = btt[0] * kk[0] + btt[1] * kk[1] +
-                                    btt[2] * kk[2] + btt[3] * kk[3];
-              const CCTK_REAL uttt = bttt[0] * kk[0] + bttt[1] * kk[1] +
-                                     bttt[2] * kk[2] + bttt[3] * kk[3];
-              Yf_arrs[b_](i, j, k, n) =
-                  u0_arrs[b_](i, j, k, n) +
-                  dtc * (uu + at * ut + att * utt +
-                         attt * (uttt + ak * (kk[2] - kk[1])));
-            }
+            const std::array<CCTK_REAL, 4> kk = {
+                kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+            const CCTK_REAL uu =
+                b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+            const CCTK_REAL ut =
+                bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
+            const CCTK_REAL utt = btt[0] * kk[0] + btt[1] * kk[1] +
+                                  btt[2] * kk[2] + btt[3] * kk[3];
+            const CCTK_REAL uttt = bttt[0] * kk[0] + bttt[1] * kk[1] +
+                                   bttt[2] * kk[2] + bttt[3] * kk[3];
+            yf_arrs[b_](i, j, k, n) +=
+                dtc * (uu + at * ut + att * utt +
+                       attt * (uttt + ak * (kk[2] - kk[1])));
           });
     }
+
+    // Wait for the device kernel before the scatter reads yf_band.
+    amrex::Gpu::synchronize();
+
+    // Scatter the band (cf-ghost values of Yf) into the fine state's ghost
+    // halo, mirroring FillPatch_Prolongate's final ParallelCopy.
+    Yf_mf.ParallelCopy(yf_band, 0, 0, nvars, amrex::IntVect{0}, ng,
+                       amrex::Periodicity::NonPeriodic());
   }
 }
 
