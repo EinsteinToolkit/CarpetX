@@ -15,15 +15,7 @@ Do **not** read reference test data files (e.g. `*/test/*/*.tsv`, `*/test/*/*.h5
 ./agent_scripts/test.sh
 ```
 
-Both scripts run inside the running container named `$CONTAINERLOCAL`; build artifacts and testsuite logs live **inside the container**, not on the host. `$CONTAINERLOCAL` and `$CONTAINERLOCALCACTUS` are pre-set in the host shell — pass `CONTAINERLOCALCACTUS` through with `-e` (it's not in the container's default env, and a bare `"$CONTAINERLOCALCACTUS"` inside the `zsh -c` string expands to empty):
-
-```bash
-docker exec -e CONTAINERLOCALCACTUS="$CONTAINERLOCALCACTUS" \
-  "$CONTAINERLOCAL" zsh -c 'tail -80 "$CONTAINERLOCALCACTUS/<path>"'
-```
-
-Per-test logs: `$CONTAINERLOCALCACTUS/TEST/sim-carpetx/<Thorn>/<test>.log`.
-Build artifacts: `$CONTAINERLOCALCACTUS/configs/sim-carpetx/`.
+To access test logs and build artifacts, read `./agent_docs/accessing-logs-and-artifacts.md`.
 
 ## Commit & Pull Request Guidelines
 
