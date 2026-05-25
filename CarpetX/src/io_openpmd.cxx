@@ -279,7 +279,7 @@ struct carpetx_openpmd_t {
         return true;
       if (x.empty() || y.empty())
         return false;
-      return Arith::all(x.lo == y.lo) && Arith::all(x.hi == y.hi);
+      return all(x.lo == y.lo) && all(x.hi == y.hi);
     }
     constexpr friend bool operator!=(const box_t &x, const box_t &y) {
       return !(x == y);
