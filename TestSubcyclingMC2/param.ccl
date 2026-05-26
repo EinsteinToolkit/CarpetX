@@ -39,7 +39,7 @@ CCTK_REAL epsdiss "Dissipation coefficient <arXiv:gr-qc/0610128>" STEERABLE=alwa
 INT timelevels "Number of time levels for the state" STEERABLE=recover
 {
   0:3 :: ""
-} 2
+} 1
 
 SHARES: Driver
 

@@ -11,7 +11,7 @@ USES INCLUDE HEADER: derivs.hxx
 
 
 
-CCTK_REAL state TYPE=gf TIMELEVELS=2 TAGS='rhs="rhs" dependents="error"'
+CCTK_REAL state TYPE=gf TIMELEVELS=1 TAGS='rhs="rhs" dependents="error"'
 {
   u
   rho

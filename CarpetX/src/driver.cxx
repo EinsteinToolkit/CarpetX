@@ -1056,13 +1056,21 @@ void GHExt::PatchData::LevelData::build_bands(
   // ---- Per-group band MultiFab allocation (idempotent, zero ghost) ----
   const int numvars = groupdata.numvars;
   for (int stage = 0; stage < rkstages; ++stage) {
-    if (!groupdata.consumer_band[stage] && !consumer_band_ba[s]->empty())
-      groupdata.consumer_band[stage] = std::make_unique<amrex::MultiFab>(
+    if (!groupdata.ks_consumer_band[stage] && !consumer_band_ba[s]->empty())
+      groupdata.ks_consumer_band[stage] = std::make_unique<amrex::MultiFab>(
           *consumer_band_ba[s], *consumer_band_dm[s], numvars, 0);
-    if (!groupdata.source_band[stage] && !source_band_ba[s]->empty())
-      groupdata.source_band[stage] = std::make_unique<amrex::MultiFab>(
+    if (!groupdata.ks_source_band[stage] && !source_band_ba[s]->empty())
+      groupdata.ks_source_band[stage] = std::make_unique<amrex::MultiFab>(
           *source_band_ba[s], *source_band_dm[s], numvars, 0);
   }
+
+  // Old-state bands (single snapshot, share the ks band geometry above).
+  if (!groupdata.old_consumer_band && !consumer_band_ba[s]->empty())
+    groupdata.old_consumer_band = std::make_unique<amrex::MultiFab>(
+        *consumer_band_ba[s], *consumer_band_dm[s], numvars, 0);
+  if (!groupdata.old_source_band && !source_band_ba[s]->empty())
+    groupdata.old_source_band = std::make_unique<amrex::MultiFab>(
+        *source_band_ba[s], *source_band_dm[s], numvars, 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

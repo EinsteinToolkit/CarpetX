@@ -396,7 +396,8 @@ struct GHExt {
       // A non-null BoxArray slot (even if the BoxArray itself is empty) means
       // the geometry for that centering has been built; both slots are set
       // together. The DistributionMapping is the fpc.dm_patch the consumer band
-      // must share for the band->band FillPatchInterp to stay local.
+      // must share for the band->band FillPatchInterp to stay local. Shared by
+      // both band families (ks_* and old_*).
       mutable std::array<std::unique_ptr<amrex::BoxArray>, 8> source_band_ba;
       mutable std::array<std::unique_ptr<amrex::DistributionMapping>, 8>
           source_band_dm;
@@ -462,16 +463,25 @@ struct GHExt {
         // Coarse-fine boundary bands holding the subcycling RK k-stages
         // (zero-ghost, numvars comps), allocated lazily by build_bands only
         // under subcycling for evolved groups. Indexed by RK stage.
-        //   source_band[s]  : coarse cells under children's cf-ghost
-        //                     footprint, written by setks and read as the
-        //                     prolongation source. Empty on the finest level.
-        //   consumer_band[s]: this level's own cf-ghost region, filled by
-        //                     prolongation from the parent and read by the
-        //                     dense-output kernel. Empty at level 0.
+        //   ks_source_band[s]  : coarse cells under children's cf-ghost
+        //                        footprint, written by setks and read as the
+        //                        prolongation source. Empty on the finest
+        //                        level.
+        //   ks_consumer_band[s]: this level's own cf-ghost region, filled by
+        //                        prolongation from the parent and read by the
+        //                        dense-output kernel. Empty at level 0.
         mutable std::array<std::unique_ptr<amrex::MultiFab>, rkstages>
-            source_band;
+            ks_source_band;
         mutable std::array<std::unique_ptr<amrex::MultiFab>, rkstages>
-            consumer_band;
+            ks_consumer_band;
+
+        // Coarse-fine boundary bands holding the subcycling old state u(t_n), a
+        // single snapshot (not RK-stage indexed) sharing the ks bands' geometry
+        // and lifecycle above. old_source_band is filled from var(tl=0) at
+        // solve start; old_consumer_band is its prolongation, read by the
+        // dense-output kernel as the u(t_n) base.
+        mutable std::unique_ptr<amrex::MultiFab> old_source_band;
+        mutable std::unique_ptr<amrex::MultiFab> old_consumer_band;
 
         // flux register between this and the next coarser level
         std::unique_ptr<amrex::FluxRegister> freg;
@@ -502,11 +512,12 @@ struct GHExt {
       std::vector<unique_ptr<GroupData> > groupdata; // [group index]
 
       // Build (lazily, idempotently) the coarse-fine band geometry for this
-      // group's centering and allocate the group's source_band/consumer_band
-      // MultiFabs (zero ghost, numvars comps). A no-op when subcycling is
-      // disabled or the group is not evolved. Computes the source-band geometry
-      // from the next-finer level's fpc, so it must run after all levels exist;
-      // like build_cf_mask it warms a cache and must run single-threaded.
+      // group's centering and allocate the group's ks_source_band/
+      // ks_consumer_band MultiFabs (zero ghost, numvars comps). A no-op when
+      // subcycling is disabled or the group is not evolved. Computes the
+      // source-band geometry from the next-finer level's fpc, so it must run
+      // after all levels exist; like build_cf_mask it warms a cache and must
+      // run single-threaded.
       void build_bands(const GroupData &groupdata) const;
 
       friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
