@@ -33,8 +33,6 @@ namespace Subcycling {
  * \param leveldata Per-level data (provides groupdata / bands).
  * \param Yfs       Cactus group indices receiving the dense-output value.
  * \param Yf_tl     Time level of Yfs to write into.
- * \param u0s       Cactus group indices providing u(t0).
- * \param u0_tl     Time level of u0s to read from.
  * \param dtc       Coarse-grid time step size.
  * \param xsi       Substep position within the coarse step (0 or 0.5).
  * \param stage     RK stage number (1..RKSTAGES).
@@ -43,7 +41,6 @@ template <int RKSTAGES>
 CCTK_HOST inline void
 CalcYfFromKcs_MFlevel(CarpetX::GHExt::PatchData::LevelData &leveldata,
                       const std::vector<int> &Yfs, const int Yf_tl,
-                      const std::vector<int> &u0s, const int u0_tl,
                       const CCTK_REAL dtc, const CCTK_REAL xsi,
                       const CCTK_INT stage) {
   static_assert(RKSTAGES == 4,
@@ -87,39 +84,35 @@ CalcYfFromKcs_MFlevel(CarpetX::GHExt::PatchData::LevelData &leveldata,
 
   for (size_t i = 0; i < Yfs.size(); ++i) {
     const auto &groupdata = *leveldata.groupdata.at(Yfs[i]);
-    const auto &u0_groupdata = *leveldata.groupdata.at(u0s[i]);
     const int nvars = groupdata.numvars;
-    assert(u0_groupdata.numvars == nvars);
 
     // No coarse-fine bands at level 0 or when subcycling is disabled.
-    if (!groupdata.consumer_band[0])
+    if (!groupdata.ks_consumer_band[0])
       continue;
 
     amrex::MultiFab &Yf_mf = *groupdata.mfab.at(Yf_tl);
-    const amrex::MultiFab &u0_mf = *u0_groupdata.mfab.at(u0_tl);
 
     // All bands of this group share one BoxArray/DistributionMapping (the
-    // level's cf-ghost region). The u0 / Yf scratch bands use the same.
-    const amrex::MultiFab &cb0 = *groupdata.consumer_band[0];
+    // level's cf-ghost region). The Yf scratch band uses the same.
+    const amrex::MultiFab &cb0 = *groupdata.ks_consumer_band[0];
     const amrex::BoxArray &ba = cb0.boxArray();
     const amrex::DistributionMapping &dm = cb0.DistributionMap();
 
     const amrex::IntVect ng(groupdata.nghostzones[0], groupdata.nghostzones[1],
                             groupdata.nghostzones[2]);
 
-    // Stage the fine old state onto a band over the consumer-band geometry.
-    // The band cells are cf-ghost cells of the fine state, so read u0's ghost
-    // region (snghost = ng) to reach them. Yf is then computed in place on this
-    // band (yf_band currently holds u0).
+    // Stage the fine old state u(t_n) from old_consumer_band (same BA/DM, so a
+    // direct Copy suffices); Yf is then computed in place on yf_band.
     amrex::MultiFab yf_band(ba, dm, nvars, 0);
-    yf_band.ParallelCopy(u0_mf, 0, 0, nvars, ng, amrex::IntVect{0},
-                         amrex::Periodicity::NonPeriodic());
+    assert(groupdata.old_consumer_band);
+    amrex::MultiFab::Copy(yf_band, *groupdata.old_consumer_band, 0, 0, nvars,
+                          0);
 
     auto yf_arrs = yf_band.arrays();
     amrex::GpuArray<amrex::MultiArray4<const CCTK_REAL>, 4> kcs_arrs;
     for (int s = 0; s < 4; ++s) {
-      assert(groupdata.consumer_band[s]);
-      kcs_arrs[s] = groupdata.consumer_band[s]->const_arrays();
+      assert(groupdata.ks_consumer_band[s]);
+      kcs_arrs[s] = groupdata.ks_consumer_band[s]->const_arrays();
     }
 
     if (stage == 1) {
