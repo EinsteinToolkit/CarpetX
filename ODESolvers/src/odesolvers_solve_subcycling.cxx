@@ -268,6 +268,9 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
         return;
       const auto &patchdata = ghext->patchdata.at(leveldata.patch);
       const auto &coarseleveldata = patchdata.leveldata.at(level - 1);
+      // Prolongate the bands are redundant for the second fine iteration.
+      if (leveldata.iteration == coarseleveldata.iteration)
+        return;
       const auto &fgeom = patchdata.amrcore->Geom(level);
       const auto &cgeom = patchdata.amrcore->Geom(level - 1);
       for (size_t i = 0; i < var_groups.size(); ++i) {
