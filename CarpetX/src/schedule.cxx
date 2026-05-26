@@ -1963,7 +1963,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
       std::ostringstream buf;
       buf << "CallFunction " << attribute->where << ": " << attribute->thorn
           << "::" << attribute->routine;
-      timer_iter = get<0>(timers.emplace(attribute, buf.str()));
+      timer_iter = std::get<0>(timers.emplace(attribute, buf.str()));
     }
   }
   Timer &timer = timer_iter->second;
