@@ -6,3 +6,70 @@ KEYWORD initial_hydro "Initial conditions for hydro"
 {
   "vacuum" :: "vacuum (without atmosphere)"
 } "vacuum"
+
+KEYWORD evolution_method "The hydro evolution method"
+{
+  "none" :: "hydro variables are not evolved"
+} "none"
+
+# Settings for electron fraction Y_e
+
+KEYWORD initial_Y_e "Initial value for Y_e"
+{
+  "none" :: "inactive"
+  "one"  :: "initially set to one"
+} "none"
+
+KEYWORD Y_e_evolution_method "Evolution method for Y_e"
+{
+  "none" :: "Evolution for Y_e is disabled"
+} "none"
+
+KEYWORD temperature_evolution_method "Evolution method for temperature"
+{
+  "none" :: "Evolution for temperature is disabled"
+} "none"
+
+KEYWORD entropy_evolution_method "Evolution method for entropy"
+{
+  "none" :: "Evolution for entropy is disabled"
+} "none"
+
+# Settings for magnetic field B^i
+
+KEYWORD initial_Bvec "Initial value for Bvec"
+{
+  "none" :: "inactive"
+  "zero" :: "initially set to zero"
+} "none"
+
+KEYWORD initial_Avec "Initial value for Avec"
+{
+  "none" :: "inactive"
+  "zero" :: "initially set to zero"
+} "none"
+
+KEYWORD initial_Aphi "Initial value for Aphi"
+{
+  "none" :: "inactive"
+  "zero" :: "initially set to zero"
+} "none"
+
+KEYWORD Bvec_evolution_method "Evolution method for Bvec"
+{
+  "none" :: "Evolution for Bvec is disabled"
+} "none"
+
+# Settings for temperature and entropy
+
+KEYWORD initial_temperature "Initial value for temperature"
+{
+  "none" :: "inactive"
+  "zero" :: "initially set to zero"
+} "none"
+
+KEYWORD initial_entropy "Initial value for entropy"
+{
+  "none" :: "inactive"
+  "zero" :: "initially set to zero"
+} "none"

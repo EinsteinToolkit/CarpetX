@@ -27,3 +27,5 @@ CCTK_REAL Bvec TYPE=gf CENTERING={ccc} TAGS='parities={+1 -1 -1   -1 +1 -1   -1 
 CCTK_REAL Avecx TYPE=gf CENTERING={cvv} TAGS='parities={-1 +1 +1} checkpoint="no"' "Magnetic vector potential A^x"
 CCTK_REAL Avecy TYPE=gf CENTERING={vcv} TAGS='parities={+1 -1 +1} checkpoint="no"' "Magnetic vector potential A^y"
 CCTK_REAL Avecz TYPE=gf CENTERING={vvc} TAGS='parities={+1 +1 -1} checkpoint="no"' "Magnetic vector potential A^z"
+
+CCTK_REAL Aphi TYPE=gf CENTERING={vvv} TAGS='checkpoint="no"' "Electric potential for Lorentz gauge"
