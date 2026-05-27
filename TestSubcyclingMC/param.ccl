@@ -34,4 +34,4 @@ CCTK_REAL gaussian_width "width of Gaussian"
 
 SHARES: Driver
 
-USES BOOLEAN use_subcycling_wip
+USES BOOLEAN use_subcycling

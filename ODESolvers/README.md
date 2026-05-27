@@ -16,7 +16,7 @@ Solve systems of coupled ordinary differential equations
 Add the following parameters to your parameter file
 
 ```
-CarpetX::use_subcycling_wip = yes
+CarpetX::use_subcycling = yes
 CarpetX::restrict_during_sync = no
 ```
 

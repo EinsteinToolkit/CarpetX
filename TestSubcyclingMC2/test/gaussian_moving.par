@@ -19,7 +19,7 @@ TestSubcyclingMC2::gaussian_width = 0.17677669529 # sqrt(2)*W = 0.25
 # level. y and z velocities stay at their (zero) defaults.
 TestSubcyclingMC2::box_velocity_x = 2.0
 
-CarpetX::use_subcycling_wip = yes
+CarpetX::use_subcycling = yes
 CarpetX::restrict_during_sync = no
 
 CarpetX::poison_undefined_values = yes

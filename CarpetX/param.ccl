@@ -99,7 +99,7 @@ BOOLEAN periodic_z "Periodic boundary conditions in z-direction"
   "no"  :: "not periodic in z direction"
 } "yes"
 
-BOOLEAN use_subcycling_wip "Use subcycling in time"
+BOOLEAN use_subcycling "Use subcycling in time"
 {
 } "no"
 

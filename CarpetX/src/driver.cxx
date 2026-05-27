@@ -2062,7 +2062,7 @@ extern "C" int CarpetX_Startup() {
   CCTK_OverloadGroupStorageDecrease(GroupStorageDecrease);
   CCTK_OverloadQueryGroupStorageB(QueryGroupStorageB);
 
-  if (use_subcycling_wip)
+  if (use_subcycling)
     CCTK_OverloadSyncGroupsByDirI(SyncGroupsByDirISubcycling);
   else
     CCTK_OverloadSyncGroupsByDirI(SyncGroupsByDirI);
@@ -2211,7 +2211,7 @@ int InitGH(cGH *restrict cctkGH) {
     ghext->patchdata.emplace_back(patch);
 
   // Set up use_subcycling
-  ghext->use_subcycling = use_subcycling_wip;
+  ghext->use_subcycling = use_subcycling;
 
   return 0; // unused
 }

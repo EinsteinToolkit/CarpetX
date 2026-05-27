@@ -1101,7 +1101,7 @@ int Initialise(tFleshConfig *config) {
                "\"mixed-error\" or \"presync-only\"");
 
   // Check restrict_during_sync when use_subcycling is on
-  if (use_subcycling_wip && restrict_during_sync)
+  if (use_subcycling && restrict_during_sync)
     CCTK_ERROR("CarpetX requires CarpetX::restrict_during_sync = "
                "\"no\" when CarpetX::use_subcycling = \"yes\"");
 
