@@ -405,6 +405,13 @@ struct GHExt {
       mutable std::array<std::unique_ptr<amrex::DistributionMapping>, 8>
           consumer_band_dm;
 
+      // The child (level+1) BoxArray the source band was last built against.
+      // A mismatch with the current child layout (which AMReX may have changed
+      // without re-making this coarser level) rebuilds the source band. null
+      // means not yet built; an empty BoxArray means there was no child.
+      mutable std::array<std::unique_ptr<amrex::BoxArray>, 8>
+          source_band_child_ba;
+
       // Returns the coarse-fine ghost mask for this (level, centering), or
       // nullptr at level 0 / when subcycling is disabled. Pure reader,
       // side-effect-free and safe to call from a parallel consume; callers MUST

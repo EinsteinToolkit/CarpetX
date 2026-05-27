@@ -1008,12 +1008,25 @@ void GHExt::PatchData::LevelData::build_bands(
       groupdata.interpolator->BoxCoarsener(ratio);
   const amrex::EB2::IndexSpace *const index_space = nullptr;
 
-  // ---- Band geometry, built once per (level, centering) ----
+  // Current child (level+1) layout the source band must match; empty on the
+  // finest level.
+  amrex::BoxArray current_child_ba;
+  if (level + 1 < int(patchdata.leveldata.size())) {
+    const auto &childleveldata = patchdata.leveldata.at(level + 1);
+    const auto &childgroupdata =
+        *childleveldata.groupdata.at(groupdata.groupindex);
+    current_child_ba = childgroupdata.mfab.at(0)->boxArray();
+  }
+
+  // ---- Band geometry, built once per (level, centering), and rebuilt when
+  // the child layout changes (operator== short-circuits on the shared m_ref,
+  // so this is O(1) on unchanged grids). ----
   // A non-null source_band_ba[s] marks the geometry as built; the consumer and
   // source slots are filled together, each possibly holding an empty BoxArray
   // (level 0 has no consumer band, the finest level has no source band). This
   // must run after all levels exist so the source band can see its children.
-  if (!source_band_ba[s]) {
+  if (!source_band_ba[s] || !source_band_child_ba[s] ||
+      *source_band_child_ba[s] != current_child_ba) {
     // Consumer band == this level's cf-ghost region (fpc.ba_fine_patch w.r.t.
     // the parent). Empty at level 0.
     amrex::BoxArray fba;
@@ -1051,6 +1064,8 @@ void GHExt::PatchData::LevelData::build_bands(
     }
     source_band_ba[s] = std::make_unique<amrex::BoxArray>(cba);
     source_band_dm[s] = std::make_unique<amrex::DistributionMapping>(cdm);
+    source_band_child_ba[s] =
+        std::make_unique<amrex::BoxArray>(current_child_ba);
   }
 
   // ---- Per-group band MultiFab allocation (idempotent, zero ghost) ----
@@ -1059,6 +1074,11 @@ void GHExt::PatchData::LevelData::build_bands(
     if (!groupdata.ks_consumer_band[stage] && !consumer_band_ba[s]->empty())
       groupdata.ks_consumer_band[stage] = std::make_unique<amrex::MultiFab>(
           *consumer_band_ba[s], *consumer_band_dm[s], numvars, 0);
+    // Drop a source band whose layout no longer matches the (rebuilt or
+    // emptied) geometry, then (re)allocate below.
+    if (groupdata.ks_source_band[stage] &&
+        groupdata.ks_source_band[stage]->boxArray() != *source_band_ba[s])
+      groupdata.ks_source_band[stage].reset();
     if (!groupdata.ks_source_band[stage] && !source_band_ba[s]->empty())
       groupdata.ks_source_band[stage] = std::make_unique<amrex::MultiFab>(
           *source_band_ba[s], *source_band_dm[s], numvars, 0);
@@ -1068,6 +1088,9 @@ void GHExt::PatchData::LevelData::build_bands(
   if (!groupdata.old_consumer_band && !consumer_band_ba[s]->empty())
     groupdata.old_consumer_band = std::make_unique<amrex::MultiFab>(
         *consumer_band_ba[s], *consumer_band_dm[s], numvars, 0);
+  if (groupdata.old_source_band &&
+      groupdata.old_source_band->boxArray() != *source_band_ba[s])
+    groupdata.old_source_band.reset();
   if (!groupdata.old_source_band && !source_band_ba[s]->empty())
     groupdata.old_source_band = std::make_unique<amrex::MultiFab>(
         *source_band_ba[s], *source_band_dm[s], numvars, 0);
