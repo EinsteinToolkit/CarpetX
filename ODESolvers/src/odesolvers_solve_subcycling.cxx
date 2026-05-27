@@ -419,4 +419,21 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
   }
 }
 
+extern "C" void ODESolvers_CheckTimelevels(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ODESolvers_CheckTimelevels;
+  DECLARE_CCTK_PARAMETERS;
+
+  for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
+    if (get_group_rhs(gi) < 0)
+      continue; // not an ODE-evolved group
+    const int ntls = CCTK_ActiveTimeLevelsGI(cctkGH, gi);
+    if (ntls >= 2)
+      CCTK_VERROR("ODESolvers subcycling requires evolved groups to have a "
+                  "single timelevel, but group \"%s\" has %d active "
+                  "timelevels. Subcycling does not support timelevels >= 2 "
+                  "for evolution variables.",
+                  CCTK_FullGroupName(gi), ntls);
+  }
+}
+
 } // namespace ODESolvers

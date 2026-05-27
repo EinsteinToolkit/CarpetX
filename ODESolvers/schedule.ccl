@@ -28,6 +28,12 @@ if(use_subcycling_wip) {
     OPTIONS: level
   } "Refill refinement-boundary ghosts of evolved state after checkpoint recovery"
 
+  SCHEDULE ODESolvers_CheckTimelevels AT CCTK_PARAMCHECK
+  {
+    LANG: C
+    OPTIONS: global
+  } "Reject multiple timelevels for evolved groups under subcycling"
+
 } else {
 
   SCHEDULE ODESolvers_Solve AT evol
