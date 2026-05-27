@@ -44,7 +44,7 @@ SCHEDULE TestSubcyclingMC_SetP IN TestSubcyclingMC_RK4Group
   SYNC: pstate
 } "Save previous ustate"
 
-if(use_subcycling_wip) {
+if(use_subcycling) {
   SCHEDULE TestSubcyclingMC_ProlongateKs IN TestSubcyclingMC_RK4Group AFTER TestSubcyclingMC_SetP BEFORE TestSubcyclingMC_CalcK1
   {
     LANG: C

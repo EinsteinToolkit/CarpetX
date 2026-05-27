@@ -39,9 +39,20 @@ CCTK_REAL epsdiss "Dissipation coefficient <arXiv:gr-qc/0610128>" STEERABLE=alwa
 INT timelevels "Number of time levels for the state" STEERABLE=recover
 {
   0:3 :: ""
-} 2
+} 1
 
-SHARES: Driver
+CCTK_REAL box_velocity_x "x-velocity of the refined box (linear drift anchored at the origin)"
+{
+  *:* :: ""
+} 0.0
 
-USES BOOLEAN use_subcycling_wip
+CCTK_REAL box_velocity_y "y-velocity of the refined box (linear drift anchored at the origin)"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL box_velocity_z "z-velocity of the refined box (linear drift anchored at the origin)"
+{
+  *:* :: ""
+} 0.0
 

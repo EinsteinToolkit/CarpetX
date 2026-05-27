@@ -191,8 +191,7 @@ extern "C" void TestSubcyclingMC_CalcYfFromKcs(CCTK_ARGUMENTS,
 }
 
 extern "C" void TestSubcyclingMC_WarmCFMask(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_PARAMETERS;
-  if (!use_subcycling_wip)
+  if (!ghext->use_subcycling)
     return;
   // Warm the cf-mask cache single-threaded before the parallel CalcK1..K4
   // read it via CalcYfFromKcs; building it inside run_tasks's OpenMP region
@@ -220,12 +219,11 @@ extern "C" void TestSubcyclingMC_SetP(CCTK_ARGUMENTS) {
 
 extern "C" void TestSubcyclingMC_CalcK1(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK1;
-  DECLARE_CCTK_PARAMETERS;
   const CCTK_REAL dt = CCTK_DELTA_TIME;
   const array<const Loop::GF3D2<CCTK_REAL>, 2> k1{u_k1, rho_k1};
   const array<const Loop::GF3D2<const CCTK_REAL>, 2> vlu{u, rho};
   constexpr size_t nvars = vlu.size();
-  if (use_subcycling_wip)
+  if (ghext->use_subcycling)
     TestSubcyclingMC_CalcYfFromKcs(CCTK_PASS_CTOC, dt, 1);
   // k1 = f(Y1)
   CalcRhs<nvars>(grid, k1, vlu);
@@ -245,12 +243,11 @@ extern "C" void TestSubcyclingMC_CalcY2(CCTK_ARGUMENTS) {
 
 extern "C" void TestSubcyclingMC_CalcK2(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK2;
-  DECLARE_CCTK_PARAMETERS;
   const CCTK_REAL dt = CCTK_DELTA_TIME;
   const array<const Loop::GF3D2<CCTK_REAL>, 2> k2{u_k2, rho_k2};
   const array<const Loop::GF3D2<const CCTK_REAL>, 2> vlu{u, rho};
   constexpr size_t nvars = vlu.size();
-  if (use_subcycling_wip)
+  if (ghext->use_subcycling)
     TestSubcyclingMC_CalcYfFromKcs(CCTK_PASS_CTOC, dt, 2);
   // k2 = f(Y2)
   CalcRhs<nvars>(grid, k2, vlu);
@@ -270,12 +267,11 @@ extern "C" void TestSubcyclingMC_CalcY3(CCTK_ARGUMENTS) {
 
 extern "C" void TestSubcyclingMC_CalcK3(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC_CalcK3;
-  DECLARE_CCTK_PARAMETERS;
   const CCTK_REAL dt = CCTK_DELTA_TIME;
   const array<const Loop::GF3D2<CCTK_REAL>, 2> k3{u_k3, rho_k3};
   const array<const Loop::GF3D2<const CCTK_REAL>, 2> vlu{u, rho};
   constexpr size_t nvars = vlu.size();
-  if (use_subcycling_wip)
+  if (ghext->use_subcycling)
     TestSubcyclingMC_CalcYfFromKcs(CCTK_PASS_CTOC, dt, 3);
   // k3 = f(Y3)
   CalcRhs<nvars>(grid, k3, vlu);
@@ -300,7 +296,7 @@ extern "C" void TestSubcyclingMC_CalcK4(CCTK_ARGUMENTS) {
   const array<const Loop::GF3D2<CCTK_REAL>, 2> k4{u_k4, rho_k4};
   const array<const Loop::GF3D2<const CCTK_REAL>, 2> vlu{u, rho};
   constexpr size_t nvars = vlu.size();
-  if (use_subcycling_wip)
+  if (ghext->use_subcycling)
     TestSubcyclingMC_CalcYfFromKcs(CCTK_PASS_CTOC, dt, 4);
   // k4 = f(Y4)
   CalcRhs<nvars>(grid, k4, vlu);

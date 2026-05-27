@@ -10,7 +10,7 @@ SCHEDULE ODESolvers_InitConstants AT WRAGH
   WRITES: do_substeps
 } "Set up dummy loop counters for schedule printout"
 
-if(use_subcycling_wip) {
+if(use_subcycling) {
 
   SCHEDULE ODESolvers_Solve_Subcycling AT evol
   {
@@ -27,6 +27,12 @@ if(use_subcycling_wip) {
     LANG: C
     OPTIONS: level
   } "Refill refinement-boundary ghosts of evolved state after checkpoint recovery"
+
+  SCHEDULE ODESolvers_CheckTimelevels AT CCTK_PARAMCHECK
+  {
+    LANG: C
+    OPTIONS: global
+  } "Reject multiple timelevels for evolved groups under subcycling"
 
 } else {
 

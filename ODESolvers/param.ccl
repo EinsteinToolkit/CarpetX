@@ -24,4 +24,4 @@ RESTRICTED:
 
 SHARES: Driver
 
-USES BOOLEAN use_subcycling_wip
+USES BOOLEAN use_subcycling

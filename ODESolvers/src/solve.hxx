@@ -188,62 +188,6 @@ inline int get_group_rhs(const int gi) {
   return rhs;
 }
 
-template <typename T, int D> inline array<T, D> get_group_ks(const int gi) {
-  assert(gi >= 0);
-  const int tags = CCTK_GroupTagsTableI(gi);
-  assert(tags >= 0);
-  std::vector<char> ks_buf(1000);
-  const int iret =
-      Util_TableGetString(tags, ks_buf.size(), ks_buf.data(), "ks");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    ks_buf[0] = '\0'; // default: empty (no ks)
-  } else if (iret >= 0) {
-    // do nothing
-  } else {
-    assert(0);
-  }
-
-  array<T, D> ks;
-  ks.fill(-1);
-  const std::string str(ks_buf.data());
-  if (str.empty())
-    return ks; // No ks specified
-
-  int count = 0;
-  std::size_t pos = 0;
-  for (;;) {
-    // Skip white space
-    while (pos < str.size() && std::isspace(str[pos]))
-      ++pos;
-    if (pos == str.size())
-      break;
-    // Read group name
-    const std::size_t group_begin = pos;
-    while (pos < str.size() && !std::isspace(str[pos]))
-      ++pos;
-    const std::size_t group_end = pos;
-    const std::string groupname =
-        str.substr(group_begin, group_end - group_begin);
-    const int ks_gi = groupindex(gi, groupname);
-    if (ks_gi < 0)
-      CCTK_VERROR("Variable group \"%s\" declares a ks group \"%s\". "
-                  "That group does not exist.",
-                  CCTK_FullGroupName(gi), groupname.c_str());
-    if (count >= D)
-      CCTK_VERROR("Variable group \"%s\" declares more than %d ks groups "
-                  "in its TAGS. Expected exactly %d.",
-                  CCTK_FullGroupName(gi), D, D);
-    ks[count] = ks_gi;
-    ++count;
-  }
-  if (count != D)
-    CCTK_VERROR("Variable group \"%s\" declares %d ks groups in its TAGS. "
-                "Expected exactly %d.",
-                CCTK_FullGroupName(gi), count, D);
-
-  return ks;
-}
-
 inline std::vector<int> get_group_dependents(const int gi) {
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);

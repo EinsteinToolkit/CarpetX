@@ -58,6 +58,18 @@ inline void FillPatch_ProlongateOnly(
                        fgeom, cgeom, mapper, bcrecs, /*do_sync=*/false);
 }
 
+// Band-to-band prolongation for the subcycling RK k-stages: interpolate the
+// coarse level's source band into the fine level's consumer band, reusing the
+// same coarse-to-fine machinery as FillPatch_Prolongate. The source band must
+// cover the coarse patch (fpc.ba_crse_patch) and the consumer band must be
+// allocated over fpc.ba_fine_patch / fpc.dm_patch (see build_bands).
+void FillPatch_ProlongateToBand(
+    const GHExt::PatchData::LevelData::GroupData &groupdata,
+    const GHExt::PatchData::LevelData::GroupData &coarsegroupdata,
+    amrex::MultiFab &consumer_band, const amrex::MultiFab &source_band,
+    const amrex::Geometry &fgeom, const amrex::Geometry &cgeom,
+    amrex::Interpolater *mapper, const amrex::Vector<amrex::BCRec> &bcrecs);
+
 #warning "TODO: Restrict"
 
 // Prolongate and sync interior. Expects coarse mfab prolongated and

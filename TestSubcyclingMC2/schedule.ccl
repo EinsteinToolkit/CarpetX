@@ -2,10 +2,20 @@
 
 STORAGE: state[timelevels] rhs error
 
-if(use_subcycling_wip) {
-  STORAGE: k1 k2 k3 k4
-}
 
+SCHEDULE TestSubcyclingMC2_MoveBox AT postinitial BEFORE EstimateError
+{
+  LANG: C
+  READS: BoxInBox::positions
+  WRITES: BoxInBox::positions
+} "Move the refined box along a linear drift from the origin"
+
+SCHEDULE TestSubcyclingMC2_MoveBox AT poststep BEFORE EstimateError
+{
+  LANG: C
+  READS: BoxInBox::positions
+  WRITES: BoxInBox::positions
+} "Move the refined box along a linear drift from the origin"
 
 SCHEDULE TestSubcyclingMC2_Initial AT initial
 {

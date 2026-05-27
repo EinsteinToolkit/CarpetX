@@ -12,7 +12,7 @@ $ncells = 32
 TestSubcyclingMC::initial_condition = "Gaussian"
 TestSubcyclingMC::gaussian_width = 0.17677669529 # sqrt(2)*W = 0.25
 
-CarpetX::use_subcycling_wip = yes
+CarpetX::use_subcycling = yes
 CarpetX::restrict_during_sync = no
 
 CarpetX::poison_undefined_values = no

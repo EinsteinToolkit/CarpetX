@@ -1,6 +1,10 @@
 #include "solve.hxx"
 #include <subcycling.hxx>
 
+// For FillPatch_ProlongateToBand (band->band prolongation of the RK k-stages).
+// TODO: Don't include files from other thorns; create a proper interface.
+#include "../../CarpetX/src/fillpatch.hxx"
+
 #include <AMReX_MultiFab.H>
 
 namespace ODESolvers {
@@ -10,23 +14,19 @@ constexpr int rkstages = 4;
 namespace {
 
 struct solve_setup_t {
-  statecomp_t var, rhs, old;
-  std::array<statecomp_t, rkstages> ks;
+  statecomp_t var, rhs;
   std::vector<int> var_groups, rhs_groups, dep_groups;
-  std::array<std::vector<int>, rkstages> ks_groups;
   int nvars = 0;
 };
 
-// Collect evolved groups and their ks= companions into statecomp_t bundles.
-// The previous-step "old" anchor lives at tl=1 of the evolved group itself.
-// Operates on CarpetX::active_levels; no cGH needed.
+// Collect evolved groups into statecomp_t bundles. The old-state anchor is now
+// a scratch copy of var(tl=0) made by the solver (no extra timelevel); the RK
+// k-stages live as coarse-fine bands on each group's GroupData. Operates on
+// CarpetX::active_levels; no cGH needed.
 solve_setup_t collect_solve_setup() {
   solve_setup_t s;
   s.var.timelevel = 0;
   s.rhs.timelevel = 0;
-  s.old.timelevel = 1;
-  for (int i = 0; i < rkstages; i++)
-    s.ks[i].timelevel = 0;
   bool do_accumulate_nvars = true;
   assert(CarpetX::active_levels);
   CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
@@ -37,22 +37,6 @@ solve_setup_t collect_solve_setup() {
 
       auto &groupdata = *groupdataptr;
       const int rhs_gi = get_group_rhs(groupdata.groupindex);
-      const auto &ks_gi = get_group_ks<int, rkstages>(groupdata.groupindex);
-      if (rhs_gi >= 0) {
-        if (int(groupdata.mfab.size()) < 2)
-          CCTK_VERROR("Variable group \"%s\" declares rhs but has TIMELEVELS<2."
-                      " Bump TIMELEVELS>=2 in interface.ccl for use with the "
-                      "subcycling integrator.",
-                      CCTK_FullGroupName(groupdata.groupindex));
-        for (int i = 0; i < rkstages; i++) {
-          if (ks_gi[i] < 0)
-            CCTK_VERROR("Variable group \"%s\" declares rhs but is missing "
-                        "required subcycling tag ks=\"...\". Add "
-                        "ks=\"k1 k2 k3 k4\" to the group's TAGS in "
-                        "interface.ccl.",
-                        CCTK_FullGroupName(groupdata.groupindex));
-        }
-      }
       if (rhs_gi >= 0) {
         assert(rhs_gi != groupdata.groupindex);
         auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
@@ -61,22 +45,11 @@ solve_setup_t collect_solve_setup() {
         s.var.mfabs.push_back(groupdata.mfab.at(0).get());
         s.rhs.groupdatas.push_back(&rhs_groupdata);
         s.rhs.mfabs.push_back(rhs_groupdata.mfab.at(0).get());
-        // old aliases the evolved groupdata at tl=1
-        s.old.groupdatas.push_back(&groupdata);
-        s.old.mfabs.push_back(groupdata.mfab.at(1).get());
-        for (int i = 0; i < rkstages; i++) {
-          auto &ki_groupdata = *leveldata.groupdata.at(ks_gi[i]);
-          s.ks[i].groupdatas.push_back(&ki_groupdata);
-          s.ks[i].mfabs.push_back(ki_groupdata.mfab.at(0).get());
-        }
 
         if (do_accumulate_nvars) {
           s.nvars += groupdata.numvars;
           s.var_groups.push_back(groupdata.groupindex);
           s.rhs_groups.push_back(rhs_gi);
-          for (int i = 0; i < rkstages; i++) {
-            s.ks_groups[i].push_back(ks_gi[i]);
-          }
           const auto &dependents = get_group_dependents(groupdata.groupindex);
           s.dep_groups.insert(s.dep_groups.end(), dependents.begin(),
                               dependents.end());
@@ -96,12 +69,6 @@ solve_setup_t collect_solve_setup() {
     std::sort(s.rhs_groups.begin(), s.rhs_groups.end());
     const auto last = std::unique(s.rhs_groups.begin(), s.rhs_groups.end());
     assert(last == s.rhs_groups.end());
-  }
-
-  for (int i = 0; i < rkstages; i++) {
-    std::sort(s.ks_groups[i].begin(), s.ks_groups[i].end());
-    const auto last = std::unique(s.ks_groups[i].begin(), s.ks_groups[i].end());
-    assert(last == s.ks_groups[i].end());
   }
 
   // Add RHS variables to dependent variables
@@ -146,12 +113,9 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
   auto setup = collect_solve_setup();
   auto &var = setup.var;
   auto &rhs = setup.rhs;
-  auto &old = setup.old;
-  auto &ks = setup.ks;
   auto &var_groups = setup.var_groups;
   auto &rhs_groups = setup.rhs_groups;
   auto &dep_groups = setup.dep_groups;
-  auto &ks_groups = setup.ks_groups;
   const int nvars = setup.nvars;
   if (verbose)
     CCTK_VINFO("  Integrating %d variables", nvars);
@@ -166,13 +130,15 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     statecomp_t::init_tmp_mfabs();
   }
 
-  // Warm the cf-mask cache single-threaded so the parallel calcys_rmbnd
-  // consume only reads it; building BuildMask's MFIter inside run_tasks's
-  // OpenMP region races AMReX's static MFIter::depth.
+  // Allocate the coarse-fine RK k-stage bands single-threaded. The source-band
+  // geometry reads the next-finer level, so this must run once all levels
+  // exist; like build_cf_mask it opens its own MFIter/OpenMP region and so must
+  // not run inside a parallel consume. This is the band allocation site that
+  // setks, the band->band prolongation, and the dense-output kernel rely on.
   active_levels->loop_serially([&](const auto &leveldata) {
     for (const int gi : var_groups) {
       const auto &gd = *leveldata.groupdata.at(gi);
-      leveldata.build_cf_mask(gd.indextype, gd.nghostzones);
+      leveldata.build_bands(gd);
     }
   });
 
@@ -215,7 +181,7 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
   const auto calcpoststep = [&]() {
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
   };
-  // calculate Ys from ks and old on the mesh refinement boundary
+  // calculate Ys from the k-stage bands and old on the mesh refinement boundary
   const auto calcys_rmbnd = [&](const int stage) {
     if (verbose)
       CCTK_VINFO(
@@ -236,8 +202,7 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
       }
       const int stage0 = (stage == 5 ? 1 : stage);
       Subcycling::CalcYfFromKcs_MFlevel<rkstages>(
-          leveldata, var_groups, /*Yf_tl=*/0, var_groups, /*u0_tl=*/1,
-          ks_groups, dt * 2, xsi, stage0);
+          leveldata, var_groups, /*Yf_tl=*/0, dt * 2, xsi, stage0);
     });
     synchronize();
     var.set_valid(make_valid_all());
@@ -250,35 +215,89 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
           stage, double(cctkGH->cctk_time));
     const int s = stage - 1;
     active_levels->loop_coarse_to_fine([&](const auto &restrict leveldata) {
+      // rhs_groups[i] and var_groups[i] are paired by sort order.
       for (size_t i = 0; i < rhs_groups.size(); ++i) {
         const auto &rhs_groupdata = *leveldata.groupdata.at(rhs_groups[i]);
-        const auto &k_groupdata = *leveldata.groupdata.at(ks_groups[s][i]);
+        // The k-stage bands live on the evolved group's GroupData.
+        const auto &groupdata = *leveldata.groupdata.at(var_groups[i]);
+        // The finest level has no source band (no children to prolongate to).
+        if (!groupdata.ks_source_band[s])
+          continue;
         auto &rhs_mf = *rhs_groupdata.mfab.at(0);
-        auto &k_mf = *k_groupdata.mfab.at(0);
-        assert(k_mf.ixType() == rhs_mf.ixType());
-        assert(k_mf.nComp() == rhs_mf.nComp());
-        assert(k_mf.nGrowVect().allGE(amrex::IntVect(0)));
-        assert(rhs_mf.nGrowVect().allGE(amrex::IntVect(0)));
-        amrex::MultiFab::Copy(k_mf, rhs_mf, 0, 0, k_mf.nComp(),
-                              amrex::IntVect(0));
+        auto &src_band = *groupdata.ks_source_band[s];
+        assert(src_band.ixType() == rhs_mf.ixType());
+        assert(src_band.nComp() == rhs_mf.nComp());
+        // Fill the source band's interior from the RHS interior. The band is
+        // zero-ghost and feeds band->band prolongation, which pulls from valid
+        // interior cells, so the old same-level FillBoundary is unnecessary.
+        src_band.ParallelCopy(rhs_mf, 0, 0, src_band.nComp(), amrex::IntVect{0},
+                              amrex::IntVect{0},
+                              amrex::Periodicity::NonPeriodic());
       }
     });
     synchronize();
-
-    // apply boundary condition to account for mesh refinement overlapping the
-    // outer boundary
-    SyncGroupsByDirIGhostOnly(cctkGH, ks_groups[s].size(), ks_groups[s].data(),
-                              nullptr);
   };
-  // populate var(tl=0) from var(tl=1) over the full FAB (interior + outer +
-  // ghosts). This is the start-of-substep state that the RHS reads.
-  const auto init_substep = [&]() {
-    if (verbose)
-      CCTK_VINFO("Init substep: copy var(tl=1) -> var(tl=0) at t=%g",
-                 double(cctkGH->cctk_time));
-    statecomp_t::lincomb(var, 0.0, reals<1>{1.0}, states<1>{&old},
-                         make_valid_all());
-    var.set_valid(make_valid_all());
+  // Capture u(t_n) = var(tl=0) into each level's old_source_band (interior
+  // only), for prolongation into the children's old_consumer_band. Like setks
+  // but from var(tl=0) once per step. The finest level has no source band.
+  const auto fill_old_source_band = [&]() {
+    active_levels->loop_coarse_to_fine([&](const auto &restrict leveldata) {
+      for (const int gi : var_groups) {
+        const auto &groupdata = *leveldata.groupdata.at(gi);
+        if (!groupdata.old_source_band)
+          continue;
+        auto &var_mf = *groupdata.mfab.at(0);
+        auto &src_band = *groupdata.old_source_band;
+        assert(src_band.ixType() == var_mf.ixType());
+        assert(src_band.nComp() == var_mf.nComp());
+        src_band.ParallelCopy(var_mf, 0, 0, src_band.nComp(), amrex::IntVect{0},
+                              amrex::IntVect{0},
+                              amrex::Periodicity::NonPeriodic());
+      }
+    });
+    synchronize();
+  };
+  // Prolongate the coarse-fine bands from the parent (band->band), filling each
+  // fine level's consumer bands: the RK k-stage bands (written by setks) and
+  // the single old-state band (written by fill_old_source_band). Both feed
+  // calcys_rmbnd.
+  const auto prolongate_bands = [&]() {
+    active_levels->loop_coarse_to_fine([&](const auto &restrict leveldata) {
+      const int level = leveldata.level;
+      if (level == 0)
+        return;
+      const auto &patchdata = ghext->patchdata.at(leveldata.patch);
+      const auto &coarseleveldata = patchdata.leveldata.at(level - 1);
+      // Prolongate the bands are redundant for the second fine iteration.
+      if (leveldata.iteration == coarseleveldata.iteration)
+        return;
+      const auto &fgeom = patchdata.amrcore->Geom(level);
+      const auto &cgeom = patchdata.amrcore->Geom(level - 1);
+      for (size_t i = 0; i < var_groups.size(); ++i) {
+        const auto &groupdata = *leveldata.groupdata.at(var_groups[i]);
+        const auto &coarsegroupdata =
+            *coarseleveldata.groupdata.at(var_groups[i]);
+        amrex::Interpolater *const interpolator = groupdata.interpolator;
+        for (int s = 0; s < rkstages; ++s) {
+          // Skip where either band is absent (level 0 has no consumer band, the
+          // finest level no source band).
+          if (!groupdata.ks_consumer_band[s] ||
+              !coarsegroupdata.ks_source_band[s])
+            continue;
+          CarpetX::FillPatch_ProlongateToBand(
+              groupdata, coarsegroupdata, *groupdata.ks_consumer_band[s],
+              *coarsegroupdata.ks_source_band[s], fgeom, cgeom, interpolator,
+              groupdata.bcrecs);
+        }
+        // Old-state band (single), reusing the same band->band helper.
+        if (groupdata.old_consumer_band && coarsegroupdata.old_source_band)
+          CarpetX::FillPatch_ProlongateToBand(
+              groupdata, coarsegroupdata, *groupdata.old_consumer_band,
+              *coarsegroupdata.old_source_band, fgeom, cgeom, interpolator,
+              groupdata.bcrecs);
+      }
+    });
+    synchronize();
   };
 
   *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
@@ -297,28 +316,23 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     // k4 = f(y0 + h k3)
     // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
 
-    // Initialize the substep working state: var(tl=0) <- var(tl=1).
-    init_substep();
+    // Scratch copy of u(t_n) = var(tl=0), the RK4 interior anchor y0. At one
+    // timelevel var(tl=0) holds the previous step's result, so no init copy is
+    // needed (mirrors the non-subcycling solver).
+    const auto old = var.copy(make_valid_all());
 
-    // Sync OldState and Ks: prolongate the previous-step anchor (var at tl=1)
-    // and the ks scratch groups from the parent level, which were set in
-    // previous steps.
+    // Capture u(t_n) into the old bands before the RK stages overwrite var,
+    // then prolongate the parent's bands (old + k-stage) into this level's
+    // consumer bands.
     if (var_groups.size() > 0) {
-      // mark interior valid to work around poison mechanism
-      old.set_valid(make_valid_int());
-      SyncGroupsByDirIProlongateOnly(cctkGH, var_groups.size(),
-                                     var_groups.data(), nullptr, /*tl=*/1);
-      for (int s = 0; s < rkstages; ++s) {
-        // mark interior valid to work around poison mechanism
-        ks[s].set_valid(make_valid_int());
-        SyncGroupsByDirIProlongateOnly(cctkGH, ks_groups[s].size(),
-                                       ks_groups[s].data(), nullptr);
-      }
+      fill_old_source_band();
+      prolongate_bands();
     }
 
     // k1 = f(Y1)
     calcrhs(1);
     setks(1); // interior only
+    const auto kaccum = rhs.copy(make_valid_int());
     calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&rhs});
     calcys_rmbnd(2); // refinement boundary only
     calcpoststep();
@@ -326,6 +340,8 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     // k2 = f(Y2)
     calcrhs(2);
     setks(2); // interior only
+    statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
+                         make_valid_int());
     calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
     calcys_rmbnd(3); // refinement boundary only
     calcpoststep();
@@ -333,6 +349,8 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     // k3 = f(Y3)
     calcrhs(3);
     setks(3); // interior only
+    statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
+                         make_valid_int());
     calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
     calcys_rmbnd(4); // refinement boundary only
     calcpoststep();
@@ -340,8 +358,8 @@ extern "C" void ODESolvers_Solve_Subcycling(CCTK_ARGUMENTS) {
     // k4 = f(Y4)
     calcrhs(4);
     setks(4); // interior only
-    calcupdate(4, dt, 0.0, reals<5>{1.0, dt / 6, dt / 3, dt / 3, dt / 6},
-               states<5>{&old, &ks[0], &ks[1], &ks[2], &ks[3]});
+    calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
+               states<3>{&old, &kaccum, &rhs});
     calcys_rmbnd(5); // refinement boundary only
     calcpoststep();
 
@@ -374,77 +392,48 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
     return;
 
   if (verbose)
-    CCTK_VINFO("Subcycling recovery: replaying calcys_rmbnd(1) prerequisites "
-               "for the first post-recovery RK4 step");
+    CCTK_VINFO("Subcycling recovery: refilling refinement-boundary ghosts via "
+               "tl=0 spatial prolongation after checkpoint recovery");
 
   static Timer timer("ODESolvers::Solve_Subcycling_Recovery");
   Interval interval(timer);
 
   auto setup = collect_solve_setup();
   auto &var = setup.var;
-  auto &old = setup.old;
-  auto &ks = setup.ks;
   auto &var_groups = setup.var_groups;
-  auto &ks_groups = setup.ks_groups;
   if (setup.nvars == 0)
     return;
 
-  const CCTK_REAL dt = CCTK_DELTA_TIME;
-
-  // Prolongate old (var at tl=1) and ks from the coarse level: the checkpoint
-  // restored only GF interiors, so refinement-boundary ghosts must be rebuilt
-  // here.
+  // Checkpoints are only written when all levels are time-aligned, so a
+  // recovered fine level needs only spatial tl=0 prolongation to refill its
+  // refinement-boundary ghosts -- no dense output, no k-stage bands (which are
+  // unserialized and not allocated outside evolution).
   if (var_groups.size() > 0) {
-    // Verify the IO layer populated tl=1 interior on recovery; this assertion
-    // catches regressions where a checkpoint read fails to mark every
-    // timelevel valid.
-    old.check_valid(make_valid_int(),
-                    "ODESolvers_Solve_Subcycling_Recovery requires tl=1 "
+    var.check_valid(make_valid_int(),
+                    "ODESolvers_Solve_Subcycling_Recovery requires the tl=0 "
                     "interior to be populated by checkpoint recovery");
     SyncGroupsByDirIProlongateOnly(cctkGH, var_groups.size(), var_groups.data(),
-                                   nullptr, /*tl=*/1);
-    for (int s = 0; s < rkstages; ++s) {
-      ks[s].check_valid(make_valid_int(),
-                        "ODESolvers_Solve_Subcycling_Recovery requires ks "
-                        "interior to be populated by checkpoint recovery");
-      SyncGroupsByDirIProlongateOnly(cctkGH, ks_groups[s].size(),
-                                     ks_groups[s].data(), nullptr);
-    }
+                                   nullptr, /*tl=*/0);
+    synchronize();
+    var.set_valid(make_valid_all());
   }
+}
 
-  // Warm the cf-mask cache single-threaded before the parallel consume below
-  // (same rationale as ODESolvers_Solve_Subcycling).
-  active_levels->loop_serially([&](const auto &leveldata) {
-    for (const int gi : var_groups) {
-      const auto &gd = *leveldata.groupdata.at(gi);
-      leveldata.build_cf_mask(gd.indextype, gd.nghostzones);
-    }
-  });
+extern "C" void ODESolvers_CheckTimelevels(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ODESolvers_CheckTimelevels;
+  DECLARE_CCTK_PARAMETERS;
 
-  // calcys_rmbnd(1) body: fill refinement-boundary ghosts of var_groups.
-  // xsi=0.5 and stage0=1 are the values calcys_rmbnd(1) would have computed
-  // at the start of the first post-recovery RK step.
-  active_levels->loop_coarse_to_fine([&](auto &leveldata) {
-    const int level = leveldata.level;
-    if (level == 0)
-      return;
-
-    // When this level is time-aligned with its parent, SyncRestrictGFs fills
-    // the refinement-boundary ghosts; skip CalcYfFromKcs to avoid overwriting
-    // them with a stale interpolation from old/k_i.
-    const auto &patchdata = ghext->patchdata.at(leveldata.patch);
-    const auto &prev_leveldata = patchdata.leveldata.at(level - 1);
-    if (leveldata.iteration == prev_leveldata.iteration)
-      return;
-
-    constexpr CCTK_REAL xsi = 0.5;
-    constexpr int stage0 = 1;
-    Subcycling::CalcYfFromKcs_MFlevel<rkstages>(
-        leveldata, var_groups, /*Yf_tl=*/0, var_groups, /*u0_tl=*/1, ks_groups,
-        dt * 2, xsi, stage0);
-  });
-  synchronize();
-  var.set_valid(make_valid_all());
+  for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
+    if (get_group_rhs(gi) < 0)
+      continue; // not an ODE-evolved group
+    const int ntls = CCTK_ActiveTimeLevelsGI(cctkGH, gi);
+    if (ntls >= 2)
+      CCTK_VERROR("ODESolvers subcycling requires evolved groups to have a "
+                  "single timelevel, but group \"%s\" has %d active "
+                  "timelevels. Subcycling does not support timelevels >= 2 "
+                  "for evolution variables.",
+                  CCTK_FullGroupName(gi), ntls);
+  }
 }
 
 } // namespace ODESolvers
