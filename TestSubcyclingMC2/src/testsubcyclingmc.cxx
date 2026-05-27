@@ -87,6 +87,21 @@ extern "C" void TestSubcyclingMC2_Initial(CCTK_ARGUMENTS) {
   }
 }
 
+extern "C" void TestSubcyclingMC2_MoveBox(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC2_MoveBox;
+  DECLARE_CCTK_PARAMETERS;
+
+  // Strict no-op at zero velocity: do not touch BoxInBox::positions, so every
+  // existing (static-box) test is byte-for-byte unchanged.
+  if (box_velocity_x == 0 && box_velocity_y == 0 && box_velocity_z == 0)
+    return;
+
+  // Linear drift of region 0, anchored at the origin (center == origin at t=0).
+  position_x[0] = box_velocity_x * cctk_time;
+  position_y[0] = box_velocity_y * cctk_time;
+  position_z[0] = box_velocity_z * cctk_time;
+}
+
 extern "C" void TestSubcyclingMC2_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestSubcyclingMC2_RHS;
   DECLARE_CCTK_PARAMETERS;

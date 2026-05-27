@@ -41,6 +41,21 @@ INT timelevels "Number of time levels for the state" STEERABLE=recover
   0:3 :: ""
 } 1
 
+CCTK_REAL box_velocity_x "x-velocity of the refined box (linear drift anchored at the origin)"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL box_velocity_y "y-velocity of the refined box (linear drift anchored at the origin)"
+{
+  *:* :: ""
+} 0.0
+
+CCTK_REAL box_velocity_z "z-velocity of the refined box (linear drift anchored at the origin)"
+{
+  *:* :: ""
+} 0.0
+
 SHARES: Driver
 
 USES BOOLEAN use_subcycling_wip

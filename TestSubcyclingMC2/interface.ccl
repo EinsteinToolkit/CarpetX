@@ -2,6 +2,8 @@
 
 IMPLEMENTS: TestSubcyclingMC2
 
+INHERITS: BoxInBox
+
 USES INCLUDE HEADER: loop_device.hxx
 USES INCLUDE HEADER: vect.hxx
 USES INCLUDE HEADER: vec.hxx
