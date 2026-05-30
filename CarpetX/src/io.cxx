@@ -212,6 +212,22 @@ void RecoverGH(const cGH *restrict cctkGH) {
     return enabled;
   }();
 
+  // Rebuild the consumer-band geometry (deterministic, not serialized) so the
+  // band read below has somewhere to land. All levels exist here, so source
+  // geometry (reads level+1) is valid; build_bands is a no-op for non-evolved
+  // groups.
+  if (ghext->use_subcycling) {
+    for (const auto &patchdata : ghext->patchdata)
+      for (const auto &leveldata : patchdata.leveldata)
+        for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
+          if (CCTK_GroupTypeI(gi) != CCTK_GF)
+            continue;
+          const auto *const gd = leveldata.groupdata.at(gi).get();
+          if (gd)
+            leveldata.build_bands(*gd);
+        }
+  }
+
   if (CCTK_EQUALS(recover_method, "openpmd")) {
 
 #ifdef HAVE_CAPABILITY_openPMD_api

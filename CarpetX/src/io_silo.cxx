@@ -114,9 +114,13 @@ int match_filename(const std::string &file_name) {
   return std::stoi(sm.str(1));
 }
 
+// The optional `band` tag namespaces subcycling consumer-band meshes/vars
+// apart from the regular tl=0 data (see subcycling checkpoint/recovery). An
+// empty tag (the default) leaves regular-data names byte-identical.
 std::string make_meshname(const std::array<int, dim> &nghosts,
                           const int patch = -1, const int reflevel = -1,
-                          const int component = -1) {
+                          const int component = -1,
+                          const std::string &band = std::string()) {
   assert((patch == -1) == (reflevel == -1));
   assert((patch == -1) == (component == -1));
   std::ostringstream buf;
@@ -134,11 +138,14 @@ std::string make_meshname(const std::array<int, dim> &nghosts,
     buf << ".m" << setw(4) << setfill('0') << patch     //
         << ".rl" << setw(2) << setfill('0') << reflevel //
         << ".c" << setw(8) << setfill('0') << component;
+  if (!band.empty())
+    buf << ".band." << band;
   return DB::legalize_name(buf.str());
 }
 
 std::string make_varname(const int gi, const int vi, const int patch = -1,
-                         const int reflevel = -1, const int component = -1) {
+                         const int reflevel = -1, const int component = -1,
+                         const std::string &band = std::string()) {
   assert((patch == -1) == (reflevel == -1));
   assert((patch == -1) == (component == -1));
   std::string varname;
@@ -158,6 +165,8 @@ std::string make_varname(const int gi, const int vi, const int patch = -1,
     buf << ".m" << setw(4) << setfill('0') << patch     //
         << ".rl" << setw(2) << setfill('0') << reflevel //
         << ".c" << setw(8) << setfill('0') << component;
+  if (!band.empty())
+    buf << ".band." << band;
   return DB::legalize_name(buf.str());
 }
 
@@ -559,6 +568,54 @@ void InputSilo(const cGH *restrict const cctkGH,
       assert(file);
     }
 
+    // Bands are written all-or-nothing (only at unsynchronized checkpoints), so
+    // detect their presence once with a global flag. This keeps the band read
+    // symmetric with the regular read; a per-variable file probe inside the
+    // loop would desync the band owner's MPI_Recv.
+    bool file_has_bands = false;
+    if (ghext->use_subcycling) {
+      int local_has_bands = 0;
+      if (read_file) {
+        for (const auto &patchdata : ghext->patchdata) {
+          for (const auto &leveldata : patchdata.leveldata) {
+            for (int gi = 0; gi < CCTK_NumGroups() && !local_has_bands; ++gi) {
+              if (!input_group.at(gi) || CCTK_GroupTypeI(gi) != CCTK_GF)
+                continue;
+              const auto &groupdata = *leveldata.groupdata.at(gi);
+              if (groupdata.mfab.empty())
+                continue;
+              const auto probe = [&](const amrex::MultiFab *const band,
+                                     const band_kind kind, const int stage) {
+                if (local_has_bands || !band || band->empty())
+                  return;
+                const std::string band_tag = subcycling_band_tag(kind, stage);
+                const amrex::DistributionMapping &bdm = band->DistributionMap();
+                for (int c = 0; c < bdm.size(); ++c) {
+                  if (bdm[c] / ioproc_every * ioproc_every != myproc)
+                    continue; // not read by this ioproc
+                  const std::string varname = make_varname(
+                      gi, 0, patchdata.patch, leveldata.level, c, band_tag);
+                  if (DBInqVarExists(file.get(), varname.c_str())) {
+                    local_has_bands = 1;
+                    return;
+                  }
+                }
+              };
+              for (int s = 0; s < rkstages; ++s)
+                probe(groupdata.ks_consumer_band[s].get(),
+                      band_kind::ks_consumer, s);
+              probe(groupdata.old_consumer_band.get(), band_kind::old_consumer,
+                    -1);
+            }
+          }
+        }
+      }
+      int global_has_bands = 0;
+      MPI_Allreduce(&local_has_bands, &global_has_bands, 1, MPI_INT, MPI_MAX,
+                    mpi_comm);
+      file_has_bands = global_has_bands != 0;
+    }
+
     // Loop over patches and levels
     for (const auto &patchdata : ghext->patchdata) {
       for (const auto &leveldata : patchdata.leveldata) {
@@ -720,6 +777,120 @@ void InputSilo(const cGH *restrict const cctkGH,
 
           } // for component
 
+          // Subcycling consumer bands: zero-ghost MultiFabs with their own
+          // DistributionMap, each read in its own component loop mirroring the
+          // Phase 1 write (reversed MPI). When file_has_bands, every rebuilt
+          // non-empty band is present in full.
+          if (file_has_bands) {
+            const int centering = [&]() {
+              const int rank = indextype.cellCentered(0) +
+                               indextype.cellCentered(1) +
+                               indextype.cellCentered(2);
+              switch (rank) {
+              case 0:
+                return DB_NODECENT;
+              case 1:
+                return DB_EDGECENT;
+              case 2:
+                return DB_FACECENT;
+              case 3:
+                return DB_ZONECENT;
+              }
+              assert(0);
+            }();
+            assert(centering != DB_EDGECENT && centering != DB_FACECENT);
+
+            const auto read_band = [&](amrex::MultiFab *const band,
+                                       const band_kind kind, const int stage) {
+              if (!band || band->empty())
+                return;
+              assert(band->nGrowVect() == 0);
+              const std::string band_tag = subcycling_band_tag(kind, stage);
+              const amrex::DistributionMapping &bdm = band->DistributionMap();
+              const int bncomponents = bdm.size();
+
+              for (int component = 0; component < bncomponents; ++component) {
+                const int proc = bdm[component];
+                const int ioproc = proc / ioproc_every * ioproc_every;
+                const bool recv_this_fab = proc == myproc;
+                const bool read_this_fab = ioproc == myproc;
+                if (!(recv_this_fab || read_this_fab))
+                  continue;
+
+                const amrex::Box &fabbox =
+                    band->fabbox(component); // zero ghost
+
+                std::array<int, ndims> dims;
+                for (int d = 0; d < ndims; ++d)
+                  dims[d] = fabbox.length(d);
+                std::ptrdiff_t zonecount = 1;
+                for (int d = 0; d < ndims; ++d)
+                  zonecount *= dims[d];
+                assert(zonecount >= 0 && zonecount <= INT_MAX);
+
+                // Communicate the band fab from the I/O process, part 1.
+                const int mpi_tag = 22903; // randomly chosen, band path
+                std::vector<CCTK_REAL> buffer;
+                MPI_Request mpi_req;
+                CCTK_REAL *data = nullptr;
+                if (recv_this_fab && read_this_fab) {
+                  amrex::FArrayBox &fab = (*band)[component];
+                  data = fab.dataPtr();
+                } else if (recv_this_fab) {
+                  amrex::FArrayBox &fab = (*band)[component];
+                  assert(numvars * zonecount <= INT_MAX);
+                  MPI_Irecv(fab.dataPtr(), numvars * zonecount,
+                            mpi_datatype_v<CCTK_REAL>, ioproc, mpi_tag,
+                            mpi_comm, &mpi_req);
+                } else {
+                  buffer.resize(numvars * zonecount);
+                  assert(numvars * zonecount <= INT_MAX);
+                  data = buffer.data();
+                }
+
+                // Read the band variables.
+                if (read_file) {
+                  for (int vi = 0; vi < numvars; ++vi) {
+                    const std::string varname =
+                        make_varname(gi, vi, patchdata.patch, leveldata.level,
+                                     component, band_tag);
+                    const DB::ptr<DBquadvar> quadvar =
+                        DB::make(DBGetQuadvar(file.get(), varname.c_str()));
+                    assert(quadvar);
+                    assert(quadvar->ndims == ndims);
+                    for (int d = 0; d < ndims; ++d)
+                      assert(quadvar->dims[d] == dims[d]);
+                    assert(quadvar->datatype == db_datatype_v<CCTK_REAL>);
+                    assert(quadvar->centering == centering);
+                    assert(quadvar->nvals == 1);
+                    const int column_major = 0;
+                    assert(quadvar->major_order == column_major);
+                    const void *const read_ptr = quadvar->vals[0];
+                    void *const data_ptr = data + vi * zonecount;
+                    memcpy(data_ptr, read_ptr, zonecount * sizeof(CCTK_REAL));
+                  } // for vi
+                } // if read_file
+
+                // Communicate the band fab, part 2.
+                if (recv_this_fab && read_this_fab) {
+                  // do nothing
+                } else if (recv_this_fab) {
+                  MPI_Wait(&mpi_req, MPI_STATUS_IGNORE);
+                } else {
+                  assert(std::ptrdiff_t(buffer.size()) == numvars * zonecount);
+                  MPI_Send(buffer.data(), numvars * zonecount,
+                           mpi_datatype_v<CCTK_REAL>, proc, mpi_tag, mpi_comm);
+                }
+              } // for band component
+            };
+
+            for (int s = 0; s < rkstages; ++s)
+              read_band(groupdata.ks_consumer_band[s].get(),
+                        band_kind::ks_consumer, s);
+            read_band(groupdata.old_consumer_band.get(),
+                      band_kind::old_consumer, -1);
+          } // if file_has_bands
+
         } // for gi
       } // for leveldata
     } // for patchdata
@@ -785,6 +956,11 @@ void OutputSilo(const cGH *restrict const cctkGH,
   // TODO: directories instead of carefully chosen names
 
   constexpr int ndims = dim;
+
+  // At an unsynchronized subcycling checkpoint the fine consumer bands hold
+  // mid-cycle state that exists nowhere else and must be serialized. Otherwise
+  // the on-disk format is unchanged.
+  const bool write_bands = !all_levels_synchronized();
 
   interval_setup = nullptr;
 
@@ -1132,6 +1308,190 @@ void OutputSilo(const cGH *restrict const cctkGH,
             } // if write_file
 
           } // for component
+
+          // Subcycling consumer bands: zero-ghost MultiFabs in this level's
+          // index space with their own DistributionMap, so each gets its own
+          // component loop. Geometry is rebuilt on recovery; we serialize only
+          // the data, namespaced by a band tag.
+          if (write_bands) {
+            const int centering = [&]() {
+              const int rank = indextype.cellCentered(0) +
+                               indextype.cellCentered(1) +
+                               indextype.cellCentered(2);
+              switch (rank) {
+              case 0:
+                return DB_NODECENT;
+              case 1:
+                return DB_EDGECENT;
+              case 2:
+                return DB_FACECENT;
+              case 3:
+                return DB_ZONECENT;
+              }
+              assert(0);
+            }();
+            assert(centering != DB_EDGECENT && centering != DB_FACECENT);
+
+            const amrex::Geometry &geom =
+                patchdata.amrcore->Geom(leveldata.level);
+            const amrex::Real *const x0 = geom.ProbLo();
+            const amrex::Real *const dx = geom.CellSize();
+            const std::array<int, dim> band_nghosts{0, 0, 0};
+
+            const auto write_band = [&](const amrex::MultiFab *const band,
+                                        const band_kind kind, const int stage) {
+              if (!band || band->empty())
+                return;
+              assert(band->nGrowVect() == 0);
+              const std::string band_tag = subcycling_band_tag(kind, stage);
+              const amrex::DistributionMapping &bdm = band->DistributionMap();
+              const int bncomponents = bdm.size();
+
+              for (int component = 0; component < bncomponents; ++component) {
+                const int proc = bdm[component];
+                const int ioproc = proc / ioproc_every * ioproc_every;
+                const bool send_this_fab = proc == myproc;
+                const bool write_this_fab = ioproc == myproc;
+                if (!(send_this_fab || write_this_fab))
+                  continue;
+
+                const amrex::Box &fabbox =
+                    band->fabbox(component); // zero ghost
+
+                std::array<int, ndims> dims;
+                for (int d = 0; d < ndims; ++d)
+                  dims[d] = fabbox.length(d);
+                std::ptrdiff_t zonecount = 1;
+                for (int d = 0; d < ndims; ++d)
+                  zonecount *= dims[d];
+                assert(zonecount >= 0 && zonecount <= INT_MAX);
+
+                // Write the band mesh (zero ghost => no LO/HI offset).
+                if (write_file) {
+                  const std::string meshname =
+                      make_meshname(band_nghosts, patchdata.patch,
+                                    leveldata.level, component, band_tag);
+
+                  std::array<int, ndims> dims_vc;
+                  for (int d = 0; d < ndims; ++d)
+                    dims_vc[d] = dims[d] + int(indextype.cellCentered(d));
+
+                  std::array<std::vector<CCTK_REAL>, ndims> coords;
+                  std::array<const void *, ndims> coord_ptrs;
+                  for (int d = 0; d < ndims; ++d) {
+                    coords[d].resize(dims_vc[d]);
+                    for (int i = 0; i < dims_vc[d]; ++i)
+                      coords[d][i] = x0[d] + (fabbox.smallEnd(d) + i) * dx[d];
+                    coord_ptrs[d] = coords[d].data();
+                  }
+
+                  const DB::ptr<DBoptlist> optlist =
+                      DB::make(DBMakeOptlist(10));
+                  assert(optlist);
+                  int cartesian = DB_CARTESIAN;
+                  ierr = DBAddOption(optlist.get(), DBOPT_COORDSYS, &cartesian);
+                  assert(!ierr);
+                  int cycle = cctk_iteration;
+                  ierr = DBAddOption(optlist.get(), DBOPT_CYCLE, &cycle);
+                  assert(!ierr);
+                  std::array<int, ndims> zero_offset;
+                  for (int d = 0; d < ndims; ++d)
+                    zero_offset[d] = 0;
+                  ierr = DBAddOption(optlist.get(), DBOPT_LO_OFFSET,
+                                     zero_offset.data());
+                  assert(!ierr);
+                  ierr = DBAddOption(optlist.get(), DBOPT_HI_OFFSET,
+                                     zero_offset.data());
+                  assert(!ierr);
+                  int column_major = 0;
+                  ierr = DBAddOption(optlist.get(), DBOPT_MAJORORDER,
+                                     &column_major);
+                  assert(!ierr);
+                  double dtime = cctk_time;
+                  ierr = DBAddOption(optlist.get(), DBOPT_DTIME, &dtime);
+                  assert(!ierr);
+                  int hide_from_gui = 1;
+                  ierr = DBAddOption(optlist.get(), DBOPT_HIDE_FROM_GUI,
+                                     &hide_from_gui);
+                  assert(!ierr);
+
+                  ierr = DBPutQuadmesh(file.get(), meshname.c_str(), nullptr,
+                                       coord_ptrs.data(), dims_vc.data(), ndims,
+                                       db_datatype_v<CCTK_REAL>, DB_COLLINEAR,
+                                       optlist.get());
+                  assert(!ierr);
+                }
+
+                // Communicate the band fab to the I/O process.
+                const int mpi_tag = 22902; // randomly chosen, band path
+                std::vector<CCTK_REAL> buffer;
+                const CCTK_REAL *data = nullptr;
+                if (send_this_fab && write_this_fab) {
+                  const amrex::FArrayBox &fab = (*band)[component];
+                  data = fab.dataPtr();
+                } else if (send_this_fab) {
+                  const amrex::FArrayBox &fab = (*band)[component];
+                  assert(numvars * zonecount <= INT_MAX);
+                  MPI_Send(fab.dataPtr(), numvars * zonecount,
+                           mpi_datatype_v<CCTK_REAL>, ioproc, mpi_tag,
+                           mpi_comm);
+                } else {
+                  buffer.resize(numvars * zonecount);
+                  assert(numvars * zonecount <= INT_MAX);
+                  MPI_Recv(buffer.data(), numvars * zonecount,
+                           mpi_datatype_v<CCTK_REAL>, proc, mpi_tag, mpi_comm,
+                           MPI_STATUS_IGNORE);
+                  data = buffer.data();
+                }
+
+                // Write the band variables.
+                if (write_file) {
+                  const std::string meshname =
+                      make_meshname(band_nghosts, patchdata.patch,
+                                    leveldata.level, component, band_tag);
+
+                  const DB::ptr<DBoptlist> optlist =
+                      DB::make(DBMakeOptlist(10));
+                  assert(optlist);
+                  int cartesian = DB_CARTESIAN;
+                  ierr = DBAddOption(optlist.get(), DBOPT_COORDSYS, &cartesian);
+                  assert(!ierr);
+                  int cycle = cctk_iteration;
+                  ierr = DBAddOption(optlist.get(), DBOPT_CYCLE, &cycle);
+                  assert(!ierr);
+                  int column_major = 0;
+                  ierr = DBAddOption(optlist.get(), DBOPT_MAJORORDER,
+                                     &column_major);
+                  assert(!ierr);
+                  double dtime = cctk_time;
+                  ierr = DBAddOption(optlist.get(), DBOPT_DTIME, &dtime);
+                  assert(!ierr);
+                  int hide_from_gui = 1;
+                  ierr = DBAddOption(optlist.get(), DBOPT_HIDE_FROM_GUI,
+                                     &hide_from_gui);
+                  assert(!ierr);
+
+                  for (int vi = 0; vi < numvars; ++vi) {
+                    const std::string varname =
+                        make_varname(gi, vi, patchdata.patch, leveldata.level,
+                                     component, band_tag);
+                    const void *const data_ptr = data + vi * zonecount;
+                    ierr = DBPutQuadvar1(
+                        file.get(), varname.c_str(), meshname.c_str(), data_ptr,
+                        dims.data(), ndims, nullptr, 0,
+                        db_datatype_v<CCTK_REAL>, centering, optlist.get());
+                    assert(!ierr);
+                  } // for vi
+                } // if write_file
+              } // for band component
+            };
+
+            for (int s = 0; s < rkstages; ++s)
+              write_band(groupdata.ks_consumer_band[s].get(),
+                         band_kind::ks_consumer, s);
+            write_band(groupdata.old_consumer_band.get(),
+                       band_kind::old_consumer, -1);
+          } // if write_bands
 
         } // for gi
       } // for leveldata

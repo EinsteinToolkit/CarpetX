@@ -25,6 +25,7 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -581,6 +582,19 @@ struct GHExt {
 };
 
 extern std::unique_ptr<GHExt> ghext;
+
+// True iff every level of every patch sits at the same subcycling iteration,
+// i.e. the checkpoint is time-aligned. Always true without subcycling. When
+// false, the fine consumer bands hold mid-cycle state that must be serialized.
+bool all_levels_synchronized();
+
+// Subcycling consumer-band kinds serialized at unsynchronized checkpoints:
+// ks_consumer is the RK stages 0..rkstages-1, old_consumer the u(t_n) snapshot.
+enum class band_kind { ks_consumer, old_consumer };
+
+// Token identifying a consumer band in checkpoint names: "ksc_s00".."ksc_s03"
+// for ks_consumer, "oldc" for old_consumer. Shared by both IO backends.
+std::string subcycling_band_tag(band_kind kind, int stage = -1);
 
 } // namespace CarpetX
 

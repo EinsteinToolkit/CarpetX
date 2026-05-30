@@ -392,11 +392,14 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
     return;
 
   if (verbose)
-    CCTK_VINFO("Subcycling recovery: refilling refinement-boundary ghosts via "
-               "tl=0 spatial prolongation after checkpoint recovery");
+    CCTK_VINFO("Subcycling recovery: refilling refinement-boundary ghosts "
+               "(spatial prolongation on time-aligned levels, dense output "
+               "from restored consumer bands otherwise)");
 
   static Timer timer("ODESolvers::Solve_Subcycling_Recovery");
   Interval interval(timer);
+
+  const CCTK_REAL dt = CCTK_DELTA_TIME;
 
   auto setup = collect_solve_setup();
   auto &var = setup.var;
@@ -404,16 +407,49 @@ extern "C" void ODESolvers_Solve_Subcycling_Recovery(CCTK_ARGUMENTS) {
   if (setup.nvars == 0)
     return;
 
-  // Checkpoints are only written when all levels are time-aligned, so a
-  // recovered fine level needs only spatial tl=0 prolongation to refill its
-  // refinement-boundary ghosts -- no dense output, no k-stage bands (which are
-  // unserialized and not allocated outside evolution).
+  // Refill each recovered fine level's refinement-boundary (cf) ghosts.
+  // Synchronized levels (and old/synchronized checkpoints with no restored band
+  // data) use spatial tl=0 prolongation. Unsynchronized levels carry mid-cycle
+  // dense-output state in their restored consumer bands and reconstruct the
+  // cf-ghosts the uninterrupted run's previous fine substep last wrote.
   if (var_groups.size() > 0) {
     var.check_valid(make_valid_int(),
                     "ODESolvers_Solve_Subcycling_Recovery requires the tl=0 "
                     "interior to be populated by checkpoint recovery");
+
+    // Spatial prolongation fills every fine level's cf-ghosts; the
+    // unsynchronized levels below are then overwritten with dense output.
     SyncGroupsByDirIProlongateOnly(cctkGH, var_groups.size(), var_groups.data(),
                                    nullptr, /*tl=*/0);
+
+    active_levels->loop_coarse_to_fine([&](auto &restrict leveldata) {
+      const int level = leveldata.level;
+      if (level == 0)
+        return;
+      const auto &patchdata = ghext->patchdata.at(leveldata.patch);
+      const auto &prev_leveldata = patchdata.leveldata.at(level - 1);
+      // Time-aligned with the parent: spatial prolongation above is correct.
+      if (leveldata.iteration == prev_leveldata.iteration)
+        return;
+      // Reconstruct only where restored consumer-band data is present (a band
+      // rebuilt but never read falls back to the spatial path).
+      bool have_bands = false;
+      for (const int gi : var_groups) {
+        const auto &groupdata = *leveldata.groupdata.at(gi);
+        if (groupdata.ks_consumer_band[0] &&
+            !groupdata.ks_consumer_band[0]->empty()) {
+          have_bands = true;
+          break;
+        }
+      }
+      if (!have_bands)
+        return;
+      // Mirror the previous fine substep's calcys_rmbnd(5): base offset 0.0
+      // plus the stage-5 +0.5 give xsi = 0.5, stage0 = 1, dtc = dt*2.
+      const CCTK_REAL xsi = 0.5;
+      Subcycling::CalcYfFromKcs_MFlevel<rkstages>(
+          leveldata, var_groups, /*Yf_tl=*/0, dt * 2, xsi, /*stage0=*/1);
+    });
     synchronize();
     var.set_valid(make_valid_all());
   }
