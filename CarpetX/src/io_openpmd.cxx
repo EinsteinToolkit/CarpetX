@@ -364,8 +364,12 @@ struct carpetx_openpmd_t {
   ////////////////////////////////////////////////////////////////////////////////
 
   // Allowed characters are only [A-Za-z_]
+  // The optional `band` tag namespaces subcycling consumer-band meshes apart
+  // from the regular tl=0 data (see subcycling checkpoint/recovery). An empty
+  // tag (the default) leaves regular-data mesh names unchanged.
   static std::string make_meshname(const int gi, const int patch,
-                                   const int level, const int tl = 0) {
+                                   const int level, const int tl = 0,
+                                   const std::string &band = std::string()) {
     std::string groupname = CCTK_FullGroupName(gi);
     groupname = std::regex_replace(groupname, std::regex("::"), "_");
     for (auto &ch : groupname)
@@ -379,6 +383,8 @@ struct carpetx_openpmd_t {
       buf << "_lev" << setw(2) << setfill('0') << level;
     if (tl > 0)
       buf << "_tl" << setw(2) << setfill('0') << tl;
+    if (!band.empty())
+      buf << "_band_" << band;
     return buf.str();
   }
 
@@ -1091,6 +1097,77 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
                                                       : make_valid_int(),
                   []() { return "read from openPMD file"; });
           } // for tl
+
+          // Subcycling consumer bands (see OutputOpenPMD): zero-ghost MultiFabs
+          // sharing the level's idomain frame. Guard on mesh existence so
+          // synchronized/old checkpoints leave the rebuilt band untouched.
+          {
+            const auto read_band = [&](amrex::MultiFab *const band,
+                                       const band_kind kind, const int stage) {
+              if (!band || band->empty())
+                return;
+              assert(band->nGrowVect() == 0);
+              const std::string band_tag = subcycling_band_tag(kind, stage);
+              const std::string meshname = make_meshname(
+                  gi, leveldata.patch, leveldata.level, 0, band_tag);
+              if (!read_iter->meshes.count(meshname))
+                return; // old/synchronized checkpoint: no band data
+              if (io_verbose)
+                CCTK_VINFO("Reading band mesh %s...", meshname.c_str());
+              const openPMD::Mesh &mesh = read_iter->meshes.at(meshname);
+
+              std::vector<openPMD::MeshRecordComponent> record_components;
+              record_components.reserve(numvars);
+              openPMD::Extent extent;
+              for (int vi = 0; vi < numvars; ++vi) {
+                const std::string componentname = make_componentname(gi, vi);
+                assert(mesh.count(componentname));
+                record_components.push_back(mesh.at(componentname));
+                if (vi == 0)
+                  extent = record_components.back().getExtent();
+              }
+              assert(int(record_components.size()) == numvars);
+
+              const int num_local_components = band->local_size();
+              for (int local_component = 0;
+                   local_component < num_local_components; ++local_component) {
+                const int component = band->IndexArray().at(local_component);
+
+                const amrex::Box &fabbox =
+                    band->fabbox(component); // zero ghost
+                const box_t<int, 3> box{
+                    .lo = {fabbox.smallEnd(0), fabbox.smallEnd(1),
+                           fabbox.smallEnd(2)},
+                    .hi = {fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
+                           fabbox.bigEnd(2) + 1}};
+
+                const openPMD::Offset start =
+                    to_vector(reversed(box.lo - idomain.lo));
+                const openPMD::Extent count = to_vector(reversed(box.shape()));
+                const int np = box.size();
+                assert(int(count.at(0) * count.at(1) * count.at(2)) == np);
+                for (int d = 0; d < 3; ++d)
+                  assert(start.at(d) + count.at(d) <= extent.at(d));
+
+                amrex::FArrayBox &fab = (*band)[component];
+                for (int vi = 0; vi < numvars; ++vi) {
+                  CCTK_REAL *const ptr = fab.dataPtr() + vi * np;
+#if OPENPMDAPI_VERSION_GE(0, 15, 0)
+                  record_components.at(vi).loadChunkRaw(ptr, start, count);
+#else
+                  record_components.at(vi).loadChunk(openPMD::shareRaw(ptr),
+                                                     start, count);
+#endif
+                } // for vi
+              } // for local_component
+            };
+
+            for (int s = 0; s < rkstages; ++s)
+              read_band(groupdata.ks_consumer_band[s].get(),
+                        band_kind::ks_consumer, s);
+            read_band(groupdata.old_consumer_band.get(),
+                      band_kind::old_consumer, -1);
+          }
         }
       } // for gi
 
@@ -1462,6 +1539,11 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   const int myproc = CCTK_MyProc(cctkGH);
   const int ioproc = 0;
 
+  // At an unsynchronized subcycling checkpoint the fine consumer bands hold
+  // mid-cycle state that exists nowhere else and must be serialized. Otherwise
+  // the on-disk format is unchanged.
+  const bool write_bands = !all_levels_synchronized();
+
   // Write parameters
   if (myproc == ioproc) {
     char *const data = IOUtil_GetAllParameters(cctkGH, 1 /*all*/);
@@ -1782,6 +1864,97 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
               } // for vi
             } // for local_component
           } // for tl
+
+          // Subcycling consumer bands: zero-ghost MultiFabs in this level's
+          // index space, so they share the level's idomain frame and dataset
+          // extent and write a sparse subset of chunks. Geometry is rebuilt on
+          // recovery; we serialize only the data, namespaced by a band tag.
+          if (write_bands) {
+            const auto write_band = [&](const amrex::MultiFab *const band,
+                                        const band_kind kind, const int stage) {
+              if (!band || band->empty())
+                return;
+              assert(band->nGrowVect() == 0);
+              const std::string band_tag = subcycling_band_tag(kind, stage);
+
+              const amrex::IndexType &indextype = band->ixType();
+              const Arith::vect<bool, 3> is_cell_centred{
+                  indextype.cellCentered(0), indextype.cellCentered(1),
+                  indextype.cellCentered(2)};
+
+              const std::string meshname = make_meshname(
+                  gi, leveldata.patch, leveldata.level, 0, band_tag);
+              if (io_verbose)
+                CCTK_VINFO("Defining band mesh %s...", meshname.c_str());
+              assert(!write_iter.meshes.contains(meshname));
+              openPMD::Mesh mesh = write_iter.meshes[meshname];
+
+              mesh.setGeometry(openPMD::Mesh::Geometry::cartesian);
+              mesh.setAxisLabels(
+                  reversed(std::vector<std::string>{"x", "y", "z"}));
+              mesh.setGridSpacing(to_vector<CCTK_REAL>(reversed(
+                  fmap([](auto x, auto y) { return x / CCTK_REAL(y); },
+                       rdomain.hi - rdomain.lo, idomain.shape() - 1))));
+              mesh.setGridGlobalOffset(to_vector<double>(reversed(rdomain.lo)));
+              mesh.setGridUnitSI(Unit::length);
+              mesh.setTimeOffset(CCTK_REAL(0));
+
+              const Arith::vect<double, 3> position =
+                  fmap([](auto c) { return 0.5 * c; }, is_cell_centred);
+
+              std::vector<openPMD::MeshRecordComponent> record_components;
+              record_components.reserve(numvars);
+              for (int vi = 0; vi < numvars; ++vi) {
+                const std::string componentname = make_componentname(gi, vi);
+                record_components.push_back(mesh[componentname]);
+                auto &record_component = record_components.back();
+                record_component.setPosition(
+                    to_vector<double>(reversed(position)));
+              }
+              assert(int(record_components.size()) == numvars);
+              for (int vi = 0; vi < numvars; ++vi)
+                record_components.at(vi).resetDataset(dataset);
+
+              const int num_local_components = band->local_size();
+              for (int local_component = 0;
+                   local_component < num_local_components; ++local_component) {
+                const int component = band->IndexArray().at(local_component);
+
+                const amrex::Box &fabbox =
+                    band->fabbox(component); // zero ghost
+                const box_t<int, 3> box{
+                    .lo = {fabbox.smallEnd(0), fabbox.smallEnd(1),
+                           fabbox.smallEnd(2)},
+                    .hi = {fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
+                           fabbox.bigEnd(2) + 1}};
+
+                const openPMD::Offset start =
+                    to_vector(reversed(box.lo - idomain.lo));
+                const openPMD::Extent count = to_vector(reversed(box.shape()));
+                const int np = box.size();
+                assert(int(count.at(0) * count.at(1) * count.at(2)) == np);
+                for (int d = 0; d < 3; ++d)
+                  assert(start.at(d) + count.at(d) <= extent.at(d));
+
+                const amrex::FArrayBox &fab = (*band)[component];
+                for (int vi = 0; vi < numvars; ++vi) {
+                  const CCTK_REAL *const ptr = fab.dataPtr() + vi * np;
+#if OPENPMDAPI_VERSION_GE(0, 15, 0)
+                  record_components.at(vi).storeChunkRaw(ptr, start, count);
+#else
+                  record_components.at(vi).storeChunk(openPMD::shareRaw(ptr),
+                                                      start, count);
+#endif
+                } // for vi
+              } // for local_component
+            };
+
+            for (int s = 0; s < rkstages; ++s)
+              write_band(groupdata.ks_consumer_band[s].get(),
+                         band_kind::ks_consumer, s);
+            write_band(groupdata.old_consumer_band.get(),
+                       band_kind::old_consumer, -1);
+          } // if write_bands
         }
       } // for gi
 

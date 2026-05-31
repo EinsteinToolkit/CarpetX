@@ -30,7 +30,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <iomanip>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -1094,6 +1096,38 @@ void GHExt::PatchData::LevelData::build_bands(
   if (!groupdata.old_source_band && !source_band_ba[s]->empty())
     groupdata.old_source_band = std::make_unique<amrex::MultiFab>(
         *source_band_ba[s], *source_band_dm[s], numvars, 0);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool all_levels_synchronized() {
+  if (!ghext->use_subcycling)
+    return true;
+  std::optional<rat64> ref;
+  for (const auto &patchdata : ghext->patchdata)
+    for (const auto &leveldata : patchdata.leveldata) {
+      if (!ref)
+        ref = leveldata.iteration;
+      else if (leveldata.iteration != *ref)
+        return false;
+    }
+  return true;
+}
+
+std::string subcycling_band_tag(const band_kind kind, const int stage) {
+  std::ostringstream buf;
+  switch (kind) {
+  case band_kind::ks_consumer:
+    assert(stage >= 0 && stage < rkstages);
+    buf << "ksc_s" << std::setw(2) << std::setfill('0') << stage;
+    break;
+  case band_kind::old_consumer:
+    buf << "oldc";
+    break;
+  default:
+    assert(0);
+  }
+  return buf.str();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
