@@ -601,7 +601,7 @@ void InputSilo(const cGH *restrict const cctkGH,
                   }
                 }
               };
-              for (int s = 0; s < rkstages; ++s)
+              for (int s = 0; s < max_num_rk_stages; ++s)
                 probe(groupdata.ks_consumer_band[s].get(),
                       band_kind::ks_consumer, s);
               probe(groupdata.old_consumer_band.get(), band_kind::old_consumer,
@@ -884,7 +884,7 @@ void InputSilo(const cGH *restrict const cctkGH,
               } // for band component
             };
 
-            for (int s = 0; s < rkstages; ++s)
+            for (int s = 0; s < max_num_rk_stages; ++s)
               read_band(groupdata.ks_consumer_band[s].get(),
                         band_kind::ks_consumer, s);
             read_band(groupdata.old_consumer_band.get(),
@@ -1486,7 +1486,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               } // for band component
             };
 
-            for (int s = 0; s < rkstages; ++s)
+            for (int s = 0; s < max_num_rk_stages; ++s)
               write_band(groupdata.ks_consumer_band[s].get(),
                          band_kind::ks_consumer, s);
             write_band(groupdata.old_consumer_band.get(),
