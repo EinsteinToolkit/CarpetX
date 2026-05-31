@@ -1162,7 +1162,7 @@ void carpetx_openpmd_t::InputOpenPMD(const cGH *const cctkGH,
               } // for local_component
             };
 
-            for (int s = 0; s < rkstages; ++s)
+            for (int s = 0; s < max_num_rk_stages; ++s)
               read_band(groupdata.ks_consumer_band[s].get(),
                         band_kind::ks_consumer, s);
             read_band(groupdata.old_consumer_band.get(),
@@ -1949,7 +1949,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
               } // for local_component
             };
 
-            for (int s = 0; s < rkstages; ++s)
+            for (int s = 0; s < max_num_rk_stages; ++s)
               write_band(groupdata.ks_consumer_band[s].get(),
                          band_kind::ks_consumer, s);
             write_band(groupdata.old_consumer_band.get(),

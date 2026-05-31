@@ -43,41 +43,14 @@ CalcYfFromKcs_MFlevel(CarpetX::GHExt::PatchData::LevelData &leveldata,
                       const std::vector<int> &Yfs, const int Yf_tl,
                       const CCTK_REAL dtc, const CCTK_REAL xsi,
                       const CCTK_INT stage) {
-  static_assert(RKSTAGES == 4,
-                "CalcYfFromKcs_MFlevel only supports RKSTAGES == 4");
-  assert(stage > 0 && stage <= 4);
+  static_assert(RKSTAGES == 3 || RKSTAGES == 4,
+                "CalcYfFromKcs_MFlevel only supports RKSTAGES == 3 or 4");
+  assert(stage > 0 && stage <= RKSTAGES);
 
   constexpr CCTK_REAL r =
       0.5; // ratio between coarse and fine cell size (2 to 1 MR case)
 
   const CCTK_REAL xsi2 = xsi * xsi;
-  const CCTK_REAL xsi3 = xsi2 * xsi;
-
-  // Coefficients for the dense output formulas (U, Ut, Utt, Uttt)
-  const std::array<CCTK_REAL, 4> b = {
-      xsi - 1.5 * xsi2 + (2. / 3.) * xsi3, // b1
-      xsi2 - (2. / 3.) * xsi3,             // b2
-      xsi2 - (2. / 3.) * xsi3,             // b3
-      -0.5 * xsi2 + (2. / 3.) * xsi3       // b4
-  };
-  const std::array<CCTK_REAL, 4> bt = {
-      1.0 - 3.0 * xsi + 2.0 * xsi2, // bt1
-      2.0 * xsi - 2.0 * xsi2,       // bt2
-      2.0 * xsi - 2.0 * xsi2,       // bt3
-      -xsi + 2.0 * xsi2             // bt4
-  };
-  const std::array<CCTK_REAL, 4> btt = {
-      -3.0 + 4.0 * xsi, // btt1
-      2.0 - 4.0 * xsi,  // btt2
-      2.0 - 4.0 * xsi,  // btt3
-      -1.0 + 4.0 * xsi  // btt4
-  };
-  constexpr std::array<CCTK_REAL, 4> bttt = {
-      4.0,  // bttt1
-      -4.0, // bttt2
-      -4.0, // bttt3
-      4.0   // bttt4
-  };
 
   const auto &geom = CarpetX::ghext->patchdata.at(leveldata.patch)
                          .amrcore->Geom(leveldata.level);
@@ -109,61 +82,151 @@ CalcYfFromKcs_MFlevel(CarpetX::GHExt::PatchData::LevelData &leveldata,
                           0);
 
     auto yf_arrs = yf_band.arrays();
-    amrex::GpuArray<amrex::MultiArray4<const CCTK_REAL>, 4> kcs_arrs;
-    for (int s = 0; s < 4; ++s) {
+    amrex::GpuArray<amrex::MultiArray4<const CCTK_REAL>, RKSTAGES> kcs_arrs;
+    for (int s = 0; s < RKSTAGES; ++s) {
       assert(groupdata.ks_consumer_band[s]);
       kcs_arrs[s] = groupdata.ks_consumer_band[s]->const_arrays();
     }
 
-    if (stage == 1) {
-      amrex::ParallelFor(
-          yf_band, amrex::IntVect{0}, nvars,
-          [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
-            const std::array<CCTK_REAL, 4> kk = {
-                kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
-                kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
-            const CCTK_REAL uu =
-                b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
-            yf_arrs[b_](i, j, k, n) += dtc * uu;
-          });
-    } else if (stage == 2) {
-      amrex::ParallelFor(
-          yf_band, amrex::IntVect{0}, nvars,
-          [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
-            const std::array<CCTK_REAL, 4> kk = {
-                kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
-                kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
-            const CCTK_REAL uu =
-                b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
-            const CCTK_REAL ut =
-                bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
-            yf_arrs[b_](i, j, k, n) += dtc * (uu + 0.5 * r * ut);
-          });
-    } else { // stage 3 or stage 4
-      const CCTK_REAL r2 = r * r;
-      const CCTK_REAL r3 = r2 * r;
-      const CCTK_REAL at = (stage == 3) ? 0.5 * r : r;
-      const CCTK_REAL att = (stage == 3) ? 0.25 * r2 : 0.5 * r2;
-      const CCTK_REAL attt = (stage == 3) ? 0.0625 * r3 : 0.125 * r3;
-      const CCTK_REAL ak = (stage == 3) ? -4.0 : 4.0;
-      amrex::ParallelFor(
-          yf_band, amrex::IntVect{0}, nvars,
-          [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
-            const std::array<CCTK_REAL, 4> kk = {
-                kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
-                kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
-            const CCTK_REAL uu =
-                b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
-            const CCTK_REAL ut =
-                bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
-            const CCTK_REAL utt = btt[0] * kk[0] + btt[1] * kk[1] +
-                                  btt[2] * kk[2] + btt[3] * kk[3];
-            const CCTK_REAL uttt = bttt[0] * kk[0] + bttt[1] * kk[1] +
-                                   bttt[2] * kk[2] + bttt[3] * kk[3];
-            yf_arrs[b_](i, j, k, n) +=
-                dtc * (uu + at * ut + att * utt +
-                       attt * (uttt + ak * (kk[2] - kk[1])));
-          });
+    if constexpr (RKSTAGES == 3) {
+      // AMReX RK3 (SSPRK3) dense-output coefficients
+      // (AMReX_FillPatcher.H:474-527), a degree-2 Taylor expansion over
+      // S_old + k1, k2, k3 (no uttt term).
+      const std::array<CCTK_REAL, 3> b = {
+          xsi - (5. / 6.) * xsi2, // b1
+          (1. / 6.) * xsi2,       // b2
+          (2. / 3.) * xsi2        // b3
+      };
+      const std::array<CCTK_REAL, 3> bt = {
+          1.0 - (5. / 3.) * xsi, // bt1
+          (1. / 3.) * xsi,       // bt2
+          (4. / 3.) * xsi        // bt3
+      };
+      constexpr std::array<CCTK_REAL, 3> btt = {
+          -5. / 3., // btt1
+          1. / 3.,  // btt2
+          4. / 3.   // btt3
+      };
+
+      if (stage == 1) {
+        amrex::ParallelFor(
+            yf_band, amrex::IntVect{0}, nvars,
+            [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+              const std::array<CCTK_REAL, 3> kk = {kcs_arrs[0][b_](i, j, k, n),
+                                                   kcs_arrs[1][b_](i, j, k, n),
+                                                   kcs_arrs[2][b_](i, j, k, n)};
+              const CCTK_REAL uu = b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2];
+              yf_arrs[b_](i, j, k, n) += dtc * uu;
+            });
+      } else if (stage == 2) {
+        amrex::ParallelFor(
+            yf_band, amrex::IntVect{0}, nvars,
+            [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+              const std::array<CCTK_REAL, 3> kk = {kcs_arrs[0][b_](i, j, k, n),
+                                                   kcs_arrs[1][b_](i, j, k, n),
+                                                   kcs_arrs[2][b_](i, j, k, n)};
+              const CCTK_REAL uu = b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2];
+              const CCTK_REAL ut =
+                  bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2];
+              // note r*ut (not 0.5*r*ut as in the RK4 stage 2)
+              yf_arrs[b_](i, j, k, n) += dtc * (uu + r * ut);
+            });
+      } else { // stage 3
+        const CCTK_REAL r2 = r * r;
+        amrex::ParallelFor(
+            yf_band, amrex::IntVect{0}, nvars,
+            [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+              const std::array<CCTK_REAL, 3> kk = {kcs_arrs[0][b_](i, j, k, n),
+                                                   kcs_arrs[1][b_](i, j, k, n),
+                                                   kcs_arrs[2][b_](i, j, k, n)};
+              const CCTK_REAL uu = b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2];
+              const CCTK_REAL ut =
+                  bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2];
+              const CCTK_REAL utt =
+                  btt[0] * kk[0] + btt[1] * kk[1] + btt[2] * kk[2];
+              yf_arrs[b_](i, j, k, n) +=
+                  dtc * (uu + 0.5 * r * ut + 0.25 * r2 * utt);
+            });
+      }
+    } else { // RKSTAGES == 4
+      const CCTK_REAL xsi3 = xsi2 * xsi;
+
+      // Coefficients for the dense output formulas (U, Ut, Utt, Uttt)
+      const std::array<CCTK_REAL, 4> b = {
+          xsi - 1.5 * xsi2 + (2. / 3.) * xsi3, // b1
+          xsi2 - (2. / 3.) * xsi3,             // b2
+          xsi2 - (2. / 3.) * xsi3,             // b3
+          -0.5 * xsi2 + (2. / 3.) * xsi3       // b4
+      };
+      const std::array<CCTK_REAL, 4> bt = {
+          1.0 - 3.0 * xsi + 2.0 * xsi2, // bt1
+          2.0 * xsi - 2.0 * xsi2,       // bt2
+          2.0 * xsi - 2.0 * xsi2,       // bt3
+          -xsi + 2.0 * xsi2             // bt4
+      };
+      const std::array<CCTK_REAL, 4> btt = {
+          -3.0 + 4.0 * xsi, // btt1
+          2.0 - 4.0 * xsi,  // btt2
+          2.0 - 4.0 * xsi,  // btt3
+          -1.0 + 4.0 * xsi  // btt4
+      };
+      constexpr std::array<CCTK_REAL, 4> bttt = {
+          4.0,  // bttt1
+          -4.0, // bttt2
+          -4.0, // bttt3
+          4.0   // bttt4
+      };
+
+      if (stage == 1) {
+        amrex::ParallelFor(
+            yf_band, amrex::IntVect{0}, nvars,
+            [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+              const std::array<CCTK_REAL, 4> kk = {
+                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+              const CCTK_REAL uu =
+                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+              yf_arrs[b_](i, j, k, n) += dtc * uu;
+            });
+      } else if (stage == 2) {
+        amrex::ParallelFor(
+            yf_band, amrex::IntVect{0}, nvars,
+            [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+              const std::array<CCTK_REAL, 4> kk = {
+                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+              const CCTK_REAL uu =
+                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+              const CCTK_REAL ut =
+                  bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
+              yf_arrs[b_](i, j, k, n) += dtc * (uu + 0.5 * r * ut);
+            });
+      } else { // stage 3 or stage 4
+        const CCTK_REAL r2 = r * r;
+        const CCTK_REAL r3 = r2 * r;
+        const CCTK_REAL at = (stage == 3) ? 0.5 * r : r;
+        const CCTK_REAL att = (stage == 3) ? 0.25 * r2 : 0.5 * r2;
+        const CCTK_REAL attt = (stage == 3) ? 0.0625 * r3 : 0.125 * r3;
+        const CCTK_REAL ak = (stage == 3) ? -4.0 : 4.0;
+        amrex::ParallelFor(
+            yf_band, amrex::IntVect{0}, nvars,
+            [=] AMREX_GPU_DEVICE(int b_, int i, int j, int k, int n) noexcept {
+              const std::array<CCTK_REAL, 4> kk = {
+                  kcs_arrs[0][b_](i, j, k, n), kcs_arrs[1][b_](i, j, k, n),
+                  kcs_arrs[2][b_](i, j, k, n), kcs_arrs[3][b_](i, j, k, n)};
+              const CCTK_REAL uu =
+                  b[0] * kk[0] + b[1] * kk[1] + b[2] * kk[2] + b[3] * kk[3];
+              const CCTK_REAL ut =
+                  bt[0] * kk[0] + bt[1] * kk[1] + bt[2] * kk[2] + bt[3] * kk[3];
+              const CCTK_REAL utt = btt[0] * kk[0] + btt[1] * kk[1] +
+                                    btt[2] * kk[2] + btt[3] * kk[3];
+              const CCTK_REAL uttt = bttt[0] * kk[0] + bttt[1] * kk[1] +
+                                     bttt[2] * kk[2] + bttt[3] * kk[3];
+              yf_arrs[b_](i, j, k, n) +=
+                  dtc * (uu + at * ut + att * utt +
+                         attt * (uttt + ak * (kk[2] - kk[1])));
+            });
+      }
     }
 
     // Wait for the device kernel before the scatter reads yf_band.

@@ -1072,7 +1072,7 @@ void GHExt::PatchData::LevelData::build_bands(
 
   // ---- Per-group band MultiFab allocation (idempotent, zero ghost) ----
   const int numvars = groupdata.numvars;
-  for (int stage = 0; stage < rkstages; ++stage) {
+  for (int stage = 0; stage < ghext->num_rk_stages; ++stage) {
     if (!groupdata.ks_consumer_band[stage] && !consumer_band_ba[s]->empty())
       groupdata.ks_consumer_band[stage] = std::make_unique<amrex::MultiFab>(
           *consumer_band_ba[s], *consumer_band_dm[s], numvars, 0);
@@ -1118,7 +1118,7 @@ std::string subcycling_band_tag(const band_kind kind, const int stage) {
   std::ostringstream buf;
   switch (kind) {
   case band_kind::ks_consumer:
-    assert(stage >= 0 && stage < rkstages);
+    assert(stage >= 0 && stage < max_num_rk_stages);
     buf << "ksc_s" << std::setw(2) << std::setfill('0') << stage;
     break;
   case band_kind::old_consumer:
