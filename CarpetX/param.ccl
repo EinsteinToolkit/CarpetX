@@ -630,6 +630,18 @@ INT out_openpmd_every "Output in openPMD format every that many iterations" STEE
   1:* :: "every that many iterations"
 } -1
 
+STRING out_openpmd_2d_vars "Variables to output as 2D planar slices in openPMD format" STEERABLE=always
+{
+  ".*" :: ""
+} ""
+
+INT out_openpmd_2d_every "Output 2D openPMD slices every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output 2D openPMD"
+  1:* :: "every that many iterations"
+} -1
+
 
 
 STRING out_plotfile_groups "Groups to output as AMReX plotfile" STEERABLE=always
@@ -655,6 +667,18 @@ INT out_silo_every "Output in Silo format every that many iterations" STEERABLE=
 {
   -1 :: "use value of IO::out_every"
   0 :: "never output Silo"
+  1:* :: "every that many iterations"
+} -1
+
+STRING out_silo_2d_vars "Variables to output as 2D planar slices in Silo format" STEERABLE=always
+{
+  ".*" :: ""
+} ""
+
+INT out_silo_2d_every "Output 2D Silo slices every that many iterations" STEERABLE=always
+{
+  -1 :: "use value of IO::out_every"
+  0 :: "never output 2D Silo"
   1:* :: "every that many iterations"
 } -1
 
@@ -724,3 +748,7 @@ USES CCTK_REAL out_yline_x
 USES CCTK_REAL out_yline_z
 USES CCTK_REAL out_zline_x
 USES CCTK_REAL out_zline_y
+
+USES CCTK_REAL out_xyplane_z
+USES CCTK_REAL out_xzplane_y
+USES CCTK_REAL out_yzplane_x

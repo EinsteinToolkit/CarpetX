@@ -1,6 +1,8 @@
 #include "io_openpmd.hxx"
 
 #include "driver.hxx"
+#include "io_meta.hxx"
+#include "io_slice.hxx"
 #include "timer.hxx"
 
 #include <div.hxx>
@@ -437,7 +439,8 @@ struct carpetx_openpmd_t {
                      const std::vector<bool> &output_group,
                      const std::string &output_dir,
                      const std::string &output_file,
-                     TimeLevelMode tl_mode = TimeLevelMode::Current);
+                     TimeLevelMode tl_mode = TimeLevelMode::Current,
+                     std::optional<slice_t> slice = std::nullopt);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -470,11 +473,12 @@ void InputOpenPMD(const cGH *cctkGH, const std::vector<bool> &input_group,
 void OutputOpenPMD(const cGH *const cctkGH,
                    const std::vector<bool> &output_group,
                    const std::string &output_dir,
-                   const std::string &output_file, TimeLevelMode tl_mode) {
+                   const std::string &output_file, TimeLevelMode tl_mode,
+                   std::optional<slice_t> slice) {
   if (!carpetx_openpmd_t::self)
     carpetx_openpmd_t::self = std::make_optional<carpetx_openpmd_t>();
   carpetx_openpmd_t::self->OutputOpenPMD(cctkGH, output_group, output_dir,
-                                         output_file, tl_mode);
+                                         output_file, tl_mode, slice);
 }
 
 void ShutdownOpenPMD() { carpetx_openpmd_t::self.reset(); }
@@ -1449,7 +1453,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                                       const std::vector<bool> &output_group,
                                       const std::string &output_dir,
                                       const std::string &output_file,
-                                      TimeLevelMode tl_mode) {
+                                      TimeLevelMode tl_mode,
+                                      std::optional<slice_t> slice) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
@@ -1639,13 +1644,26 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
       const amrex::IntVect &ihi = dom.bigEnd();
       // The domain is always vertex centred. The tensor components are
       // then staggered if necessary.
-      const box_t<int, 3> idomain{
+      box_t<int, 3> idomain{
           .lo = {ilo[0] - output_ghosts * nghosts[0],
                  ilo[1] - output_ghosts * nghosts[1],
                  ilo[2] - output_ghosts * nghosts[2]},
           .hi = {ihi[0] + output_ghosts * nghosts[0] + 1 + 1,
                  ihi[1] + output_ghosts * nghosts[1] + 1 + 1,
                  ihi[2] + output_ghosts * nghosts[2] + 1 + 1}};
+      // When slicing, restrict the (vertex-centred) domain to a thickness-1
+      // slab at the plane. The same x0/dx frame is reused for every
+      // per-component box below so all scopes pick the same integer plane.
+      const Arith::vect<CCTK_REAL, 3> slice_x0{xlo[0], xlo[1], xlo[2]};
+      const Arith::vect<CCTK_REAL, 3> slice_dx{dx[0], dx[1], dx[2]};
+      if (slice) {
+        const auto r =
+            slice->restrict_box(idomain.lo, idomain.hi, slice_x0, slice_dx);
+        if (!r)
+          continue; // plane misses this (patch, level) entirely
+        idomain.lo = r->first;
+        idomain.hi = r->second;
+      }
       if (io_verbose) {
         CCTK_VINFO("Patch: %d, Level: %d", patchdata.patch, leveldata.level);
         CCTK_VINFO("  xmin: [%f,%f,%f]", double(rdomain.lo[0]),
@@ -1804,7 +1822,17 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
               // It seems that openPMD assumes that chunks do not have
               // ghost zones
               assert(!output_ghosts);
-              const box_t<int, 3> &box = output_ghosts ? extbox : intbox;
+              box_t<int, 3> box = output_ghosts ? extbox : intbox;
+              // Restrict this component to the thickness-1 slab using the same
+              // x0/dx frame as the domain above; skip components that miss it.
+              if (slice) {
+                const auto r =
+                    slice->restrict_box(box.lo, box.hi, slice_x0, slice_dx);
+                if (!r)
+                  continue; // this component does not intersect the plane
+                box.lo = r->first;
+                box.hi = r->second;
+              }
 
               const openPMD::Offset start =
                   to_vector(reversed(box.lo - idomain.lo));
@@ -1822,7 +1850,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
 
               const amrex::FArrayBox &fab = mfab[component];
               for (int vi = 0; vi < numvars; ++vi) {
-                if (output_ghosts || intbox == extbox) {
+                // A thin slab (box != extbox) takes the contiguous-copy path.
+                if (box == extbox) {
                   const CCTK_REAL *const ptr = fab.dataPtr() + vi * np;
 #if OPENPMDAPI_VERSION_GE(0, 15, 0)
                   record_components.at(vi).storeChunkRaw(ptr, start, count);
@@ -1833,31 +1862,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                 } else {
                   std::shared_ptr<CCTK_REAL> ptr(
                       new CCTK_REAL[np], std::default_delete<CCTK_REAL[]>());
-                  const Arith::vect<int, 3> amrex_shape = extbox.shape();
-                  const Arith::vect<int, 3> amrex_offset = box.lo - extbox.lo;
-                  constexpr int amrex_di = 1;
-                  const int amrex_dj = amrex_di * amrex_shape[0];
-                  const int amrex_dk = amrex_dj * amrex_shape[1];
-                  const int amrex_np = amrex_dk * amrex_shape[2];
-                  const CCTK_REAL *restrict const amrex_ptr =
-                      fab.dataPtr() + vi * amrex_np +
-                      amrex_di * amrex_offset[0] + amrex_dj * amrex_offset[1] +
-                      amrex_dk * amrex_offset[2];
-                  const Arith::vect<int, 3> contig_shape = box.shape();
-                  constexpr int contig_di = 1;
-                  const int contig_dj = contig_di * contig_shape[0];
-                  const int contig_dk = contig_dj * contig_shape[1];
-                  const int contig_np = contig_dk * contig_shape[2];
-                  assert(contig_np == np);
-                  CCTK_REAL *restrict const contig_ptr = ptr.get();
-                  for (int k = 0; k < contig_shape[2]; ++k)
-                    for (int j = 0; j < contig_shape[1]; ++j)
-#pragma omp simd
-                      for (int i = 0; i < contig_shape[0]; ++i)
-                        contig_ptr[contig_di * i + contig_dj * j +
-                                   contig_dk * k] =
-                            amrex_ptr[amrex_di * i + amrex_dj * j +
-                                      amrex_dk * k];
+                  extract_subbox(ptr.get(), fab.dataPtr() + vi * extbox.size(),
+                                 extbox.lo, extbox.hi, box.lo, box.hi);
                   record_components.at(vi).storeChunk(std::move(ptr), start,
                                                       count);
                 }
@@ -1869,7 +1875,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
           // index space, so they share the level's idomain frame and dataset
           // extent and write a sparse subset of chunks. Geometry is rebuilt on
           // recovery; we serialize only the data, namespaced by a band tag.
-          if (write_bands) {
+          // 2D slices emit only the main grid data; bands remain 3D-only.
+          if (write_bands && !slice) {
             const auto write_band = [&](const amrex::MultiFab *const band,
                                         const band_kind kind, const int stage) {
               if (!band || band->empty())
@@ -2165,6 +2172,29 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         } // for vi
       }
     }
+  }
+
+  // Record the two in-plane axes for the slice files (3D path registers
+  // nothing). Mirrors the Silo registration (io_silo.cxx:2250-2273).
+  if (slice && CCTK_MyProc(nullptr) == 0) {
+    output_file_description_t ofd;
+    ofd.filename = *filename;
+    ofd.description = "2D CarpetX openPMD slice output";
+    ofd.writer_thorn = CCTK_THORNSTRING;
+    for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
+      if (!output_group.at(gi) || CCTK_GroupTypeI(gi) != CCTK_GF)
+        continue;
+      const int numvars = CCTK_NumVarsInGroupI(gi);
+      const int firstvar = CCTK_FirstVarIndexI(gi);
+      for (int vi = 0; vi < numvars; ++vi)
+        ofd.variables.push_back(CCTK_FullVarName(firstvar + vi));
+    }
+    ofd.iterations = {cctk_iteration};
+    for (const int d : slice->inplane_dirs())
+      ofd.output_directions.push_back(d);
+    ofd.format_name = "CarpetX/openPMD";
+    ofd.format_version = {1, 0, 0};
+    OutputMeta_RegisterOutputFile(std::move(ofd));
   }
 
   if (io_verbose)

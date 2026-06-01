@@ -5,6 +5,7 @@
 #include "io_norm.hxx"
 #include "io_openpmd.hxx"
 #include "io_silo.hxx"
+#include "io_slice.hxx"
 #include "io_tsv.hxx"
 #include "schedule.hxx"
 #include "timer.hxx"
@@ -589,6 +590,29 @@ int OutputGH(const cGH *restrict cctkGH) {
       if (strlen(out_openpmd_vars) != 0)
         CCTK_VERROR("openPMD is not enabled. The parameter "
                     "CarpetX::out_openpmd_vars must be empty.");
+#endif
+    }
+  }
+
+  {
+    const int every =
+        out_openpmd_2d_every == -1 ? out_every : out_openpmd_2d_every;
+    if (every > 0 && cctk_iteration % every == 0) {
+      const std::vector<bool> group_enabled =
+          find_groups("openPMD-2D", out_openpmd_2d_vars);
+#ifdef HAVE_CAPABILITY_openPMD_api
+      const std::string simulation_name = get_simulation_name();
+      // xy plane: normal = z; xz: normal = y; yz: normal = x
+      OutputOpenPMD(cctkGH, group_enabled, out_dir, simulation_name + ".xy",
+                    TimeLevelMode::Current, slice_t{2, out_xyplane_z});
+      OutputOpenPMD(cctkGH, group_enabled, out_dir, simulation_name + ".xz",
+                    TimeLevelMode::Current, slice_t{1, out_xzplane_y});
+      OutputOpenPMD(cctkGH, group_enabled, out_dir, simulation_name + ".yz",
+                    TimeLevelMode::Current, slice_t{0, out_yzplane_x});
+#else
+      if (strlen(out_openpmd_2d_vars) != 0)
+        CCTK_VERROR("openPMD is not enabled. The parameter "
+                    "CarpetX::out_openpmd_2d_vars must be empty.");
 #endif
     }
   }
