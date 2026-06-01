@@ -903,7 +903,8 @@ void InputSilo(const cGH *restrict const cctkGH,
 
 void OutputSilo(const cGH *restrict const cctkGH,
                 const std::vector<bool> &output_group,
-                const std::string &output_dir, const std::string &output_file) {
+                const std::string &output_dir, const std::string &output_file,
+                std::optional<slice_t> slice) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
@@ -1082,9 +1083,54 @@ void OutputSilo(const cGH *restrict const cctkGH,
             // TODO: Check whether data are valid
             const amrex::Box &fabbox = mfab.fabbox(component); // exterior
 
+            // Exterior (source) half-open bounds. The variable `data` array is
+            // always shaped by this box, whether the local fab pointer or an
+            // MPI receive buffer.
+            const Arith::vect<int, 3> ext_lo{
+                fabbox.smallEnd(0), fabbox.smallEnd(1), fabbox.smallEnd(2)};
+            const Arith::vect<int, 3> ext_hi{fabbox.bigEnd(0) + 1,
+                                             fabbox.bigEnd(1) + 1,
+                                             fabbox.bigEnd(2) + 1};
+
+            // Number of zones in the full exterior box. Used for MPI send/recv
+            // sizing and for indexing into the (un-sliced) `data` array.
+            std::ptrdiff_t src_zonecount = 1;
+            for (int d = 0; d < ndims; ++d)
+              src_zonecount *= ext_hi[d] - ext_lo[d];
+            assert(src_zonecount >= 0 && src_zonecount <= INT_MAX);
+
+            // Geometry for this (patch, level): index 0 sits at the Cartesian
+            // coordinate x0[d], with cell size dx[d].
+            const amrex::Geometry &geom =
+                patchdata.amrcore->Geom(leveldata.level);
+            const amrex::Real *const x0 = geom.ProbLo();
+            const amrex::Real *const dx = geom.CellSize();
+
+            // Restrict to a thickness-1 slab when slicing. sub_lo/sub_hi
+            // default to the full exterior box, so the non-slice path is
+            // unchanged.
+            Arith::vect<int, 3> sub_lo = ext_lo, sub_hi = ext_hi;
+            const int slice_n = slice ? slice->normal_dir : -1;
+            int slice_idx = -1; // plane index along the normal, fabbox frame
+            if (slice) {
+              if (!patchdata.is_cartesian)
+                CCTK_VERROR("2D Silo slice output is only supported for "
+                            "Cartesian patches");
+              const Arith::vect<CCTK_REAL, 3> sx0{x0[0], x0[1], x0[2]};
+              const Arith::vect<CCTK_REAL, 3> sdx{dx[0], dx[1], dx[2]};
+              const auto r = slice->restrict_box(ext_lo, ext_hi, sx0, sdx);
+              if (!r)
+                continue; // component does not intersect the plane
+              sub_lo = r->first;
+              sub_hi = r->second;
+              slice_idx = sub_lo[slice_n];
+            }
+
+            // Mesh dimensions: the slab shape (== exterior shape when not
+            // slicing).
             std::array<int, ndims> dims;
             for (int d = 0; d < ndims; ++d)
-              dims[d] = fabbox.length(d);
+              dims[d] = sub_hi[d] - sub_lo[d];
             std::ptrdiff_t zonecount = 1;
             for (int d = 0; d < ndims; ++d)
               zonecount *= dims[d];
@@ -1101,17 +1147,16 @@ void OutputSilo(const cGH *restrict const cctkGH,
               for (int d = 0; d < ndims; ++d)
                 dims_vc[d] = dims[d] + int(indextype.cellCentered(d));
 
-              const amrex::Geometry &geom =
-                  patchdata.amrcore->Geom(leveldata.level);
-              const amrex::Real *const x0 = geom.ProbLo();
-              const amrex::Real *const dx = geom.CellSize();
               std::array<std::vector<CCTK_REAL>, ndims> coords;
               std::array<const void *, ndims> coord_ptrs;
               if (patchdata.is_cartesian) {
                 for (int d = 0; d < ndims; ++d) {
                   coords[d].resize(dims_vc[d]);
+                  // sub_lo[d] == fabbox.smallEnd(d) for in-plane axes; for the
+                  // sliced normal axis it is the plane index, so the slab's
+                  // single coordinate plane is placed correctly.
                   for (int i = 0; i < dims_vc[d]; ++i)
-                    coords[d][i] = x0[d] + (fabbox.smallEnd(d) + i) * dx[d];
+                    coords[d][i] = x0[d] + (sub_lo[d] + i) * dx[d];
                 }
                 for (int d = 0; d < ndims; ++d)
                   coord_ptrs[d] = coords[d].data();
@@ -1169,8 +1214,10 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
               std::array<int, ndims> min_index, max_index;
               for (int d = 0; d < ndims; ++d) {
-                min_index[d] = nghosts[d];
-                max_index[d] = nghosts[d];
+                // The thickness-1 slab carries no ghosts along the normal.
+                const int ng = (slice && d == slice_n) ? 0 : nghosts[d];
+                min_index[d] = ng;
+                max_index[d] = ng;
               }
               ierr =
                   DBAddOption(optlist.get(), DBOPT_LO_OFFSET, min_index.data());
@@ -1219,13 +1266,13 @@ void OutputSilo(const cGH *restrict const cctkGH,
               data = fab.dataPtr();
             } else if (send_this_fab) {
               const amrex::FArrayBox &fab = mfab[component];
-              assert(numvars * zonecount <= INT_MAX);
-              MPI_Send(fab.dataPtr(), numvars * zonecount,
+              assert(numvars * src_zonecount <= INT_MAX);
+              MPI_Send(fab.dataPtr(), numvars * src_zonecount,
                        mpi_datatype_v<CCTK_REAL>, ioproc, mpi_tag, mpi_comm);
             } else {
-              buffer.resize(numvars * zonecount);
-              assert(numvars * zonecount <= INT_MAX);
-              MPI_Recv(buffer.data(), numvars * zonecount,
+              buffer.resize(numvars * src_zonecount);
+              assert(numvars * src_zonecount <= INT_MAX);
+              MPI_Recv(buffer.data(), numvars * src_zonecount,
                        mpi_datatype_v<CCTK_REAL>, proc, mpi_tag, mpi_comm,
                        MPI_STATUS_IGNORE);
               data = buffer.data();
@@ -1294,11 +1341,26 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 assert(0);
               }
 
+              // A thickness-1 slab is contiguous only for the xy plane (normal
+              // = z, the slowest axis); xz/yz planes are strided. Extract each
+              // variable's slab from the exterior-shaped `data` into a
+              // contiguous buffer before handing it to Silo. `zonecount` is the
+              // slab count (== src_zonecount when not slicing).
+              std::vector<CCTK_REAL> slab;
+              if (slice)
+                slab.resize(zonecount);
               for (int vi = 0; vi < numvars; ++vi) {
                 const std::string varname = make_varname(
                     gi, vi, patchdata.patch, leveldata.level, component);
 
-                const void *const data_ptr = data + vi * zonecount;
+                const void *data_ptr;
+                if (slice) {
+                  extract_subbox(slab.data(), data + vi * src_zonecount, ext_lo,
+                                 ext_hi, sub_lo, sub_hi);
+                  data_ptr = slab.data();
+                } else {
+                  data_ptr = data + vi * src_zonecount;
+                }
 
                 ierr = DBPutQuadvar1(
                     file.get(), varname.c_str(), meshname.c_str(), data_ptr,
@@ -1312,8 +1374,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
           // Subcycling consumer bands: zero-ghost MultiFabs in this level's
           // index space with their own DistributionMap, so each gets its own
           // component loop. Geometry is rebuilt on recovery; we serialize only
-          // the data, namespaced by a band tag.
-          if (write_bands) {
+          // the data, namespaced by a band tag. 2D slice output covers only the
+          // main grid data, so bands are skipped entirely when slicing.
+          if (write_bands && !slice) {
             const int centering = [&]() {
               const int rank = indextype.cellCentered(0) +
                                indextype.cellCentered(1) +
@@ -2249,7 +2312,8 @@ void OutputSilo(const cGH *restrict const cctkGH,
     {
       output_file_description_t ofd;
       ofd.filename = metafilename;
-      ofd.description = "3D CarpetX HDF5 Silo output";
+      ofd.description = slice ? "2D CarpetX HDF5 Silo slice output"
+                              : "3D CarpetX HDF5 Silo output";
       ofd.writer_thorn = CCTK_THORNSTRING;
       for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
         if (!output_group.at(gi))
@@ -2265,8 +2329,12 @@ void OutputSilo(const cGH *restrict const cctkGH,
         }
       }
       ofd.iterations = {cctk_iteration};
-      for (int d = 0; d < dim; ++d)
-        ofd.output_directions.push_back(d);
+      if (slice)
+        for (const int d : slice->inplane_dirs())
+          ofd.output_directions.push_back(d);
+      else
+        for (int d = 0; d < dim; ++d)
+          ofd.output_directions.push_back(d);
       ofd.format_name = "CarpetX/Silo/HDF5";
       ofd.format_version = {1, 0, 0};
 
