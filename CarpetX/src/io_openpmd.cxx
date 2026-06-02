@@ -1654,6 +1654,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
       // When slicing, restrict the (vertex-centred) domain to a thickness-1
       // slab at the plane. The same x0/dx frame is reused for every
       // per-component box below so all scopes pick the same integer plane.
+      // restrict_box tests exterior bounds; this matches restrict_box_interior
+      // only because output_ghosts is false (box == intbox).
       const Arith::vect<CCTK_REAL, 3> slice_x0{xlo[0], xlo[1], xlo[2]};
       const Arith::vect<CCTK_REAL, 3> slice_dx{dx[0], dx[1], dx[2]};
       if (slice) {
@@ -1823,19 +1825,29 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
               // ghost zones
               assert(!output_ghosts);
               box_t<int, 3> box = output_ghosts ? extbox : intbox;
-              // Restrict this component to the thickness-1 slab using the same
-              // x0/dx frame as the domain above; skip components that miss it.
+              // Restrict this component to the thickness-1 slab. idomain stays
+              // vertex-framed (it backs the shared dataset), so the per-
+              // component plane index must be centering-aware (io_tsv.cxx:274).
+              // Skip components that miss the plane.
               if (slice) {
+                const Arith::vect<CCTK_REAL, 3> slice_x0_cc{
+                    slice_x0[0] + int(is_cell_centred[0]) * slice_dx[0] / 2,
+                    slice_x0[1] + int(is_cell_centred[1]) * slice_dx[1] / 2,
+                    slice_x0[2] + int(is_cell_centred[2]) * slice_dx[2] / 2};
                 const auto r =
-                    slice->restrict_box(box.lo, box.hi, slice_x0, slice_dx);
+                    slice->restrict_box(box.lo, box.hi, slice_x0_cc, slice_dx);
                 if (!r)
                   continue; // this component does not intersect the plane
                 box.lo = r->first;
                 box.hi = r->second;
               }
 
-              const openPMD::Offset start =
-                  to_vector(reversed(box.lo - idomain.lo));
+              Arith::vect<int, 3> start_vec = box.lo - idomain.lo;
+              if (slice)
+                // The slab is thickness-1 against a vertex-framed idomain, so
+                // box.lo - idomain.lo is wrong for cell-centred data; force 0.
+                start_vec[slice->normal_dir] = 0;
+              const openPMD::Offset start = to_vector(reversed(start_vec));
               const openPMD::Extent count = to_vector(reversed(box.shape()));
               const int np = box.size();
               assert(int(count.at(0) * count.at(1) * count.at(2)) == np);
@@ -1968,9 +1980,11 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     } // for leveldata
   } // for patchdata
 
-  // Next write grid scalars and grid arrays
+  // Next write grid scalars and grid arrays.
+  // Slices emit only GF data; a non-GF group in out_openpmd_2d_vars produces
+  // nothing here.
 
-  if (myproc == ioproc) {
+  if (myproc == ioproc && !slice) {
     const int numgroups = CCTK_NumGroups();
     for (int gi = 0; gi < numgroups; ++gi) {
       if (output_group.at(gi)) {
@@ -2175,7 +2189,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   }
 
   // Record the two in-plane axes for the slice files (3D path registers
-  // nothing). Mirrors the Silo registration (io_silo.cxx:2250-2273).
+  // nothing).
   if (slice && CCTK_MyProc(nullptr) == 0) {
     output_file_description_t ofd;
     ofd.filename = *filename;

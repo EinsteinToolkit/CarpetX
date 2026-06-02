@@ -81,7 +81,7 @@ template <typename T> constexpr int db_datatype_v = db_datatype<T>::value;
 inline std::optional<std::pair<Arith::vect<int, 3>, Arith::vect<int, 3> > >
 slice_slab(const amrex::MultiFab &mfab, const int c,
            const amrex::Real *const x0, const amrex::Real *const dx,
-           const slice_t &slice) {
+           const amrex::IndexType &indextype, const slice_t &slice) {
   const amrex::Box &fabbox = mfab.fabbox(c); // exterior
   const Arith::vect<int, 3> ext_lo{fabbox.smallEnd(0), fabbox.smallEnd(1),
                                    fabbox.smallEnd(2)};
@@ -92,7 +92,12 @@ slice_slab(const amrex::MultiFab &mfab, const int c,
                                    validbox.smallEnd(2)};
   const Arith::vect<int, 3> val_hi{
       validbox.bigEnd(0) + 1, validbox.bigEnd(1) + 1, validbox.bigEnd(2) + 1};
-  const Arith::vect<CCTK_REAL, 3> sx0{x0[0], x0[1], x0[2]};
+  // Centering-aware origin (io_tsv.cxx:274): index 0 sits half a cell inboard
+  // for cell-centred axes.
+  const Arith::vect<CCTK_REAL, 3> sx0{
+      x0[0] + int(indextype.cellCentered(0)) * dx[0] / 2,
+      x0[1] + int(indextype.cellCentered(1)) * dx[1] / 2,
+      x0[2] + int(indextype.cellCentered(2)) * dx[2] / 2};
   const Arith::vect<CCTK_REAL, 3> sdx{dx[0], dx[1], dx[2]};
   return slice.restrict_box_interior(ext_lo, ext_hi, val_lo, val_hi, sx0, sdx);
 }
@@ -986,6 +991,17 @@ void OutputSilo(const cGH *restrict const cctkGH,
   // the on-disk format is unchanged.
   const bool write_bands = !all_levels_synchronized();
 
+  // 2D slice output maps a physical coord to an index via (coord - x0)/dx,
+  // which is undefined on a non-Cartesian patch. Reject up front so every loop
+  // below can assume slice ⟹ all-Cartesian. is_cartesian is identical on every
+  // rank, so this scan is collective-safe.
+  if (slice) {
+    for (const auto &patchdata : ghext->patchdata)
+      if (!patchdata.is_cartesian)
+        CCTK_VERROR("2D Silo slice output is only supported for "
+                    "Cartesian patches");
+  }
+
   interval_setup = nullptr;
 
   static Timer timer_data("OutputSilo.data");
@@ -1134,17 +1150,13 @@ void OutputSilo(const cGH *restrict const cctkGH,
             // unchanged.
             Arith::vect<int, 3> sub_lo = ext_lo, sub_hi = ext_hi;
             const int slice_n = slice ? slice->normal_dir : -1;
-            int slice_idx = -1; // plane index along the normal, fabbox frame
             if (slice) {
-              if (!patchdata.is_cartesian)
-                CCTK_VERROR("2D Silo slice output is only supported for "
-                            "Cartesian patches");
-              const auto r = slice_slab(mfab, component, x0, dx, *slice);
+              const auto r =
+                  slice_slab(mfab, component, x0, dx, indextype, *slice);
               if (!r)
                 continue; // component does not intersect the plane
               sub_lo = r->first;
               sub_hi = r->second;
-              slice_idx = sub_lo[slice_n];
             }
 
             // Mesh dimensions: the slab shape (== exterior shape when not
@@ -1978,7 +1990,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                            fabbox.bigEnd(1) + 1,
                                            fabbox.bigEnd(2) + 1};
                 if (slice) {
-                  const auto r = slice_slab(mfab, c, x0, dx, *slice);
+                  const auto r = slice_slab(mfab, c, x0, dx, indextype, *slice);
                   if (!r)
                     continue; // skip components that miss the plane
                   sub_lo = r->first;
@@ -1996,6 +2008,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
                 extents.push_back(extent);
               }
             } else { // if !patchdata.is_cartesian)
+              // The function-entry guard rejects non-Cartesian slices, so this
+              // branch is unreachable for slices and needs no slice_slab skip.
+              assert(!slice);
               const auto &minima =
                   coordinate_minima.at(patchdata.patch).at(leveldata.level);
               const auto &maxima =
@@ -2105,7 +2120,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
             const amrex::Real *const x0 = geom.ProbLo();
             const amrex::Real *const dx = geom.CellSize();
             for (int c = 0; c < ncomponents; ++c) {
-              if (slice && !slice_slab(mfab, c, x0, dx, *slice))
+              if (slice && !slice_slab(mfab, c, x0, dx, indextype, *slice))
                 continue; // skip components that miss the plane
               const int proc = dm[c];
               const std::string proc_filename =
@@ -2186,7 +2201,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                                          fabbox.bigEnd(1) + 1,
                                          fabbox.bigEnd(2) + 1};
               if (slice) {
-                const auto r = slice_slab(mfab, c, x0, dx, *slice);
+                const auto r = slice_slab(mfab, c, x0, dx, indextype, *slice);
                 if (!r)
                   continue; // skip components that miss the plane
                 sub_lo = r->first;
@@ -2270,7 +2285,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
               const amrex::Real *const dx = geom.CellSize();
               for (int c = 0; c < ncomponents; ++c) {
                 // Same guard as the multimesh loops, keeping multivar aligned.
-                if (slice && !slice_slab(mfab, c, x0, dx, *slice))
+                if (slice && !slice_slab(mfab, c, x0, dx, indextype, *slice))
                   continue; // skip components that miss the plane
                 const int proc = dm[c];
                 const std::string proc_filename =

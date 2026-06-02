@@ -31,10 +31,11 @@ struct slice_t {
   }
 
   // Restrict a half-open index box [lo, hi) to a thickness-1 slab at the
-  // plane. x0[d] is the physical coordinate of index 0 and dx[d] the cell
-  // size, so idx = lrint((coord - x0)/dx) mirrors io_tsv.cxx:281. Returns the
-  // restricted [lo, hi) (lo[n]=idx, hi[n]=idx+1), or nullopt to skip when the
-  // plane index lies outside [lo[n], hi[n]).
+  // plane. Callers pass a centering-aware origin x0[d] (the physical coordinate
+  // of index 0; ProbLo(d) + cellCentered(d)*dx[d]/2, matching io_tsv.cxx:274),
+  // so idx = lrint((coord - x0)/dx) selects the correct plane for both vertex-
+  // and cell-centred data. Returns [lo, hi) with lo[n]=idx, hi[n]=idx+1, or
+  // nullopt when the plane lies outside.
   std::optional<std::pair<Arith::vect<int, 3>, Arith::vect<int, 3> > >
   restrict_box(Arith::vect<int, 3> lo, Arith::vect<int, 3> hi,
                const Arith::vect<CCTK_REAL, 3> &x0,
