@@ -1549,15 +1549,15 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   // the on-disk format is unchanged.
   const bool write_bands = !all_levels_synchronized();
 
-  // Write parameters
-  if (myproc == ioproc) {
+  // Write parameters (recovery-only; omitted for plot-only slice files)
+  if (myproc == ioproc && !slice) {
     char *const data = IOUtil_GetAllParameters(cctkGH, 1 /*all*/);
     const std::string parameters(data);
     std::free(data);
     write_iter.setAttribute("AllParameters", parameters);
   }
 
-  if (myproc == ioproc) {
+  if (myproc == ioproc && !slice) {
     const int ndims = Loop::dim;
     write_iter.setAttribute<std::int64_t>("numDims", ndims);
     const int npatches = ghext->patchdata.size();

@@ -47,6 +47,25 @@ struct slice_t {
     hi[n] = idx + 1;
     return std::make_pair(lo, hi);
   }
+
+  // Like restrict_box, but tests the plane index against the *valid* box
+  // [valid_lo[n], valid_hi[n]) so a box-boundary plane belongs to exactly one
+  // box (no ghost-region double-write). The returned slab keeps the exterior
+  // in-plane extents and collapses the normal axis to [idx, idx+1).
+  std::optional<std::pair<Arith::vect<int, 3>, Arith::vect<int, 3> > >
+  restrict_box_interior(Arith::vect<int, 3> ext_lo, Arith::vect<int, 3> ext_hi,
+                        const Arith::vect<int, 3> &valid_lo,
+                        const Arith::vect<int, 3> &valid_hi,
+                        const Arith::vect<CCTK_REAL, 3> &x0,
+                        const Arith::vect<CCTK_REAL, 3> &dx) const {
+    const int n = normal_dir;
+    const int idx = std::lrint((coord - x0[n]) / dx[n]);
+    if (idx < valid_lo[n] || idx >= valid_hi[n])
+      return std::nullopt;
+    ext_lo[n] = idx;
+    ext_hi[n] = idx + 1;
+    return std::make_pair(ext_lo, ext_hi);
+  }
 };
 
 // Copy the sub-box [sub_lo, sub_hi) out of a Fortran-ordered (stride-1 in
