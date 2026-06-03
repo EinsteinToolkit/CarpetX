@@ -34,6 +34,7 @@ namespace filesystem = std::filesystem;
 #endif
 #include <fstream>
 #include <iomanip>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <regex>
@@ -87,19 +88,26 @@ slice_slab(const amrex::MultiFab &mfab, const int c,
                                    fabbox.smallEnd(2)};
   const Arith::vect<int, 3> ext_hi{fabbox.bigEnd(0) + 1, fabbox.bigEnd(1) + 1,
                                    fabbox.bigEnd(2) + 1};
-  const amrex::Box &validbox = mfab.box(c); // interior
-  const Arith::vect<int, 3> val_lo{validbox.smallEnd(0), validbox.smallEnd(1),
-                                   validbox.smallEnd(2)};
-  const Arith::vect<int, 3> val_hi{
-      validbox.bigEnd(0) + 1, validbox.bigEnd(1) + 1, validbox.bigEnd(2) + 1};
-  // Centering-aware origin (io_tsv.cxx:274): index 0 sits half a cell inboard
-  // for cell-centred axes.
+  const amrex::Box &validbox = mfab.box(c); // interior (variable-typed)
+  // enclosedCells maps a nodal or cell valid box to the same cell range, so
+  // membership (which box owns the plane) is centering-independent.
+  const amrex::Box cvalidbox = amrex::enclosedCells(validbox);
+  const Arith::vect<int, 3> cval_lo{
+      cvalidbox.smallEnd(0), cvalidbox.smallEnd(1), cvalidbox.smallEnd(2)};
+  const Arith::vect<int, 3> cval_hi{cvalidbox.bigEnd(0) + 1,
+                                    cvalidbox.bigEnd(1) + 1,
+                                    cvalidbox.bigEnd(2) + 1};
+  // Cell-canonical origin (cell centres) for the membership test.
+  const Arith::vect<CCTK_REAL, 3> cx0{x0[0] + dx[0] / 2, x0[1] + dx[1] / 2,
+                                      x0[2] + dx[2] / 2};
+  // Centering-aware origin for the slab extraction (commit 5f9618f1).
   const Arith::vect<CCTK_REAL, 3> sx0{
       x0[0] + int(indextype.cellCentered(0)) * dx[0] / 2,
       x0[1] + int(indextype.cellCentered(1)) * dx[1] / 2,
       x0[2] + int(indextype.cellCentered(2)) * dx[2] / 2};
   const Arith::vect<CCTK_REAL, 3> sdx{dx[0], dx[1], dx[2]};
-  return slice.restrict_box_interior(ext_lo, ext_hi, val_lo, val_hi, sx0, sdx);
+  return slice.restrict_box_interior(ext_lo, ext_hi, cval_lo, cval_hi, cx0, sx0,
+                                     sdx);
 }
 
 struct mesh_props_t {
@@ -1655,7 +1663,9 @@ void OutputSilo(const cGH *restrict const cctkGH,
     }
 
     // Loop over groups
-    std::set<mesh_props_t> have_meshes;
+    // Map each shared multimesh to its block count so the multivar block below
+    // can check that every slice multivar references the same number of blocks.
+    std::map<mesh_props_t, std::size_t> mesh_nblocks;
     for (int gi = 0; gi < CCTK_NumGroups(); ++gi) {
       if (!output_group.at(gi))
         continue;
@@ -1673,7 +1683,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
 
       const std::array<int, dim> &nghosts = groupdata0.nghostzones;
       const mesh_props_t mesh_props{nghosts};
-      const bool have_mesh = have_meshes.count(mesh_props);
+      const bool have_mesh = mesh_nblocks.count(mesh_props);
 
       if (!have_mesh) {
         const std::string multimeshname = make_meshname(nghosts);
@@ -2235,7 +2245,7 @@ void OutputSilo(const cGH *restrict const cctkGH,
                               nullptr, optlist.get());
         assert(!ierr);
 
-        have_meshes.insert(mesh_props);
+        mesh_nblocks[mesh_props] = meshname_ptrs.size();
       } // if write multimesh
 
       // Write multivar
@@ -2303,6 +2313,24 @@ void OutputSilo(const cGH *restrict const cctkGH,
           varname_ptrs.reserve(varnames.size());
           for (const auto &varname : varnames)
             varname_ptrs.push_back(varname.c_str());
+
+          // A slice multimesh and every multivar referencing it must enumerate
+          // the same block set; a divergence means block membership has become
+          // centering-dependent. Abort rather than emit a file VisIt cannot
+          // read. Collective-safe (identical on every rank).
+          if (slice) {
+            const std::size_t nmesh = mesh_nblocks.at(mesh_props);
+            if (varname_ptrs.size() != nmesh)
+              CCTK_VERROR(
+                  "2D Silo slice multivar \"%s\" enumerates %zu blocks but its "
+                  "multimesh \"%s\" enumerates %zu. The slice plane likely "
+                  "lies "
+                  "on an inter-box boundary and block membership has become "
+                  "centering-dependent (see restrict_box_interior in "
+                  "io_slice.hxx / slice_slab in io_silo.cxx).",
+                  multivarname.c_str(), varname_ptrs.size(),
+                  multimeshname.c_str(), nmesh);
+          }
 
           ierr = DBPutMultivar(metafile.get(), multivarname.c_str(),
                                varname_ptrs.size(), varname_ptrs.data(),

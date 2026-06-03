@@ -1834,8 +1834,22 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                     slice_x0[0] + int(is_cell_centred[0]) * slice_dx[0] / 2,
                     slice_x0[1] + int(is_cell_centred[1]) * slice_dx[1] / 2,
                     slice_x0[2] + int(is_cell_centred[2]) * slice_dx[2] / 2};
-                const auto r =
-                    slice->restrict_box(box.lo, box.hi, slice_x0_cc, slice_dx);
+                // Cell-canonical membership so cell and vertex variables pick
+                // the same components for the shared vertex-framed dataset.
+                const amrex::Box cvalidbox = amrex::enclosedCells(validbox);
+                const Arith::vect<int, 3> cval_lo{cvalidbox.smallEnd(0),
+                                                  cvalidbox.smallEnd(1),
+                                                  cvalidbox.smallEnd(2)};
+                const Arith::vect<int, 3> cval_hi{cvalidbox.bigEnd(0) + 1,
+                                                  cvalidbox.bigEnd(1) + 1,
+                                                  cvalidbox.bigEnd(2) + 1};
+                const Arith::vect<CCTK_REAL, 3> slice_x0_canon{
+                    slice_x0[0] + slice_dx[0] / 2,
+                    slice_x0[1] + slice_dx[1] / 2,
+                    slice_x0[2] + slice_dx[2] / 2};
+                const auto r = slice->restrict_box_interior(
+                    box.lo, box.hi, cval_lo, cval_hi, slice_x0_canon,
+                    slice_x0_cc, slice_dx);
                 if (!r)
                   continue; // this component does not intersect the plane
                 box.lo = r->first;
@@ -1847,6 +1861,12 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                 // The slab is thickness-1 against a vertex-framed idomain, so
                 // box.lo - idomain.lo is wrong for cell-centred data; force 0.
                 start_vec[slice->normal_dir] = 0;
+              if (slice) {
+                // The centering-aware slab must fall inside this component's
+                // exterior extent (membership was decided cell-canonically).
+                const int n = slice->normal_dir;
+                assert(box.lo[n] >= extbox.lo[n] && box.hi[n] <= extbox.hi[n]);
+              }
               const openPMD::Offset start = to_vector(reversed(start_vec));
               const openPMD::Extent count = to_vector(reversed(box.shape()));
               const int np = box.size();
