@@ -1825,17 +1825,11 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
               // ghost zones
               assert(!output_ghosts);
               box_t<int, 3> box = output_ghosts ? extbox : intbox;
-              // Restrict this component to the thickness-1 slab. idomain stays
-              // vertex-framed (it backs the shared dataset), so the per-
-              // component plane index must be centering-aware (io_tsv.cxx:274).
-              // Skip components that miss the plane.
+              // Restrict this component to the thickness-1 slab, skipping
+              // components that miss the plane. Membership is cell-canonical so
+              // cell and vertex variables pick the same components for the
+              // shared vertex-framed dataset.
               if (slice) {
-                const Arith::vect<CCTK_REAL, 3> slice_x0_cc{
-                    slice_x0[0] + int(is_cell_centred[0]) * slice_dx[0] / 2,
-                    slice_x0[1] + int(is_cell_centred[1]) * slice_dx[1] / 2,
-                    slice_x0[2] + int(is_cell_centred[2]) * slice_dx[2] / 2};
-                // Cell-canonical membership so cell and vertex variables pick
-                // the same components for the shared vertex-framed dataset.
                 const amrex::Box cvalidbox = amrex::enclosedCells(validbox);
                 const Arith::vect<int, 3> cval_lo{cvalidbox.smallEnd(0),
                                                   cvalidbox.smallEnd(1),
@@ -1843,13 +1837,9 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                 const Arith::vect<int, 3> cval_hi{cvalidbox.bigEnd(0) + 1,
                                                   cvalidbox.bigEnd(1) + 1,
                                                   cvalidbox.bigEnd(2) + 1};
-                const Arith::vect<CCTK_REAL, 3> slice_x0_canon{
-                    slice_x0[0] + slice_dx[0] / 2,
-                    slice_x0[1] + slice_dx[1] / 2,
-                    slice_x0[2] + slice_dx[2] / 2};
-                const auto r = slice->restrict_box_interior(
-                    box.lo, box.hi, cval_lo, cval_hi, slice_x0_canon,
-                    slice_x0_cc, slice_dx);
+                const auto r = slice->restrict_component(
+                    box.lo, box.hi, cval_lo, cval_hi, slice_x0, slice_dx,
+                    is_cell_centred);
                 if (!r)
                   continue; // this component does not intersect the plane
                 box.lo = r->first;
@@ -1857,15 +1847,13 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
               }
 
               Arith::vect<int, 3> start_vec = box.lo - idomain.lo;
-              if (slice)
-                // The slab is thickness-1 against a vertex-framed idomain, so
-                // box.lo - idomain.lo is wrong for cell-centred data; force 0.
-                start_vec[slice->normal_dir] = 0;
               if (slice) {
-                // The centering-aware slab must fall inside this component's
-                // exterior extent (membership was decided cell-canonically).
                 const int n = slice->normal_dir;
+                // The slab must fall inside this component's exterior extent.
                 assert(box.lo[n] >= extbox.lo[n] && box.hi[n] <= extbox.hi[n]);
+                // idomain is vertex-framed, so box.lo - idomain.lo is wrong for
+                // the thickness-1 slab; force the normal offset to 0.
+                start_vec[n] = 0;
               }
               const openPMD::Offset start = to_vector(reversed(start_vec));
               const openPMD::Extent count = to_vector(reversed(box.shape()));

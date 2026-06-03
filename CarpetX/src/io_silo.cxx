@@ -97,17 +97,13 @@ slice_slab(const amrex::MultiFab &mfab, const int c,
   const Arith::vect<int, 3> cval_hi{cvalidbox.bigEnd(0) + 1,
                                     cvalidbox.bigEnd(1) + 1,
                                     cvalidbox.bigEnd(2) + 1};
-  // Cell-canonical origin (cell centres) for the membership test.
-  const Arith::vect<CCTK_REAL, 3> cx0{x0[0] + dx[0] / 2, x0[1] + dx[1] / 2,
-                                      x0[2] + dx[2] / 2};
-  // Centering-aware origin for the slab extraction (commit 5f9618f1).
-  const Arith::vect<CCTK_REAL, 3> sx0{
-      x0[0] + int(indextype.cellCentered(0)) * dx[0] / 2,
-      x0[1] + int(indextype.cellCentered(1)) * dx[1] / 2,
-      x0[2] + int(indextype.cellCentered(2)) * dx[2] / 2};
+  const Arith::vect<CCTK_REAL, 3> sx0{x0[0], x0[1], x0[2]};
   const Arith::vect<CCTK_REAL, 3> sdx{dx[0], dx[1], dx[2]};
-  return slice.restrict_box_interior(ext_lo, ext_hi, cval_lo, cval_hi, cx0, sx0,
-                                     sdx);
+  const Arith::vect<bool, 3> is_cell_centred{indextype.cellCentered(0),
+                                             indextype.cellCentered(1),
+                                             indextype.cellCentered(2)};
+  return slice.restrict_component(ext_lo, ext_hi, cval_lo, cval_hi, sx0, sdx,
+                                  is_cell_centred);
 }
 
 struct mesh_props_t {

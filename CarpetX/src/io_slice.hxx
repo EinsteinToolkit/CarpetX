@@ -70,13 +70,33 @@ struct slice_t {
     ext_hi[n] = idx_var + 1;
     return std::make_pair(ext_lo, ext_hi);
   }
+
+  // Shared core of the Silo and openPMD per-component slice restriction.
+  // Derives the two origins from the patch origin x0 and the per-axis
+  // centering: membership origin at cell centres, slab origin centering-aware.
+  std::optional<std::pair<Arith::vect<int, 3>, Arith::vect<int, 3> > >
+  restrict_component(const Arith::vect<int, 3> &ext_lo,
+                     const Arith::vect<int, 3> &ext_hi,
+                     const Arith::vect<int, 3> &cval_lo,
+                     const Arith::vect<int, 3> &cval_hi,
+                     const Arith::vect<CCTK_REAL, 3> &x0,
+                     const Arith::vect<CCTK_REAL, 3> &dx,
+                     const Arith::vect<bool, 3> &is_cell_centred) const {
+    const Arith::vect<CCTK_REAL, 3> cx0{x0[0] + dx[0] / 2, x0[1] + dx[1] / 2,
+                                        x0[2] + dx[2] / 2};
+    const Arith::vect<CCTK_REAL, 3> sx0{
+        x0[0] + int(is_cell_centred[0]) * dx[0] / 2,
+        x0[1] + int(is_cell_centred[1]) * dx[1] / 2,
+        x0[2] + int(is_cell_centred[2]) * dx[2] / 2};
+    return restrict_box_interior(ext_lo, ext_hi, cval_lo, cval_hi, cx0, sx0,
+                                 dx);
+  }
 };
 
 // Copy the sub-box [sub_lo, sub_hi) out of a Fortran-ordered (stride-1 in
 // dir 0) source array spanning [src_lo, src_hi) into a contiguous
 // Fortran-ordered destination buffer of shape (sub_hi - sub_lo). `dst` must
-// hold at least prod(sub_hi - sub_lo) elements. Lifted verbatim from the
-// openPMD ghost-strip loop (io_openpmd.cxx:1836-1860).
+// hold at least prod(sub_hi - sub_lo) elements.
 inline void extract_subbox(CCTK_REAL *restrict dst,
                            const CCTK_REAL *restrict src,
                            const Arith::vect<int, 3> &src_lo,
