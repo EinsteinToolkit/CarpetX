@@ -15,6 +15,7 @@
 
 #include <cctk.h>
 #include <cctk_Arguments.h>
+#include <cctk_IOMethods.h>
 #include <cctk_Parameters.h>
 #include <util_Table.h>
 
@@ -669,6 +670,17 @@ int OutputGH(const cGH *restrict cctkGH) {
     const int every = out_tsv_every == -1 ? out_every : out_tsv_every;
     if (every > 0 && cctk_iteration % every == 0)
       OutputTSV(cctkGH);
+  }
+
+  // Call the IO methods registered via CCTK_RegisterIOMethod; the flesh's
+  // default traversal never runs since CCTK_OutputGH is overloaded.
+  {
+    const int num_methods = CCTK_NumIOMethods();
+    for (int handle = 0; handle < num_methods; ++handle) {
+      const IOMethod *const method = CCTK_IOMethod(handle);
+      if (method && method->OutputGH)
+        method->OutputGH(cctkGH);
+    }
   }
 
   // Describe all output files
