@@ -42,6 +42,7 @@ static inline int omp_in_parallel() { return 0; }
 #include <array>
 #include <cassert>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -1507,10 +1508,16 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
                                                  MPI_COMM_WORLD, options);
     series->setIterationEncoding(iterationEncoding);
 
+    // Series metadata must be rank-identical (HDF5 metadata writes are
+    // collective): broadcast rank 0's author and hostname.
     {
+      char author[1000] = {0};
       char const *const user = getenv("USER");
       if (user)
-        series->setAuthor(user);
+        std::snprintf(author, sizeof author, "%s", user);
+      MPI_Bcast(author, sizeof author, MPI_CHAR, 0, MPI_COMM_WORLD);
+      if (author[0])
+        series->setAuthor(author);
     }
     // Software is always "openPMD-api"
     // series->setSoftware("Einstein Toolkit <https://einsteintoolkit.org>");
@@ -1524,6 +1531,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     {
       char hostname[1000];
       Util_GetHostName(hostname, sizeof hostname);
+      MPI_Bcast(hostname, sizeof hostname, MPI_CHAR, 0, MPI_COMM_WORLD);
       series->setMachine(hostname);
     }
 
@@ -1549,15 +1557,18 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   // the on-disk format is unchanged.
   const bool write_bands = !all_levels_synchronized();
 
+  // Iteration attributes are set on EVERY rank (all inputs are replicated):
+  // rank-asymmetric writes deadlock the HDF5 backend's collective metadata.
+
   // Write parameters
-  if (myproc == ioproc) {
+  {
     char *const data = IOUtil_GetAllParameters(cctkGH, 1 /*all*/);
     const std::string parameters(data);
     std::free(data);
     write_iter.setAttribute("AllParameters", parameters);
   }
 
-  if (myproc == ioproc && !slice) {
+  if (!slice) {
     const int ndims = Loop::dim;
     write_iter.setAttribute<std::int64_t>("numDims", ndims);
     const int npatches = ghext->patchdata.size();
@@ -1613,7 +1624,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
             static_cast<std::int64_t>(leveldata.iteration.den));
       }
     }
-  } // if ioproc
+  } // if !slice
 
   // First write grid functions in a loop over patches and levels
 
@@ -1992,7 +2003,9 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   // Slices emit only GF data; a non-GF group in out_openpmd_2d_vars produces
   // nothing here.
 
-  if (myproc == ioproc && !slice) {
+  // Mesh and dataset definitions are collective (HDF5); only the data write
+  // below is restricted to a single rank (the data is replicated).
+  if (!slice) {
     const int numgroups = CCTK_NumGroups();
     for (int gi = 0; gi < numgroups; ++gi) {
       if (output_group.at(gi)) {
@@ -2123,6 +2136,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
         assert(cactus_np > 0);
         assert(int(groupdata.data.at(tl).size()) == numvars * cactus_np);
         for (int vi = 0; vi < numvars; ++vi) {
+          if (myproc != ioproc)
+            continue; // replicated data; one rank writes
           const void *const var_ptr =
               groupdata.data.at(tl).data_at(vi * cactus_np);
           if (output_ghosts || intbox == extbox) {
