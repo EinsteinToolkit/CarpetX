@@ -1549,8 +1549,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
   // the on-disk format is unchanged.
   const bool write_bands = !all_levels_synchronized();
 
-  // Write parameters (recovery-only; omitted for plot-only slice files)
-  if (myproc == ioproc && !slice) {
+  // Write parameters
+  if (myproc == ioproc) {
     char *const data = IOUtil_GetAllParameters(cctkGH, 1 /*all*/);
     const std::string parameters(data);
     std::free(data);
