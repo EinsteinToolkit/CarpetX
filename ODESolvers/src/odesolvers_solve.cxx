@@ -200,25 +200,23 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   } else if (CCTK_EQUALS(method, "SSPRK3")) {
 
-    // k1 = f(y0)
-    // k2 = f(y0 + h k1)
-    // k3 = f(y0 + h/4 k1 + h/4 k2)
-    // y1 = y0 + h/6 k1 + h/6 k2 + 2/3 h k3
+    // Low-storage Shu-Osher form (Shu & Osher 1988):
+    //   u1 = u0 + h L(u0)
+    //   u2 = 3/4 u0 + 1/4 u1 + 1/4 h L(u1)
+    //   u3 = 1/3 u0 + 2/3 u2 + 2/3 h L(u2)
 
     const auto old = copy_state(var, make_valid_all());
 
     calcrhs(1);
-    const auto k1 = copy_state(rhs, make_valid_int());
-    calcupdate(1, dt, 1.0, reals<1>{dt}, states<1>{&k1});
+    calcupdate(1, dt, 1.0, reals<1>{dt}, states<1>{&rhs});
 
     calcrhs(2);
-    const auto k2 = copy_state(rhs, make_valid_int());
-    calcupdate(2, dt / 2, 0.0, reals<3>{1.0, dt / 4, dt / 4},
-               states<3>{&old, &k1, &k2});
+    calcupdate(2, dt / 2, 1.0 / 4.0, reals<2>{3.0 / 4.0, dt / 4},
+               states<2>{&old, &rhs});
 
     calcrhs(3);
-    calcupdate(3, dt, 0.0, reals<4>{1.0, dt / 6, dt / 6, 2 * dt / 3},
-               states<4>{&old, &k1, &k2, &rhs});
+    calcupdate(3, dt, 2.0 / 3.0, reals<2>{1.0 / 3.0, 2 * dt / 3},
+               states<2>{&old, &rhs});
 
   } else if (CCTK_EQUALS(method, "RK4")) {
 
