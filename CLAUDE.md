@@ -15,7 +15,7 @@ Do **not** read reference test data files (e.g. `*/test/*/*.tsv`, `*/test/*/*.h5
 ./agent_scripts/test.sh
 ```
 
-To access test logs and build artifacts, read `./agent_docs/accessing-logs-and-artifacts.md`.
+To access test logs and build artifacts, read `./agent_docs/accessing-logs-and-artifacts.md`. To generate reference output for a new test, read `./agent_docs/generating-reference-output.md`.
 
 ## Commit & Pull Request Guidelines
 
