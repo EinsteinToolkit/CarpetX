@@ -375,6 +375,10 @@ BOOLEAN refine_grid_layout "Ensure that each MPI process has at least one grid" 
 {
 } yes
 
+BOOLEAN rechop_on_recovery "Re-chop and load-balance the grid to the current max_grid_size / node count when recovering from a checkpoint (openPMD only)" STEERABLE=recover
+{
+} no
+
 CCTK_INT max_tile_size_x "Maximum tile size" STEERABLE=recover
 {
   1:* :: ""

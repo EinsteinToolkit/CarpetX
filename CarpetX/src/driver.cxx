@@ -1431,6 +1431,28 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
     CCTK_VINFO("SetupLevel patch %d level %d done.", patch, level);
 }
 
+amrex::BoxArray CactusAmrCore::RechopLevel(const int level,
+                                           amrex::BoxArray ba) const {
+  if (level == 0)
+    // Level 0 always covers the full domain: regenerate the canonical
+    // cold-start decomposition (maxSize + optional ChopGrids over the whole
+    // domain). Independent of the checkpoint partition, so it yields larger OR
+    // smaller boxes purely as max_grid_size / NProcs dictate.
+    return MakeBaseGrids();
+
+  // Levels > 0: coalesce the checkpoint union into a (near-)minimal box set
+  // first, so re-chopping can MERGE into larger boxes on scale-down — not just
+  // split into smaller ones — then tile to max_grid_size and load-balance.
+  amrex::BoxList bl = ba.boxList();
+  while (bl.simplify()) // greedily merge abutting boxes to a fixpoint
+    ;
+  ba = amrex::BoxArray(std::move(bl));
+  ba.maxSize(maxGridSize(level)); // tile to current max_grid_size
+  if (refine_grid_layout)         // load-balance to current node count
+    ChopGrids(level, ba, amrex::ParallelDescriptor::NProcs());
+  return ba;
+}
+
 void CactusAmrCore::MakeNewLevelFromScratch(
     int level, amrex::Real time, const amrex::BoxArray &ba,
     const amrex::DistributionMapping &dm) {

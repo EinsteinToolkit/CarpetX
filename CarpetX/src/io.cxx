@@ -149,6 +149,11 @@ void RecoverGridStructure(cGH *restrict cctkGH) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
+  if (rechop_on_recovery && !CCTK_EQUALS(recover_method, "openpmd"))
+    CCTK_VERROR("CarpetX::rechop_on_recovery is only supported for "
+                "recover_method=\"openpmd\" (got \"%s\")",
+                recover_method);
+
   if (CCTK_EQUALS(recover_method, "openpmd")) {
 
 #ifdef HAVE_CAPABILITY_openPMD_api
