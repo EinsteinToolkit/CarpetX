@@ -100,6 +100,12 @@ public:
   void SetupLevel(int level, const amrex::BoxArray &ba,
                   const amrex::DistributionMapping &dm,
                   const function<string()> &why);
+  // Re-partition a recovered level's covered region into a fresh box
+  // decomposition matching the current max_grid_size / node count. Pure
+  // geometry: the returned BoxArray covers exactly the same cell union as the
+  // input, so no field data is changed. Level 0 regenerates the canonical
+  // full-domain decomposition; levels > 0 coalesce then re-tile + load-balance.
+  amrex::BoxArray RechopLevel(int level, amrex::BoxArray ba) const;
   virtual void
   MakeNewLevelFromScratch(int level, amrex::Real time,
                           const amrex::BoxArray &ba,
