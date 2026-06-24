@@ -1612,10 +1612,31 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
                  groupdata.mfab.end());
           rotate(groupdata.valid.begin(), groupdata.valid.end() - 1,
                  groupdata.valid.end());
-          for (int vi = 0; vi < groupdata.numvars; ++vi)
-            groupdata.valid.at(0).at(vi).set_all(valid_t(), []() {
-              return "CycletimeLevels (invalidate current time level)";
-            });
+          if (groupdata.do_evolve) {
+            // Evolved state: the integrator must write a fresh current time
+            // level, so invalidate it (the trailing poison_invalid_gf then
+            // fills it with NaN).
+            for (int vi = 0; vi < groupdata.numvars; ++vi)
+              groupdata.valid.at(0).at(vi).set_all(valid_t(), []() {
+                return "CycletimeLevels (invalidate current time level)";
+              });
+          } else {
+            // Non-evolved multi-timelevel group: tl=1 holds the genuine
+            // previous-step state. Seed tl=0 with it so RHS reads before the
+            // owning thorn's refill see a valid (lagged) value. tl=1 is left
+            // untouched for the subcycling prolongation blend. Both timelevels
+            // share BoxArray/DistributionMap, so an in-place Copy (not
+            // ParallelCopy) over interior + ghost cells is valid.
+            amrex::MultiFab::Copy(*groupdata.mfab.at(0), *groupdata.mfab.at(1),
+                                  0, 0, groupdata.numvars,
+                                  groupdata.mfab.at(0)->nGrowVect());
+            for (int vi = 0; vi < groupdata.numvars; ++vi)
+              groupdata.valid.at(0).at(vi).set_all(
+                  groupdata.valid.at(1).at(vi).get(), []() {
+                    return "CycleTimelevels (seed current time level from old "
+                           "time level)";
+                  });
+          }
           // enter_local_mode caches mfab pointers into local_cctkGH->data;
           // after rotating mfab we must rebind so CCTK_VarDataPtrI sees
           // the new slots.
@@ -1650,7 +1671,7 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
         }
       });
       for (int vi = 0; vi < groupdata0.numvars; ++vi) {
-        if (ntls0 > 1)
+        if (ntls0 > 1 && groupdata0.do_evolve)
           poison_invalid_gf(*active_levels, gi, vi, 0);
         for (int tl = 0; tl < ntls0; ++tl)
           check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
