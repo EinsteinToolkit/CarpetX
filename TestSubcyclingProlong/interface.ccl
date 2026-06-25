@@ -6,3 +6,5 @@ USES INCLUDE HEADER: loop.hxx
 CCTK_REAL snapshot TYPE=gf TIMELEVELS=2 CENTERING={VVV} TAGS='checkpoint="no"' "Field linear in t and x: w = (a + b x + c y + d z) t"
 
 CCTK_REAL error TYPE=gf CENTERING={VVV} TAGS='checkpoint="no"' "snapshot - analytic"
+
+CCTK_REAL snapshot_read TYPE=gf CENTERING={VVV} TAGS='checkpoint="no"' "Value read from snapshot's current time level during the post-cycle pre-refill window"

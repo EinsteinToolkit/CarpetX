@@ -1,13 +1,20 @@
 # Schedule definitions for thorn TestSubcyclingProlong
 
-STORAGE: snapshot[2] error
+STORAGE: snapshot[2] error snapshot_read
 
 SCHEDULE TestSubcyclingProlong_Init AT initial
 {
   LANG: C
-  WRITES: snapshot(interior)
+  WRITES: snapshot(interior) snapshot_read(everywhere)
   SYNC: snapshot
-} "Initialize snapshot = w(0,x) on every level"
+} "Initialize snapshot = w(0,x) on every level; seed snapshot_read for it=0 output"
+
+SCHEDULE TestSubcyclingProlong_ReadCurrent AT evol BEFORE TestSubcyclingProlong_Update
+{
+  LANG: C
+  READS: snapshot(interior)
+  WRITES: snapshot_read(everywhere)
+} "Read snapshot's current time level before its refill (consumes the seeded tl=0)"
 
 SCHEDULE TestSubcyclingProlong_Update AT evol
 {
