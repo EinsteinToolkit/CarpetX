@@ -1,0 +1,7 @@
+performance:
+  10:
+    evolution-seconds: 4.82749
+    evolution-compute-seconds: 4.80902
+    evolution-output-seconds: 0.0184708
+    evolution-cell-updates: 5120
+    evolution-iterations: 10
