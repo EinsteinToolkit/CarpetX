@@ -57,16 +57,25 @@ extern "C" void VGFWaveToyX_Initial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_VGFWaveToyX_Initial;
   DECLARE_CCTK_PARAMETERS;
 
-  const int nvars1 = nvars;
+  // Array parameters cannot be accessed on a device, we need to copy them into
+  // local variables
+  Arith::vect<CCTK_REAL, 10> amplitude1, standing_wave_kx, standing_wave_ky,
+      standing_wave_kz;
+  for (int n = 0; n < nvars; ++n) {
+    amplitude1[n] = amplitude[n];
+    standing_wave_kx1[n] = standing_wave_kx[n];
+    standing_wave_ky1[n] = standing_wave_ky[n];
+    standing_wave_kz1[n] = standing_wave_kz[n];
+  }
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
 
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          for (int n = 0; n < nvars1; ++n)
-            standing_wave(amplitude[n], standing_wave_kx[n],
-                          standing_wave_ky[n], standing_wave_kz[n], cctk_time,
+          for (int n = 0; n < nvars; ++n)
+            standing_wave(amplitude1[n], standing_wave_kx1[n],
+                          standing_wave_ky1[n], standing_wave_kz1[n], cctk_time,
                           p.x, p.y, p.z, u(p.I, n), rho(p.I, n));
         });
 
@@ -75,9 +84,9 @@ extern "C" void VGFWaveToyX_Initial(CCTK_ARGUMENTS) {
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          for (int n = 0; n < nvars1; ++n)
-            gaussian(amplitude[n], gaussian_width[n], cctk_time, p.x, p.y, p.z,
-                     u(p.I, n), rho(p.I, n));
+          for (int n = 0; n < nvars; ++n)
+            gaussian(amplitude1[n], gaussian_width1[n], cctk_time, p.x, p.y,
+                     p.z, u(p.I, n), rho(p.I, n));
         });
 
   } else {
@@ -89,8 +98,6 @@ extern "C" void VGFWaveToyX_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_VGFWaveToyX_RHS;
   DECLARE_CCTK_PARAMETERS;
 
-  const int nvars1 = nvars;
-
   for (int d = 0; d < dim; ++d)
     if (cctk_nghostzones[d] < 1)
       CCTK_ERROR("Too few ghost zones");
@@ -98,7 +105,7 @@ extern "C" void VGFWaveToyX_RHS(CCTK_ARGUMENTS) {
   grid.loop_int_device<0, 0, 0>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        for (int n = 0; n < nvars1; ++n) {
+        for (int n = 0; n < nvars; ++n) {
           using std::pow;
           CCTK_REAL ddu = 0;
           for (int d = 0; d < dim; ++d)
@@ -122,8 +129,6 @@ extern "C" void VGFWaveToyX_Energy(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_VGFWaveToyX_Energy;
   DECLARE_CCTK_PARAMETERS;
 
-  const int nvars1 = nvars;
-
   for (int d = 0; d < dim; ++d)
     if (cctk_nghostzones[d] < 1)
       CCTK_ERROR("Too few ghost zones");
@@ -132,7 +137,7 @@ extern "C" void VGFWaveToyX_Energy(CCTK_ARGUMENTS) {
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         CCTK_REAL eps1 = 0;
-        for (int n = 0; n < nvars1; ++n) {
+        for (int n = 0; n < nvars; ++n) {
           using std::pow;
           CCTK_REAL du2 = 0;
           for (int d = 0; d < dim; ++d)
@@ -149,17 +154,26 @@ extern "C" void VGFWaveToyX_Error(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_VGFWaveToyX_Error;
   DECLARE_CCTK_PARAMETERS;
 
-  const int nvars1 = nvars;
+  // Array parameters cannot be accessed on a device, we need to copy them into
+  // local variables
+  Arith::vect<CCTK_REAL, 10> amplitude1, standing_wave_kx, standing_wave_ky,
+      standing_wave_kz;
+  for (int n = 0; n < nvars; ++n) {
+    amplitude1[n] = amplitude[n];
+    standing_wave_kx1[n] = standing_wave_kx[n];
+    standing_wave_ky1[n] = standing_wave_ky[n];
+    standing_wave_kz1[n] = standing_wave_kz[n];
+  }
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
 
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          for (int n = 0; n < nvars1; ++n) {
+          for (int n = 0; n < nvars; ++n) {
             CCTK_REAL u0, rho0;
-            standing_wave(amplitude[n], standing_wave_kx[n],
-                          standing_wave_ky[n], standing_wave_kz[n], cctk_time,
+            standing_wave(amplitude1[n], standing_wave_kx1[n],
+                          standing_wave_ky1[n], standing_wave_kz1[n], cctk_time,
                           p.x, p.y, p.z, u0, rho0);
             u_err(p.I, n) = u(p.I, n) - u0;
             rho_err(p.I, n) = rho(p.I, n) - rho0;
@@ -171,10 +185,10 @@ extern "C" void VGFWaveToyX_Error(CCTK_ARGUMENTS) {
     grid.loop_int_device<0, 0, 0>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          for (int n = 0; n < nvars1; ++n) {
+          for (int n = 0; n < nvars; ++n) {
             CCTK_REAL u0, rho0;
-            gaussian(amplitude[n], gaussian_width[n], cctk_time, p.x, p.y, p.z,
-                     u0, rho0);
+            gaussian(amplitude1[n], gaussian_width1[n], cctk_time, p.x, p.y,
+                     p.z, u0, rho0);
             u_err(p.I, n) = u(p.I, n) - u0;
             rho_err(p.I, n) = rho(p.I, n) - rho0;
           }
