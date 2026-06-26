@@ -59,13 +59,14 @@ extern "C" void VGFWaveToyX_Initial(CCTK_ARGUMENTS) {
 
   // Array parameters cannot be accessed on a device, we need to copy them into
   // local variables
-  Arith::vect<CCTK_REAL, 10> amplitude1, standing_wave_kx, standing_wave_ky,
-      standing_wave_kz;
+  Arith::vect<CCTK_REAL, 10> amplitude1, standing_wave_kx1, standing_wave_ky1,
+      standing_wave_kz1, gaussian_width1;
   for (int n = 0; n < nvars; ++n) {
     amplitude1[n] = amplitude[n];
     standing_wave_kx1[n] = standing_wave_kx[n];
     standing_wave_ky1[n] = standing_wave_ky[n];
     standing_wave_kz1[n] = standing_wave_kz[n];
+    gaussian_width1[n] = gaussian_width[n];
   }
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
@@ -156,13 +157,14 @@ extern "C" void VGFWaveToyX_Error(CCTK_ARGUMENTS) {
 
   // Array parameters cannot be accessed on a device, we need to copy them into
   // local variables
-  Arith::vect<CCTK_REAL, 10> amplitude1, standing_wave_kx, standing_wave_ky,
-      standing_wave_kz;
+  Arith::vect<CCTK_REAL, 10> amplitude1, standing_wave_kx1, standing_wave_ky1,
+      standing_wave_kz1, gaussian_width1;
   for (int n = 0; n < nvars; ++n) {
     amplitude1[n] = amplitude[n];
     standing_wave_kx1[n] = standing_wave_kx[n];
     standing_wave_ky1[n] = standing_wave_ky[n];
     standing_wave_kz1[n] = standing_wave_kz[n];
+    gaussian_width1[n] = gaussian_width[n];
   }
 
   if (CCTK_EQUALS(initial_condition, "standing wave")) {
