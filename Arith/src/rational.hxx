@@ -1,6 +1,8 @@
 #ifndef CARPETX_ARITH_RATIONAL_HXX
 #define CARPETX_ARITH_RATIONAL_HXX
 
+#include "checked.hxx"
+
 #include <cctk.h>
 
 #ifdef HAVE_CAPABILITY_yaml_cpp
@@ -76,23 +78,28 @@ template <typename I> struct rational {
   }
 
   friend constexpr rational operator+(const rational &x) {
-    return rational(+x.num, x.den, no_normalize());
+    return rational(checked_pos(x.num), x.den, no_normalize());
   }
   friend constexpr rational operator-(const rational &x) {
-    return rational(-x.num, x.den, no_normalize());
+    return rational(checked_neg(x.num), x.den, no_normalize());
   }
+  constexpr rational inv() const { return rational(den, num, no_normalize()); }
 
   friend constexpr rational operator+(const rational &x, const rational &y) {
-    return rational(x.num * y.den + x.den * y.num, x.den * y.den);
+    return rational(
+        checked_add(checked_mul(x.num, y.den), checked_mul(x.den, y.num)),
+        checked_mul(x.den, y.den));
   }
   friend constexpr rational operator-(const rational &x, const rational &y) {
-    return rational(x.num * y.den - x.den * y.num, x.den * y.den);
+    return rational(
+        checked_sub(checked_mul(x.num, y.den), checked_mul(x.den, y.num)),
+        checked_mul(x.den, y.den));
   }
   friend constexpr rational operator*(const rational &x, const rational &y) {
-    return rational(x.num * y.num, x.den * y.den);
+    return rational(checked_mul(x.num, y.num), checked_mul(x.den, y.den));
   }
   friend constexpr rational operator/(const rational &x, const rational &y) {
-    return rational(x.num * y.den, x.den * y.num);
+    return rational(checked_mul(x.num, y.den), checked_mul(x.den, y.num));
   }
 
   template <typename J, std::enable_if_t<std::is_integral_v<J> > * = nullptr>
@@ -161,7 +168,8 @@ template <typename I> struct rational {
 
   friend constexpr rational abs(const rational &x) {
     // std::abs is not constexpr
-    return rational(x.num >= 0 ? x.num : -x.num, x.den);
+    return rational(x.num >= 0 ? checked_pos(x.num) : checked_neg(x.num),
+                    x.den);
   }
 
   friend constexpr rational max(const rational &x, const rational &y) {
@@ -192,13 +200,13 @@ template <typename I> struct rational {
   }
 
   friend constexpr bool operator==(const rational &x, const rational &y) {
-    return x.num * y.den == x.den * y.num;
+    return (x - y).num == 0;
   }
   friend constexpr bool operator!=(const rational &x, const rational &y) {
     return !(x == y);
   }
   friend constexpr bool operator<(const rational &x, const rational &y) {
-    return x.num * y.den < x.den * y.num;
+    return (x - y).num < 0;
   }
   friend constexpr bool operator>(const rational &x, const rational &y) {
     return y < x;
