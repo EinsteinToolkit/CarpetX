@@ -3,7 +3,7 @@ IMPLEMENTS: CarpetXRegrid
 
 PUBLIC:
 
-CCTK_REAL regrid_error TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"'
+CCTK_REAL regrid_error TYPE=gf CENTERING={ccc} TAGS='prolongation_type="star-cons" prolongation_order=0 checkpoint="no"'
 {
   regrid_error
 } "Regridding condition"
