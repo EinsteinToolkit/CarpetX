@@ -355,11 +355,13 @@ void BoundaryCondition::apply_on_face_symbcxyz(
      *
      * IMPORTANT: CapyrX's MultiPatch_Interpolate skips corner cells that are on
      * any outer-boundary face (see loop_bnd skip logic in
-     * CapyrX_MultiPatch/src/interpolate.cxx). There is currently NO second BC
-     * pass after MultiPatch_Interpolate in SyncGroupsByDirI, so these corner
-     * cells retain the incorrectly-sourced BC value. A second
-     * apply_boundary_conditions call after MultiPatch_Interpolate is needed to
-     * correct them.
+     * CapyrX_MultiPatch/src/interpolate.cxx). This first BC pass therefore
+     * writes incorrect values to those corner cells because their interpatch
+     * ghost sources are not yet populated. SyncGroupsByDirI corrects this with
+     * a second apply_boundary_conditions call immediately after
+     * MultiPatch_Interpolate (see schedule.cxx, the block beginning "Second BC
+     * pass"). The warning below fires only during this first pass and is
+     * expected; it does NOT indicate a permanent error.
      */
 #ifdef CCTK_DEBUG
     {
@@ -380,13 +382,15 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       if (has_passthrough_in_ghost) {
 #pragma omp critical
         CCTK_VINFO("apply_on_face_symbcxyz: [group '%s' patch %d] Corner-cell "
-                   "catastrophe scenario: applying BC [NI=%d NJ=%d NK=%d] on "
-                   "bmin=[%d,%d,%d] bmax=[%d,%d,%d] with imin=[%d,%d,%d] "
+                   "scenario (first BC pass): applying BC [NI=%d NJ=%d NK=%d] "
+                   "on bmin=[%d,%d,%d] bmax=[%d,%d,%d] with imin=[%d,%d,%d] "
                    "imax=[%d,%d,%d]. One or more pass-through directions "
-                   "extend into the ghost zone. The BC source may read from "
-                   "uninitialized interpatch ghost cells. These corner cells "
-                   "are SKIPPED by MultiPatch_Interpolate and are NOT "
-                   "re-corrected by a second BC pass after interpolation.",
+                   "extend into the interpatch ghost zone, which is not yet "
+                   "populated by MultiPatch_Interpolate. These corner cells "
+                   "are SKIPPED by MultiPatch_Interpolate and will be "
+                   "re-corrected by the second BC pass in SyncGroupsByDirI "
+                   "(schedule.cxx). This message is expected during the first "
+                   "pass and does not indicate a bug.",
                    groupdata.groupname.c_str(), patchdata.patch, NI, NJ, NK,
                    bmin[0], bmin[1], bmin[2], bmax[0], bmax[1], bmax[2],
                    imin[0], imin[1], imin[2], imax[0], imax[1], imax[2]);
