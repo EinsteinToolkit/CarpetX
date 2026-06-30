@@ -1348,6 +1348,50 @@ int Initialise(tFleshConfig *config) {
           assert(!active_levels);
           active_levels = std::make_optional<active_levels_t>(
               first_modified_level, last_modified_level + 1);
+
+          // Regrid path: fill interpatch ghosts + 2nd BC pass for
+          // newly created/remade levels.
+          //
+          // FillPatch_NewLevel / FillPatch_RemakeLevel each call
+          // apply_boundary_conditions (1st BC pass) before
+          // MultiPatch_Interpolate has run. Corner ghost cells at
+          // outer+interpatch face intersections are therefore left with
+          // stale values sourced from not-yet-filled interpatch ghosts.
+          // Correct them now, mirroring the fix in SyncGroupsByDirI.
+          static const bool have_multipatch_boundaries =
+              CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+          if (have_multipatch_boundaries) {
+            const int ngroups = CCTK_NumGroups();
+            std::vector<CCTK_INT> cactusvarinds;
+            for (int gi = 0; gi < ngroups; ++gi) {
+              cGroup gdata;
+              int ierr = CCTK_GroupData(gi, &gdata);
+              assert(!ierr);
+              if (gdata.grouptype != CCTK_GF)
+                continue;
+              const auto &groupdata =
+                  *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
+              for (int var = 0; var < groupdata.numvars; ++var)
+                cactusvarinds.push_back(groupdata.firstvarindex + var);
+            }
+            MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
+                                   cactusvarinds.data());
+            active_levels->loop_serially([&](auto &restrict leveldata) {
+              for (int gi = 0; gi < ngroups; ++gi) {
+                cGroup gdata;
+                int ierr = CCTK_GroupData(gi, &gdata);
+                assert(!ierr);
+                if (gdata.grouptype != CCTK_GF)
+                  continue;
+                auto &restrict groupdata = *leveldata.groupdata.at(gi);
+                const int ntls = groupdata.mfab.size();
+                const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+                for (int tl = 0; tl < sync_tl; ++tl)
+                  groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl));
+              }
+            });
+          }
+
           CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
           CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
           active_levels = std::optional<active_levels_t>();
@@ -1746,6 +1790,50 @@ int Evolve(tFleshConfig *config) {
         assert(!active_levels);
         active_levels = std::make_optional<active_levels_t>(
             first_modified_level, last_modified_level + 1);
+
+        // Regrid path: fill interpatch ghosts + 2nd BC pass for
+        // newly created/remade levels.
+        //
+        // FillPatch_NewLevel / FillPatch_RemakeLevel each call
+        // apply_boundary_conditions (1st BC pass) before
+        // MultiPatch_Interpolate has run. Corner ghost cells at
+        // outer+interpatch face intersections are therefore left with
+        // stale values sourced from not-yet-filled interpatch ghosts.
+        // Correct them now, mirroring the fix in SyncGroupsByDirI.
+        static const bool have_multipatch_boundaries =
+            CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+        if (have_multipatch_boundaries) {
+          const int ngroups = CCTK_NumGroups();
+          std::vector<CCTK_INT> cactusvarinds;
+          for (int gi = 0; gi < ngroups; ++gi) {
+            cGroup gdata;
+            int ierr = CCTK_GroupData(gi, &gdata);
+            assert(!ierr);
+            if (gdata.grouptype != CCTK_GF)
+              continue;
+            const auto &groupdata =
+                *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
+            for (int var = 0; var < groupdata.numvars; ++var)
+              cactusvarinds.push_back(groupdata.firstvarindex + var);
+          }
+          MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
+                                 cactusvarinds.data());
+          active_levels->loop_serially([&](auto &restrict leveldata) {
+            for (int gi = 0; gi < ngroups; ++gi) {
+              cGroup gdata;
+              int ierr = CCTK_GroupData(gi, &gdata);
+              assert(!ierr);
+              if (gdata.grouptype != CCTK_GF)
+                continue;
+              auto &restrict groupdata = *leveldata.groupdata.at(gi);
+              const int ntls = groupdata.mfab.size();
+              const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+              for (int tl = 0; tl < sync_tl; ++tl)
+                groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl));
+            }
+          });
+        }
+
         CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
         CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
         active_levels = std::optional<active_levels_t>();
