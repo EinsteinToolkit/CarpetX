@@ -2560,33 +2560,40 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     const int ntls0 = groupdata0.mfab.size();
     const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
 
-    active_levels->loop_serially([&](auto &restrict leveldata) {
-      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+    // For the multipatch case, corner ghost cells at the outer+interpatch face
+    // intersection are not yet correct at this point: the first BC pass (inside
+    // FillPatch_Sync / FillPatch_ProlongateGhosts) sourced from unpopulated
+    // interpatch ghost zones.  MultiPatch_Interpolate and a second BC pass
+    // (below) will correct them.  Defer the validity marks and poison/check
+    // calls to after that second pass so that validity flags never claim corner
+    // cells are valid while they still hold stale data.
+    if (!have_multipatch_boundaries) {
+      active_levels->loop_serially([&](auto &restrict leveldata) {
+        auto &restrict groupdata = *leveldata.groupdata.at(gi);
+
+        for (int tl = 0; tl < sync_tl0; ++tl) {
+          for (int vi = 0; vi < groupdata.numvars; ++vi) {
+            groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
+              return "SyncGroupsByDirI after syncing: "
+                     "Mark ghost zones as valid";
+            });
+            if (groupdata.all_faces_have_symmetries_or_boundaries())
+              groupdata.valid.at(tl).at(vi).set_outer(true, []() {
+                return "SyncGroupsByDirI after syncing: "
+                       "Mark outer boundaries as valid";
+              });
+          }
+        } // for tl
+      });
 
       for (int tl = 0; tl < sync_tl0; ++tl) {
-        for (int vi = 0; vi < groupdata.numvars; ++vi) {
-          groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
-            return "SyncGroupsByDirI after syncing: "
-                   "Mark ghost zones as valid";
-          });
-          if (groupdata.all_faces_have_symmetries_or_boundaries())
-            groupdata.valid.at(tl).at(vi).set_outer(true, []() {
-              return "SyncGroupsByDirI after syncing: "
-                     "Mark outer boundaries as valid";
-            });
-        }
-      } // for tl
-    });
-
-    for (int tl = 0; tl < sync_tl0; ++tl) {
-      for (int vi = 0; vi < groupdata0.numvars; ++vi) {
-        poison_invalid_gf(*active_levels, gi, vi, tl);
-        // TODO: Check after applying multi-patch boundaries
-        if (!have_multipatch_boundaries)
+        for (int vi = 0; vi < groupdata0.numvars; ++vi) {
+          poison_invalid_gf(*active_levels, gi, vi, tl);
           check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
                          []() { return "SyncGroupsByDirI after syncing"; });
-      }
-    } // for tl
+        }
+      } // for tl
+    }
   } // for gi
 
   if (have_multipatch_boundaries) {
@@ -2632,6 +2639,33 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
           groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl));
       }
     });
+
+    // Corner cells are now correct.  Mark ghost zones and outer boundaries
+    // valid for all groups across all patches and levels.  This is deferred
+    // from the postcondition loop above because the first BC pass leaves corner
+    // cells at outer+interpatch junctions with stale values until this point.
+    for (const int gi : groups) {
+      const auto &groupdata0 =
+          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
+      const int ntls0 = groupdata0.mfab.size();
+      const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
+      active_levels->loop_serially([&](auto &restrict leveldata) {
+        auto &restrict groupdata = *leveldata.groupdata.at(gi);
+        for (int tl = 0; tl < sync_tl0; ++tl) {
+          for (int vi = 0; vi < groupdata.numvars; ++vi) {
+            groupdata.valid.at(tl).at(vi).set_ghosts(true, []() {
+              return "SyncGroupsByDirI after 2nd BC pass: "
+                     "Mark ghost zones as valid";
+            });
+            if (groupdata.all_faces_have_symmetries_or_boundaries())
+              groupdata.valid.at(tl).at(vi).set_outer(true, []() {
+                return "SyncGroupsByDirI after 2nd BC pass: "
+                       "Mark outer boundaries as valid";
+              });
+          }
+        }
+      });
+    }
 
 #ifdef CCTK_DEBUG
     // Verify that the 2nd BC pass zeroed out NaN values from ghost zones for
