@@ -620,12 +620,12 @@ Numerical/AEILocalInterp
 # PITTNullCode/SphericalHarmonicReconGen
 
 
-# Power -- waveform extrapolation
-!TARGET    = $ROOT/utils/Analysis
-!TYPE      = git
-!URL       = https://git.ncsa.illinois.edu/elihu/Gravitational_Waveform_Extractor.git
-!REPO_PATH = $1
-!CHECKOUT  = ./POWER
+## Power -- waveform extrapolation
+#!TARGET    = $ROOT/utils/Analysis
+#!TYPE      = git
+#!URL       = https://git.ncsa.illinois.edu/elihu/Gravitational_Waveform_Extractor.git
+#!REPO_PATH = $1
+#!CHECKOUT  = ./POWER
 
 
 # # Canuda -- Proca
