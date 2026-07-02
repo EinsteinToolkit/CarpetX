@@ -17,7 +17,8 @@ namespace standing {
 // u(t,x,y,z) = A cos(2\pi \omega t) cos(2\pi kx x) cos(2\pi ky y) cos(2\pi kz
 // z) \omega = sqrt(kx^2 + ky^2 + kz^2)
 template <typename T>
-static inline auto uvw(T amplitude, T kx, T ky, T kz, T t, T x, T y, T z) {
+static inline auto CCTK_DEVICE uvw(T amplitude, T kx, T ky, T kz, T t, T x, T y,
+                                   T z) {
   using std::sqrt, std::cos, std::acos;
 
   const auto pi = acos(-1.0);
