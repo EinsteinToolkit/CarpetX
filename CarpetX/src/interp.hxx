@@ -117,14 +117,23 @@ public:
    *
    * When bbox[f][d] is false, the box face is interior to the patch, between
    * AMReX boxes. In this case AMReX fill-patch operations guarantee these ghost
-   * zones are valid.
+   * zones are valid -- ordinarily. That guarantee only holds once AMReX's own
+   * fill-patch pass (FillPatch_Sync / FillPatch_ProlongateGhosts) has actually
+   * run for the current sync. A caller invoked *before* that pass (as
+   * MultiPatch_Interpolate is, per mp_corners_7.md/mp_corners_8.md's call-
+   * ordering fix) cannot rely on it, and passing false in allowed_boundaries
+   * for such a face would otherwise be silently discarded. Setting
+   * force_conservative_intrapatch makes bbox[f][d]==false faces honor
+   * allowed_boundaries like any other face instead of being hardcoded to true
+   * (see mp_corners_9.md).
    */
   void Interpolate(CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
                    const CCTK_INT nvars, const CCTK_INT *restrict const varinds,
                    const CCTK_INT *restrict const operations,
                    const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
                        &allowed_boundaries, //  [patch][face][direction]
-                   const CCTK_POINTER resultptrs_) const;
+                   const CCTK_POINTER resultptrs_,
+                   const bool force_conservative_intrapatch = false) const;
 };
 
 // a dummy routine for now
