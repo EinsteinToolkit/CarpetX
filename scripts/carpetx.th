@@ -713,6 +713,8 @@ CarpetX/ODESolvers
 CarpetX/PDESolvers
 CarpetX/ParticlesX
 CarpetX/PoissonX
+CarpetX/SBPOperators
+CarpetX/SBPWaveToy
 CarpetX/SIMDWaveToyX
 CarpetX/SpacetimeWaveToyX
 CarpetX/StaggeredWaveToyX

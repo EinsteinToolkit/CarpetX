@@ -1,0 +1,12 @@
+Cactus Code Thorn SBPOperators
+Author(s)    : Lucas Timotheo Sanches <lsanches@cct.lsu.edu>
+
+Maintainer(s): Lucas Timotheo Sanches <lsanches@cct.lsu.edu>
+
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Provides Summation-by-parts (SBP) finite difference and dissipation operators with
+boundary closures.

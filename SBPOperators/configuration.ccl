@@ -1,0 +1,5 @@
+# Configuration definitions for thorn SBPOperators
+
+REQUIRES Arith Derivs Loop
+
+PROVIDES SBPOperators {}
