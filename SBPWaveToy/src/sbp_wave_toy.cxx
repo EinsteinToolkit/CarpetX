@@ -142,7 +142,7 @@ extern "C" void SBPWaveToy_RHS(CCTK_ARGUMENTS) {
   // ---------------------------------------------------------------------------
 
   // SBP operator
-  const auto op = SBPOperators::ddst2007::get_op_42();
+  constexpr auto op = SBPOperators::ddst2007::get_op_42();
 
   // Boundary values
   const bool use_dirichlet = CCTK_EQUALS(boundary_condition, "dirichlet");

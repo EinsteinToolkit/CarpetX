@@ -83,7 +83,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE T apply_boundary_tuple(
 /// These are needed to compute SAT penalty magnitudes: sigma = 1/(H_{ii} * h).
 template <std::size_t P> struct NormWeights {
   std::array<Rational, P> weights{};
-  constexpr CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE Rational
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE Rational
   operator[](std::size_t i) const {
     return weights[i];
   }
@@ -117,13 +117,14 @@ private:
   NormWeights<num_boundary_rows> norm_weights_{};
 
 public:
-  constexpr SBPOperator(LTuple l, RTuple r, Stencil<int_size> i,
-                        NormWeights<num_boundary_rows> nw)
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE
+  SBPOperator(LTuple l, RTuple r, Stencil<int_size> i,
+              NormWeights<num_boundary_rows> nw)
       : l_boundary_closures(std::move(l)), r_boundary_closures(std::move(r)),
         interior_stencil(std::move(i)), norm_weights_(std::move(nw)) {}
 
   /// H_{ii}/h for boundary row i (0 = outermost).  Interior rows have weight 1.
-  constexpr CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE Rational
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE Rational
   boundary_h(std::size_t row) const {
     return norm_weights_[row];
   }
@@ -166,7 +167,7 @@ public:
 /// https://arxiv.org/abs/gr-qc/0512001
 namespace ddst2007 {
 
-constexpr inline auto CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE get_op_42() {
+constexpr inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE auto get_op_42() {
   // Left closures
   constexpr Stencil<4> lb_0{{0, 1, 2, 3},
                             {Rational(-24, 17), Rational(59, 34),
