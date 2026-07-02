@@ -32,7 +32,7 @@ template <std::size_t size> struct Stencil {
 /// at point `p` along direction `dir`. Skips zero coefficients, so we don't
 /// waste cycles accessing a grid function for no good reason.
 template <std::size_t size, typename T, template <typename> typename GF3D_T>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST T
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE T
 apply_stencil(const Stencil<size> &s, const Loop::PointDesc &p, const int dir,
               const GF3D_T<const T> &gf) {
 
@@ -57,10 +57,9 @@ apply_stencil(const Stencil<size> &s, const Loop::PointDesc &p, const int dir,
 /// matches.
 template <typename Tuple, typename T, template <typename> typename GF3D_T,
           std::size_t... Is>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST T
-apply_boundary_tuple(const Tuple &closures, const std::size_t row,
-                     const Loop::PointDesc &p, const int dir,
-                     const GF3D_T<const T> &gf, std::index_sequence<Is...>) {
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE T apply_boundary_tuple(
+    const Tuple &closures, const std::size_t row, const Loop::PointDesc &p,
+    const int dir, const GF3D_T<const T> &gf, std::index_sequence<Is...>) {
   T result{0};
   ((row == Is
         ? (result = apply_stencil(std::get<Is>(closures), p, dir, gf), true)
@@ -70,10 +69,9 @@ apply_boundary_tuple(const Tuple &closures, const std::size_t row,
 }
 
 template <typename Tuple, typename T, template <typename> typename GF3D_T>
-inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST T
-apply_boundary_tuple(const Tuple &closures, const std::size_t row,
-                     const Loop::PointDesc &p, const int dir,
-                     const GF3D_T<const T> &gf) {
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE T apply_boundary_tuple(
+    const Tuple &closures, const std::size_t row, const Loop::PointDesc &p,
+    const int dir, const GF3D_T<const T> &gf) {
   return apply_boundary_tuple(
       closures, row, p, dir, gf,
       std::make_index_sequence<std::tuple_size_v<Tuple> >{});
@@ -85,7 +83,7 @@ apply_boundary_tuple(const Tuple &closures, const std::size_t row,
 /// These are needed to compute SAT penalty magnitudes: sigma = 1/(H_{ii} * h).
 template <std::size_t P> struct NormWeights {
   std::array<Rational, P> weights{};
-  constexpr CCTK_DEVICE CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE Rational
+  constexpr CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE Rational
   operator[](std::size_t i) const {
     return weights[i];
   }
@@ -125,14 +123,14 @@ public:
         interior_stencil(std::move(i)), norm_weights_(std::move(nw)) {}
 
   /// H_{ii}/h for boundary row i (0 = outermost).  Interior rows have weight 1.
-  constexpr CCTK_DEVICE CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE Rational
+  constexpr CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE Rational
   boundary_h(std::size_t row) const {
     return norm_weights_[row];
   }
 
   /// Apply the operator in a given direction.
   template <std::size_t dir, template <typename> typename GF3D_T, typename T>
-  inline auto CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
+  inline auto CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE
   apply(const Loop::PointDesc &p, const GF3D_T<const T> &gf) const -> T {
 
     static_assert(dir == 0 || dir == 1 || dir == 2,
@@ -168,8 +166,7 @@ public:
 /// https://arxiv.org/abs/gr-qc/0512001
 namespace ddst2007 {
 
-constexpr inline auto CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
-get_op_42() {
+constexpr inline auto CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE get_op_42() {
   // Left closures
   constexpr Stencil<4> lb_0{{0, 1, 2, 3},
                             {Rational(-24, 17), Rational(59, 34),
