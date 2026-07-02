@@ -1,6 +1,5 @@
-// Generic, paper-agnostic SBP infrastructure. No coefficients live here. Every
-// concrete operator plugs its tables into the structs defined in this file.
-
+/// Generic, paper-agnostic SBP infrastructure. No coefficients live here. Every
+/// concrete operator plugs its tables into the structs defined in this file.
 #ifndef CARPETX_SBPOPERATORS_SBP_HXX
 #define CARPETX_SBPOPERATORS_SBP_HXX
 
@@ -166,6 +165,7 @@ public:
 };
 
 /// Diener, Dorband, Schnetter and Tiglio, 2007
+/// https://arxiv.org/abs/gr-qc/0512001
 namespace ddst2007 {
 
 constexpr inline auto CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST
