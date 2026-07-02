@@ -2591,6 +2591,53 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   // corner cells, and to pick up any interpatch ghosts invalidated by the
   // sync itself.
   if (have_multipatch_boundaries) {
+    // mp_corners_11.md: mp_corners_10.md made the interpolator *refuse* to
+    // anchor on not-yet-filled intra-patch (box-split) ghosts during this
+    // bootstrap pass (force_conservative_intrapatch), instead of making
+    // those ghosts valid. That traded one crash for another: the point-to-
+    // donor-box assignment inside MultiPatch1_Interpolate is computed under
+    // the ordinary (non-conservative) policy, so shrinking the allowed
+    // interior out from under it leaves many already-assigned points with
+    // no legal anchor at all -- "Interpolation anchor is not allowed"
+    // (interpolate.cxx:310), independent of whether the data underneath is
+    // actually finite.
+    //
+    // Fix this at the root instead: give level-0 intra-patch ghosts real,
+    // finite same-level neighbour data *before* the bootstrap pass reads
+    // them, via a plain FillBoundary -- exactly the data movement
+    // FillPatch_Sync's level==0 branch below performs, just done here,
+    // synchronously, with no boundary-condition application attached (BCs
+    // are still applied at the usual point, further down). This makes the
+    // interpolator's ordinary ("bbox=false faces are always anchorable")
+    // policy correct again, so force_conservative_intrapatch is no longer
+    // needed -- and, per the above, would be actively wrong to use here.
+    // FillPatch_Sync/tasks1 below will redo this same fill shortly after;
+    // that is harmless, not incorrect, since FillBoundary is idempotent.
+    //
+    // level>0 boxes are not covered by this pre-fill (their ghosts also
+    // need coarse-fine prolongation, which itself depends on the coarse
+    // level's boundary conditions already being applied -- see
+    // FillPatch_ProlongateGhosts). They are therefore still exposed to the
+    // poison-NaN-read hazard mp_corners_9.md diagnosed; this has not
+    // regressed (this run never reaches level>0), but is an open gap for a
+    // future run that does.
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      if (leveldata.level != 0)
+        return;
+      const auto &geom =
+          ghext->patchdata.at(leveldata.patch).amrcore->Geom(leveldata.level);
+      for (const int gi : groups) {
+        auto &restrict groupdata = *leveldata.groupdata.at(gi);
+        const int ntls = groupdata.mfab.size();
+        const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+        for (int tl = 0; tl < sync_tl; ++tl) {
+          amrex::MultiFab &mfab = *groupdata.mfab.at(tl);
+          mfab.FillBoundary(0, mfab.nComp(), mfab.nGrowVect(),
+                            geom.periodicity());
+        }
+      }
+    });
+
     std::vector<CCTK_INT> cactusvarinds;
     for (int group : groups) {
       const auto &groupdata =
