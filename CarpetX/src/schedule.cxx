@@ -2498,6 +2498,20 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   static const bool have_multipatch_boundaries =
       CCTK_IsFunctionAliased("MultiPatch_Interpolate");
 
+  // mp_corners_7.md section 5 point 4: always-on (not CCTK_DEBUG-gated) log,
+  // tagged with group name and a monotonic call counter, to confirm the
+  // relative ordering of this per-group BC sweep against
+  // MultiPatch1_Interpolate's own per-call log (see interpolate.cxx).
+  {
+    static long call_counter = 0;
+    ++call_counter;
+    for (const int gi : groups) {
+#pragma omp critical
+      CCTK_VINFO("SyncGroupsByDirI call #%ld: group %s", call_counter,
+                 CCTK_FullGroupName(gi));
+    }
+  }
+
   // Check preconditions
   for (const int gi : groups) {
     const auto &patchdata0 = ghext->patchdata.at(0);
@@ -2561,6 +2575,31 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       }
     } // for tl
   } // for gi
+
+  // mp_corners_7.md section 5 point 2, fix option (a): fill interpatch
+  // ghosts *before* the first BC pass below (inside FillPatch_Sync /
+  // FillPatch_ProlongateGhosts) sweeps a group's edges/corners. Without
+  // this, apply_on_face_symbcxyz can compute a Neumann/Robin/linear-
+  // extrapolation echo whose source point lies in an interpatch ghost that
+  // MultiPatch_Interpolate has never populated (e.g. a group's very first
+  // sync, where that ghost is still poison-NaN) -- see boundaries_impl.hxx.
+  // Calling it here makes those source cells finite by construction. The
+  // interior data this reads from was just validated above ("Check
+  // preconditions"), so it is safe to interpolate from at this point. The
+  // call below (after the first BC pass) still runs afterwards: it is
+  // needed to drive the pre-existing second BC pass for outer+interpatch
+  // corner cells, and to pick up any interpatch ghosts invalidated by the
+  // sync itself.
+  if (have_multipatch_boundaries) {
+    std::vector<CCTK_INT> cactusvarinds;
+    for (int group : groups) {
+      const auto &groupdata =
+          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(group);
+      for (int var = 0; var < groupdata.numvars; ++var)
+        cactusvarinds.push_back(groupdata.firstvarindex + var);
+    }
+    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
+  }
 
   // We need to loop over groups, patches, and levels in a definite
   // order so that AMReX's communication pattern does not get
