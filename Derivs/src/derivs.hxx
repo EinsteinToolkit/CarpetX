@@ -349,6 +349,7 @@ deriv2_2d(const TS var, const T dx, const T dy) {
           assert(di >= -deriv_order / 2);
           assert(di <= +deriv_order / 2);
 #endif
+          constexpr std::ptrdiff_t vsize = sizeof(R) / sizeof(T);
           if constexpr (vsize == 1)
             return scalar_dyvar[deriv_order / 2 + di];
           else
