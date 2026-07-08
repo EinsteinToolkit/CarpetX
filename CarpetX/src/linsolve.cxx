@@ -51,7 +51,7 @@ extern "C" void CarpetX_SolvePoisson(const CCTK_INT gi_sol,
       {amrex::LinOpBCType::Dirichlet, amrex::LinOpBCType::Dirichlet,
        amrex::LinOpBCType::Dirichlet});
 
-  vector<amrex::MultiFab> sigmas(patchdata.leveldata.size());
+  std::vector<amrex::MultiFab> sigmas(patchdata.leveldata.size());
   for (int level = 0; level < int(patchdata.leveldata.size()); ++level) {
     auto &sigma = sigmas.at(level);
     sigma.define(patchdata.amrcore->boxArray(level),

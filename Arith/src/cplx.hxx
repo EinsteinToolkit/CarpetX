@@ -10,7 +10,6 @@
 #include <ostream>
 
 namespace Arith {
-using namespace std;
 
 template <typename T> struct cplx {
   T real, imag;
@@ -196,7 +195,7 @@ template <typename T> struct cplx {
     return {r, x.imag / (2 * r)};
   }
 
-  friend ostream &operator<<(ostream &os, const cplx &x) {
+  friend std::ostream &operator<<(std::ostream &os, const cplx &x) {
     return os << x.real << "+" << x.real << "*i";
   }
 };

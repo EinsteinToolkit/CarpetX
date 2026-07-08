@@ -17,9 +17,12 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace Subcycling {
 using namespace Arith;
+using std::array;
+using std::vector;
 
 /**
  * \brief Compute fine-grid ghost points for Ys using the prolongated Ks from

@@ -21,7 +21,6 @@
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_ParmParse.H>
 
-#include <omp.h>
 #include <mpi.h>
 
 #include <algorithm>
@@ -47,6 +46,8 @@ int ghext_handle = -1;
 
 amrex::AMReX *restrict pamrex = nullptr;
 std::unique_ptr<GHExt> ghext;
+
+std::atomic<CCTK_INT> carpetx_epoch{0};
 
 // Registered functions
 
@@ -77,6 +78,28 @@ extern "C" CCTK_INT CarpetX_GetBoundarySizesAndTypes(
     const void *cctkGH_, CCTK_INT patch, CCTK_INT size,
     CCTK_INT *restrict const bndsize, CCTK_INT *restrict const is_ghostbnd,
     CCTK_INT *restrict const is_symbnd, CCTK_INT *restrict const is_physbnd);
+
+/* Return the current AMR grid epoch — a monotonically increasing counter that
+ * is incremented whenever the grid hierarchy is structurally modified.
+ *
+ * Specifically, the epoch advances on:
+ *   - Level creation   (MakeNewLevelFromScratch, MakeNewLevelFromCoarse)
+ *   - Level remeshing  (RemakeLevel)
+ *   - Level removal    (ClearLevel)
+ *   - Checkpoint recovery (InputInitial)
+ *
+ * Callers that cache data derived from the grid topology (e.g. interpolation
+ * setup objects) can use this value as a cheap validity stamp: if the epoch
+ * returned here differs from the one stored when the cache was built, the
+ * cached data must be rebuilt before use.
+ *
+ * The counter starts at 0 and is read atomically with relaxed ordering, which
+ * is safe for a simple snapshot — no synchronisation with other memory
+ * operations is implied or required.
+ */
+extern "C" CCTK_INT CarpetX_GetEpoch(void) {
+  return carpetx_epoch.load(std::memory_order_relaxed);
+}
 
 // Local functions
 void SetupGlobals();
@@ -142,7 +165,7 @@ std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
       {{bool(periodic && periodic_x), bool(periodic && periodic_y),
         bool(periodic && periodic_z)}},
   }};
-  const array<array<bool, 3>, 2> is_reflection{{
+  const std::array<std::array<bool, 3>, 2> is_reflection{{
       {{bool(reflection_x), bool(reflection_y), bool(reflection_z)}},
       {{bool(reflection_upper_x), bool(reflection_upper_y),
         bool(reflection_upper_z)}},
@@ -413,7 +436,7 @@ std::array<int, dim> get_group_indextype(const int gi) {
   }
 
   // Convert to index type
-  array<int, dim> indextype;
+  std::array<int, dim> indextype;
   for (int d = 0; d < dim; ++d)
     indextype[d] = index[d];
 
@@ -440,7 +463,7 @@ std::array<int, dim> get_group_fluxes(const int gi) {
   std::size_t end = 0;
   while (end < str.size()) {
     const std::size_t begin = str.find_first_not_of(' ', end);
-    if (begin == string::npos)
+    if (begin == std::string::npos)
       break;
     end = str.find(' ', begin);
     strs.push_back(str.substr(begin, end - begin));
@@ -454,9 +477,9 @@ std::array<int, dim> get_group_fluxes(const int gi) {
   assert(strs.size() == dim); // Check number of fluxes
   for (int d = 0; d < dim; ++d) {
     auto str1 = strs[d];
-    if (str1.find(':') == string::npos) {
+    if (str1.find(':') == std::string::npos) {
       const char *const impl = CCTK_GroupImplementationI(gi);
-      str1 = string(impl) + "::" + str1;
+      str1 = std::string(impl) + "::" + str1;
     }
     int gi1 = CCTK_GroupIndex(str1.c_str());
     assert(gi1 >= 0); // Check fluxes are valid groups
@@ -720,8 +743,8 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
       symmetries[0][1] == symmetry_t::periodic,
       symmetries[0][2] == symmetry_t::periodic};
 
-  amrcore = make_unique<CactusAmrCore>(patch, domain, max_num_levels - 1,
-                                       ncells, coord, reffacts, is_periodic);
+  amrcore = std::make_unique<CactusAmrCore>(
+      patch, domain, max_num_levels - 1, ncells, coord, reffacts, is_periodic);
 
   if (verbose) {
 #pragma omp critical
@@ -729,7 +752,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
       const int maxnumlevels = amrcore->maxLevel() + 1;
       for (int level = 0; level < maxnumlevels; ++level) {
         CCTK_VINFO("amrex::Geometry level %d:", level);
-        cout << amrcore->Geom(level) << "\n";
+        std::cout << amrcore->Geom(level) << "\n";
       }
     }
   }
@@ -738,7 +761,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
 GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
                                        const amrex::BoxArray &ba,
                                        const amrex::DistributionMapping &dm,
-                                       const function<string()> &why)
+                                       const std::function<std::string()> &why)
     : patch(patch), level(level) {
   DECLARE_CCTK_PARAMETERS;
 
@@ -760,7 +783,7 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
       ghost_size >= 0 ? ghost_size : ghost_size_x,
       ghost_size >= 0 ? ghost_size : ghost_size_y,
       ghost_size >= 0 ? ghost_size : ghost_size_z};
-  fab = make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
+  fab = std::make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
   assert(ba.ixType() == amrex::IndexType(amrex::IndexType::CELL,
                                          amrex::IndexType::CELL,
                                          amrex::IndexType::CELL));
@@ -778,8 +801,9 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
     if (group.grouptype != CCTK_GF)
       groupdata.emplace_back(nullptr);
     else
-      groupdata.push_back(make_unique<GHExt::PatchData::LevelData::GroupData>(
-          patch, level, gi, ba, dm, why));
+      groupdata.push_back(
+          std::make_unique<GHExt::PatchData::LevelData::GroupData>(
+              patch, level, gi, ba, dm, why));
   }
 
   // Check flux register consistency
@@ -834,7 +858,8 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
 
 GHExt::PatchData::LevelData::GroupData::GroupData(
     const int patch, const int level, const int gi, const amrex::BoxArray &ba,
-    const amrex::DistributionMapping &dm, const function<string()> &why)
+    const amrex::DistributionMapping &dm,
+    const std::function<std::string()> &why)
     : patch(patch), level(level), next_tmp_mfab(0) {
   cGroup group;
   int ierr = CCTK_GroupData(gi, &group);
@@ -914,8 +939,8 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
   mfab.resize(ntls);
   valid.resize(ntls);
   for (int tl = 0; tl < ntls; ++tl) {
-    mfab.at(tl) = make_unique<amrex::MultiFab>(gba, dm, numvars,
-                                               amrex::IntVect(nghostzones));
+    mfab.at(tl) = std::make_unique<amrex::MultiFab>(
+        gba, dm, numvars, amrex::IntVect(nghostzones));
     valid.at(tl).resize(numvars, why_valid_t(why));
   }
 
@@ -923,8 +948,8 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
     fluxes = get_group_fluxes(groupindex);
     const bool have_fluxes = fluxes[0] >= 0;
     if (have_fluxes) {
-      assert((indextype == array<int, dim>{1, 1, 1}));
-      freg = make_unique<amrex::FluxRegister>(
+      assert((indextype == std::array<int, dim>{1, 1, 1}));
+      freg = std::make_unique<amrex::FluxRegister>(
           gba, dm, ghext->patchdata.at(patch).amrcore->refRatio(level - 1),
           level, numvars);
     }
@@ -1319,7 +1344,7 @@ void SetupGlobals() {
     assert(group.dim <= dim);
 
     globaldata.arraygroupdata.at(gi) =
-        make_unique<GHExt::GlobalData::ArrayGroupData>();
+        std::make_unique<GHExt::GlobalData::ArrayGroupData>();
     GHExt::GlobalData::ArrayGroupData &arraygroupdata =
         *globaldata.arraygroupdata.at(gi);
     arraygroupdata.groupname = CCTK_FullGroupName(gi);
@@ -1406,6 +1431,7 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
   if (level >= int(level_modified.size()))
     level_modified.resize(level + 1, true);
   level_modified.at(level) = true;
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
   const active_levels_t active_levels(level, level + 1, patch, patch + 1);
 
   // Initialize data
@@ -1493,7 +1519,7 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
   // only allow creation of new levels when the source and target are aligned
   // in time
   if (leveldata.iteration != coarseleveldata.iteration) {
-    ostringstream msg;
+    std::ostringstream msg;
     msg << "Coarse (rl=" << (level - 1) << ", it=" << coarseleveldata.iteration
         << ") and fine (rl=" << level << ", it=" << leveldata.iteration
         << ") grid do not align in time when regridding";
@@ -1598,7 +1624,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   // only allow modfication of levels when the source and target are aligned in
   // time
   if (leveldata.iteration != coarseleveldata.iteration) {
-    ostringstream msg;
+    std::ostringstream msg;
     msg << "Coarse (rl=" << (level - 1) << ", it=" << coarseleveldata.iteration
         << ") and fine (rl=" << level << ", it=" << leveldata.iteration
         << ") grid do not align in time when regridding";
@@ -1652,7 +1678,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
       ghost_size >= 0 ? ghost_size : ghost_size_x,
       ghost_size >= 0 ? ghost_size : ghost_size_y,
       ghost_size >= 0 ? ghost_size : ghost_size_z};
-  leveldata.fab = make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
+  leveldata.fab = std::make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
   assert(ba.ixType() == amrex::IndexType(amrex::IndexType::CELL,
                                          amrex::IndexType::CELL,
                                          amrex::IndexType::CELL));
@@ -1720,6 +1746,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   } // for gi
 
   level_modified.at(level) = true;
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
 
   if (verbose)
 #pragma omp critical
@@ -1737,6 +1764,7 @@ void CactusAmrCore::ClearLevel(const int level) {
   leveldata.erase(leveldata.begin() + level, leveldata.end());
 
   level_modified.resize(level);
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
 
   if (verbose)
 #pragma omp critical
@@ -2055,7 +2083,7 @@ extern "C" int CarpetX_Startup() {
     CCTK_VINFO("Startup");
 
   // Output a startup message
-  const vector<string> features{
+  const std::vector<std::string> features{
 #ifdef AMREX_USE_MPI
       "MPI",
 #else
@@ -2234,7 +2262,7 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   }
 
   // Create grid structure
-  ghext = make_unique<GHExt>();
+  ghext = std::make_unique<GHExt>();
 
   // Initialize the STORAGE registry. It is populated from schedule.ccl by
   // CCTKi_ScheduleGHInit (which calls back into our GroupStorageIncrease

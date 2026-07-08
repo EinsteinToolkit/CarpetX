@@ -21,7 +21,7 @@ namespace CarpetX {
 // TU. SyncGroupsByDirI's restrict_during_sync branch calls it, but to keep
 // the top-down order (helpers → Sync* → Reflux → Restrict*) the definition
 // appears below.
-void Restrict(const cGH *cctkGH, int level, const vector<int> &groups);
+void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups);
 
 // =======================================================================
 // Sync helpers
@@ -887,7 +887,7 @@ void Reflux(const cGH *cctkGH, int level) {
 // =======================================================================
 
 static void Restrict_impl(const cGH *cctkGH, int level,
-                          const vector<int> &groups,
+                          const std::vector<int> &groups,
                           const bool do_validity_tracking) {
   DECLARE_CCTK_PARAMETERS;
 
@@ -1009,11 +1009,11 @@ static void Restrict_impl(const cGH *cctkGH, int level,
   } // for patchdata
 }
 
-void Restrict(const cGH *cctkGH, int level, const vector<int> &groups) {
+void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups) {
   Restrict_impl(cctkGH, level, groups, /*do_validity_tracking=*/true);
 }
 
-void RestrictNoPoison(const cGH *cctkGH, int level, const vector<int> &groups) {
+void RestrictNoPoison(const cGH *cctkGH, int level, const std::vector<int> &groups) {
   Restrict_impl(cctkGH, level, groups, /*do_validity_tracking=*/false);
 }
 

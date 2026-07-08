@@ -20,7 +20,7 @@ extern "C" void ADMBaseX_add_noise(CCTK_ARGUMENTS) {
   default_random_engine engine(device());
   // Random number distribution
   uniform_real_distribution<CCTK_REAL> distribution(-noise_amplitude,
-                                                    noise_amplitude);
+                                                    +noise_amplitude);
   const auto add_noise = [&](CCTK_REAL &restrict var) {
     var += distribution(engine);
   };

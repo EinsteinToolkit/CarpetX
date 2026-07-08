@@ -457,6 +457,7 @@ template <int ORDER> struct interp1d<VC, POLY, ORDER> {
       y += cs[i] * (crse(i - i0) + crse(i1 - i0));
     }
 #ifdef CCTK_DEBUG
+    using std::isfinite;
     assert(isfinite(y));
 #endif
     return y;
@@ -511,6 +512,7 @@ template <int ORDER> struct interp1d<CC, POLY, ORDER> {
         // when it is reversed.
         y += cs[ORDER - i] * crse(i - i0 + ORDER % 2);
 #ifdef CCTK_DEBUG
+    using std::isfinite;
     assert(isfinite(y));
 #endif
     return y;
@@ -577,6 +579,7 @@ template <int ORDER> struct interp1d<VC, HERMITE, ORDER> {
       y += cs[i] * (crse(i - i0) + crse(i1 - i0));
     }
 #ifdef CCTK_DEBUG
+    using std::isfinite;
     assert(isfinite(y));
 #endif
     return y;
@@ -928,6 +931,7 @@ struct test_interp1d<CENT, POLY, ORDER, T> {
             0, off);
         // We carefully choose the test problem so that round-off
         // cannot be a problem here
+        using std::isfinite;
         assert(isfinite(y1));
         assert(y1 == y);
       }
@@ -970,6 +974,7 @@ template <int ORDER, typename T> struct test_interp1d<VC, HERMITE, ORDER, T> {
             0, off);
         // We carefully choose the test problem so that round-off
         // cannot be a problem here
+        using std::isfinite;
         assert(isfinite(y1));
         // assert(y1 == y);
         const T eps = std::numeric_limits<T>::epsilon();
@@ -1030,6 +1035,7 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
               return ys[i];
             },
             0, off);
+        using std::isfinite;
         assert(isfinite(y1[off]));
       } // for off
       // Ensure conservation
@@ -1102,6 +1108,7 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
                 return ys[i0 + 1 + i];
               },
               0, off);
+          using std::isfinite;
           assert(isfinite(y1[off]));
         } // for off
         // Ensure conservation
@@ -1163,6 +1170,7 @@ template <typename T> struct test_interp1d<CC, MINMOD, 1, T> {
               return ys[i0 + 1 + i];
             },
             0, off);
+        using std::isfinite;
         assert(isfinite(y1[off]));
       } // for off
       // Ensure conservation
@@ -1373,6 +1381,7 @@ void prolongate_3d_rf2<
     amrex::ParallelFor(
         source_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
                            __attribute__((__always_inline__, __flatten__)) {
+                             using std::isfinite;
                              assert(isfinite(crse(i, j, k)));
                            });
 #endif
@@ -1677,6 +1686,7 @@ void prolongate_3d_rf2<
     amrex::ParallelFor(
         target_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
                            __attribute__((__always_inline__, __flatten__)) {
+                             using std::isfinite;
                              assert(isfinite(fine(i, j, k)));
                            });
 #endif
@@ -1814,6 +1824,7 @@ void prolongate_3d_rf2<
   amrex::ParallelFor(
       source_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
                          __attribute__((__always_inline__, __flatten__)) {
+                           using std::isfinite;
                            for (int comp = 0; comp < ncomps; ++comp)
                              assert(isfinite(crse(i, j, k, comp)));
                          });
@@ -2152,6 +2163,7 @@ void prolongate_3d_rf2<
   amrex::ParallelFor(
       target_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
                          __attribute__((__always_inline__, __flatten__)) {
+                           using std::isfinite;
                            for (int comp = 0; comp < ncomps; ++comp)
                              assert(isfinite(fine(i, j, k, comp)));
                          });

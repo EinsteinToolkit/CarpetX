@@ -47,7 +47,8 @@ template <typename T, int D> struct reduction {
   constexpr T norm_inf() const noexcept { return maxabs; }
 
   template <typename T1, int D1>
-  friend std::ostream &operator<<(ostream &os, const reduction<T1, D1> &red);
+  friend std::ostream &operator<<(std::ostream &os,
+                                  const reduction<T1, D1> &red);
 };
 
 template <typename T, int D>

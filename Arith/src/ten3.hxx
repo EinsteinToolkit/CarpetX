@@ -21,7 +21,6 @@
 #include <vector>
 
 namespace Arith {
-using namespace std;
 
 // A rank-3 tensor with various symmetries
 template <typename T, int D, symm_t symm> struct gten3 {
@@ -54,9 +53,9 @@ private:
   }
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST int
   ind_symm(const int i0, const int j0, const int k0) {
-    const int i = get<0>(sorted(i0, j0, k0));
-    const int j = get<1>(sorted(i0, j0, k0));
-    const int k = get<2>(sorted(i0, j0, k0));
+    const int i = std::get<0>(sorted(i0, j0, k0));
+    const int j = std::get<1>(sorted(i0, j0, k0));
+    const int k = std::get<2>(sorted(i0, j0, k0));
     return (i * (i * i - 3 * D * i + 3 * D * D - 1) / 6) -
            (j * (j - 2 * D + 1) / 2) + k;
   }
@@ -64,9 +63,9 @@ private:
   ind_anti(const int i0, const int j0, const int k0) {
     if (i0 == j0 || i0 == k0 || j0 == k0)
       return 0;
-    const int i = get<0>(sorted(i0, j0, k0));
-    const int j = get<1>(sorted(i0, j0, k0));
-    const int k = get<2>(sorted(i0, j0, k0));
+    const int i = std::get<0>(sorted(i0, j0, k0));
+    const int j = std::get<1>(sorted(i0, j0, k0));
+    const int k = std::get<2>(sorted(i0, j0, k0));
     return (i * (i * i + (-3 * D + 6) * i + 3 * D * D - 12 * D + 11) / 6) -
            (j * (j - 2 * D + 3) / 2) + k - D;
   }
@@ -115,7 +114,8 @@ public:
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(gten3<U, D, symm> x)
       : elts(std::move(x.elts)) {}
 
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(initializer_list<T> x)
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  gten3(std::initializer_list<T> x)
       : elts(x) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(vect<T, N> elts)
       : elts(std::move(elts)) {}
@@ -151,7 +151,7 @@ public:
           for (int k = j + 1; k < D; ++k)
             f(i, j, k);
   }
-  template <typename F, typename = result_of_t<F(int, int, int)> >
+  template <typename F, typename = std::result_of_t<F(int, int, int)> >
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3(const F &f)
       : gten3(fmap(f, iota1(), iota2(), iota3())) {}
 
@@ -192,8 +192,8 @@ public:
   }
 
   template <typename F, typename... Args,
-            typename R =
-                remove_cv_t<remove_reference_t<result_of_t<F(T, Args...)> > > >
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<F(T, Args...)> > > >
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<R, D, symm>
   fmap(const F &f, const gten3 &x, const gten3<Args, D, symm> &...args) {
     return fmap(f, x.elts, args.elts...);
@@ -204,16 +204,16 @@ public:
     fmap_(f, x.elts, args.elts...);
   }
 
-  template <
-      typename... Args,
-      typename R = remove_cv_t<remove_reference_t<result_of_t<T(Args...)> > > >
+  template <typename... Args,
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<T(Args...)> > > >
   ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<R, D, symm>
   operator()(const Args &...args) const {
     return fmap([&](const T &var) { return var(args...); }, *this);
   }
   template <typename Arg1, typename Arg2, typename U, typename T1 = T,
-            typename R = remove_cv_t<
-                remove_reference_t<result_of_t<T(Arg1, Arg2, U)> > > >
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<T(Arg1, Arg2, U)> > > >
   ARITH_INLINE ARITH_DEVICE ARITH_HOST gten3<R, D, symm>
   operator()(const Arg1 &arg1, const Arg2 &arg2,
              const gten3<U, D, symm> &val) const {
@@ -231,8 +231,8 @@ public:
   //        val);
   // }
   template <typename Arg1, typename Arg2, typename U, typename T1 = T,
-            typename = decltype(declval<T1>().store(
-                declval<Arg1>(), declval<Arg2>(), declval<U>()))>
+            typename = decltype(std::declval<T1>().store(
+                std::declval<Arg1>(), std::declval<Arg2>(), std::declval<U>()))>
   ARITH_INLINE ARITH_DEVICE ARITH_HOST void
   store(const Arg1 &arg1, const Arg2 &arg2,
         const gten3<U, D, symm> &val) const {
@@ -243,12 +243,12 @@ public:
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST size_type size() const {
     return N;
   }
-  template <symm_t symm1 = symm, enable_if_t<symm1 != ANTI> * = nullptr>
+  template <symm_t symm1 = symm, std::enable_if_t<symm1 != ANTI> * = nullptr>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST const T &
   operator()(int i, int j, int k) const {
     return elts[ind(i, j, k)];
   }
-  template <symm_t symm1 = symm, enable_if_t<symm1 == ANTI> * = nullptr>
+  template <symm_t symm1 = symm, std::enable_if_t<symm1 == ANTI> * = nullptr>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T operator()(int i, int j,
                                                               int k) const {
     return sign(i, j, k) * elts[ind(i, j, k)];
@@ -260,7 +260,7 @@ public:
 #endif
     elts[ind(i, j, k)] = x;
   }
-  template <symm_t symm1 = symm, enable_if_t<symm1 != ANTI> * = nullptr>
+  template <symm_t symm1 = symm, std::enable_if_t<symm1 != ANTI> * = nullptr>
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST T &operator()(int i, int j,
                                                                int k) {
     return elts[ind(i, j, k)];
@@ -362,7 +362,7 @@ public:
     return sumabs(x.elts);
   }
 
-  friend ostream &operator<<(ostream &os, const gten3 &x) {
+  friend std::ostream &operator<<(std::ostream &os, const gten3 &x) {
     os << "[";
     for (int k = 0; k < D; ++k) {
       if (k > 0)

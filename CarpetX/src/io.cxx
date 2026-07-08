@@ -259,6 +259,9 @@ void RecoverGH(const cGH *restrict cctkGH) {
   } else {
     CCTK_ERROR("unknown value for paramater CarpetX::recover_method");
   }
+
+  // Increment epoch
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed);
 }
 
 void InputGH(const cGH *restrict cctkGH) {
@@ -351,7 +354,7 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
       const int tl = 0;
 
       std::string groupname = CCTK_FullGroupName(gi);
-      groupname = regex_replace(groupname, regex("::"), "-");
+      groupname = regex_replace(groupname, std::regex("::"), "-");
       for (auto &c : groupname)
         c = tolower(c);
 
@@ -359,10 +362,10 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
 
         const std::string basename = [&]() {
           std::ostringstream buf;
-          buf << groupname << ".it" << setw(8) << setfill('0')
+          buf << groupname << ".it" << std::setw(8) << std::setfill('0')
               << cctk_iteration;
           if (ghext->num_patches() > 1)
-            buf << ".m" << setw(2) << setfill('0') << patchdata.patch;
+            buf << ".m" << std::setw(2) << std::setfill('0') << patchdata.patch;
           return buf.str();
         }();
         const std::string filename = std::string(out_dir) + "/" + basename;
@@ -399,7 +402,7 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
             buf << out_dir << "/" << groupname << ".visit";
             return buf.str();
           }();
-          std::ofstream visit(visitname, ios::app);
+          std::ofstream visit(visitname, std::ios::app);
           assert(visit.good());
           visit << basename << "/Header\n";
           visit.close();
@@ -518,7 +521,8 @@ void OutputMetadata(const cGH *restrict cctkGH) {
 
     std::ostringstream buf;
     buf << out_dir << "/carpetx-metadata"
-        << ".it" << setw(8) << setfill('0') << cctk_iteration << ".yaml";
+        << ".it" << std::setw(8) << std::setfill('0') << cctk_iteration
+        << ".yaml";
     const std::string filename = buf.str();
     std::ofstream file(filename.c_str(), std::ofstream::out);
     file << yaml.c_str();
@@ -533,7 +537,8 @@ void OutputMetadata(const cGH *restrict cctkGH) {
 
     std::ostringstream buf;
     buf << out_dir << "/parameters"
-        << ".it" << setw(8) << setfill('0') << cctk_iteration << ".yaml";
+        << ".it" << std::setw(8) << std::setfill('0') << cctk_iteration
+        << ".yaml";
     const std::string filename = buf.str();
     std::ofstream file(filename.c_str(), std::ofstream::out);
     file << yaml.c_str();

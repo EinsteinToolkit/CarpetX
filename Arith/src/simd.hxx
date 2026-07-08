@@ -36,7 +36,6 @@
 #include <type_traits>
 
 namespace Arith {
-using namespace std;
 
 template <typename T> struct simd;
 template <typename T> struct simdl;
@@ -108,7 +107,7 @@ template <typename T> struct simd {
   constexpr ARITH_DEVICE ARITH_HOST simd(const T &a) : elts(a) {}
 #ifndef SIMD_DISABLE
   template <typename U = T,
-            enable_if_t<!is_same_v<nsimd::pack<T>, T> > * = nullptr>
+            std::enable_if_t<!std::is_same_v<nsimd::pack<T>, T> > * = nullptr>
   constexpr ARITH_DEVICE ARITH_HOST simd(const nsimd::pack<T> &elts)
       : elts(elts) {}
 #endif
@@ -697,7 +696,7 @@ template <typename T> struct simd {
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> isinf(const simd &x) {
     // using std::isinf;
     // return isinf(x.elts);
-    return fabs(x) == numeric_limits<T>::infinity();
+    return fabs(x) == std::numeric_limits<T>::infinity();
   }
 
   friend constexpr ARITH_DEVICE ARITH_HOST simdl<T> isnan(const simd &x) {
@@ -1089,9 +1088,9 @@ template <typename T> struct simd {
 #endif
   }
 
-  friend ostream &operator<<(ostream &os, const simd &x) {
+  friend std::ostream &operator<<(std::ostream &os, const simd &x) {
     os << "Ⓢ[";
-    for (size_t n = 0; n < storage_size; ++n) {
+    for (std::size_t n = 0; n < storage_size; ++n) {
       if (n != 0)
         os << ",";
       os << x[n];
@@ -1227,7 +1226,7 @@ masko_loadu(const simdl<T> &mask, const T *ptr, const simd<T> &other) {
 }
 
 template <typename T, typename U,
-          enable_if_t<is_convertible_v<T, U> > * = nullptr>
+          std::enable_if_t<std::is_convertible_v<T, U> > * = nullptr>
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loada(const simdl<T> &mask, const T *ptr, const U &other) {
   simd<T>::count_memop();
@@ -1239,7 +1238,7 @@ masko_loada(const simdl<T> &mask, const T *ptr, const U &other) {
 }
 
 template <typename T, typename U,
-          enable_if_t<is_convertible_v<T, U> > * = nullptr>
+          std::enable_if_t<std::is_convertible_v<T, U> > * = nullptr>
 ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loadu(const simdl<T> &mask, const T *ptr, const U &other) {
   simd<T>::count_memop();
@@ -1532,9 +1531,9 @@ template <typename T> struct simdl {
 #endif
   }
 
-  friend ostream &operator<<(ostream &os, const simdl &x) {
+  friend std::ostream &operator<<(std::ostream &os, const simdl &x) {
     os << "Ⓑ[";
-    for (size_t n = 0; n < storage_size; ++n) {
+    for (std::size_t n = 0; n < storage_size; ++n) {
       if (n != 0)
         os << ",";
       os << x[n];

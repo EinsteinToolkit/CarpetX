@@ -1,0 +1,58 @@
+ActiveThorns = "
+    CarpetX
+    DGCoordinatesX
+    DGWaveToyX
+    IOUtil
+    ODESolvers
+"
+
+$ncells = 16
+
+Cactus::cctk_show_schedule = no
+
+Cactus::presync_mode = "mixed-error"
+
+Cactus::cctk_itlast = 2
+
+CarpetX::verbose = yes
+
+CarpetX::xmin = -1.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+
+CarpetX::xmax = +1.0
+CarpetX::ymax = +1.0
+CarpetX::zmax = +1.0
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::periodic = yes
+CarpetX::periodic_x = yes
+CarpetX::periodic_y = yes
+CarpetX::periodic_z = yes
+
+CarpetX::ghost_size = 1
+
+CarpetX::max_num_levels = 1
+
+DGCoordinatesX::dg_npoints = 8
+
+ODESolvers::method = "DP87"
+CarpetX::dtfac = 0.5
+
+IO::out_dir = $parfile
+IO::out_every = $ncells
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+
+CarpetX::out_tsv_every = 1
+CarpetX::out_tsv_vars = "
+    DGCoordinatesX::coords
+    DGWaveToyX::u
+    DGWaveToyX::f
+    DGWaveToyX::u_rhs
+    DGWaveToyX::f_rhs
+"
