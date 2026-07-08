@@ -1,6 +1,6 @@
 # Schedule definitions for thorn VGFWaveToyX
 
-STORAGE: state
+STORAGE: state rhs energy error
 
 SCHEDULE VGFWaveToyX_Initial AT initial
 {
