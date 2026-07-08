@@ -380,12 +380,12 @@ struct carpetx_openpmd_t {
     std::ostringstream buf;
     buf << groupname;
     if (patch != -1)
-      buf << "_patch" << setw(2) << setfill('0') << patch;
+      buf << "_patch" << std::setw(2) << std::setfill('0') << patch;
     if (level != -1)
-      // The suffix should be `_lvl<N>`. No `setfill`?
-      buf << "_lev" << setw(2) << setfill('0') << level;
+      // The suffix should be `_lvl<N>`. No `std::setfill`?
+      buf << "_lev" << std::setw(2) << std::setfill('0') << level;
     if (tl > 0)
-      buf << "_tl" << setw(2) << setfill('0') << tl;
+      buf << "_tl" << std::setw(2) << std::setfill('0') << tl;
     if (!band.empty())
       buf << "_band_" << band;
     return buf.str();
@@ -567,7 +567,7 @@ int carpetx_openpmd_t::InputOpenPMDParameters(const std::string &input_dir,
     const openPMD::Attribute parameters_attr =
         read_iter->getAttribute("AllParameters");
     assert(parameters_attr.dtype == openPMD::Datatype::STRING);
-    const string parameters = parameters_attr.get<std::string>();
+    const std::string parameters = parameters_attr.get<std::string>();
     IOUtil_SetAllParameters(parameters.data());
   }
 
@@ -1478,7 +1478,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     if (io_verbose)
       CCTK_VINFO("Creating openPMD object...");
     const int mode = 0755;
-    static once_flag create_directory;
+    static std::once_flag create_directory;
     call_once(create_directory, [&]() {
       const int ierr = CCTK_CreateDirectory(mode, output_dir.c_str());
       assert(ierr >= 0);
@@ -1581,7 +1581,7 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
       std::ostringstream buf;
       // String attributes cannot be empty; we thus always need to use a patch
       // suffix if (ghext->num_patches() > 1)
-      buf << "_patch" << setw(2) << setfill('0') << patch;
+      buf << "_patch" << std::setw(2) << std::setfill('0') << patch;
       patch_suffixes.at(patch) = buf.str();
     }
     write_iter.setAttribute("patchSuffixes", patch_suffixes);
@@ -1594,8 +1594,8 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
       for (const auto &leveldata : patchdata.leveldata) {
         const int level = leveldata.level;
         std::ostringstream buf;
-        buf << patch_suffixes.at(patch) << "_lev" << setw(2) << setfill('0')
-            << level;
+        buf << patch_suffixes.at(patch) << "_lev" << std::setw(2)
+            << std::setfill('0') << level;
         level_suffixes.at(level) = buf.str();
       }
       write_iter.setAttribute("levelSuffixes" + patch_suffixes.at(patch),
@@ -2249,12 +2249,12 @@ void carpetx_openpmd_t::OutputOpenPMD(const cGH *const cctkGH,
     std::ostringstream buf;
     buf << output_dir << "/" << output_file << ".openpmd.visit";
     const std::string visitname = buf.str();
-    std::ofstream visit(visitname, ios::app);
+    std::ofstream visit(visitname, std::ios::app);
     assert(visit.good());
     switch (iterationEncoding) {
     case openPMD::IterationEncoding::fileBased:
-      visit << output_file << ".it" << setw(8) << setfill('0') << cctk_iteration
-            << openPMD::suffix(format) << "\n";
+      visit << output_file << ".it" << std::setw(8) << std::setfill('0')
+            << cctk_iteration << openPMD::suffix(format) << "\n";
       break;
     case openPMD::IterationEncoding::variableBased:
       visit << output_file << openPMD::suffix(format) << "\n";

@@ -3,6 +3,7 @@
 # Source files in this directory
 SRCS =						\
 	arr.cxx					\
+	checked.cxx				\
 	cons.cxx				\
 	cplx.cxx				\
 	div.cxx					\

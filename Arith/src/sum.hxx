@@ -7,7 +7,6 @@
 #include <functional>
 
 namespace Arith {
-using namespace std;
 
 // Functions for summing over expressions. Multi-dimensional sums be
 // symmetric, which reduces their cost.
@@ -19,9 +18,10 @@ using namespace std;
 
 template <int D, typename F>
 constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-    remove_cv_t<remove_reference_t<result_of_t<F(int)> > >
+    std::remove_cv_t<std::remove_reference_t<std::result_of_t<F(int)> > >
     sum(F f) {
-  typedef remove_cv_t<remove_reference_t<result_of_t<F(int)> > > R;
+  typedef std::remove_cv_t<std::remove_reference_t<std::result_of_t<F(int)> > >
+      R;
   R s = zero<R>();
   for (int x = 0; x < D; ++x)
     s += f(x);
@@ -30,9 +30,11 @@ constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
 
 template <int D, typename F>
 constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-    remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > >
+    std::remove_cv_t<std::remove_reference_t<std::result_of_t<F(int, int)> > >
     sum(F f) {
-  typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > > R;
+  typedef std::remove_cv_t<
+      std::remove_reference_t<std::result_of_t<F(int, int)> > >
+      R;
   R s = zero<R>();
   for (int x = 0; x < D; ++x)
     for (int y = 0; y < D; ++y)
@@ -41,10 +43,12 @@ constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
 }
 
 template <int D, typename F>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-    remove_cv_t<remove_reference_t<result_of_t<F(int, int, int)> > >
-    sum(F f) {
-  typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int, int)> > > R;
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST std::remove_cv_t<
+    std::remove_reference_t<std::result_of_t<F(int, int, int)> > >
+sum(F f) {
+  typedef std::remove_cv_t<
+      std::remove_reference_t<std::result_of_t<F(int, int, int)> > >
+      R;
   R s = zero<R>();
   for (int x = 0; x < D; ++x)
     for (int y = 0; y < D; ++y)
@@ -54,10 +58,11 @@ constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
 }
 
 template <int D, typename F>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-    remove_cv_t<remove_reference_t<result_of_t<F(int, int, int, int)> > >
-    sum(F f) {
-  typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int, int, int)> > >
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST std::remove_cv_t<
+    std::remove_reference_t<std::result_of_t<F(int, int, int, int)> > >
+sum(F f) {
+  typedef std::remove_cv_t<
+      std::remove_reference_t<std::result_of_t<F(int, int, int, int)> > >
       R;
   R s = zero<R>();
   for (int x = 0; x < D; ++x)
@@ -70,9 +75,11 @@ constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
 
 template <int D, typename F>
 constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-    remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > >
+    std::remove_cv_t<std::remove_reference_t<std::result_of_t<F(int, int)> > >
     sum_symm(F f) {
-  typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int)> > > R;
+  typedef std::remove_cv_t<
+      std::remove_reference_t<std::result_of_t<F(int, int)> > >
+      R;
   R s = zero<R>();
   for (int x = 0; x < D; ++x)
     for (int y = x; y < D; ++y)
@@ -81,10 +88,12 @@ constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
 }
 
 template <int D, typename F>
-constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
-    remove_cv_t<remove_reference_t<result_of_t<F(int, int, int)> > >
-    sum_symm(F f) {
-  typedef remove_cv_t<remove_reference_t<result_of_t<F(int, int, int)> > > R;
+constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST std::remove_cv_t<
+    std::remove_reference_t<std::result_of_t<F(int, int, int)> > >
+sum_symm(F f) {
+  typedef std::remove_cv_t<
+      std::remove_reference_t<std::result_of_t<F(int, int, int)> > >
+      R;
   R s = zero<R>();
   for (int x = 0; x < D; ++x)
     for (int y = x; y < D; ++y)

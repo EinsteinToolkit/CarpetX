@@ -14,9 +14,13 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace TestSubcyclingMC {
 using namespace Arith;
+using namespace CarpetX;
+using std::array;
+using std::vector;
 
 constexpr int dim = 3;
 

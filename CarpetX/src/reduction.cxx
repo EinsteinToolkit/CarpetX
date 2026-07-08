@@ -194,7 +194,7 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
 
         const amrex::IntVect reffact{2, 2, 2};
 
-        finemask_imfab = make_unique<amrex::iMultiFab>(makeFineMask(
+        finemask_imfab = std::make_unique<amrex::iMultiFab>(makeFineMask(
             mfab, fine_mfab.boxArray(), reffact, geom.periodicity(),
             /*coarse value*/ 0, /* fine value */ 1));
       }
@@ -228,7 +228,7 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
 
           std::unique_ptr<amrex::Array4<const int> > finemask;
           if (finemask_imfab) {
-            finemask = make_unique<amrex::Array4<const int> >(
+            finemask = std::make_unique<amrex::Array4<const int> >(
                 finemask_imfab->array(mfi));
             // Ensure the mask has the correct size
             assert(finemask->begin.x == vars.begin.x);

@@ -146,11 +146,11 @@ struct carpetx_adios2_t {
     std::ostringstream buf;
     buf << varname;
     if (patch >= 0)
-      buf << ".m" << setw(4) << setfill('0') << patch;
+      buf << ".m" << std::setw(4) << std::setfill('0') << patch;
     if (reflevel >= 0)
-      buf << ".rl" << setw(2) << setfill('0') << reflevel;
+      buf << ".rl" << std::setw(2) << std::setfill('0') << reflevel;
     if (component >= 0)
-      buf << ".c" << setw(8) << setfill('0') << component;
+      buf << ".c" << std::setw(8) << std::setfill('0') << component;
     return buf.str();
   }
 
@@ -241,7 +241,7 @@ void carpetx_adios2_t::OutputADIOS2(const cGH *const cctkGH,
       // Create output engine
       std::ostringstream buf;
       const int mode = 0755;
-      static once_flag create_directory;
+      static std::once_flag create_directory;
       call_once(create_directory, [&]() {
         const int ierr = CCTK_CreateDirectory(mode, output_dir.c_str());
         assert(ierr >= 0);

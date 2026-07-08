@@ -1,0 +1,5 @@
+# Parameter definitions for thorn DGWaveToyX
+
+SHARES: DGCoordinatesX
+
+USES CCTK_INT dg_npoints

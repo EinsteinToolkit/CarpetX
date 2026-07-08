@@ -384,9 +384,9 @@ cGH *copy_cctkGH(const cGH *restrict const sourceGH) {
 
   // Allocate most pointers anew
   const auto copy_array = [](const auto *restrict const srcptr, const int sz) {
-    using T = decay_t<decltype(*srcptr)>;
+    using T = std::decay_t<decltype(*srcptr)>;
     T *restrict const ptr = new T[sz];
-    copy(srcptr, srcptr + sz, ptr);
+    std::copy(srcptr, srcptr + sz, ptr);
     return ptr;
   };
   cctkGH->cctk_gsh = copy_array(sourceGH->cctk_gsh, dim);
@@ -1008,12 +1008,12 @@ struct clause_t {
   valid_t valid;
 
   friend bool operator==(const clause_t &x, const clause_t &y) {
-    return make_tuple(x.gi, x.vi, x.tl, x.valid) ==
-           make_tuple(y.gi, y.vi, y.tl, y.valid);
+    return std::make_tuple(x.gi, x.vi, x.tl, x.valid) ==
+           std::make_tuple(y.gi, y.vi, y.tl, y.valid);
   }
   friend bool operator<(const clause_t &x, const clause_t &y) {
-    return make_tuple(x.gi, x.vi, x.tl, x.valid) <
-           make_tuple(y.gi, y.vi, y.tl, y.valid);
+    return std::make_tuple(x.gi, x.vi, x.tl, x.valid) <
+           std::make_tuple(y.gi, y.vi, y.tl, y.valid);
   }
 
   friend std::ostream &operator<<(std::ostream &os, const clause_t &cl) {
@@ -1128,13 +1128,13 @@ int Initialise(tFleshConfig *config) {
   for (const auto &patchdata : ghext->patchdata)
     assert(patchdata.leveldata.empty());
   assert(!active_levels);
-  active_levels = make_optional<active_levels_t>(0, 0);
+  active_levels = std::make_optional<active_levels_t>(0, 0);
 
   CCTK_Traverse(cctkGH, "CCTK_WRAGH");
   CCTK_Traverse(cctkGH, "CCTK_PARAMCHECK");
   CCTKi_FinaliseParamWarn();
 
-  active_levels = optional<active_levels_t>();
+  active_levels = std::optional<active_levels_t>();
 
   // Set the initial value of max_grid_size for all levels
   CCTK_VINFO("Setting initial values for max_grid_size values for all levels");
@@ -1164,7 +1164,7 @@ int Initialise(tFleshConfig *config) {
     RecoverGridStructure(cctkGH);
 
     assert(!active_levels);
-    active_levels = make_optional<active_levels_t>();
+    active_levels = std::make_optional<active_levels_t>();
 
     CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
 
@@ -1200,7 +1200,7 @@ int Initialise(tFleshConfig *config) {
     });
     ghext->recovered_level_iterations.clear();
 
-    active_levels = optional<active_levels_t>();
+    active_levels = std::optional<active_levels_t>();
 
     // Enable regridding
     for (auto &patchdata : ghext->patchdata)
@@ -1217,6 +1217,7 @@ int Initialise(tFleshConfig *config) {
       CCTK_ERROR("Unexpected value for 'CarpetX::timestep_choice'");
       abort();
     }
+    using std::isfinite;
     assert(isfinite(cctkGH->cctk_delta_time));
 #pragma omp critical
     CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
@@ -1248,6 +1249,7 @@ int Initialise(tFleshConfig *config) {
         CCTK_ERROR("Unexpected value for 'CarpetX::timestep_choice'");
         abort();
       }
+      using std::isfinite;
       assert(isfinite(cctkGH->cctk_delta_time));
 #pragma omp critical
       CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
@@ -1255,10 +1257,10 @@ int Initialise(tFleshConfig *config) {
                  double(cctkGH->cctk_delta_time));
 
       assert(!active_levels);
-      active_levels = make_optional<active_levels_t>(0, 1);
+      active_levels = std::make_optional<active_levels_t>(0, 1);
       CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
       // CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
-      active_levels = optional<active_levels_t>();
+      active_levels = std::optional<active_levels_t>();
     }
 
     // Output domain information
@@ -1318,14 +1320,14 @@ int Initialise(tFleshConfig *config) {
         assert(patchdata.amrcore->finestLevel() <= level);
 
       assert(!active_levels);
-      active_levels = make_optional<active_levels_t>(0, level + 1);
+      active_levels = std::make_optional<active_levels_t>(0, level + 1);
 
       InputGH(cctkGH);
       CCTK_Traverse(cctkGH, "CCTK_INITIAL");
       CCTK_Traverse(cctkGH, "CCTK_POSTINITIAL");
       CCTK_Traverse(cctkGH, "CCTK_POSTPOSTINITIAL");
 
-      active_levels = optional<active_levels_t>();
+      active_levels = std::optional<active_levels_t>();
 
       // Regrid
       bool did_modify_any_level;
@@ -1383,6 +1385,7 @@ int Initialise(tFleshConfig *config) {
           for (int lev = 0; lev < int(patchdata.amrcore->level_modified.size());
                ++lev) {
             if (patchdata.amrcore->level_modified.at(lev)) {
+              using std::max, std::min;
               first_modified_level = min(first_modified_level, lev);
               last_modified_level = max(last_modified_level, lev);
             }
@@ -1402,6 +1405,7 @@ int Initialise(tFleshConfig *config) {
             CCTK_ERROR("Unexpected value for 'CarpetX::timestep_choice'");
             abort();
           }
+          using std::isfinite;
           assert(isfinite(cctkGH->cctk_delta_time));
 #pragma omp critical
           CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
@@ -1409,11 +1413,11 @@ int Initialise(tFleshConfig *config) {
                      double(cctkGH->cctk_delta_time));
 
           assert(!active_levels);
-          active_levels = make_optional<active_levels_t>(
+          active_levels = std::make_optional<active_levels_t>(
               first_modified_level, last_modified_level + 1);
           CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
           CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
-          active_levels = optional<active_levels_t>();
+          active_levels = std::optional<active_levels_t>();
         }
       } // Regrid
 
@@ -1431,7 +1435,7 @@ int Initialise(tFleshConfig *config) {
   const rat64 finest_iteration =
       ghext->patchdata.at(0).leveldata.at(max_level - 1).iteration;
   const int min_level = WidenMinLevel(max_level - 1, finest_iteration);
-  active_levels = make_optional<active_levels_t>(min_level, max_level);
+  active_levels = std::make_optional<active_levels_t>(min_level, max_level);
 
   // After widening active_levels from min_level, sync cctk_timefac with the
   // finest level traversed; mirrors the assignment in the evolve loop.
@@ -1457,7 +1461,7 @@ int Initialise(tFleshConfig *config) {
   }
   CCTK_OutputGH(cctkGH);
 
-  active_levels = optional<active_levels_t>();
+  active_levels = std::optional<active_levels_t>();
 
   return 0;
 } // namespace CarpetX
@@ -1743,7 +1747,7 @@ int Evolve(tFleshConfig *config) {
       buf << out_dir << "/performance.yaml";
       const std::string filename = buf.str();
       performance_file.open(filename);
-      performance_file << "performance:\n" << flush;
+      performance_file << "performance:\n" << std::flush;
     }
   }
 
@@ -1845,6 +1849,7 @@ int Evolve(tFleshConfig *config) {
         for (int lev = 0; lev < int(patchdata.amrcore->level_modified.size());
              ++lev) {
           if (patchdata.amrcore->level_modified.at(lev)) {
+            using std::max, std::min;
             first_modified_level = min(first_modified_level, lev);
             last_modified_level = max(last_modified_level, lev);
           }
@@ -1865,6 +1870,7 @@ int Evolve(tFleshConfig *config) {
           CCTK_ERROR("Unexpected value for 'CarpetX::timestep_choice'");
           abort();
         }
+        using std::isfinite;
         assert(isfinite(cctkGH->cctk_delta_time));
 #pragma omp critical
         CCTK_VINFO("Iteration: %d   time: %g   delta_time: %g",
@@ -1872,11 +1878,11 @@ int Evolve(tFleshConfig *config) {
                    double(cctkGH->cctk_delta_time));
 
         assert(!active_levels);
-        active_levels = make_optional<active_levels_t>(first_modified_level,
-                                                       last_modified_level + 1);
+        active_levels = std::make_optional<active_levels_t>(
+            first_modified_level, last_modified_level + 1);
         CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
         CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
-        active_levels = optional<active_levels_t>();
+        active_levels = std::optional<active_levels_t>();
       }
     } // Regrid
 
@@ -1927,7 +1933,7 @@ int Evolve(tFleshConfig *config) {
 
       // must not terminate loop iteration due to active_levels being reset at
       // bootom of loop body
-      active_levels = make_optional<active_levels_t>(min_level, max_level);
+      active_levels = std::make_optional<active_levels_t>(min_level, max_level);
 
       // Advance iteration number on this batch of levels
       level_iteration += level_delta_iteration;
@@ -1962,7 +1968,7 @@ int Evolve(tFleshConfig *config) {
       // reset active_levels to include all levels that have caught up to the
       // current timestep
       min_level = WidenMinLevel(min_level, level_iteration);
-      active_levels = make_optional<active_levels_t>(min_level, max_level);
+      active_levels = std::make_optional<active_levels_t>(min_level, max_level);
 
       if (max_level == ghext->num_levels()) {
         if (!restrict_during_sync) {
@@ -1988,7 +1994,7 @@ int Evolve(tFleshConfig *config) {
     total_evolution_output_time += output_finish_time - output_start_time;
 
     // Mark all levels inactive now that we are done processing a time step
-    active_levels = optional<active_levels_t>();
+    active_levels = std::optional<active_levels_t>();
 
     const double waiting_start_time = gettime();
     MPI_Barrier(MPI_COMM_WORLD);
@@ -2058,7 +2064,7 @@ int Evolve(tFleshConfig *config) {
                          << "\n"
                          << "    evolution-iterations: " << total_iterations
                          << "\n"
-                         << flush;
+                         << std::flush;
     }
 
   } // main loop
@@ -2089,7 +2095,7 @@ int Shutdown(tFleshConfig *config) {
   const rat64 finest_iteration =
       ghext->patchdata.at(0).leveldata.at(max_level - 1).iteration;
   const int min_level = WidenMinLevel(max_level - 1, finest_iteration);
-  active_levels = make_optional<active_levels_t>(min_level, max_level);
+  active_levels = std::make_optional<active_levels_t>(min_level, max_level);
 
   CCTK_Traverse(cctkGH, "CCTK_TERMINATE");
 
@@ -2192,7 +2198,7 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
       std::ostringstream buf;
       buf << "CallFunction " << attribute->where << ": " << attribute->thorn
           << "::" << attribute->routine;
-      timer_iter = get<0>(timers.emplace(attribute, buf.str()));
+      timer_iter = std::get<0>(timers.emplace(attribute, buf.str()));
     }
   }
   Timer &timer = timer_iter->second;
@@ -2604,7 +2610,7 @@ int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
     // CCTK_GroupStorageIncrease with requested_tls = 0 to query the current
     // number of active timelevels. Treat this as a pure read.
     if (inc and requested_tls[n] == 0) {
-      min_num_timelevels = min(min_num_timelevels, previous);
+      min_num_timelevels = std::min(min_num_timelevels, previous);
       continue;
     }
 
@@ -2620,7 +2626,7 @@ int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
     }
 
     const int current = ghext->active_timelevels.at(gid);
-    min_num_timelevels = min(min_num_timelevels, current);
+    min_num_timelevels = std::min(min_num_timelevels, current);
   }
   if (min_num_timelevels == INT_MAX)
     min_num_timelevels = 0;

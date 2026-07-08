@@ -1285,6 +1285,123 @@ Note that \texttt{DriverInterpolate} and \texttt{CCTK\_InterpGridArrays()} recei
 Lastly, to control the order of the interpolation operators, users can set the \texttt{CarpetX::interpolation\_order} parameter, which defaults to 1 and must be greater than 0.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Cached interpolation setup}
+\label{sec:interp_setup}
+
+The single-call interfaces described above (\texttt{CCTK\_InterpGridArrays}, \texttt{DriverInterpolate} and \texttt{Interpolate}) rebuild the full interpolation machinery from scratch on every call. In particular, they distribute the requested points as AMReX particles across MPI ranks and then gather the results back --- an operation whose cost scales with the number of points and the number of MPI processes. When the same set of interpolation points is reused across many successive calls (e.g.\ extracting gravitational-wave signals on a fixed sphere at every time step), this repeated setup is wasteful.
+
+\CarpetX\space exposes the \texttt{InterpolationSetup} C\texttt{++} class (declared in \texttt{interp.hxx}) to allow callers to amortise this cost. The setup phase is performed once in the constructor; subsequent interpolations at the same points then call only the lightweight \texttt{Interpolate()} member function, which skips all particle-distribution work.
+
+\subsubsection{The \texttt{InterpolationSetup} constructor}
+
+\begin{lstlisting}
+#include <interp.hxx>   // CarpetX::InterpolationSetup
+
+CarpetX::InterpolationSetup setup(
+    cctkGH,    // Cactus grid hierarchy handle (must be in global mode)
+    npoints,   // number of interpolation points
+    globalsx,  // x-coordinates (global frame)
+    globalsy,  // y-coordinates (global frame)
+    globalsz); // z-coordinates (global frame)
+\end{lstlisting}
+
+The constructor performs the following steps:
+
+\begin{enumerate}
+  \item \textbf{Coordinate conversion.}  Global coordinates are converted to patch-local coordinates via \texttt{MultiPatch\_GlobalToLocal2} when a multi-patch coordinate system is active, or assigned to patch~0 in single-patch setups.
+
+  \item \textbf{Symmetry handling.}  If the \texttt{reflection\_z} symmetry parameter is active, points whose $z$-coordinate lies below the lower $z$-boundary are reflected about that boundary. The reflection state of each point is stored internally so that \texttt{Interpolate()} can undo the symmetry transformation in the returned values.
+
+  \item \textbf{Domain projection.}  Particle positions are clamped to lie at least half a coarse-grid cell spacing inside the domain before they are handed to AMReX. This prevents AMReX from silently discarding out-of-domain particles during redistribution. The original (pre-clamped) local coordinates are stored in separate particle real-data slots and are used by the interpolation stencils.
+
+  \item \textbf{Particle distribution.}  Each interpolation point is inserted as an AMReX particle into the per-patch container that owns the corresponding patch. \texttt{Redistribute()} is then called so that every MPI rank ends up owning exactly the subset of points that overlap with its local AMReX boxes.
+\end{enumerate}
+
+\subsubsection{The \texttt{Interpolate()} member function}
+
+Once the setup object has been constructed, actual field sampling is performed by calling
+
+\begin{lstlisting}
+setup.Interpolate(
+    cctkGH,              // Cactus grid hierarchy handle
+    nvars,               // number of grid functions to interpolate
+    varinds,             // variable indices
+    operations,          // derivative operation codes
+    allowed_boundaries,  // stencil-boundary policy [patch][face][dir]
+    resultptrs);         // output arrays
+\end{lstlisting}
+
+The \texttt{allowed\_boundaries} argument is a \texttt{std::vector} of \texttt{vect<vect<bool,3>,2>}, one entry per patch. For each patch face (face index $f \in \{0,1\}$, direction $d \in \{0,1,2\}$), the boolean controls whether the interpolation stencil anchor is permitted to reach into the ghost-zone region on that face:
+%
+\begin{itemize}
+  \item \texttt{true} --- the stencil may anchor right up to that face (ghost-zone data there is assumed valid, e.g.\ because boundary conditions have already been applied).
+  \item \texttt{false} --- the stencil is pushed inward by \texttt{nghostzones} on that face (ghost-zone data is considered unavailable).
+\end{itemize}
+%
+When calling the lower-level \texttt{Interpolate} aliased function directly (which internally builds a temporary \texttt{InterpolationSetup} and calls \texttt{Interpolate()}), this policy is controlled by the single boolean \texttt{allow\_boundaries}: passing \texttt{true} sets all faces to ``allowed''; passing \texttt{false} forbids all boundary-face anchoring.
+
+\subsubsection{Example: reusing a setup across time steps}
+
+The following sketch shows the recommended pattern for observers that interpolate at a fixed set of points (e.g.\ a gravitational-wave extraction sphere) at every time step:
+
+\begin{lstlisting}
+#include <interp.hxx>
+
+// Persistent state, rebuilt only when the grid hierarchy changes.
+static std::optional<CarpetX::InterpolationSetup> interp_setup;
+static CCTK_INT setup_epoch = -1;
+
+extern "C" void MyThorn_Observe(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_MyThorn_Observe;
+
+  // Retrieve the current grid epoch.
+  const CCTK_INT current_epoch = GetEpoch();
+
+  // Rebuild the setup whenever the grid topology has changed
+  // or on the very first call.
+  if (!interp_setup.has_value() || current_epoch != setup_epoch) {
+    interp_setup.emplace(cctkGH, npoints, coordsx, coordsy, coordsz);
+    setup_epoch = current_epoch;
+  }
+
+  // Interpolate at the (unchanged) points without re-distributing particles.
+  interp_setup->Interpolate(cctkGH, nvars, varinds, operations,
+                             allowed_boundaries, resultptrs);
+}
+\end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{The grid epoch and cache invalidation}
+\label{sec:epoch}
+
+The grid epoch is a monotonically increasing integer counter maintained internally by \CarpetX. It advances every time the grid hierarchy is structurally modified, specifically when:
+%
+\begin{itemize}
+  \item a new AMR level is created from scratch (\texttt{MakeNewLevelFromScratch}),
+  \item a new level is created by refinement of a coarser level (\texttt{MakeNewLevelFromCoarse}),
+  \item a level is remeshed (\texttt{RemakeLevel}),
+  \item a level is removed (\texttt{ClearLevel}), or
+  \item the simulation is recovered from a checkpoint (\texttt{InputInitial}).
+\end{itemize}
+%
+The epoch starts at 0 and is incremented atomically, so it is safe to read from any thread without additional synchronisation.
+
+The epoch can be queried via the aliased function \texttt{GetEpoch}, which must be declared in a thorn's \texttt{interface.ccl} file before it can be called:
+
+\begin{lstlisting}[language=bash]
+  CCTK_INT FUNCTION GetEpoch()
+  REQUIRES FUNCTION GetEpoch
+\end{lstlisting}
+
+and called in \texttt{C++} code as
+
+\begin{lstlisting}
+  const CCTK_INT epoch = GetEpoch();
+\end{lstlisting}
+
+The intended use case is cache validation: any object derived from the grid topology (most notably \texttt{InterpolationSetup}) is valid only as long as the epoch value at the time of construction matches the current epoch. Once the epoch advances, the cached object must be discarded and rebuilt. The example in Sec.~\ref{sec:interp_setup} demonstrates this pattern.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Performance tuning}
 \label{sec:perf_tuning}
 

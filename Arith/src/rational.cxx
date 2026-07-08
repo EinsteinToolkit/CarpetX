@@ -3,9 +3,9 @@
 #include <numeric>
 
 namespace Arith {
-using namespace std;
 
 template <typename I> constexpr bool isgood(const rational<I> &x) {
+  using std::gcd;
   return x.den >= 0 && gcd(x.num, x.den) == 1;
 }
 

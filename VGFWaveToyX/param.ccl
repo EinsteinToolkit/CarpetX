@@ -1,0 +1,38 @@
+# Parameter definitions for thorn VGFWaveToyX
+
+CCTK_INT nvars "Number of variables"
+{
+  1:10 :: ""
+} 3
+
+KEYWORD initial_condition "Initial condition"
+{
+  "standing wave" :: "Standing wave"
+  "Gaussian" :: "Gaussian"
+} "standing wave"
+
+CCTK_REAL amplitude[10] "Initial amplitude"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL standing_wave_kx[10] "kx for standing wave"
+{
+  *:* :: ""
+} 0.5
+
+CCTK_REAL standing_wave_ky[10] "kz for standing wave"
+{
+  *:* :: ""
+} 0.5
+
+CCTK_REAL standing_wave_kz[10] "ky for standing wave"
+{
+  *:* :: ""
+} 0.5
+
+CCTK_REAL gaussian_width[10] "width of Gaussian"
+{
+  (0:* :: ""
+} 1.0
+

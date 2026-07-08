@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -67,7 +68,7 @@ std::ostream &operator<<(std::ostream &os, const boundary_t boundary);
 static_assert(AMREX_SPACEDIM == dim,
               "AMReX's AMREX_SPACEDIM must be the same as Cactus's cctk_dim");
 
-static_assert(is_same<amrex::Real, CCTK_REAL>::value,
+static_assert(std::is_same<amrex::Real, CCTK_REAL>::value,
               "AMReX's Real type must be the same as Cactus's CCTK_REAL");
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,7 +100,7 @@ public:
                         int ngrow) override;
   void SetupLevel(int level, const amrex::BoxArray &ba,
                   const amrex::DistributionMapping &dm,
-                  const function<string()> &why);
+                  const std::function<std::string()> &why);
   // Re-partition a recovered level's covered region into a fresh box
   // decomposition matching the current max_grid_size / node count. Pure
   // geometry: the returned BoxArray covers exactly the same cell union as the
@@ -304,7 +305,8 @@ struct GHExt {
     // we assume that grid scalars only hold "analysis" data.
 
     struct ArrayGroupData : public CommonGroupData {
-      vector<AnyTypeVector> data; // [time level][var index + grid point index]
+      std::vector<AnyTypeVector>
+          data; // [time level][var index + grid point index]
       int array_size;
       int dimension;
       int activetimelevels;
@@ -463,7 +465,7 @@ struct GHExt {
 
         std::array<std::array<boundary_t, dim>, 2> boundaries;
         bool all_faces_have_symmetries_or_boundaries() const;
-        std::vector<array<int, dim> > parities;
+        std::vector<std::array<int, dim> > parities;
         std::vector<CCTK_REAL> dirichlet_values;
         std::vector<CCTK_REAL> robin_values;
         amrex::Vector<amrex::BCRec> bcrecs;
@@ -523,7 +525,7 @@ struct GHExt {
                                          const GroupData &groupdata);
       };
       // TODO: right now this is sized for the total number of groups
-      std::vector<unique_ptr<GroupData> > groupdata; // [group index]
+      std::vector<std::unique_ptr<GroupData> > groupdata; // [group index]
 
       // Build (lazily, idempotently) the coarse-fine band geometry for this
       // group's centering and allocate the group's ks_source_band/
@@ -606,6 +608,12 @@ enum class band_kind { ks_consumer, old_consumer };
 // Token identifying a consumer band in checkpoint names: "ksc_s00".."ksc_s03"
 // for ks_consumer, "oldc" for old_consumer. Shared by both IO backends.
 std::string subcycling_band_tag(band_kind kind, int stage = -1);
+
+// Monotonically increasing counter. Incremented whenever the AMR grid
+// hierarchy is invalidated (regridding, recovery). Starts at 0.
+extern std::atomic<CCTK_INT> carpetx_epoch;
+
+extern "C" CCTK_INT CarpetX_GetEpoch(void);
 
 } // namespace CarpetX
 
