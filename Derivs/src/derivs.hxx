@@ -311,49 +311,50 @@ deriv2_2d(const TS var, const T dx, const T dy) {
   // SIMD-vectorized.
 
   if constexpr (vectorize_di) {
-    // Calculate y-derivative first
+    // Vectorized layout: R is a SIMD pack whose lanes are consecutive
+    // x-points. For each x-stencil offset di in [-R, R], compute a full
+    // SIMD y-derivative at base_i+di. Then differentiate that in x.
+    //
+    // An older packed formulation stepped di by vsize and type-punned the
+    // SIMD array to scalars so a single loadu could gather a sliding
+    // window. That called var(di, dj) with |di| >> deriv_order/2 while
+    // still applying the *base-point* SIMD mask, which under wide SIMD
+    // (e.g. AVX-512, vsize=8) reads past valid ghost zones and yields
+    // NaNs that then contaminate mixed second derivatives (and, via
+    // large stack aggregates / UB from the type pun, related outputs).
     static_assert(sizeof(R) % sizeof(T) == 0);
     static_assert(sizeof(R) / sizeof(T) > 0);
-    constexpr std::ptrdiff_t vsize = sizeof(R) / sizeof(T);
 
-    // We need fewer ndyvars than without vectorizon: Instead of `(2 *
-    // deriv_order + 1) * vsize` scalars, we only need to calculate
-    // `(2 * deriv_order + 1) + (vsize - 1)` scalars
-    constexpr std::ptrdiff_t maxnpoints = deriv_order + 1 + vsize - 1;
-    constexpr std::ptrdiff_t ndyvars = div_ceil(maxnpoints, vsize);
+    constexpr std::ptrdiff_t ndyvars = deriv_order + 1;
+    constexpr std::ptrdiff_t Rhalf = deriv_order / 2;
     std::array<R, ndyvars> dyvar;
 
-    for (std::ptrdiff_t n = 0; n < maxnpoints; n += vsize) {
-      const std::ptrdiff_t di = n - deriv_order / 2;
-      // Skip the unused central point, but only if there is no vectorization
-      if (vsize == 1 && di == 0)
+    for (std::ptrdiff_t n = 0; n < ndyvars; ++n) {
+      const std::ptrdiff_t di = n - Rhalf;
+      // Outer x-derivative is a first derivative and does not use di==0
+      if (di == 0)
         continue;
-      dyvar[div_floor(n, vsize)] = deriv1d<deriv_order>(
+      dyvar[n] = deriv1d<deriv_order>(
           [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
 #ifdef CCTK_DEBUG
-            assert(di >= -deriv_order / 2);
-            assert(di <= +deriv_order / 2);
-            assert(di >= -deriv_order / 2);
-            assert(dj <= +deriv_order / 2);
+            assert(di >= -Rhalf);
+            assert(di <= +Rhalf);
+            assert(dj >= -Rhalf);
+            assert(dj <= +Rhalf);
 #endif
             return var(di, dj);
           },
           dy);
     }
 
-    // Calculate x-derivative next
-    const T *const scalar_dyvar = (const T *)dyvar.data();
     return deriv1d<deriv_order>(
         [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
 #ifdef CCTK_DEBUG
-          assert(di >= -deriv_order / 2);
-          assert(di <= +deriv_order / 2);
+          assert(di >= -Rhalf);
+          assert(di <= +Rhalf);
+          assert(di != 0);
 #endif
-          constexpr std::ptrdiff_t vsize = sizeof(R) / sizeof(T);
-          if constexpr (vsize == 1)
-            return scalar_dyvar[deriv_order / 2 + di];
-          else
-            return loadu<R>(&scalar_dyvar[deriv_order / 2 + di]);
+          return dyvar[Rhalf + di];
         },
         dx);
 
