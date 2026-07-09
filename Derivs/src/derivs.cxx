@@ -61,11 +61,14 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take ghost points into account
-          const vbool mask1 = mask_for_loop_tail<vbool>(p.i, p.imax + 2 / 2);
+          // Use the same mask for stencil loads as for stores. Extending the
+          // load mask past imax (the old mask1) marks lanes active whose
+          // offset addresses can lie outside the allocated FAB under wide
+          // SIMD (AVX-512), producing NaNs in the active lanes' stencils.
+          // Active lanes only need I±order/2, which are covered by ghosts.
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<2>(gf0, mask1, p.I, dx);
+          const auto dval = calc_deriv<2>(gf0, mask, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -76,11 +79,9 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take ghost points into account
-          const vbool mask1 = mask_for_loop_tail<vbool>(p.i, p.imax + 4 / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<4>(gf0, mask1, p.I, dx);
+          const auto dval = calc_deriv<4>(gf0, mask, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -91,11 +92,9 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take ghost points into account
-          const vbool mask1 = mask_for_loop_tail<vbool>(p.i, p.imax + 6 / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<6>(gf0, mask1, p.I, dx);
+          const auto dval = calc_deriv<6>(gf0, mask, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -106,11 +105,9 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take ghost points into account
-          const vbool mask1 = mask_for_loop_tail<vbool>(p.i, p.imax + 8 / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<8>(gf0, mask1, p.I, dx);
+          const auto dval = calc_deriv<8>(gf0, mask, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -162,12 +159,11 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take ghost points into account
-          const vbool mask1 = mask_for_loop_tail<vbool>(p.i, p.imax + 2 / 2);
+          // See calc_derivs: do not extend the load mask past imax.
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<2>(gf0, mask1, p.I, dx);
-          const auto ddval = calc_deriv2<2>(gf0, mask1, p.I, dx);
+          const auto dval = calc_deriv<2>(gf0, mask, p.I, dx);
+          const auto ddval = calc_deriv2<2>(gf0, mask, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
@@ -179,12 +175,10 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take ghost points into account
-          const vbool mask1 = mask_for_loop_tail<vbool>(p.i, p.imax + 4 / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<4>(gf0, mask1, p.I, dx);
-          const auto ddval = calc_deriv2<4>(gf0, mask1, p.I, dx);
+          const auto dval = calc_deriv<4>(gf0, mask, p.I, dx);
+          const auto ddval = calc_deriv2<4>(gf0, mask, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
@@ -196,12 +190,10 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take ghost points into account
-          const vbool mask1 = mask_for_loop_tail<vbool>(p.i, p.imax + 6 / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<6>(gf0, mask1, p.I, dx);
-          const auto ddval = calc_deriv2<6>(gf0, mask1, p.I, dx);
+          const auto dval = calc_deriv<6>(gf0, mask, p.I, dx);
+          const auto ddval = calc_deriv2<6>(gf0, mask, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
@@ -213,12 +205,10 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Take ghost points into account
-          const vbool mask1 = mask_for_loop_tail<vbool>(p.i, p.imax + 8 / 2);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<8>(gf0, mask1, p.I, dx);
-          const auto ddval = calc_deriv2<8>(gf0, mask1, p.I, dx);
+          const auto dval = calc_deriv<8>(gf0, mask, p.I, dx);
+          const auto ddval = calc_deriv2<8>(gf0, mask, p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
