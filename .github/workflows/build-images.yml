@@ -1,0 +1,54 @@
+name: Build Docker images
+
+# Manual trigger only: run from the Actions tab (or `gh workflow run build-images.yml`).
+# Builds the CarpetX CI images and pushes them to Docker Hub as
+# <DOCKERHUB_USERNAME>/carpetx:<accelerator>-<real-precision>.
+# Requires repo secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-push:
+    strategy:
+      fail-fast: false
+      matrix:
+        accelerator: [cpu, cuda, rocm]
+        real-precision: [real32, real64]
+        exclude:
+          # Not used by ci.yml
+          - {accelerator: rocm, real-precision: real32}
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The cuda/rocm builds need more scratch space than the ~14 GB free
+      # runners have available, so drop preinstalled toolchains we don't use.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{secrets.DOCKERHUB_USERNAME}}
+          password: ${{secrets.DOCKERHUB_TOKEN}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          file: docker/carpetx-${{matrix.accelerator}}.dockerfile
+          build-args: |
+            real_precision=${{matrix.real-precision}}
+          platforms: linux/amd64
+          push: true
+          tags: ${{secrets.DOCKERHUB_USERNAME}}/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}
