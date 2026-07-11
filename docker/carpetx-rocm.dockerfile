@@ -369,9 +369,9 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/25.11.tar.gz && \
-    tar xzf 25.11.tar.gz && \
-    cd amrex-25.11 && \
+    wget https://github.com/AMReX-Codes/amrex/archive/26.07.tar.gz && \
+    tar xzf 26.07.tar.gz && \
+    cd amrex-26.07 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \
