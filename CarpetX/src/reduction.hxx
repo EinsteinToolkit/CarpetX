@@ -117,7 +117,7 @@ template <typename T, int D> struct combine {
   }
   constexpr AMREX_GPU_DEVICE value_type operator()(const value_type &x,
                                                    const value_type &y) const {
-    return (value_type)reduction<T, D>(x), reduction<T, D>(y);
+    return (value_type)reduction<T, D>(reduction<T, D>(x), reduction<T, D>(y));
   }
 };
 
