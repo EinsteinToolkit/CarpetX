@@ -34,6 +34,10 @@ template <typename T, int D> MPI_Datatype reduction_mpi_datatype() {
   return datatype;
 }
 
+MPI_Datatype reduction_mpi_datatype_CCTK_REAL() {
+  return reduction_mpi_datatype<CCTK_REAL, dim>();
+}
+
 namespace {
 template <typename T>
 void mpi_reduce_typed(const void *restrict x0, void *restrict y0,
