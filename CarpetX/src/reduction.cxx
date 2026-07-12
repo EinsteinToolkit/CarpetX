@@ -235,12 +235,12 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
             finemask = std::make_unique<amrex::Array4<const int> >(
                 finemask_imfab->array(mfi));
             // Ensure the mask has the correct size
-            assert(finemask->begin.x == vars.begin.x);
-            assert(finemask->begin.y == vars.begin.y);
-            assert(finemask->begin.z == vars.begin.z);
-            assert(finemask->end.x == vars.end.x);
-            assert(finemask->end.y == vars.end.y);
-            assert(finemask->end.z == vars.end.z);
+            assert(amrex::lbound(*finemask).x == amrex::lbound(vars).x);
+            assert(amrex::lbound(*finemask).y == amrex::lbound(vars).y);
+            assert(amrex::lbound(*finemask).z == amrex::lbound(vars).z);
+            assert(amrex::ubound(*finemask).x == amrex::ubound(vars).x);
+            assert(amrex::ubound(*finemask).y == amrex::ubound(vars).y);
+            assert(amrex::ubound(*finemask).z == amrex::ubound(vars).z);
           }
 
           red += reduce_array(vars, vi, tmin, tmax, indextype, imin, imax,

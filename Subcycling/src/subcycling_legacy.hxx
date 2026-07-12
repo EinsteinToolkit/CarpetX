@@ -87,11 +87,13 @@ CalcYfFromKcs(const Loop::GridDescBaseDevice &grid,
   };
 
   // Cactus PointDesc indices are local to the FAB (start at 0 for the first
-  // allocated cell). The Array4 cf_mask uses global indices; cf_mask.begin
-  // holds the global index of that same first allocated cell.
-  const int cf_ox = cf_mask.begin.x;
-  const int cf_oy = cf_mask.begin.y;
-  const int cf_oz = cf_mask.begin.z;
+  // allocated cell). The Array4 cf_mask uses global indices;
+  // amrex::lbound(cf_mask) holds the global index of that same first
+  // allocated cell.
+  const amrex::Dim3 cf_lo = amrex::lbound(cf_mask);
+  const int cf_ox = cf_lo.x;
+  const int cf_oy = cf_lo.y;
+  const int cf_oz = cf_lo.z;
 
   // Create and launch the appropriate lambda based on the stage.
   if (stage == 1) {
