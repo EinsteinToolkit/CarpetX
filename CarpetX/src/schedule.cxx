@@ -1459,7 +1459,9 @@ int Initialise(tFleshConfig *config) {
   if (!config->recovered) {
     CCTK_Traverse(cctkGH, "CCTK_ANALYSIS");
   }
-  CCTK_OutputGH(cctkGH);
+  if (out_initial_data) {
+    CCTK_OutputGH(cctkGH);
+  }
 
   active_levels = std::optional<active_levels_t>();
 

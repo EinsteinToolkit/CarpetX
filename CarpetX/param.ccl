@@ -544,6 +544,10 @@ KEYWORD checkpoint_method "I/O method for checkpointing" STEERABLE=recover
 
 
 
+BOOLEAN out_initial_data "Output initial data?" STEERABLE=always
+{
+} yes
+
 STRING out_adios2_vars "Variables to output in ADIOS2 format" STEERABLE=always
 {
   ".*" :: ""

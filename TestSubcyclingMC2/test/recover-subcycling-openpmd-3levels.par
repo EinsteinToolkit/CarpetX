@@ -78,6 +78,7 @@ IO::out_fileinfo = "axis labels"
 IO::parfile_write = no
 
 CarpetX::out_metadata = no
+CarpetX::out_initial_data = no
 
 CarpetX::out_tsv_vars = "
     TestSubcyclingMC2::state
