@@ -145,15 +145,41 @@ std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
 
   std::array<std::array<bool, 3>, 2> is_interpatch{
       {{{false, false, false}}, {{false, false, false}}}};
-  if (patch >= 0 &&
-      CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2")) {
-    CCTK_INT is_interpatch_boundary[2 * dim];
-    const int ierr = MultiPatch_GetBoundarySpecification2(
-        patch, 2 * dim, is_interpatch_boundary);
-    assert(!ierr);
-    for (int f = 0; f < 2; ++f)
-      for (int d = 0; d < dim; ++d)
-        is_interpatch[f][d] = is_interpatch_boundary[2 * d + f];
+  if (patch >= 0) {
+    const bool have_boundary_spec =
+        CCTK_IsFunctionAliased("MultiPatch_GetBoundarySpecification2");
+
+    // A multipatch system (MultiPatch_GetSystemSpecification aliased) always
+    // provides MultiPatch_GetBoundarySpecification2 too. Both come from the
+    // same thorn. If the system alias is present but the boundary-spec alias
+    // is not, the aliasing is broken (e.g. a malformed interface.ccl), not
+    // that multipatch is inactive: silently treating every face as physical
+    // (is_interpatch=false) would open every outer face to donor stencils
+    // reading outer-BC ghosts into interpatch values (mp_noise_3 sec 11.4).
+    // A genuine single-patch run has neither alias, which is the legitimate
+    // case this check must not break.
+    if (!have_boundary_spec &&
+        CCTK_IsFunctionAliased("MultiPatch_GetSystemSpecification")) {
+      CCTK_VERROR(
+          "get_symmetries: multipatch system is active "
+          "(MultiPatch_GetSystemSpecification is aliased) but "
+          "MultiPatch_GetBoundarySpecification2 is not. Refusing to "
+          "silently treat all boundaries of patch %d as physical-outer. "
+          "Check interface.ccl wiring.",
+          patch);
+    }
+
+    if (have_boundary_spec) {
+      CCTK_INT is_interpatch_boundary[2 * dim];
+      const int ierr = MultiPatch_GetBoundarySpecification2(
+          patch, 2 * dim, is_interpatch_boundary);
+      assert(!ierr);
+      for (int f = 0; f < 2; ++f) {
+        for (int d = 0; d < dim; ++d) {
+          is_interpatch[f][d] = is_interpatch_boundary[2 * d + f];
+        }
+      }
+    }
   }
   const std::array<std::array<bool, 3>, 2> is_periodic{{
       {{bool(periodic && periodic_x), bool(periodic && periodic_y),
