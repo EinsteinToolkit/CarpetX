@@ -11,6 +11,7 @@
 #include <div.hxx>
 
 #include <AMReX_MultiFab.H>
+#include <AMReX_Version.H>
 
 #if defined _OPENMP || defined __HIPCC__
 #include <omp.h>
@@ -322,12 +323,23 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
       std::array<amrex::Array4<const CCTK_REAL>, N> srcvars;
       for (std::size_t n = 0; n < N; ++n)
         srcvars[n] = srcs[n]->mfabs.at(m)->const_array(mfi);
+      // Array4's public stride members were replaced by get_stride() in
+      // AMReX 26.02
+#if AMREX_RELEASE_NUMBER >= 260200
+      for (std::size_t n = 0; n < N; ++n) {
+        assert(srcvars[n].template get_stride<1>() == dstvar.get_stride<1>());
+        assert(srcvars[n].template get_stride<2>() == dstvar.get_stride<2>());
+        assert(srcvars[n].template get_stride<3>() == dstvar.get_stride<3>());
+      }
+      const std::ptrdiff_t nstride = dstvar.get_stride<3>();
+#else
       for (std::size_t n = 0; n < N; ++n) {
         assert(srcvars[n].jstride == dstvar.jstride);
         assert(srcvars[n].kstride == dstvar.kstride);
         assert(srcvars[n].nstride == dstvar.nstride);
       }
       const std::ptrdiff_t nstride = dstvar.nstride;
+#endif
       const std::ptrdiff_t npoints = nstride * ncomps;
 
       CCTK_REAL *restrict const dstptr = dstvar.dataPtr();
