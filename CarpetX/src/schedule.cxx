@@ -2505,10 +2505,12 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   {
     static long call_counter = 0;
     ++call_counter;
-    for (const int gi : groups) {
+    if (verbose) {
+      for (const int gi : groups) {
 #pragma omp critical
-      CCTK_VINFO("SyncGroupsByDirI call #%ld: group %s", call_counter,
-                 CCTK_FullGroupName(gi));
+        CCTK_VINFO("SyncGroupsByDirI call #%ld: group %s", call_counter,
+                   CCTK_FullGroupName(gi));
+      }
     }
   }
 

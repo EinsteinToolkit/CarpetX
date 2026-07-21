@@ -355,13 +355,23 @@ void BoundaryCondition::apply_on_face_symbcxyz(
      *
      * IMPORTANT: CapyrX's MultiPatch_Interpolate skips corner cells that are on
      * any outer-boundary face (see loop_bnd skip logic in
-     * CapyrX_MultiPatch/src/interpolate.cxx). This first BC pass therefore
-     * writes incorrect values to those corner cells because their interpatch
-     * ghost sources are not yet populated. SyncGroupsByDirI corrects this with
-     * a second apply_boundary_conditions call immediately after
-     * MultiPatch_Interpolate (see schedule.cxx, the block beginning "Second BC
-     * pass"). The warning below fires only during this first pass and is
-     * expected; it does NOT indicate a permanent error.
+     * CapyrX_MultiPatch/src/interpolate.cxx), so it never populates them. On the
+     * FIRST apply_boundary_conditions call (before MultiPatch_Interpolate runs)
+     * this therefore writes incorrect values to those corner cells, because
+     * their interpatch ghost sources are still uninitialized. SyncGroupsByDirI
+     * corrects this by calling apply_boundary_conditions a SECOND time,
+     * immediately after MultiPatch_Interpolate (see schedule.cxx, the block
+     * beginning "Second BC pass"); by then the interpatch ghost sources are
+     * valid, so the corner cells are recomputed correctly.
+     *
+     * NOTE ON THE WARNING BELOW: the check that emits it is purely geometric --
+     * it only tests whether a pass-through direction's bmin/bmax reaches into
+     * the ghost zone. It has no way to tell which pass is running, so it fires
+     * on BOTH BC passes (the corner geometry is identical each time). This is
+     * expected and does NOT indicate a bug: on the first pass the values it
+     * warns about are stale but will be corrected by the second pass; on the
+     * second pass the very same cells are recomputed from now-valid interpatch
+     * ghost data. In neither case does the warning signal a permanent error.
      */
 #ifdef CCTK_DEBUG
     {
@@ -382,15 +392,15 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       if (has_passthrough_in_ghost) {
 #pragma omp critical
         CCTK_VINFO("apply_on_face_symbcxyz: [group '%s' patch %d] Corner-cell "
-                   "scenario (first BC pass): applying BC [NI=%d NJ=%d NK=%d] "
+                   "scenario: applying BC [NI=%d NJ=%d NK=%d] "
                    "on bmin=[%d,%d,%d] bmax=[%d,%d,%d] with imin=[%d,%d,%d] "
                    "imax=[%d,%d,%d]. One or more pass-through directions "
-                   "extend into the interpatch ghost zone, which is not yet "
-                   "populated by MultiPatch_Interpolate. These corner cells "
-                   "are SKIPPED by MultiPatch_Interpolate and will be "
+                   "extend into the interpatch ghost zone. These corner cells "
+                   "are SKIPPED by MultiPatch_Interpolate; on the first BC pass "
+                   "they are computed from not-yet-populated ghost data and are "
                    "re-corrected by the second BC pass in SyncGroupsByDirI "
-                   "(schedule.cxx). This message is expected during the first "
-                   "pass and does not indicate a bug.",
+                   "(schedule.cxx). This geometric warning fires on BOTH BC "
+                   "passes and does not indicate a bug.",
                    groupdata.groupname.c_str(), patchdata.patch, NI, NJ, NK,
                    bmin[0], bmin[1], bmin[2], bmax[0], bmax[1], bmax[2],
                    imin[0], imin[1], imin[2], imax[0], imax[1], imax[2]);
