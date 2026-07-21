@@ -1034,8 +1034,8 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
             CCTK_VINFO(
                 "apply_boundary_conditions: group=%s, patch=%d, level=%d, "
                 "face[%d][%d], symmetry=%d, boundary=%d",
-                groupname.c_str(), patch, level, f, d, symm[f][d],
-                boundaries[f][d]);
+                groupname.c_str(), patch, level, f, d,
+                static_cast<int>(symm[f][d]), static_cast<int>(boundaries[f][d]));
           }
 
           if (symm[f][d] == symmetry_t::none &&
