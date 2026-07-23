@@ -689,6 +689,10 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                 }
 #ifdef CCTK_DEBUG
                 assert(!isnan(val));
+                // CCTK_VINFO is host-only; this kernel is also compiled for
+                // the device (CCTK_DEVICE lambda), so the logging call must
+                // not be compiled in the device pass.
+#if !AMREX_DEVICE_COMPILE
                 if (log_this_corner && comp == 0) {
 #pragma omp critical
                   CCTK_VINFO("CORNERBC_WRITE patch=%d level=%d dst=(%d,%d,%d) "
@@ -696,6 +700,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                              log_patch, log_level, dst[0], dst[1], dst[2],
                              src[0], src[1], src[2], double(val));
                 }
+#endif
 #endif
                 var.store(dst, val);
               }
