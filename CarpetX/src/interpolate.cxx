@@ -20,6 +20,8 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -305,6 +307,29 @@ template <typename T, int order, int centering> struct interpolator {
 
       // Avoid points on boundaries
       const bool is_allowed = all(i >= i0_allowed && i < i1_allowed);
+
+#ifdef CCTK_DEBUG
+      // mp_slave_2.md §4 instrumentation: log the donor (patch, anchor index)
+      // chosen for every interpolation query point, so a failing query's
+      // source index (idata(1), stable across both SyncGroupsByDirI passes)
+      // can be cross-referenced against CapyrX_MultiPatch's victim dump to
+      // pin whether the donor cell is a genuine ghost zone (i < nghostzones)
+      // or an interior overlap-band cell that slave_overlap can mutate
+      // (mp_slave_2.md §5). Opt-in via env var to avoid flooding every debug
+      // run.
+      {
+        static const bool log_donors = std::getenv("CAPYRX_LOG_DONORS") != nullptr;
+        if (log_donors) {
+          std::cerr << "DONOR patch=" << patch << " level=" << level
+                    << " gi=" << gi << " groupname=" << CCTK_FullGroupName(gi)
+                    << " vi=" << vi << " n=" << particles[n].idata(1)
+                    << " i=(" << i[0] << "," << i[1] << "," << i[2] << ")"
+                    << " nghostzones=(" << grid.nghostzones[0] << ","
+                    << grid.nghostzones[1] << "," << grid.nghostzones[2] << ")"
+                    << " is_allowed=" << is_allowed << "\n";
+        }
+      }
+#endif
 
       if (!is_allowed) {
         CCTK_VERROR("Interpolation anchor is not allowed, as it lies outside "

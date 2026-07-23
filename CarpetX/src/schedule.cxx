@@ -33,6 +33,7 @@ static inline int omp_in_parallel() { return 0; }
 #include <sys/time.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <map>
@@ -91,6 +92,37 @@ amrex::Orientation orient(int d, int f) {
 }
 int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
                        const int *requested_tls, int *status, const bool inc);
+
+#ifdef CCTK_DEBUG
+// mp_slave_4.md §6 instrumentation: at every call site that invokes
+// MultiPatch_Interpolate, log the current AMR epoch (CarpetX_GetEpoch(),
+// the same value CapyrX::MultiPatch1_Interpolate's Step 1 compares against
+// its cache's stored epoch to decide whether to rebuild) and whether
+// CoordinatesX::vcoordx -- and hence this call's own write-back -- is among
+// the variables this particular call will (re)settle. This answers the
+// scheduling-order question mp_slave_4.md left open: does the interpolation
+// cache's one-time rebuild read CoordinatesX's own ghost-zone coordinates
+// before or after some call has corrected them, and if the correction only
+// ever happens inside the very call that also rebuilds the cache, the fresh
+// (post-write) coordinate can never be the one the (never-rebuilt-again)
+// cache's routing decisions were based on.
+void log_mp_interpolate_call(const char *site,
+                             const std::vector<CCTK_INT> &cactusvarinds) {
+  static const bool log_donors = std::getenv("CAPYRX_LOG_DONORS") != nullptr;
+  if (!log_donors)
+    return;
+  static const int vcoordx_varind = CCTK_VarIndex("CoordinatesX::vcoordx");
+  const bool has_coordinatesx =
+      vcoordx_varind >= 0 &&
+      std::find(cactusvarinds.begin(), cactusvarinds.end(), vcoordx_varind) !=
+          cactusvarinds.end();
+#pragma omp critical
+  CCTK_VINFO("MPINTERP_CALL site=\"%s\" epoch=%d nvars=%zu "
+             "has_coordinatesx=%d",
+             site, int(CarpetX_GetEpoch()), cactusvarinds.size(),
+             int(has_coordinatesx));
+}
+#endif
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1374,8 +1406,15 @@ int Initialise(tFleshConfig *config) {
               for (int var = 0; var < groupdata.numvars; ++var)
                 cactusvarinds.push_back(groupdata.firstvarindex + var);
             }
+#ifdef CCTK_DEBUG
+            log_mp_interpolate_call("regrid (new/remade levels)",
+                                    cactusvarinds);
+#endif
+            // Standalone call (not one of a bootstrap/main pair): no later
+            // pass in this regrid step reads its output, so slave writes
+            // apply immediately (mp_slave_2.md §7 Fix #1).
             MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
-                                   cactusvarinds.data());
+                                   cactusvarinds.data(), 1);
             active_levels->loop_serially([&](auto &restrict leveldata) {
               for (int gi = 0; gi < ngroups; ++gi) {
                 cGroup gdata;
@@ -1816,8 +1855,14 @@ int Evolve(tFleshConfig *config) {
             for (int var = 0; var < groupdata.numvars; ++var)
               cactusvarinds.push_back(groupdata.firstvarindex + var);
           }
+#ifdef CCTK_DEBUG
+          log_mp_interpolate_call("regrid (level removal)", cactusvarinds);
+#endif
+          // Standalone call (not one of a bootstrap/main pair): no later
+          // pass in this regrid step reads its output, so slave writes
+          // apply immediately (mp_slave_2.md §7 Fix #1).
           MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
-                                 cactusvarinds.data());
+                                 cactusvarinds.data(), 1);
           active_levels->loop_serially([&](auto &restrict leveldata) {
             for (int gi = 0; gi < ngroups; ++gi) {
               cGroup gdata;
@@ -2647,7 +2692,17 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       for (int var = 0; var < groupdata.numvars; ++var)
         cactusvarinds.push_back(groupdata.firstvarindex + var);
     }
-    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
+#ifdef CCTK_DEBUG
+    log_mp_interpolate_call("SyncGroupsByDirI bootstrap", cactusvarinds);
+#endif
+    // mp_slave_2.md §7 Fix #1: don't apply slave_overlap's write-back yet.
+    // This bootstrap pass's own interior overlap cells are the donor source
+    // data the main pass's ordinary ghost fill (and its own slave writes)
+    // read below; slaving them here first would make that read
+    // non-idempotent (mp_slave_2.md/mp_slave_3.md's confirmed root cause of
+    // bucket (a)'s corruption). Ordinary ghost cells are still filled.
+    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data(),
+                           0);
   }
 
   // We need to loop over groups, patches, and levels in a definite
@@ -2780,7 +2835,14 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       for (int var = 0; var < groupdata.numvars; ++var)
         cactusvarinds.push_back(groupdata.firstvarindex + var);
     }
-    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
+#ifdef CCTK_DEBUG
+    log_mp_interpolate_call("SyncGroupsByDirI main", cactusvarinds);
+#endif
+    // mp_slave_2.md §7 Fix #1: this is the sync's final interpolation pass,
+    // so it's safe to apply slave_overlap's write-back now -- nothing later
+    // in this sync reads these interior cells as a donor.
+    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data(),
+                           1);
 
     // Second BC pass: correct corner ghost cells at the outer+interpatch face
     // intersection.
