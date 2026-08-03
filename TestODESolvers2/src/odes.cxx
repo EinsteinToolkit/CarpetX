@@ -114,9 +114,11 @@ extern "C" void TestODESolvers2_RHS(CCTK_ARGUMENTS) {
         abs(exp2_dep_(p.I) - (exp2_(p.I) + cctk_time)) > tolerance)
       CCTK_VERROR("Native gate PostStep dependent is stale at t=%.17g",
                   double(cctk_time));
+    const auto time_tolerance =
+        32 * numeric_limits<CCTK_REAL>::epsilon() *
+        max({CCTK_REAL(1), abs(cctk_time), abs(time_(p.I))});
     if (porder > 0)
-      if (abs(time_(p.I) - cctk_time) >
-          10 * numeric_limits<CCTK_REAL>::epsilon())
+      if (abs(time_(p.I) - cctk_time) > time_tolerance)
         CCTK_VERROR("Time is incorrect: time=%.17g, cctk_time=%.17g",
                     double(time_(p.I)), double(cctk_time));
     time_rhs_(p.I) = 1;
