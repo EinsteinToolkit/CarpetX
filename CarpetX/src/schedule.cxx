@@ -1260,6 +1260,11 @@ int Initialise(tFleshConfig *config) {
 
       active_levels = std::optional<active_levels_t>();
 
+      if (should_stop_static_v1_initial_regrid_loop(
+              use_subcycling_wip, ghext->num_patches(), max_num_levels,
+              ghext->num_levels()))
+        break;
+
       // Regrid
       bool did_modify_any_level;
       {

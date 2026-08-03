@@ -12,6 +12,7 @@ namespace {
 
 using CarpetX::RuntimeClockMetadata;
 using CarpetX::StaticV1EvolvePath;
+using CarpetX::StaticV1LevelOneCreationEnvelope;
 using CarpetX::StaticV1PolicyEnvelope;
 using CarpetX::StaticV1SyncObserverAction;
 using CarpetX::StepContext;
@@ -19,7 +20,9 @@ using CarpetX::SubcyclingODEMethod;
 using CarpetX::candidate_runtime_clock;
 using CarpetX::cycle_then_capture_static_v1_level_state;
 using CarpetX::has_exact_static_v1_test_odesolvers2_active_thorns;
+using CarpetX::permits_static_v1_level_one_creation;
 using CarpetX::select_static_v1_evolve_path;
+using CarpetX::should_stop_static_v1_initial_regrid_loop;
 using CarpetX::static_v1_sync_observer_order;
 using CarpetX::step_clock_t;
 using CarpetX::validate_static_v1_policy_envelope;
@@ -37,6 +40,10 @@ template <class Function> void rejects(Function &&function) {
 StaticV1PolicyEnvelope valid_policy() {
   return {1, 2, 2, 0, false, false, true, false, false,
           true, true, true, true, true, true};
+}
+
+StaticV1LevelOneCreationEnvelope valid_level_one_creation() {
+  return {true, 1, 0, 1, 2, 1, 0, 0, 0, 0, 1, false, {2, 2, 2}, 0.0};
 }
 
 void test_legacy_selection_is_a_strict_false_branch() {
@@ -68,6 +75,72 @@ void test_static_policy_fails_closed_before_runtime_mutation() {
   policy = valid_policy();
   policy.bounded_test_odesolvers2_configuration = false;
   rejects([&] { validate_static_v1_policy_envelope(policy); });
+}
+
+void test_static_v1_level_one_creation_envelope_is_exact() {
+  assert(permits_static_v1_level_one_creation(valid_level_one_creation()));
+
+  auto envelope = valid_level_one_creation();
+  envelope.subcycling_enabled = false;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.configured_patch_count = 2;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.callback_patch = 1;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.callback_level = 0;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.configured_level_count = 3;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.existing_level_count = 0;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.regrid_every = 1;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.coarse_patch = 1;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.coarse_level = 1;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.coarse_iteration = 1;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.coarse_delta_iteration = 2;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.coarse_is_subcycling_level = true;
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.spatial_refinement_ratio = {2, 1, 2};
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.callback_time = 0.5;
+  assert(!permits_static_v1_level_one_creation(envelope));
+}
+
+void test_static_v1_stops_initial_regrid_after_one_l1_creation() {
+  assert(should_stop_static_v1_initial_regrid_loop(true, 1, 2, 2));
+  assert(!should_stop_static_v1_initial_regrid_loop(false, 1, 2, 2));
+  assert(!should_stop_static_v1_initial_regrid_loop(true, 1, 2, 1));
 }
 
 void test_active_thorn_gate_is_an_exact_whitelist() {
@@ -132,6 +205,8 @@ void test_sync_observer_order_is_exact() {
 int main() {
   test_legacy_selection_is_a_strict_false_branch();
   test_static_policy_fails_closed_before_runtime_mutation();
+  test_static_v1_level_one_creation_envelope_is_exact();
+  test_static_v1_stops_initial_regrid_after_one_l1_creation();
   test_active_thorn_gate_is_an_exact_whitelist();
   test_active_level_history_rotates_once_before_tl0_capture();
   test_candidate_mapping_uses_endpoint_iterations_without_preincrement();

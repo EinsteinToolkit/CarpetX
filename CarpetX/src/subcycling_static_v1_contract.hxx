@@ -18,6 +18,47 @@ select_static_v1_evolve_path(const bool use_subcycling_wip) noexcept {
                            : StaticV1EvolvePath::legacy;
 }
 
+struct StaticV1LevelOneCreationEnvelope {
+  bool subcycling_enabled;
+  int configured_patch_count;
+  int callback_patch;
+  int callback_level;
+  int configured_level_count;
+  int existing_level_count;
+  int regrid_every;
+  int coarse_patch;
+  int coarse_level;
+  int coarse_iteration;
+  int coarse_delta_iteration;
+  bool coarse_is_subcycling_level;
+  std::array<int, 3> spatial_refinement_ratio;
+  double callback_time;
+};
+
+constexpr bool permits_static_v1_level_one_creation(
+    const StaticV1LevelOneCreationEnvelope &envelope) noexcept {
+  return envelope.subcycling_enabled &&
+         envelope.configured_patch_count == 1 &&
+         envelope.callback_patch == 0 && envelope.callback_level == 1 &&
+         envelope.configured_level_count == 2 &&
+         envelope.existing_level_count == 1 && envelope.regrid_every == 0 &&
+         envelope.coarse_patch == 0 && envelope.coarse_level == 0 &&
+         envelope.coarse_iteration == 0 &&
+         envelope.coarse_delta_iteration == 1 &&
+         !envelope.coarse_is_subcycling_level &&
+         envelope.spatial_refinement_ratio[0] == 2 &&
+         envelope.spatial_refinement_ratio[1] == 2 &&
+         envelope.spatial_refinement_ratio[2] == 2 &&
+         envelope.callback_time == 0.0;
+}
+
+constexpr bool should_stop_static_v1_initial_regrid_loop(
+    const bool subcycling_enabled, const int configured_patch_count,
+    const int configured_level_count, const int existing_level_count) noexcept {
+  return subcycling_enabled && configured_patch_count == 1 &&
+         configured_level_count == 2 && existing_level_count == 2;
+}
+
 struct StaticV1PolicyEnvelope {
   int patch_count;
   int level_count;

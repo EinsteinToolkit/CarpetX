@@ -8,6 +8,7 @@
 #include "loop_device.hxx"
 #include "prolongate_3d_rf2.hxx"
 #include "schedule.hxx"
+#include "subcycling_static_v1_contract.hxx"
 #include "timer.hxx"
 
 #include <cctk.h>
@@ -1273,11 +1274,30 @@ void CactusAmrCore::MakeNewLevelFromScratch(
     const amrex::DistributionMapping &dm) {
   DECLARE_CCTK_PARAMETERS;
 
+  if (use_subcycling_wip &&
+      (patch != 0 || level != 0 || time != 0.0 ||
+       ghext->num_patches() != 1 || max_num_levels != 2 ||
+       ghext->num_levels(patch) != 0 || regrid_every != 0))
+    CCTK_VERROR(
+        "static-v1 MakeNewLevelFromScratch requires initial patch 0 level 0 "
+        "creation at time 0 with no existing levels, one patch, two levels, "
+        "and CarpetX::regrid_every=0");
+
   if (verbose)
 #pragma omp critical
     CCTK_VINFO("MakeNewLevelFromScratch patch %d level %d", patch, level);
 
   SetupLevel(level, ba, dm, []() { return "MakeNewLevelFromScratch"; });
+
+  if (use_subcycling_wip) {
+    const auto &leveldata = ghext->patchdata.at(patch).leveldata.at(level);
+    if (leveldata.patch != 0 || leveldata.level != 0 ||
+        leveldata.iteration != 0 || leveldata.delta_iteration != 1 ||
+        leveldata.is_subcycling_level)
+      CCTK_VERROR(
+          "static-v1 MakeNewLevelFromScratch produced invalid level-0 "
+          "identity, clock, or subcycling metadata");
+  }
 
   if (verbose)
 #pragma omp critical
@@ -1293,13 +1313,60 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
 #pragma omp critical
     CCTK_VINFO("MakeNewLevelFromCoarse patch %d level %d", patch, level);
 
-  assert(!use_subcycling_wip);
-  assert(level > 0);
+  if (use_subcycling_wip) {
+    if (patch != 0 || level != 1 || ghext->num_patches() != 1 ||
+        max_num_levels != 2 || regrid_every != 0)
+      CCTK_VERROR(
+          "static-v1 MakeNewLevelFromCoarse requires patch 0 level 1 with "
+          "one patch, two levels, and CarpetX::regrid_every=0");
+
+    const auto &patchdata = ghext->patchdata.at(patch);
+    const int existing_level_count = patchdata.leveldata.size();
+    if (existing_level_count != 1)
+      CCTK_VERROR(
+          "static-v1 MakeNewLevelFromCoarse requires exactly one existing "
+          "coarse level before level-1 creation");
+
+    const auto &coarseleveldata = patchdata.leveldata.at(0);
+    const auto refinement_ratio = refRatio(level);
+    if (!permits_static_v1_level_one_creation(
+            StaticV1LevelOneCreationEnvelope{
+                use_subcycling_wip,
+                ghext->num_patches(),
+                patch,
+                level,
+                max_num_levels,
+                existing_level_count,
+                regrid_every,
+                coarseleveldata.patch,
+                coarseleveldata.level,
+                static_cast<int>(coarseleveldata.iteration),
+                static_cast<int>(coarseleveldata.delta_iteration),
+                coarseleveldata.is_subcycling_level,
+                {refinement_ratio[0], refinement_ratio[1], refinement_ratio[2]},
+                time}))
+      CCTK_VERROR(
+          "static-v1 MakeNewLevelFromCoarse rejected a callback outside the "
+          "exact initial factor-two level-1 creation envelope");
+  }
 
   SetupLevel(level, ba, dm, []() { return "MakeNewLevelFromCoarse"; });
 
+  if (use_subcycling_wip) {
+    const auto &patchdata = ghext->patchdata.at(patch);
+    const auto &leveldata = patchdata.leveldata.at(level);
+    const auto &coarseleveldata = patchdata.leveldata.at(level - 1);
+    if (leveldata.patch != 0 || leveldata.level != 1 ||
+        leveldata.iteration != coarseleveldata.iteration ||
+        leveldata.iteration != 0 ||
+        leveldata.delta_iteration != coarseleveldata.delta_iteration / 2 ||
+        !leveldata.is_subcycling_level)
+      CCTK_VERROR(
+          "static-v1 MakeNewLevelFromCoarse produced invalid level-1 "
+          "identity, clock, or subcycling metadata before prolongation");
+  }
+
   // Prolongate
-  assert(!use_subcycling_wip);
   auto &patchdata = ghext->patchdata.at(patch);
   auto &leveldata = patchdata.leveldata.at(level);
   auto &coarseleveldata = patchdata.leveldata.at(level - 1);
@@ -1389,6 +1456,10 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
                                 const amrex::DistributionMapping &dm) {
   DECLARE_CCTK_PARAMETERS;
 
+  if (use_subcycling_wip)
+    CCTK_VERROR(
+        "static-v1 rejects RemakeLevel: dynamic regridding is unsupported");
+
   if (verbose)
 #pragma omp critical
     CCTK_VINFO("RemakeLevel patch %d level %d", patch, level);
@@ -1400,9 +1471,6 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   const active_levels_t active_levels(level, level + 1, patch, patch + 1);
   const active_levels_t active_coarse_levels(level - 1, level, patch,
                                              patch + 1);
-
-  // Copy or prolongate
-  assert(!use_subcycling_wip);
 
   // Check old level
   const int num_groups = CCTK_NumGroups();
@@ -1527,6 +1595,10 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
 
 void CactusAmrCore::ClearLevel(const int level) {
   DECLARE_CCTK_PARAMETERS;
+
+  if (use_subcycling_wip)
+    CCTK_VERROR(
+        "static-v1 rejects ClearLevel: dynamic level removal is unsupported");
 
   if (verbose)
 #pragma omp critical
