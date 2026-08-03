@@ -3,6 +3,7 @@
 #include "io.hxx"
 #include "loop.hxx"
 #include "schedule.hxx"
+#include "subcycling_schedule_state.hxx"
 #include "task_manager.hxx"
 #include "timer.hxx"
 #include "valid.hxx"
@@ -491,9 +492,7 @@ void setup_cctkGH(cGH *restrict cctkGH) {
 void update_cctkGH(cGH *const cctkGH, const cGH *const sourceGH) {
   if (cctkGH == sourceGH)
     return;
-  cctkGH->cctk_iteration = sourceGH->cctk_iteration;
-  cctkGH->cctk_time = sourceGH->cctk_time;
-  cctkGH->cctk_delta_time = sourceGH->cctk_delta_time;
+  ScheduleInternal::copy_level_time_metadata(*cctkGH, *sourceGH);
   // for (int d = 0; d < dim; ++d)
   //   cctkGH->cctk_origin_space[d] = sourceGH->cctk_origin_space[d];
   // for (int d = 0; d < dim; ++d)
@@ -1492,9 +1491,120 @@ void InvalidateTimelevels(cGH *restrict const cctkGH) {
   } // for gi
 }
 
-void CycleTimelevels(cGH *restrict const cctkGH) {
+namespace {
+
+void CycleGFTimelevelGroup(const int gi, const bool presync_only,
+                           std::vector<int> &presync_groups) {
+  const auto &patchdata0 = ghext->patchdata.at(0);
+  const auto &leveldata0 = patchdata0.leveldata.at(0);
+  const auto &groupdata0 = *leveldata0.groupdata.at(gi);
+  const int ntls0 = groupdata0.mfab.size();
+  const nan_handling_t nan_handling = groupdata0.do_checkpoint
+                                          ? nan_handling_t::forbid_nans
+                                          : nan_handling_t::allow_nans;
+
+  assert(active_levels);
+  active_levels->loop_serially([&](auto &restrict leveldata) {
+    auto &restrict groupdata = *leveldata.groupdata.at(gi);
+    const int ntls = groupdata.mfab.size();
+    assert(ntls == ntls0);
+    // Rotate time levels and invalidate current time level
+    if (ntls > 1) {
+      rotate(groupdata.mfab.begin(), groupdata.mfab.end() - 1,
+             groupdata.mfab.end());
+      rotate(groupdata.valid.begin(), groupdata.valid.end() - 1,
+             groupdata.valid.end());
+      for (int vi = 0; vi < groupdata.numvars; ++vi)
+        groupdata.valid.at(0).at(vi).set_all(valid_t(), []() {
+          return "CycletimeLevels (invalidate current time level)";
+        });
+    }
+    // All time levels (except the current) must be valid everywhere for
+    // checkpointed groups
+    if (groupdata.do_checkpoint) {
+      for (int tl = (ntls == 1 ? 0 : 1); tl < ntls; ++tl) {
+        // it is only possible to sync time-level zero
+        if (tl == 0 && presync_only) {
+          presync_groups.push_back(gi);
+        } else {
+          for (int vi = 0; vi < groupdata.numvars; ++vi) {
+            error_if_invalid(groupdata, vi, tl, make_valid_all(), []() {
+              return "CycleTimelevels for the state vector";
+            });
+          }
+        }
+      }
+    }
+  });
+  for (int vi = 0; vi < groupdata0.numvars; ++vi) {
+    if (ntls0 > 1)
+      poison_invalid_gf(*active_levels, gi, vi, 0);
+    for (int tl = 0; tl < ntls0; ++tl)
+      check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
+                     []() { return "CycleTimelevels"; });
+  }
+}
+
+void CycleGlobalTimelevelGroup(const int gi) {
+  auto &restrict globaldata = ghext->globaldata;
+  auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
+  const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
+                                          ? nan_handling_t::forbid_nans
+                                          : nan_handling_t::allow_nans;
+  const int ntls = arraygroupdata.data.size();
+  // Rotate time levels and invalidate current time level
+  if (ntls > 1) {
+    rotate(arraygroupdata.data.begin(), arraygroupdata.data.end() - 1,
+           arraygroupdata.data.end());
+    rotate(arraygroupdata.valid.begin(), arraygroupdata.valid.end() - 1,
+           arraygroupdata.valid.end());
+    for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
+      arraygroupdata.valid.at(0).at(vi).set_int(false, []() {
+        return "CycletimeLevels (invalidate current time level)";
+      });
+      poison_invalid_ga(gi, vi, 0);
+    }
+  }
+  for (int tl = 0; tl < ntls; ++tl)
+    for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
+      check_valid_ga(gi, vi, tl, nan_handling,
+                     []() { return "CycleTimelevels"; });
+}
+
+// This split is schedule-internal. The legacy domain deliberately dispatches
+// each group immediately in its original group-index order.
+void CycleTimelevelGroups(cGH *restrict const cctkGH,
+                          const ScheduleInternal::TimelevelDomain domain) {
   DECLARE_CCTK_PARAMETERS;
 
+  const bool presync_only = CCTK_EQUALS(presync_mode, "presync-only");
+  std::vector<int> presync_groups;
+  ScheduleInternal::for_each_timelevel_group(
+      CCTK_NumGroups(), domain,
+      [](const int gi) {
+        cGroup group;
+        const int ierr = CCTK_GroupData(gi, &group);
+        assert(!ierr);
+        return group.grouptype == CCTK_GF
+                   ? ScheduleInternal::TimelevelGroupKind::level_grid_function
+                   : ScheduleInternal::TimelevelGroupKind::synchronized_global;
+      },
+      [&](const int gi, const ScheduleInternal::TimelevelGroupKind kind) {
+        if (kind ==
+            ScheduleInternal::TimelevelGroupKind::level_grid_function)
+          CycleGFTimelevelGroup(gi, presync_only, presync_groups);
+        else
+          CycleGlobalTimelevelGroup(gi);
+      });
+
+  if (!presync_groups.empty())
+    SyncGroupsByDirI(cctkGH, presync_groups.size(), presync_groups.data(),
+                     nullptr);
+}
+
+} // namespace
+
+void CycleTimelevels(cGH *restrict const cctkGH) {
   static Timer timer("CycleTimelevels");
   Interval interval(timer);
 
@@ -1502,96 +1612,8 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
   cctkGH->cctk_time += cctkGH->cctk_delta_time;
   update_cctkGHs(cctkGH);
 
-  // TODO: Parallelize over groups
-  const int num_groups = CCTK_NumGroups();
-  const bool presync_only = CCTK_EQUALS(presync_mode, "presync-only");
-  std::vector<int> presync_groups;
-  for (int gi = 0; gi < num_groups; ++gi) {
-    cGroup group;
-    int ierr = CCTK_GroupData(gi, &group);
-    assert(!ierr);
-
-    if (group.grouptype == CCTK_GF) {
-      const auto &patchdata0 = ghext->patchdata.at(0);
-      const auto &leveldata0 = patchdata0.leveldata.at(0);
-      const auto &groupdata0 = *leveldata0.groupdata.at(gi);
-      const int ntls0 = groupdata0.mfab.size();
-      const nan_handling_t nan_handling = groupdata0.do_checkpoint
-                                              ? nan_handling_t::forbid_nans
-                                              : nan_handling_t::allow_nans;
-
-      assert(active_levels);
-      active_levels->loop_serially([&](auto &restrict leveldata) {
-        auto &restrict groupdata = *leveldata.groupdata.at(gi);
-        const int ntls = groupdata.mfab.size();
-        assert(ntls == ntls0);
-        // Rotate time levels and invalidate current time level
-        if (ntls > 1) {
-          rotate(groupdata.mfab.begin(), groupdata.mfab.end() - 1,
-                 groupdata.mfab.end());
-          rotate(groupdata.valid.begin(), groupdata.valid.end() - 1,
-                 groupdata.valid.end());
-          for (int vi = 0; vi < groupdata.numvars; ++vi)
-            groupdata.valid.at(0).at(vi).set_all(valid_t(), []() {
-              return "CycletimeLevels (invalidate current time level)";
-            });
-        }
-        // All time levels (except the current) must be valid everywhere for
-        // checkpointed groups
-        if (groupdata.do_checkpoint) {
-          for (int tl = (ntls == 1 ? 0 : 1); tl < ntls; ++tl) {
-            // it is only possible to sync time-level zero
-            if (tl == 0 && presync_only) {
-              presync_groups.push_back(gi);
-            } else {
-              for (int vi = 0; vi < groupdata.numvars; ++vi) {
-                error_if_invalid(groupdata, vi, tl, make_valid_all(), []() {
-                  return "CycleTimelevels for the state vector";
-                });
-              }
-            }
-          }
-        }
-      });
-      for (int vi = 0; vi < groupdata0.numvars; ++vi) {
-        if (ntls0 > 1)
-          poison_invalid_gf(*active_levels, gi, vi, 0);
-        for (int tl = 0; tl < ntls0; ++tl)
-          check_valid_gf(*active_levels, gi, vi, tl, nan_handling,
-                         []() { return "CycleTimelevels"; });
-      }
-    } else { // CCTK_ARRAY or CCTK_SCALAR
-
-      auto &restrict globaldata = ghext->globaldata;
-      auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
-      const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
-                                              ? nan_handling_t::forbid_nans
-                                              : nan_handling_t::allow_nans;
-      const int ntls = arraygroupdata.data.size();
-      // Rotate time levels and invalidate current time level
-      if (ntls > 1) {
-        rotate(arraygroupdata.data.begin(), arraygroupdata.data.end() - 1,
-               arraygroupdata.data.end());
-        rotate(arraygroupdata.valid.begin(), arraygroupdata.valid.end() - 1,
-               arraygroupdata.valid.end());
-        for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
-          arraygroupdata.valid.at(0).at(vi).set_int(false, []() {
-            return "CycletimeLevels (invalidate current time level)";
-          });
-          poison_invalid_ga(gi, vi, 0);
-        }
-      }
-      for (int tl = 0; tl < ntls; ++tl)
-        for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
-          check_valid_ga(gi, vi, tl, nan_handling,
-                         []() { return "CycleTimelevels"; });
-    }
-
-  } // for gi
-  if (!presync_groups.empty()) {
-    SyncGroupsByDirI(cctkGH, presync_groups.size(), presync_groups.data(),
-                     nullptr);
-  }
+  CycleTimelevelGroups(cctkGH,
+                       ScheduleInternal::TimelevelDomain::legacy_all);
 }
 
 // Schedule evolution

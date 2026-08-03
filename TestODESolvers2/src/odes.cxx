@@ -1,15 +1,24 @@
 #include <loop.hxx>
+#include <subcycling_native_gate.hxx>
 
 #include <cctk.h>
 #include <cctk_Parameters.h>
 #include <cctk_Arguments.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <optional>
+#include <stdexcept>
+#include <string>
 
 namespace TestODESolvers2 {
 using namespace std;
+
+namespace {
+optional<CarpetX::NativeGateSession> native_gate_session;
+}
 
 #if 0
 // pos(t) = sin(omega t)
@@ -50,7 +59,30 @@ extern "C" void TestODESolvers2_Boundary(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_TestODESolvers2_Boundary;
   DECLARE_CCTK_PARAMETERS;
 
-  // do nothing
+  const Loop::GF3D<CCTK_REAL, 1, 1, 1> time_(cctkGH, time);
+  const Loop::GF3D<CCTK_REAL, 1, 1, 1> poly_(cctkGH, poly);
+  const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp1_(cctkGH, exp1);
+  const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp2_(cctkGH, exp2);
+  const Loop::GF3D<CCTK_REAL, 1, 1, 1> time_dep_(cctkGH, time_dep);
+  const Loop::GF3D<CCTK_REAL, 1, 1, 1> poly_dep_(cctkGH, poly_dep);
+  const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp1_dep_(cctkGH, exp1_dep);
+  const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp2_dep_(cctkGH, exp2_dep);
+
+  const auto set_boundary_state = [&](const Loop::PointDesc &p) {
+    time_(p.I) = cctk_time;
+    poly_(p.I) = pow(1 + cctk_time, porder);
+    exp1_(p.I) = exp(cctk_time);
+    exp2_(p.I) = exp(cctk_time / 2);
+  };
+  Loop::loop_bnd<1, 1, 1>(cctkGH, set_boundary_state);
+  Loop::loop_ghosts<1, 1, 1>(cctkGH, set_boundary_state);
+
+  Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
+    time_dep_(p.I) = time_(p.I) + cctk_time;
+    poly_dep_(p.I) = poly_(p.I) + cctk_time;
+    exp1_dep_(p.I) = exp1_(p.I) + cctk_time;
+    exp2_dep_(p.I) = exp2_(p.I) + cctk_time;
+  });
 }
 
 extern "C" void TestODESolvers2_RHS(CCTK_ARGUMENTS) {
@@ -58,8 +90,13 @@ extern "C" void TestODESolvers2_RHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   const Loop::GF3D<const CCTK_REAL, 1, 1, 1> time_(cctkGH, time);
+  const Loop::GF3D<const CCTK_REAL, 1, 1, 1> poly_(cctkGH, poly);
   const Loop::GF3D<const CCTK_REAL, 1, 1, 1> exp1_(cctkGH, exp1);
   const Loop::GF3D<const CCTK_REAL, 1, 1, 1> exp2_(cctkGH, exp2);
+  const Loop::GF3D<const CCTK_REAL, 1, 1, 1> time_dep_(cctkGH, time_dep);
+  const Loop::GF3D<const CCTK_REAL, 1, 1, 1> poly_dep_(cctkGH, poly_dep);
+  const Loop::GF3D<const CCTK_REAL, 1, 1, 1> exp1_dep_(cctkGH, exp1_dep);
+  const Loop::GF3D<const CCTK_REAL, 1, 1, 1> exp2_dep_(cctkGH, exp2_dep);
 
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> time_rhs_(cctkGH, time_rhs);
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> poly_rhs_(cctkGH, poly_rhs);
@@ -67,6 +104,16 @@ extern "C" void TestODESolvers2_RHS(CCTK_ARGUMENTS) {
   const Loop::GF3D<CCTK_REAL, 1, 1, 1> exp2_rhs_(cctkGH, exp2_rhs);
 
   Loop::loop_int<1, 1, 1>(cctkGH, [&](const Loop::PointDesc &p) {
+    const auto tolerance =
+        32 * numeric_limits<CCTK_REAL>::epsilon() *
+        max({CCTK_REAL(1), abs(cctk_time), abs(time_(p.I)),
+             abs(poly_(p.I)), abs(exp1_(p.I)), abs(exp2_(p.I))});
+    if (abs(time_dep_(p.I) - (time_(p.I) + cctk_time)) > tolerance ||
+        abs(poly_dep_(p.I) - (poly_(p.I) + cctk_time)) > tolerance ||
+        abs(exp1_dep_(p.I) - (exp1_(p.I) + cctk_time)) > tolerance ||
+        abs(exp2_dep_(p.I) - (exp2_(p.I) + cctk_time)) > tolerance)
+      CCTK_VERROR("Native gate PostStep dependent is stale at t=%.17g",
+                  double(cctk_time));
     if (porder > 0)
       if (abs(time_(p.I) - cctk_time) >
           10 * numeric_limits<CCTK_REAL>::epsilon())
@@ -77,6 +124,71 @@ extern "C" void TestODESolvers2_RHS(CCTK_ARGUMENTS) {
     exp1_rhs_(p.I) = exp1_(p.I);
     exp2_rhs_(p.I) = exp2_(p.I) / 2;
   });
+}
+
+extern "C" void TestODESolvers2_NativeGateInventory(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_TestODESolvers2_NativeGateInventory;
+  DECLARE_CCTK_PARAMETERS;
+  if (!native_subcycling_gate || cctk_itlast != 0)
+    return;
+  try {
+    CarpetX::write_native_gate_inventory(cctkGH, cctk_itlast);
+    CCTK_INFO("CARPETX_NATIVE_GATE_INVENTORY_PASS");
+  } catch (const exception &error) {
+    CCTK_VERROR("Native gate inventory failed: %s", error.what());
+  } catch (...) {
+    CCTK_ERROR("Native gate inventory failed with an unknown exception");
+  }
+}
+
+extern "C" void TestODESolvers2_NativeGateBegin(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_TestODESolvers2_NativeGateBegin;
+  DECLARE_CCTK_PARAMETERS;
+  if (!native_subcycling_gate)
+    return;
+  try {
+    if (native_gate_session.has_value())
+      throw logic_error("native gate session was opened twice");
+    const auto contract =
+        CarpetX::native_gate_method_contract(cctk_iteration);
+    const int status = CCTK_ParameterSet(
+        "method", "ODESolvers", contract.ode_parameter_value);
+    if (status != 0)
+      throw runtime_error("CCTK_ParameterSet(ODESolvers::method) returned " +
+                          to_string(status));
+    native_gate_session.emplace(
+        CarpetX::begin_native_gate(cctkGH, cctk_itlast));
+  } catch (const exception &error) {
+    native_gate_session.reset();
+    CCTK_VERROR("Native gate begin failed: %s", error.what());
+  } catch (...) {
+    native_gate_session.reset();
+    CCTK_ERROR("Native gate begin failed with an unknown exception");
+  }
+}
+
+extern "C" void TestODESolvers2_NativeGateEnd(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_TestODESolvers2_NativeGateEnd;
+  DECLARE_CCTK_PARAMETERS;
+  if (!native_subcycling_gate)
+    return;
+  try {
+    if (!native_gate_session.has_value())
+      throw logic_error("native gate session is absent");
+    const auto receipt =
+        CarpetX::end_native_gate(std::move(*native_gate_session));
+    native_gate_session.reset();
+    CCTK_VINFO("CARPETX_NATIVE_GATE_METHOD_PASS rhs=%zu controls=%zu",
+               receipt.extra_rhs_evaluations, receipt.control_count);
+    if (cctk_iteration == 3)
+      CCTK_INFO("CARPETX_NATIVE_GATE_PASS");
+  } catch (const exception &error) {
+    native_gate_session.reset();
+    CCTK_VERROR("Native gate end failed: %s", error.what());
+  } catch (...) {
+    native_gate_session.reset();
+    CCTK_ERROR("Native gate end failed with an unknown exception");
+  }
 }
 
 extern "C" void TestODESolvers2_Error(CCTK_ARGUMENTS) {

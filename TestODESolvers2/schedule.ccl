@@ -1,6 +1,6 @@
 # Schedule definitions for thorn TestODESolvers2
 
-STORAGE: state rhs error order
+STORAGE: state rhs gate_dependent error order
 
 
 
@@ -14,16 +14,34 @@ SCHEDULE TestODESolvers2_Initial AT initial
 SCHEDULE TestODESolvers2_RHS IN ODESolvers_RHS
 {
   LANG: C
-  READS: state(interior)
+  READS: state(interior) gate_dependent(interior)
   WRITES: rhs(interior)
 } "RHS function"
 
 SCHEDULE TestODESolvers2_Boundary IN ODESolvers_PostStep
 {
   LANG: C
-  OPTIONS: global
-  SYNC: state
+  READS: state(interior)
+  WRITES: state(everywhere) gate_dependent(interior)
 } "Apply boundary conditions to state vector"
+
+SCHEDULE TestODESolvers2_NativeGateInventory AT analysis BEFORE TestODESolvers2_Error
+{
+  LANG: C
+  OPTIONS: global
+} "Write the non-promoting native gate schedule inventory"
+
+SCHEDULE TestODESolvers2_NativeGateBegin AT evol BEFORE ODESolvers_Solve
+{
+  LANG: C
+  OPTIONS: level
+} "Open the bounded native gate transaction"
+
+SCHEDULE TestODESolvers2_NativeGateEnd AT evol AFTER ODESolvers_Solve
+{
+  LANG: C
+  OPTIONS: level
+} "Take and validate the native gate dense interval"
 
 SCHEDULE TestODESolvers2_Error AT analysis
 {

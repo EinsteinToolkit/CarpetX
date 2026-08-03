@@ -2,6 +2,7 @@
 #define CARPETX_CARPETX_DRIVER_HXX
 
 #include "loop.hxx"
+#include "subcycling_method_contract.hxx"
 #include "valid.hxx"
 
 #include <rational.hxx>
@@ -111,6 +112,8 @@ public:
 struct GHExt {
 
   GHExt() = default;
+  SubcyclingMethodContractRegistry subcycling_method_contracts;
+
   GHExt(const GHExt &) = delete;
   GHExt(GHExt &&) = delete;
   GHExt &operator=(const GHExt &) = delete;

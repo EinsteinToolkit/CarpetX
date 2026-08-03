@@ -16,6 +16,16 @@ USES INCLUDE HEADER: loop_device.hxx
 
 INCLUDES HEADER: driver.hxx IN driver.hxx
 INCLUDES HEADER: reduction.hxx IN reduction.hxx
+INCLUDES HEADER: subcycling_dense_control_builder.hxx IN subcycling_dense_control_builder.hxx
+INCLUDES HEADER: subcycling_dense_mfab_state.hxx IN subcycling_dense_mfab_state.hxx
+INCLUDES HEADER: subcycling_dense_output.hxx IN subcycling_dense_output.hxx
+INCLUDES HEADER: subcycling_dense_stencil.hxx IN subcycling_dense_stencil.hxx
+INCLUDES HEADER: subcycling_method_contract.hxx IN subcycling_method_contract.hxx
+INCLUDES HEADER: subcycling_native_gate.hxx IN subcycling_native_gate.hxx
+INCLUDES HEADER: subcycling_scratch_state.hxx IN subcycling_scratch_state.hxx
+INCLUDES HEADER: subcycling_scratch_schedule_executor.hxx IN subcycling_scratch_schedule_executor.hxx
+INCLUDES HEADER: subcycling_scratch_state_transaction.hxx IN subcycling_scratch_state_transaction.hxx
+INCLUDES HEADER: subcycling_step_context.hxx IN subcycling_step_context.hxx
 
 
 

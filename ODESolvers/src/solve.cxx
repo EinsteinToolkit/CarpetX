@@ -9,6 +9,14 @@
 #include <util_Table.h>
 
 #include <div.hxx>
+#include "cactus_explicit_rk_operations.hxx"
+#include "explicit_rk.hxx"
+#include "explicit_rk_dense_provider.hxx"
+#include "subcycling_ode_provider_registry.hxx"
+#include "subcycling_transaction_bridge.hxx"
+#include <subcycling_dense_output.hxx>
+#include <subcycling_scratch_state_transaction.hxx>
+#include <subcycling_step_context.hxx>
 
 #include <AMReX_MultiFab.H>
 
@@ -24,12 +32,14 @@ static inline int omp_get_max_threads() { return 1; }
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -70,6 +80,8 @@ constexpr details::return_type<D, Types...> make_array(Types &&...t) {
 
 // A state vector component, with mfabs for each level, group, and variable
 struct statecomp_t {
+  using scalar_type = CCTK_REAL;
+
   statecomp_t() = default;
 
   statecomp_t(statecomp_t &&) = default;
@@ -81,6 +93,31 @@ struct statecomp_t {
 
   std::vector<CarpetX::GHExt::PatchData::LevelData::GroupData *> groupdatas;
   std::vector<amrex::MultiFab *> mfabs;
+  std::optional<TransactionStateBackend> scratch_backend;
+
+  static statecomp_t from_scratch(TransactionStateBackend backend) {
+    statecomp_t result;
+    result.scratch_backend.emplace(std::move(backend));
+    return result;
+  }
+
+  bool is_scratch() const noexcept { return scratch_backend.has_value(); }
+  TransactionStateBackend &scratch() {
+    if (!scratch_backend)
+      throw std::logic_error("state component is not scratch-backed");
+    return *scratch_backend;
+  }
+  const TransactionStateBackend &scratch() const {
+    if (!scratch_backend)
+      throw std::logic_error("state component is not scratch-backed");
+    return *scratch_backend;
+  }
+  void replace_scratch(TransactionStateBackend backend) {
+    if (!is_scratch() || &scratch().transaction() != &backend.transaction())
+      throw std::invalid_argument(
+          "scratch state replacement changes backend or owner");
+    scratch_backend.emplace(std::move(backend));
+  }
 
   static void init_tmp_mfabs();
   static void free_tmp_mfabs();
@@ -99,6 +136,12 @@ struct statecomp_t {
   }
 
   statecomp_t copy(const CarpetX::valid_t where) const;
+  statecomp_t snapshot_state() const {
+    return copy(CarpetX::make_valid_all());
+  }
+  statecomp_t snapshot_rhs() const {
+    return copy(CarpetX::make_valid_int());
+  }
 
   template <std::size_t N>
   static void lincomb(const statecomp_t &dst, CCTK_REAL scale,
@@ -120,6 +163,10 @@ struct statecomp_t {
                       const std::vector<CCTK_REAL> &factors,
                       const std::vector<const statecomp_t *> &srcs,
                       const CarpetX::valid_t where);
+  static void lincomb(
+      const statecomp_t &dst, CCTK_REAL scale,
+      LinearCombinationView<CCTK_REAL, statecomp_t> combination,
+      const CarpetX::valid_t where);
 };
 
 template <std::size_t N> using reals = std::array<CCTK_REAL, N>;
@@ -155,6 +202,16 @@ void statecomp_t::free_tmp_mfabs() {
 
 // State that the state vector has valid data in the interior
 void statecomp_t::set_valid(const CarpetX::valid_t valid) const {
+  if (is_scratch()) {
+    auto &backend = const_cast<TransactionStateBackend &>(scratch());
+    backend.set_valid(CarpetX::ScratchStateRegion::interior,
+                      valid.valid_int);
+    backend.set_valid(CarpetX::ScratchStateRegion::outer,
+                      valid.valid_outer);
+    backend.set_valid(CarpetX::ScratchStateRegion::ghosts,
+                      valid.valid_ghosts);
+    return;
+  }
   for (auto groupdata : groupdatas) {
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
       const int tl = 0;
@@ -234,6 +291,18 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
 // Ensure a state vector has valid data in the interior
 void statecomp_t::check_valid(const CarpetX::valid_t required,
                               const std::function<std::string()> &why) const {
+  if (is_scratch()) {
+    const bool valid =
+        (!required.valid_int ||
+         scratch().valid(CarpetX::ScratchStateRegion::interior)) &&
+        (!required.valid_outer ||
+         scratch().valid(CarpetX::ScratchStateRegion::outer)) &&
+        (!required.valid_ghosts ||
+         scratch().valid(CarpetX::ScratchStateRegion::ghosts));
+    if (!valid)
+      throw std::runtime_error(why());
+    return;
+  }
   for (const auto groupdata : groupdatas) {
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
       const int tl = 0;
@@ -251,6 +320,16 @@ void statecomp_t::check_valid(const CarpetX::valid_t required,
 
 // Copy state vector into newly allocated memory
 statecomp_t statecomp_t::copy(const CarpetX::valid_t where) const {
+  if (is_scratch()) {
+    auto result = statecomp_t::from_scratch(scratch().clone());
+    if (!where.valid_int)
+      result.scratch().set_valid(CarpetX::ScratchStateRegion::interior, false);
+    if (!where.valid_outer)
+      result.scratch().set_valid(CarpetX::ScratchStateRegion::outer, false);
+    if (!where.valid_ghosts)
+      result.scratch().set_valid(CarpetX::ScratchStateRegion::ghosts, false);
+    return result;
+  }
   const std::size_t size = mfabs.size();
   statecomp_t result;
   result.groupdatas.reserve(size);
@@ -288,6 +367,26 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
                           const std::array<CCTK_REAL, N> &factors,
                           const std::array<const statecomp_t *, N> &srcs,
                           const CarpetX::valid_t where) {
+  if (dst.is_scratch()) {
+    if (!where.valid_int || where.valid_outer || where.valid_ghosts)
+      throw std::invalid_argument(
+          "scratch RK arithmetic supports interior validity only");
+    std::vector<TransactionStateBackend::LinearTerm> terms;
+    terms.reserve(N);
+    for (std::size_t n = 0; n < N; ++n) {
+      if (srcs[n] == nullptr || !srcs[n]->is_scratch())
+        throw std::invalid_argument(
+            "scratch RK arithmetic cannot mix live state components");
+      terms.push_back({factors[n], &srcs[n]->scratch()});
+    }
+    const_cast<TransactionStateBackend &>(dst.scratch())
+        .linear_combination(scale, terms);
+    return;
+  }
+  for (const auto *const source : srcs)
+    if (source == nullptr || source->is_scratch())
+      throw std::invalid_argument(
+          "live RK arithmetic cannot mix scratch state components");
   const std::size_t size = dst.mfabs.size();
   for (std::size_t n = 0; n < N; ++n)
     assert(srcs[n]->mfabs.size() == size);
@@ -498,7 +597,63 @@ void call_lincomb(const statecomp_t &dst, const CCTK_REAL scale,
   }
   statecomp_t::lincomb(dst, scale, factors1, srcs1, where);
 }
+
+template <std::size_t N>
+void call_lincomb_view(
+    const statecomp_t &dst, const CCTK_REAL scale,
+    const LinearCombinationView<CCTK_REAL, statecomp_t> combination,
+    const CarpetX::valid_t where) {
+  assert(combination.size == N);
+  std::array<CCTK_REAL, N> factors;
+  std::array<const statecomp_t *, N> sources;
+  for (std::size_t n = 0; n < N; ++n) {
+    factors[n] = combination.factors[n];
+    sources[n] = combination.sources[n];
+  }
+  statecomp_t::lincomb(dst, scale, factors, sources, where);
+}
 } // namespace detail
+
+void statecomp_t::lincomb(
+    const statecomp_t &dst, const CCTK_REAL scale,
+    const LinearCombinationView<CCTK_REAL, statecomp_t> combination,
+    const CarpetX::valid_t where) {
+  switch (combination.size) {
+  case 0:
+    return detail::call_lincomb_view<0>(dst, scale, combination, where);
+  case 1:
+    return detail::call_lincomb_view<1>(dst, scale, combination, where);
+  case 2:
+    return detail::call_lincomb_view<2>(dst, scale, combination, where);
+  case 3:
+    return detail::call_lincomb_view<3>(dst, scale, combination, where);
+  case 4:
+    return detail::call_lincomb_view<4>(dst, scale, combination, where);
+  case 5:
+    return detail::call_lincomb_view<5>(dst, scale, combination, where);
+  case 6:
+    return detail::call_lincomb_view<6>(dst, scale, combination, where);
+  case 7:
+    return detail::call_lincomb_view<7>(dst, scale, combination, where);
+  case 8:
+    return detail::call_lincomb_view<8>(dst, scale, combination, where);
+  case 9:
+    return detail::call_lincomb_view<9>(dst, scale, combination, where);
+  case 10:
+    return detail::call_lincomb_view<10>(dst, scale, combination, where);
+  case 11:
+    return detail::call_lincomb_view<11>(dst, scale, combination, where);
+  case 12:
+    return detail::call_lincomb_view<12>(dst, scale, combination, where);
+  case 13:
+    return detail::call_lincomb_view<13>(dst, scale, combination, where);
+  case 14:
+    return detail::call_lincomb_view<14>(dst, scale, combination, where);
+  default:
+    CCTK_VERROR("Unsupported explicit RK vector length: %d",
+                static_cast<int>(combination.size));
+  }
+}
 
 void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
                           const std::vector<CCTK_REAL> &factors,
@@ -670,6 +825,53 @@ void mark_invalid(const std::vector<int> &groups) {
   });
 }
 
+CarpetX::StageKind
+carpetx_stage_kind(const ExplicitRKStageKind stage_kind) {
+  switch (stage_kind) {
+  case ExplicitRKStageKind::primary:
+    return CarpetX::StageKind::primary;
+  case ExplicitRKStageKind::fractional:
+    return CarpetX::StageKind::fractional;
+  case ExplicitRKStageKind::endpoint_probe:
+    return CarpetX::StageKind::endpoint_probe;
+  }
+  throw std::invalid_argument("explicit RK stage kind is invalid");
+}
+
+CarpetX::StagePoint
+carpetx_stage_point(const ExplicitRKStagePoint &stage_point,
+                    const double stage_time) {
+  if (stage_point.parent_fraction.denominator <= 0)
+    throw std::invalid_argument(
+        "explicit RK exact stage fraction denominator is not positive");
+  return {carpetx_stage_kind(stage_point.kind), stage_point.stage_index,
+          stage_point.stage_count,
+          CarpetX::step_clock_t(stage_point.parent_fraction.numerator,
+                                stage_point.parent_fraction.denominator),
+          stage_time};
+}
+
+void prepare_subcycling_stage(
+    const ExplicitRKStagePoint &stage_point, const double stage_time,
+    const CarpetX::SubcyclingODEMethod active_method,
+    const char *const method_name) {
+  if (!CarpetX::step_context_active())
+    return;
+
+  try {
+    CarpetX::prepare_stage(carpetx_stage_point(stage_point, stage_time),
+                           active_method);
+  } catch (const std::exception &error) {
+    CCTK_VERROR("Subcycling stage preparation failed at t=%.17g for ODE "
+                "method \"%s\": %s",
+                stage_time, method_name, error.what());
+  } catch (...) {
+    CCTK_VERROR("Subcycling stage preparation failed at t=%.17g for ODE "
+                "method \"%s\" with an unknown exception",
+                stage_time, method_name);
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 extern "C" void ODESolvers_InitConstants(CCTK_ARGUMENTS) {
@@ -683,6 +885,65 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_ODESolvers_Solve;
   DECLARE_CCTK_PARAMETERS;
 
+  const CCTK_REAL dt = CCTK_DELTA_TIME;
+  const CCTK_REAL saved_time = cctkGH->cctk_time;
+  const CCTK_REAL old_time = saved_time - dt;
+  auto active_method = CarpetX::SubcyclingODEMethod::rk4;
+  const CarpetX::StepContext *active_context = nullptr;
+  const SubcyclingODEProviderCapability *active_provider = nullptr;
+  CarpetX::ScratchStateTransaction *active_transaction = nullptr;
+  if (CarpetX::step_context_active()) {
+    active_context = CarpetX::current_step_context();
+    active_transaction = CarpetX::current_scratch_state_transaction();
+    try {
+      const auto &candidate =
+          require_subcycling_ode_provider(std::string_view(method));
+      if (active_context->method != candidate.dense.method)
+        throw std::invalid_argument(
+            "ODE provider method differs from the active StepContext");
+
+      const auto &tableau = explicit_rk_tableau(candidate.method);
+      if (candidate.dense.method != subcycling_method(candidate.method) ||
+          candidate.dense.tableau_fingerprint !=
+              explicit_rk_tableau_fingerprint(candidate.method) ||
+          candidate.dense.endpoint_order != tableau.endpoint_order ||
+          candidate.dense.dense_uniform_order < tableau.endpoint_order ||
+          candidate.dense.stage_count !=
+              static_cast<int>(tableau.a.size()) ||
+          !candidate.dense.arbitrary_theta || !candidate.dense.verified)
+        throw std::invalid_argument(
+            "ODE provider dense capability differs from its exact tableau");
+
+      active_provider = &candidate;
+      active_method = candidate.dense.method;
+    } catch (const std::exception &error) {
+      CCTK_VERROR("Active subcycling ODE provider validation failed for "
+                  "method \"%s\": %s",
+                  method, error.what());
+    } catch (...) {
+      CCTK_VERROR("Active subcycling ODE provider validation failed for "
+                  "method \"%s\" with an unknown exception",
+                  method);
+    }
+
+    const auto interval_time_scale =
+        std::max({1.0, std::abs(active_context->begin_time),
+                  std::abs(active_context->end_time)});
+    const auto interval_tolerance =
+        16.0 * std::numeric_limits<double>::epsilon() * interval_time_scale;
+    if (!std::isfinite(old_time) || !std::isfinite(saved_time) ||
+        !std::isfinite(dt) ||
+        std::abs(old_time - active_context->begin_time) > interval_tolerance ||
+        std::abs(saved_time - active_context->end_time) > interval_tolerance ||
+        std::abs(dt -
+                 (active_context->end_time - active_context->begin_time)) >
+            interval_tolerance)
+      CCTK_VERROR("ODE solver interval [%g,%g] with dt=%g does not match "
+                  "active subcycling StepContext [%g,%g]",
+                  double(old_time), double(saved_time), double(dt),
+                  active_context->begin_time, active_context->end_time);
+  }
+
   static bool did_output = false;
   if (verbose || !did_output)
     CCTK_VINFO("ODE integrator is %s", method);
@@ -691,7 +952,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   static CarpetX::Timer timer("ODESolvers::Solve");
   CarpetX::Interval interval(timer);
 
-  const CCTK_REAL dt = cctk_delta_time;
   const int tl = 0;
 
   static CarpetX::Timer timer_setup("ODESolvers::Solve::setup");
@@ -699,6 +959,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   statecomp_t var, rhs;
   std::vector<int> var_groups, rhs_groups, dep_groups;
+  std::vector<CarpetX::ScratchGroupPair> ordered_group_pairs;
   int nvars = 0;
   bool do_accumulate_nvars = true;
   assert(CarpetX::active_levels);
@@ -722,6 +983,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
           nvars += groupdata.numvars;
           var_groups.push_back(groupdata.groupindex);
           rhs_groups.push_back(rhs_gi);
+          ordered_group_pairs.push_back({groupdata.groupindex, rhs_gi});
           const auto &dependents = get_group_dependents(groupdata.groupindex);
           dep_groups.insert(dep_groups.end(), dependents.begin(),
                             dependents.end());
@@ -734,6 +996,21 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     CCTK_VINFO("  Integrating %d variables", nvars);
   if (nvars == 0)
     CCTK_VWARN(CCTK_WARN_ALERT, "Integrating %d variables", nvars);
+
+  bool scratch_group_pairs_match = true;
+  if (active_transaction != nullptr) {
+    const auto &certified_pairs = active_transaction->group_pairs();
+    scratch_group_pairs_match =
+        certified_pairs.size() == ordered_group_pairs.size();
+    for (std::size_t pair = 0;
+         scratch_group_pairs_match && pair < ordered_group_pairs.size();
+         ++pair)
+      scratch_group_pairs_match =
+          certified_pairs[pair].evolved_group ==
+              ordered_group_pairs[pair].evolved_group &&
+          certified_pairs[pair].rhs_group ==
+              ordered_group_pairs[pair].rhs_group;
+  }
 
   {
     std::sort(var_groups.begin(), var_groups.end());
@@ -756,6 +1033,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     dep_groups.erase(last, dep_groups.end());
   }
 
+  const bool scratch_dependent_groups_match =
+      active_transaction == nullptr ||
+      active_transaction->dependent_groups() == dep_groups;
+
   for (const int gi : var_groups)
     assert(std::find(dep_groups.begin(), dep_groups.end(), gi) ==
            dep_groups.end());
@@ -771,9 +1052,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     statecomp_t::init_tmp_mfabs();
   }
 
-  const CCTK_REAL saved_time = cctkGH->cctk_time;
-  const CCTK_REAL old_time = cctkGH->cctk_time - dt;
-
   static CarpetX::Timer timer_lincomb("ODESolvers::Solve::lincomb");
   static CarpetX::Timer timer_rhs("ODESolvers::Solve::rhs");
   static CarpetX::Timer timer_poststep("ODESolvers::Solve::poststep");
@@ -781,37 +1059,56 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   const auto copy_state = [](const auto &var, const CarpetX::valid_t where) {
     return var.copy(where);
   };
-  const auto calcrhs = [&](const int n) {
+  const auto evaluate_rhs = [&](const int n) {
     CarpetX::Interval interval_rhs(timer_rhs);
     if (verbose)
       CCTK_VINFO("Calculating RHS #%d at t=%g", n, double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
+  };
+  const auto validate_rhs = [&](const int) {
     rhs.check_valid(CarpetX::make_valid_int(),
                     "ODESolvers after calling ODESolvers_RHS");
   };
+  const auto calcrhs = [&](const int n) {
+    evaluate_rhs(n);
+    validate_rhs(n);
+  };
+  const auto calcupdate_at_time =
+      [&](const int n, const CCTK_REAL stage_time, const CCTK_REAL a0,
+          const auto &as, const auto &vars) {
+        {
+          CarpetX::Interval interval_lincomb(timer_lincomb);
+          statecomp_t::lincomb(var, a0, as, vars,
+                               CarpetX::make_valid_int());
+          var.check_valid(CarpetX::make_valid_int(),
+                          "ODESolvers after defining new state vector");
+          mark_invalid(dep_groups);
+        }
+        {
+          CarpetX::Interval interval_poststep(timer_poststep);
+          *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = stage_time;
+          CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+          if (verbose)
+            CCTK_VINFO("Calculated new state #%d at t=%g", n,
+                       double(cctkGH->cctk_time));
+        }
+      };
   // t = t_0 + c
   // var = a_0 * var + \Sum_i a_i * var_i
   const auto calcupdate = [&](const int n, const CCTK_REAL c,
                               const CCTK_REAL a0, const auto &as,
                               const auto &vars) {
-    {
-      CarpetX::Interval interval_lincomb(timer_lincomb);
-      statecomp_t::lincomb(var, a0, as, vars, CarpetX::make_valid_int());
-      var.check_valid(CarpetX::make_valid_int(),
-                      "ODESolvers after defining new state vector");
-      mark_invalid(dep_groups);
-    }
-    {
-      CarpetX::Interval interval_poststep(timer_poststep);
-      *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + c;
-      CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
-      if (verbose)
-        CCTK_VINFO("Calculated new state #%d at t=%g", n,
-                   double(cctkGH->cctk_time));
-    }
+    calcupdate_at_time(n, old_time + c, a0, as, vars);
   };
 
-  *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
+  const bool uses_extracted_explicit_rk =
+      active_provider != nullptr ||
+      (active_context == nullptr &&
+       (CCTK_EQUALS(method, "RK4") || CCTK_EQUALS(method, "RKF78") ||
+        CCTK_EQUALS(method, "DP87")));
+  if (!uses_extracted_explicit_rk) {
+    *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
+  }
 
   if (CCTK_EQUALS(method, "constant")) {
 
@@ -885,264 +1182,259 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     calcupdate(3, dt, 0.0, reals<4>{1.0, dt / 6, dt / 6, 2 * dt / 3},
                states<4>{&old, &k1, &k2, &rhs});
 
-  } else if (CCTK_EQUALS(method, "RK4")) {
+  } else if (uses_extracted_explicit_rk) {
 
-    // k1 = f(y0)
-    // k2 = f(y0 + h/2 k1)
-    // k3 = f(y0 + h/2 k2)
-    // k4 = f(y0 + h k3)
-    // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
-
-    const auto old = copy_state(var, CarpetX::make_valid_all());
-
-    calcrhs(1);
-    const auto kaccum = copy_state(rhs, CarpetX::make_valid_int());
-    calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
-
-    calcrhs(2);
-    {
-      CarpetX::Interval interval_lincomb(timer_lincomb);
-      statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                           CarpetX::make_valid_int());
-    }
-    calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
-
-    calcrhs(3);
-    {
-      CarpetX::Interval interval_lincomb(timer_lincomb);
-      statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                           CarpetX::make_valid_int());
-    }
-    calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
-
-    calcrhs(4);
-    calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
-               states<3>{&old, &kaccum, &rhs});
-
-  } else if (CCTK_EQUALS(method, "RKF78")) {
-
-    typedef CCTK_REAL T;
-    const auto R = [](T x, T y) { return x / y; };
-    const std::tuple<std::vector<std::tuple<T, std::vector<T> > >,
-                     std::vector<T> >
-        tableau{
-            {
-                {/* 1 */ 0, {}},                                           //
-                {/* 2 */ R(2, 27), {R(2, 27)}},                            //
-                {/* 3 */ R(1, 9), {R(1, 36), R(3, 36)}},                   //
-                {/* 4 */ R(1, 6), {R(1, 24), 0, R(3, 24)}},                //
-                {/* 5 */ R(5, 12), {R(20, 48), 0, R(-75, 48), R(75, 48)}}, //
-                {/* 6 */ R(1, 2), {R(1, 20), 0, 0, R(5, 20), R(4, 20)}},   //
-                {/* 7 */ R(5, 6),
-                 {R(-25, 108), 0, 0, R(125, 108), R(-260, 108),
-                  R(250, 108)}}, //
-                {/* 8 */ R(1, 6),
-                 {R(31, 300), 0, 0, 0, R(61, 225), R(-2, 9), R(13, 900)}}, //
-                {/* 9 */ R(2, 3),
-                 {2, 0, 0, R(-53, 6), R(704, 45), R(-107, 9), R(67, 90), 3}}, //
-                {/* 10 */ R(1, 3),
-                 {R(-91, 108), 0, 0, R(23, 108), R(-976, 135), R(311, 54),
-                  R(-19, 60), R(17, 6), R(-1, 12)}}, //
-                {/* 11 */ 1,
-                 {R(2383, 4100), 0, 0, R(-341, 164), R(4496, 1025), R(-301, 82),
-                  R(2133, 4100), R(45, 82), R(45, 164),
-                  R(18, 41)}}, //
-                               // {/* 12 */ 0,
-                //  {R(3, 205), 0, 0, 0, 0, R(-6, 41), R(-3, 205), R(-3, 41),
-                //  R(3, 41),
-                //   R(6, 41)}}, //
-                // {/* 13 */ 1,
-                //  {R(-1777, 4100), 0, 0, R(-341, 164), R(4496, 1025), R(-289,
-                //  82),
-                //   R(2193, 4100), R(51, 82), R(33, 164), R(12, 41), 0, 1}}, //
-            },
-            {
-                R(41, 840), 0, 0, 0, 0, R(34, 105), R(9, 35), R(9, 35),
-                R(9, 280), R(9, 280), R(41, 840),
-                // 0,
-                // 0,
-            }};
-
-    // Check Butcher tableau
-    const std::size_t nsteps = std::get<0>(tableau).size();
-    {
-      for (std::size_t step = 0; step < nsteps; ++step) {
-        // TODO: Could allow <=
-        assert(std::get<1>(std::get<0>(tableau).at(step)).size() == step);
-        const auto &c = std::get<0>(std::get<0>(tableau).at(step));
-        const auto &as = std::get<1>(std::get<0>(tableau).at(step));
-        T x = 0;
-        for (const auto &a : as)
-          x += a;
-        assert(fabs(x - c) <= 10 * std::numeric_limits<T>::epsilon());
-      }
-      // TODO: Could allow <=
-      assert(std::get<1>(tableau).size() == nsteps);
-      const auto &bs = std::get<1>(tableau);
-      T x = 0;
-      for (const auto &b : bs)
-        x += b;
-      assert(fabs(x - 1) <= 10 * std::numeric_limits<T>::epsilon());
+    ExplicitRKMethod explicit_method = ExplicitRKMethod::rk4;
+    if (active_provider != nullptr) {
+      explicit_method = active_provider->method;
+    } else {
+      if (CCTK_EQUALS(method, "RK4"))
+        explicit_method = ExplicitRKMethod::rk4;
+      else if (CCTK_EQUALS(method, "RKF78"))
+        explicit_method = ExplicitRKMethod::rkf78;
+      else if (CCTK_EQUALS(method, "DP87"))
+        explicit_method = ExplicitRKMethod::dp87;
+      else
+        CCTK_VERROR(
+            "Internal explicit RK method dispatch failure for \"%s\"",
+            method);
     }
 
-    const auto old = copy_state(var, CarpetX::make_valid_all());
-
-    std::vector<statecomp_t> ks;
-    ks.reserve(nsteps);
-    for (std::size_t step = 0; step < nsteps; ++step) {
-      // Skip the first state vector calculation, it is always trivial
-      if (step > 0) {
-        const auto &c = std::get<0>(std::get<0>(tableau).at(step));
-        const auto &as = std::get<1>(std::get<0>(tableau).at(step));
-
-        // Add scaled RHS to state vector
-        std::vector<CCTK_REAL> factors;
-        std::vector<const statecomp_t *> srcs;
-        factors.reserve(as.size() + 1);
-        srcs.reserve(as.size() + 1);
-        factors.push_back(1.0);
-        srcs.push_back(&old);
-        for (std::size_t i = 0; i < as.size(); ++i) {
-          if (as.at(i) != 0) {
-            factors.push_back(as.at(i) * dt);
-            srcs.push_back(&ks.at(i));
-          }
-        }
-        calcupdate(step, c * dt, 0.0, factors, srcs);
-        // TODO: Deallocate ks that are not needed any more
-      }
-
-      calcrhs(step + 1);
-      ks.push_back(copy_state(rhs, CarpetX::make_valid_int()));
-    }
-
-    // Calculate new state vector
-    const auto &bs = std::get<1>(tableau);
-    std::vector<CCTK_REAL> factors;
-    std::vector<const statecomp_t *> srcs;
-    factors.reserve(bs.size() + 1);
-    srcs.reserve(bs.size() + 1);
-    factors.push_back(1);
-    srcs.push_back(&old);
-    for (std::size_t i = 0; i < bs.size(); ++i) {
-      if (bs.at(i) != 0) {
-        factors.push_back(bs.at(i) * dt);
-        srcs.push_back(&ks.at(i));
-      }
-    }
-    calcupdate(nsteps, dt, 0.0, factors, srcs);
-
-  } else if (CCTK_EQUALS(method, "DP87")) {
-
-    typedef CCTK_REAL T;
-    const auto R = [](T x, T y) { return x / y; };
-    // These coefficients are taken from the Einstein Toolkit, thorn
-    // CactusNumerical/MoL, file RK87.c, written by Peter Diener,
-    // following P. J. Prince and J. R. Dormand, Journal of
-    // Computational and Applied Mathematics, volume 7, no 1, 1981
-    const std::tuple<std::vector<std::vector<T> >, std::vector<T> > tableau{
-        {
-            {/*1*/},                                    //
-            {/*2*/ R(1, 18)},                           //
-            {/*3*/ R(1, 48), R(1, 16)},                 //
-            {/*4*/ R(1, 32), 0, R(3, 32)},              //
-            {/*5*/ R(5, 16), 0, -R(75, 64), R(75, 64)}, //
-            {/*6*/ R(3, 80), 0, 0, R(3, 16), R(3, 20)}, //
-            {/*7*/ R(29443841, 614563906), 0, 0, R(77736538, 692538347),
-             -R(28693883, 1125000000), R(23124283, 1800000000)}, //
-            {/*8*/ R(16016141, 946692911), 0, 0, R(61564180, 158732637),
-             R(22789713, 633445777), R(545815736, 2771057229),
-             -R(180193667, 1043307555)}, //
-            {/*9*/ R(39632708, 573591083), 0, 0, -R(433636366, 683701615),
-             -R(421739975, 2616292301), R(100302831, 723423059),
-             R(790204164, 839813087), R(800635310, 3783071287)}, //
-            {/*10*/ R(246121993, 1340847787), 0, 0,
-             -R(37695042795, 15268766246), -R(309121744, 1061227803),
-             -R(12992083, 490766935), R(6005943493, 2108947869),
-             R(393006217, 1396673457), R(123872331, 1001029789)}, //
-            {/*11*/ -R(1028468189, 846180014), 0, 0, R(8478235783, 508512852),
-             R(1311729495, 1432422823), -R(10304129995, 1701304382),
-             -R(48777925059, 3047939560), R(15336726248, 1032824649),
-             -R(45442868181, 3398467696), R(3065993473, 597172653)}, //
-            {/*12*/ R(185892177, 718116043), 0, 0, -R(3185094517, 667107341),
-             -R(477755414, 1098053517), -R(703635378, 230739211),
-             R(5731566787, 1027545527), R(5232866602, 850066563),
-             -R(4093664535, 808688257), R(3962137247, 1805957418),
-             R(65686358, 487910083)}, //
-            {/*13*/ R(403863854, 491063109), 0, 0, -R(5068492393, 434740067),
-             -R(411421997, 543043805), R(652783627, 914296604),
-             R(11173962825, 925320556), -R(13158990841, 6184727034),
-             R(3936647629, 1978049680), -R(160528059, 685178525),
-             R(248638103, 1413531060), 0}, //
+    int explicit_update_index = 0;
+    CactusExplicitRKOperations operations{
+        var,
+        rhs,
+        [&](const CCTK_REAL stage_time) {
+          *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = stage_time;
         },
-        {R(14005451, 335480064), 0, 0, 0, 0, -R(59238493, 1068277825),
-         R(181606767, 758867731), R(561292985, 797845732),
-         -R(1041891430, 1371343529), R(760417239, 1151165299),
-         R(118820643, 751138087), -R(528747749, 2220607170), R(1, 4)}};
-
-    // Check Butcher tableau
-    const std::size_t nsteps = std::get<0>(tableau).size();
-    {
-      for (std::size_t step = 0; step < nsteps; ++step)
-        // TODO: Could allow <=
-        assert(std::get<0>(tableau).at(step).size() == step);
-      // TODO: Could allow <=
-      assert(std::get<1>(tableau).size() == nsteps);
-      const auto &bs = std::get<1>(tableau);
-      T x = 0;
-      for (const auto &b : bs)
-        x += b;
-      assert(fabs(x - 1) <= 10 * std::numeric_limits<T>::epsilon());
-    }
-
-    const auto old = copy_state(var, CarpetX::make_valid_all());
-
-    std::vector<statecomp_t> ks;
-    ks.reserve(nsteps);
-    for (std::size_t step = 0; step < nsteps; ++step) {
-      // Skip the first state vector calculation, it is always trivial
-      if (step > 0) {
-        const auto &as = std::get<0>(tableau).at(step);
-        T c = 0;
-        for (const auto &a : as)
-          c += a;
-
-        // Add scaled RHS to state vector
-        std::vector<CCTK_REAL> factors;
-        std::vector<const statecomp_t *> srcs;
-        factors.reserve(as.size() + 1);
-        srcs.reserve(as.size() + 1);
-        factors.push_back(1.0);
-        srcs.push_back(&old);
-        for (std::size_t i = 0; i < as.size(); ++i) {
-          if (as.at(i) != 0) {
-            factors.push_back(as.at(i) * dt);
-            srcs.push_back(&ks.at(i));
+        evaluate_rhs,
+        validate_rhs,
+        [&](const int update_index, const CCTK_REAL stage_time,
+            const CCTK_REAL destination_scale,
+            const LinearCombinationView<CCTK_REAL, statecomp_t> combination) {
+          explicit_update_index = update_index;
+          {
+            CarpetX::Interval interval_lincomb(timer_lincomb);
+            statecomp_t::lincomb(var, destination_scale, combination,
+                                 CarpetX::make_valid_int());
+            var.check_valid(CarpetX::make_valid_int(),
+                            "ODESolvers after defining new state vector");
+            mark_invalid(dep_groups);
           }
+          *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = stage_time;
+        },
+        [&](statecomp_t &accumulator, const CCTK_REAL factor,
+            const statecomp_t &increment) {
+          CarpetX::Interval interval_lincomb(timer_lincomb);
+          statecomp_t::lincomb(accumulator, 1.0, reals<1>{factor},
+                               states<1>{&increment},
+                               CarpetX::make_valid_int());
+        }};
+    operations.stage_preparation_callback =
+        [&](const ExplicitRKStagePoint &stage_point,
+            const CCTK_REAL stage_time) {
+          *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = stage_time;
+          prepare_subcycling_stage(stage_point, stage_time, active_method,
+                                   method);
+        };
+    operations.live_post_step_callback = [&](const CCTK_REAL stage_time) {
+      CarpetX::Interval interval_poststep(timer_poststep);
+      *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = stage_time;
+      CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
+      if (verbose)
+        CCTK_VINFO("Calculated new state #%d at t=%g",
+                   explicit_update_index, double(cctkGH->cctk_time));
+    };
+
+    try {
+      if (active_transaction != nullptr && !scratch_group_pairs_match)
+        throw std::invalid_argument(
+            "ODESolvers ordered evolved/RHS pairs differ from the active "
+            "scratch transaction");
+      if (active_transaction != nullptr && !scratch_dependent_groups_match)
+        throw std::invalid_argument(
+            "ODESolvers dependent groups differ from the active scratch "
+            "transaction");
+      if (active_transaction == nullptr) {
+        advance_explicit_rk(explicit_method, old_time, dt,
+                            InitialRHSMode::calculate, operations);
+      } else if (active_context != nullptr &&
+                 !active_context->require_dense_output) {
+        advance_explicit_rk(explicit_method, old_time, dt,
+                            InitialRHSMode::calculate, operations);
+      } else {
+        // Only a parent level needs the independent dense-extension solves.
+        if (active_context == nullptr)
+          throw std::logic_error(
+              "scratch transaction has no active StepContext");
+
+        TransactionPrimaryObserver primary_observer(*active_transaction);
+        advance_explicit_rk(explicit_method, old_time, dt,
+                            InitialRHSMode::calculate, operations,
+                            primary_observer);
+        auto primary = primary_observer.take_complete();
+
+        auto left_state =
+            statecomp_t::from_scratch(std::move(primary.left_state));
+        auto left_rhs = statecomp_t::from_scratch(std::move(primary.left_rhs));
+        auto accepted_endpoint = statecomp_t::from_scratch(
+            std::move(primary.accepted_endpoint));
+        auto scratch_var = left_state.snapshot_state();
+        auto scratch_rhs = left_rhs.snapshot_rhs();
+
+        CactusExplicitRKOperations scratch_operations{
+            scratch_var,
+            scratch_rhs,
+            [](const CCTK_REAL) {},
+            [](const int) {},
+            [&](const int) {
+              scratch_rhs.check_valid(
+                  CarpetX::make_valid_int(),
+                  "ODESolvers scratch RHS after certified execution");
+            },
+            [&](const int, const CCTK_REAL,
+                const CCTK_REAL destination_scale,
+                const LinearCombinationView<CCTK_REAL, statecomp_t>
+                    combination) {
+              statecomp_t::lincomb(scratch_var, destination_scale, combination,
+                                   CarpetX::make_valid_int());
+              scratch_var.check_valid(
+                  CarpetX::make_valid_int(),
+                  "ODESolvers after defining scratch state vector");
+            },
+            [&](statecomp_t &accumulator, const CCTK_REAL factor,
+                const statecomp_t &increment) {
+              statecomp_t::lincomb(accumulator, 1.0, reals<1>{factor},
+                                   states<1>{&increment},
+                                   CarpetX::make_valid_int());
+            }};
+        scratch_operations.stage_preparation_callback =
+            [&](const ExplicitRKStagePoint &stage_point,
+                const CCTK_REAL stage_time) {
+              *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = stage_time;
+              prepare_subcycling_stage(stage_point, stage_time, active_method,
+                                       method);
+            };
+        scratch_operations.stage_materialization_callback =
+            [&](statecomp_t &state,
+                const ExplicitRKStagePoint &, const CCTK_REAL) {
+              if (!state.is_scratch() ||
+                  &state.scratch().transaction() != active_transaction)
+                throw std::invalid_argument(
+                    "scratch stage materialization transaction owner differs");
+              active_transaction->restore_state(state.scratch().token());
+            };
+
+        using ScratchHooks =
+            CactusExplicitRKScratchHooks<CCTK_REAL, statecomp_t>;
+        ScratchHooks scratch_hooks;
+        scratch_hooks.restore_left =
+            [&](statecomp_t &destination_state,
+                statecomp_t &destination_rhs,
+                const statecomp_t &source_state,
+                const statecomp_t &source_rhs, const CCTK_REAL) {
+              if (!source_state.is_scratch() || !source_rhs.is_scratch() ||
+                  &source_state.scratch().transaction() != active_transaction ||
+                  &source_rhs.scratch().transaction() != active_transaction)
+                throw std::invalid_argument(
+                    "scratch restore_left transaction owner differs");
+              active_transaction->restore_left(source_state.scratch().token(),
+                                               source_rhs.scratch().token());
+              destination_state = source_state.snapshot_state();
+              destination_rhs = source_rhs.snapshot_rhs();
+            };
+        scratch_hooks.restore_state =
+            [&](statecomp_t &destination, const statecomp_t &source,
+                const CCTK_REAL) {
+              if (!source.is_scratch() ||
+                  &source.scratch().transaction() != active_transaction)
+                throw std::invalid_argument(
+                    "scratch restore_state transaction owner differs");
+              active_transaction->restore_state(source.scratch().token());
+              destination = source.snapshot_state();
+            };
+        scratch_hooks.post_step_after_update =
+            [&](statecomp_t &state,
+                const ExplicitRKStagePoint &stage_point,
+                const CCTK_REAL stage_time) {
+              active_transaction->post_step_after_update(
+                  *active_context,
+                  carpetx_stage_point(stage_point, stage_time));
+              state.replace_scratch(TransactionStateBackend::from_token(
+                  *active_transaction,
+                  active_transaction->capture_scratch_evolved()));
+            };
+        scratch_hooks.evaluate_rhs =
+            [&](statecomp_t &, statecomp_t &rhs_state, const int,
+                const ExplicitRKStagePoint &stage_point,
+                const CCTK_REAL stage_time) {
+              active_transaction->evaluate_rhs(
+                  *active_context,
+                  carpetx_stage_point(stage_point, stage_time));
+              rhs_state.replace_scratch(TransactionStateBackend::from_token(
+                  *active_transaction,
+                  active_transaction->capture_scratch_rhs()));
+            };
+        scratch_hooks.probe_endpoint_rhs =
+            [&](statecomp_t &, statecomp_t &rhs_state,
+                const ExplicitRKStagePoint &stage_point,
+                const CCTK_REAL stage_time) {
+              active_transaction->evaluate_rhs(
+                  *active_context,
+                  carpetx_stage_point(stage_point, stage_time));
+              rhs_state.replace_scratch(TransactionStateBackend::from_token(
+                  *active_transaction,
+                  active_transaction->capture_scratch_rhs()));
+              return rhs_state.snapshot_rhs();
+            };
+        scratch_hooks.rhs_evaluation_count =
+            [&] { return active_transaction->rhs_evaluation_count(); };
+        scratch_operations.scratch_hooks = &scratch_hooks;
+
+        auto samples = collect_reference_dense_samples(
+            explicit_method, old_time, dt, left_state, left_rhs,
+            accepted_endpoint, scratch_operations);
+        if (active_provider == nullptr)
+          throw std::logic_error(
+              "scratch dense output has no active ODE provider");
+        CarpetX::DenseOutputProvider provider(active_provider->dense);
+        std::vector<CarpetX::ScratchDenseSampleRef> sample_refs;
+        sample_refs.reserve(samples.size());
+        for (const auto &sample : samples.samples()) {
+          if (!sample.payload.is_scratch())
+            throw std::logic_error(
+                "reference dense sample escaped the scratch backend");
+          const auto kind =
+              sample.kind == CarpetX::DenseSampleKind::value
+                  ? CarpetX::ScratchDenseSampleKind::value
+                  : CarpetX::ScratchDenseSampleKind::raw_derivative;
+          sample_refs.push_back(
+              {sample.theta, kind, &sample.payload.scratch().token()});
         }
-        calcupdate(step, c * dt, 0.0, factors, srcs);
-        // TODO: Deallocate ks that are not needed any more
+        const CarpetX::DenseIntervalId interval_id{
+            active_context->level,
+            active_context->begin_clock,
+            active_context->end_clock,
+            active_context->begin_time,
+            active_context->end_time,
+            active_provider->dense.method,
+            active_provider->dense.tableau_fingerprint};
+        active_transaction->commit_dense(*active_context, provider,
+                                         interval_id, sample_refs);
       }
-
-      calcrhs(step + 1);
-      ks.push_back(copy_state(rhs, CarpetX::make_valid_int()));
+    } catch (const std::exception &error) {
+      if (active_transaction != nullptr &&
+          !active_transaction->discarded())
+        active_transaction->discard();
+      CCTK_VERROR("Explicit RK method \"%s\" failed: %s", method,
+                  error.what());
+    } catch (...) {
+      if (active_transaction != nullptr &&
+          !active_transaction->discarded())
+        active_transaction->discard();
+      CCTK_VERROR("Explicit RK method \"%s\" failed with an unknown exception",
+                  method);
     }
-
-    // Calculate new state vector
-    const auto &bs = std::get<1>(tableau);
-    std::vector<CCTK_REAL> factors;
-    std::vector<const statecomp_t *> srcs;
-    factors.reserve(bs.size() + 1);
-    srcs.reserve(bs.size() + 1);
-    factors.push_back(1);
-    srcs.push_back(&old);
-    for (std::size_t i = 0; i < bs.size(); ++i) {
-      if (bs.at(i) != 0) {
-        factors.push_back(bs.at(i) * dt);
-        srcs.push_back(&ks.at(i));
-      }
-    }
-    calcupdate(nsteps, dt, 0.0, factors, srcs);
 
   } else if (CCTK_EQUALS(method, "IMEX122") ||
              CCTK_EQUALS(method, "Implicit Euler")) {

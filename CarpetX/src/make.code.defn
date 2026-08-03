@@ -31,6 +31,8 @@ SRCS =							\
 	boundaries_impl_pos_pos_pos.cxx			\
 	driver.cxx					\
 	fillpatch.cxx					\
+	hierarchy_stepper.cxx				\
+	transaction_level_step_session.cxx		\
 	interpolate.cxx					\
 	io.cxx						\
 	io_adios2.cxx					\
@@ -54,6 +56,19 @@ SRCS =							\
 	prolongate_3d_rf2_impl_poly_eno3lfb.cxx		\
 	reduction.cxx					\
 	schedule.cxx					\
+	subcycling_dense_control_builder.cxx		\
+	subcycling_dense_output.cxx			\
+	subcycling_dense_mfab_state.cxx			\
+	subcycling_dense_stencil.cxx			\
+	subcycling_method_contract.cxx			\
+	subcycling_native_gate.cxx			\
+	subcycling_scratch_state.cxx			\
+	subcycling_scratch_adapter.cxx			\
+	subcycling_scratch_local_gh.cxx			\
+	subcycling_schedule_certification.cxx		\
+	subcycling_scratch_schedule_executor.cxx	\
+	subcycling_scratch_state_transaction.cxx	\
+	subcycling_step_context.cxx			\
 	task_manager.cxx				\
 	timer.cxx					\
 	valid.cxx

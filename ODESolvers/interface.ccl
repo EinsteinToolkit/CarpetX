@@ -3,6 +3,11 @@
 IMPLEMENTS: ODESolvers
 
 USES INCLUDE HEADER: div.hxx
+USES INCLUDE HEADER: subcycling_dense_output.hxx
+USES INCLUDE HEADER: subcycling_dense_stencil.hxx
+USES INCLUDE HEADER: subcycling_method_contract.hxx
+USES INCLUDE HEADER: subcycling_scratch_state_transaction.hxx
+USES INCLUDE HEADER: subcycling_step_context.hxx
 
 
 

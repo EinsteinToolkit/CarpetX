@@ -30,6 +30,7 @@
 #include <memory>
 #include <ostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -95,6 +96,48 @@ extern "C" CCTK_INT CarpetX_GetBoundarySizesAndTypes(
  */
 extern "C" CCTK_INT CarpetX_GetEpoch(void) {
   return carpetx_epoch.load(std::memory_order_relaxed);
+}
+
+std::uint64_t register_subcycling_method_contract(
+    const SubcyclingMethodContract &contract) {
+  if (ghext == nullptr)
+    throw std::logic_error(
+        "cannot register a subcycling method contract without a GHExt");
+  return ghext->subcycling_method_contracts.register_contract(contract);
+}
+
+std::uint64_t register_subcycling_group_schema(
+    const std::string_view provider_id,
+    const SubcyclingGroupSchema &group_schema) {
+  if (ghext == nullptr)
+    throw std::logic_error(
+        "cannot register a subcycling group schema without a GHExt");
+  return ghext->subcycling_method_contracts.register_group_schema(
+      provider_id, group_schema);
+}
+
+SubcyclingMethodContractSnapshot
+require_registered_subcycling_method_contract() {
+  if (ghext == nullptr)
+    throw std::logic_error(
+        "cannot read a subcycling method contract without a GHExt");
+  return ghext->subcycling_method_contracts.require_snapshot();
+}
+
+SubcyclingMethodContractSnapshot
+require_complete_registered_subcycling_method_contract() {
+  if (ghext == nullptr)
+    throw std::logic_error(
+        "cannot read a subcycling method contract without a GHExt");
+  return ghext->subcycling_method_contracts.require_complete_snapshot();
+}
+
+void validate_registered_subcycling_method_contract(
+    const SubcyclingMethodContractSnapshot &snapshot) {
+  if (ghext == nullptr)
+    throw std::logic_error(
+        "cannot validate a subcycling method contract without a GHExt");
+  ghext->subcycling_method_contracts.validate_snapshot(snapshot);
 }
 
 // Local functions

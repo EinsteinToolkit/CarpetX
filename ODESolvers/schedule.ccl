@@ -10,6 +10,12 @@ SCHEDULE ODESolvers_InitConstants AT WRAGH
   WRITES: do_substeps
 } "Set up dummy loop counters for schedule printout"
 
+SCHEDULE ODESolvers_RegisterSubcyclingMethodContract AT PARAMCHECK
+{
+  LANG: C
+  OPTIONS: global
+} "Register the frozen ODE method contract for CarpetX subcycling"
+
 SCHEDULE ODESolvers_Solve AT evol
 {
   LANG: C
@@ -217,3 +223,9 @@ SCHEDULE ODESolvers_Solve AT evol
   SCHEDULE GROUP ODESolvers_Analysis AT analysis
   {
   } "Calculate analysis quantities everywhere"
+
+SCHEDULE ODESolvers_UnregisterSubcyclingMethodSteeringGuard AT CCTK_SHUTDOWN
+{
+  LANG: C
+  OPTIONS: global
+} "Release the ODE method steering guard"

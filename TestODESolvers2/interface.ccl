@@ -3,10 +3,13 @@
 IMPLEMENTS: TestODESolvers2
 
 USES INCLUDE HEADER: loop.hxx
+USES INCLUDE HEADER: subcycling_native_gate.hxx
 
-CCTK_REAL state TYPE=gf CENTERING={ccc} TAGS='rhs="rhs"' { time poly exp1 exp2 } "State"
+CCTK_REAL state TYPE=gf CENTERING={ccc} TAGS='rhs="TestODESolvers2::rhs" dependents="TestODESolvers2::gate_dependent"' { time poly exp1 exp2 } "State"
 
 CCTK_REAL rhs TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' { time_rhs poly_rhs exp1_rhs exp2_rhs } "RHS"
+
+CCTK_REAL gate_dependent TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' { time_dep poly_dep exp1_dep exp2_dep } "Native gate PostStep dependent"
 
 CCTK_REAL error TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' { time_err poly_err } "Error"
 

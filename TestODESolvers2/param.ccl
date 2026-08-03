@@ -4,3 +4,11 @@ CCTK_INT porder "Order of polynomial"
 {
   0:* :: ""
 } 2
+
+BOOLEAN native_subcycling_gate "Run the bounded CarpetX native subcycling gate"
+{
+} "no"
+
+SHARES: Cactus
+
+USES CCTK_INT cctk_itlast
