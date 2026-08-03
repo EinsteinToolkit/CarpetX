@@ -12,6 +12,7 @@
 #include "cactus_explicit_rk_operations.hxx"
 #include "explicit_rk.hxx"
 #include "explicit_rk_dense_provider.hxx"
+#include "subcycling_group_schema_builder.hxx"
 #include "subcycling_ode_provider_registry.hxx"
 #include "subcycling_transaction_bridge.hxx"
 #include <subcycling_dense_output.hxx>
@@ -29,9 +30,7 @@ static inline int omp_get_max_threads() { return 1; }
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cctype>
 #include <cmath>
-#include <cstring>
 #include <exception>
 #include <functional>
 #include <limits>
@@ -714,103 +713,6 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-int groupindex(const int other_gi, std::string gn) {
-  // If the group name does not contain a colon, then prefix the current group's
-  // implementation or thorn name
-  if (gn.find(':') == std::string::npos) {
-    const char *const thorn_or_impl = CCTK_GroupImplementationI(other_gi);
-    assert(thorn_or_impl);
-    const char *const impl = CCTK_ThornImplementation(thorn_or_impl);
-    const char *const thorn = CCTK_ImplementationThorn(thorn_or_impl);
-    assert(impl || thorn);
-    const char *prefix;
-    if (!impl) {
-      prefix = thorn;
-    } else if (!thorn) {
-      prefix = impl;
-    } else {
-      assert(strcmp(impl, thorn) == 0);
-      prefix = impl;
-    }
-    std::ostringstream buf;
-    buf << prefix << "::" + gn;
-    gn = buf.str();
-  }
-  const int gi = CCTK_GroupIndex(gn.c_str());
-  return gi;
-}
-
-int get_group_rhs(const int gi) {
-  assert(gi >= 0);
-  const int tags = CCTK_GroupTagsTableI(gi);
-  assert(tags >= 0);
-  std::vector<char> rhs_buf(1000);
-  const int iret =
-      Util_TableGetString(tags, rhs_buf.size(), rhs_buf.data(), "rhs");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    rhs_buf[0] = '\0'; // default: empty (no RHS)
-  } else if (iret >= 0) {
-    // do nothing
-  } else {
-    assert(0);
-  }
-
-  const std::string str(rhs_buf.data());
-  if (str.empty())
-    return -1; // No RHS specified
-
-  const int rhs = groupindex(gi, str);
-  if (rhs < 0)
-    CCTK_VERROR("Variable group \"%s\" declares a RHS group \"%s\". "
-                "That group does not exist.",
-                CCTK_FullGroupName(gi), str.c_str());
-  assert(rhs != gi);
-
-  return rhs;
-}
-
-std::vector<int> get_group_dependents(const int gi) {
-  assert(gi >= 0);
-  const int tags = CCTK_GroupTagsTableI(gi);
-  assert(tags >= 0);
-  std::vector<char> dependents_buf(1000);
-  const int iret = Util_TableGetString(tags, dependents_buf.size(),
-                                       dependents_buf.data(), "dependents");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    dependents_buf[0] = '\0'; // default: empty (no DEPENDENTS)
-  } else if (iret >= 0) {
-    // do nothing
-  } else {
-    assert(0);
-  }
-
-  std::vector<int> dependents;
-  const std::string str(dependents_buf.data());
-  std::size_t pos = 0;
-  for (;;) {
-    // Skip white space
-    while (pos < str.size() && std::isspace(str[pos]))
-      ++pos;
-    if (pos == str.size())
-      break;
-    // Read group name
-    const std::size_t group_begin = pos;
-    while (pos < str.size() && !std::isspace(str[pos]))
-      ++pos;
-    const std::size_t group_end = pos;
-    const std::string groupname =
-        str.substr(group_begin, group_end - group_begin);
-    const int dep_gi = groupindex(gi, groupname);
-    if (dep_gi < 0)
-      CCTK_VERROR("Variable group \"%s\" declares a dependent group \"%s\". "
-                  "That group does not exist.",
-                  CCTK_FullGroupName(gi), groupname.c_str());
-    dependents.push_back(dep_gi);
-  }
-
-  return dependents;
-}
-
 // Mark groups as invalid
 void mark_invalid(const std::vector<int> &groups) {
   CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
@@ -957,40 +859,38 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   static CarpetX::Timer timer_setup("ODESolvers::Solve::setup");
   std::optional<CarpetX::Interval> interval_setup(timer_setup);
 
+  GroupSchemaBuild group_schema;
+  try {
+    group_schema =
+        build_cactus_group_schema(carpetx_subcycling_enabled());
+  } catch (const std::exception &error) {
+    CCTK_VERROR("ODE evolved/RHS group schema construction failed: %s",
+                error.what());
+  } catch (...) {
+    CCTK_ERROR("ODE evolved/RHS group schema construction failed with an "
+               "unknown exception");
+  }
+
   statecomp_t var, rhs;
-  std::vector<int> var_groups, rhs_groups, dep_groups;
-  std::vector<CarpetX::ScratchGroupPair> ordered_group_pairs;
-  int nvars = 0;
-  bool do_accumulate_nvars = true;
+  const auto &ordered_group_pairs =
+      group_schema.contract.ordered_group_pairs;
+  const auto &var_groups = group_schema.evolved_groups;
+  const auto &rhs_groups = group_schema.rhs_groups;
+  const auto &dep_groups = group_schema.contract.dependent_groups;
+  const int nvars = group_schema.evolved_variable_count;
   assert(CarpetX::active_levels);
   CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
-    for (const auto &groupdataptr : leveldata.groupdata) {
-      // TODO: add support for evolving grid scalars
-      if (groupdataptr == nullptr)
-        continue;
-
-      auto &groupdata = *groupdataptr;
-      const int rhs_gi = get_group_rhs(groupdata.groupindex);
-      if (rhs_gi >= 0) {
-        assert(rhs_gi != groupdata.groupindex);
-        auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
-        assert(rhs_groupdata.numvars == groupdata.numvars);
-        var.groupdatas.push_back(&groupdata);
-        var.mfabs.push_back(groupdata.mfab.at(tl).get());
-        rhs.groupdatas.push_back(&rhs_groupdata);
-        rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
-        if (do_accumulate_nvars) {
-          nvars += groupdata.numvars;
-          var_groups.push_back(groupdata.groupindex);
-          rhs_groups.push_back(rhs_gi);
-          ordered_group_pairs.push_back({groupdata.groupindex, rhs_gi});
-          const auto &dependents = get_group_dependents(groupdata.groupindex);
-          dep_groups.insert(dep_groups.end(), dependents.begin(),
-                            dependents.end());
-        }
-      }
+    for (const auto &pair : ordered_group_pairs) {
+      auto &groupdata = *leveldata.groupdata.at(pair.evolved_group);
+      auto &rhs_groupdata = *leveldata.groupdata.at(pair.rhs_group);
+      assert(groupdata.groupindex == pair.evolved_group);
+      assert(rhs_groupdata.groupindex == pair.rhs_group);
+      assert(rhs_groupdata.numvars == groupdata.numvars);
+      var.groupdatas.push_back(&groupdata);
+      var.mfabs.push_back(groupdata.mfab.at(tl).get());
+      rhs.groupdatas.push_back(&rhs_groupdata);
+      rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
     }
-    do_accumulate_nvars = false;
   });
   if (verbose)
     CCTK_VINFO("  Integrating %d variables", nvars);
@@ -1010,27 +910,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
               ordered_group_pairs[pair].evolved_group &&
           certified_pairs[pair].rhs_group ==
               ordered_group_pairs[pair].rhs_group;
-  }
-
-  {
-    std::sort(var_groups.begin(), var_groups.end());
-    const auto last = std::unique(var_groups.begin(), var_groups.end());
-    assert(last == var_groups.end());
-  }
-
-  {
-    std::sort(rhs_groups.begin(), rhs_groups.end());
-    const auto last = std::unique(rhs_groups.begin(), rhs_groups.end());
-    assert(last == rhs_groups.end());
-  }
-
-  // Add RHS variables to dependent variables
-  dep_groups.insert(dep_groups.end(), rhs_groups.begin(), rhs_groups.end());
-
-  {
-    std::sort(dep_groups.begin(), dep_groups.end());
-    const auto last = std::unique(dep_groups.begin(), dep_groups.end());
-    dep_groups.erase(last, dep_groups.end());
   }
 
   const bool scratch_dependent_groups_match =

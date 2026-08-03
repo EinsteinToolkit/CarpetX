@@ -62,12 +62,16 @@ SRCS =							\
 	subcycling_dense_stencil.cxx			\
 	subcycling_method_contract.cxx			\
 	subcycling_native_gate.cxx			\
+	subcycling_runtime_clock.cxx			\
 	subcycling_scratch_state.cxx			\
 	subcycling_scratch_adapter.cxx			\
 	subcycling_scratch_local_gh.cxx			\
 	subcycling_schedule_certification.cxx		\
 	subcycling_scratch_schedule_executor.cxx	\
 	subcycling_scratch_state_transaction.cxx	\
+	subcycling_stage_spatial_preparer.cxx		\
+	subcycling_stage_spatial_preparer_native.cxx	\
+	subcycling_static_v1_top_adapter.cxx		\
 	subcycling_step_context.cxx			\
 	task_manager.cxx				\
 	timer.cxx					\

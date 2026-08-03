@@ -1,7 +1,9 @@
 # Main make.code.defn file for thorn ODESolvers
 
 # Source files in this directory
-SRCS = explicit_rk.cxx subcycling_method_contract_schedule.cxx \
+SRCS = explicit_rk.cxx subcycling_group_schema_builder.cxx \
+       subcycling_group_schema_cactus.cxx \
+       subcycling_method_contract_schedule.cxx \
        subcycling_ode_provider_registry.cxx solve.cxx
 
 # Subdirectories containing source files

@@ -659,6 +659,22 @@ void write_native_gate_inventory(cGH *const cctkGH,
   write_expectation(path, *observed.expectation);
 }
 
+std::unique_ptr<CertifiedLocalScheduleRegistry>
+load_certified_local_schedule_registry() {
+  auto expected = load_expectation(expectation_path());
+  auto observed_provenance = expected.provenance;
+  observed_provenance.executable_sha256 = current_executable_sha256();
+  auto certification =
+      certify_local_subcycling_schedules(expected, observed_provenance);
+  if (!certification) {
+    if (!certification.failure)
+      throw std::runtime_error(
+          "local schedule certification failed without detail");
+    certification_failure(*certification.failure);
+  }
+  return std::move(certification.registry);
+}
+
 NativeGateSession begin_native_gate(cGH *const cctkGH,
                                     const int cctk_itlast) {
   if (cctkGH == nullptr || cctk_itlast != 3 || CCTK_nProcs(cctkGH) != 1)
@@ -679,17 +695,7 @@ NativeGateSession begin_native_gate(cGH *const cctkGH,
   if (patch_cctkGH == nullptr)
     throw std::invalid_argument("native gate patch GH is absent");
 
-  auto expected = load_expectation(expectation_path());
-  auto observed_provenance = expected.provenance;
-  observed_provenance.executable_sha256 = current_executable_sha256();
-  auto certification =
-      certify_local_subcycling_schedules(expected, observed_provenance);
-  if (!certification) {
-    if (!certification.failure)
-      throw std::runtime_error(
-          "native gate certification failed without detail");
-    certification_failure(*certification.failure);
-  }
+  auto registry = load_certified_local_schedule_registry();
 
   const auto contract =
       native_gate_method_contract(patch_cctkGH->cctk_iteration);
@@ -725,11 +731,9 @@ NativeGateSession begin_native_gate(cGH *const cctkGH,
       {}};
   auto frame = copy_canonical_tl0_collective(*ghext, 0, 0);
   auto transaction = ScratchStateTransactionFactory::create_native(
-      *ghext, *certification.registry, std::move(frame),
-      std::move(metadata));
+      *ghext, *registry, std::move(frame), std::move(metadata));
   return NativeGateSession(std::make_unique<NativeGateSession::Storage>(
-      contract, context, std::move(certification.registry),
-      std::move(transaction)));
+      contract, context, std::move(registry), std::move(transaction)));
 }
 
 NativeGateReceipt end_native_gate(NativeGateSession &&session) {

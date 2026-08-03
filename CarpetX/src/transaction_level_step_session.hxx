@@ -51,7 +51,6 @@ private:
   bool require_dense_{false};
   TransactionLevelEvolution evolution_;
   ValidatedLevelCommit validated_commit_;
-  ScratchStateToken primary_left_;
   Lifecycle lifecycle_{Lifecycle::ready};
 };
 

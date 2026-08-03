@@ -4,6 +4,7 @@
 #include "loop.hxx"
 #include "schedule.hxx"
 #include "subcycling_schedule_state.hxx"
+#include "subcycling_static_v1_top_adapter.hxx"
 #include "task_manager.hxx"
 #include "timer.hxx"
 #include "valid.hxx"
@@ -39,6 +40,7 @@ static inline int omp_in_parallel() { return 0; }
 #include <map>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -897,6 +899,10 @@ void update_cctkGHs(cGH *restrict const cctkGH) {
   }
 }
 
+void ScheduleInternal::propagate_root_runtime_metadata(cGH &root) noexcept {
+  update_cctkGHs(&root);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 extern "C" void CarpetX_GetLoopBoxAll(const void *restrict const cctkGH_,
@@ -1430,6 +1436,11 @@ bool EvolutionIsDone(cGH *restrict const cctkGH) {
   return we_are_done;
 }
 
+bool ScheduleInternal::evolution_is_done_at_sync(
+    cGH *restrict const cctkGH) {
+  return EvolutionIsDone(cctkGH);
+}
+
 void InvalidateTimelevels(cGH *restrict const cctkGH) {
   DECLARE_CCTK_PARAMETERS;
 
@@ -1616,9 +1627,32 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
                        ScheduleInternal::TimelevelDomain::legacy_all);
 }
 
+void ScheduleInternal::cycle_active_level_grid_function_timelevels(
+    cGH *restrict const cctkGH) {
+  static Timer timer("CycleActiveLevelGridFunctionTimelevels");
+  Interval interval(timer);
+  if (!active_levels)
+    throw std::logic_error(
+        "active-level GF timelevel rotation requires an active level scope");
+  CycleTimelevelGroups(
+      cctkGH, ScheduleInternal::TimelevelDomain::level_grid_functions);
+}
+
+void ScheduleInternal::cycle_synchronized_global_timelevels(
+    cGH *restrict const cctkGH) {
+  static Timer timer("CycleSynchronizedGlobalTimelevels");
+  Interval interval(timer);
+  CycleTimelevelGroups(cctkGH,
+                       ScheduleInternal::TimelevelDomain::synchronized_globals);
+}
+
 // Schedule evolution
 int Evolve(tFleshConfig *config) {
   DECLARE_CCTK_PARAMETERS;
+
+  if (select_static_v1_evolve_path(use_subcycling_wip) ==
+      StaticV1EvolvePath::static_v1)
+    return EvolveStaticV1(config);
 
   static Timer timer("Evolve");
   Interval interval(timer);
@@ -2874,6 +2908,29 @@ void Restrict(const cGH *cctkGH, int level) {
     }
   }
   Restrict(cctkGH, level, groups);
+}
+
+void ScheduleInternal::restrict_and_sync_static_v1_evolved_groups(
+    cGH *const cctkGH,
+    const std::vector<int> &restricted_evolved_groups) {
+  if (cctkGH == nullptr || !in_global_mode(cctkGH))
+    throw std::invalid_argument(
+        "static-v1 restriction requires the root GH in global mode");
+  // Child evolution may have launched asynchronous device work. The static-v1
+  // synchronization point owns the wait before touching either level.
+  synchronize();
+  Restrict(cctkGH, 0, restricted_evolved_groups);
+
+  ScopedActiveLevels<active_levels_t> coarse_scope(
+      active_levels, active_levels_t(0, 1, 0, 1));
+  if (!restricted_evolved_groups.empty()) {
+    const int status = SyncGroupsByDirI(
+        cctkGH, static_cast<int>(restricted_evolved_groups.size()),
+        restricted_evolved_groups.data(), nullptr);
+    if (status != static_cast<int>(restricted_evolved_groups.size()))
+      throw std::runtime_error(
+          "static-v1 coarse evolved-group synchronization failed");
+  }
 }
 
 // storage handling

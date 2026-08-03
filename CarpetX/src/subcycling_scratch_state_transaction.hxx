@@ -93,6 +93,13 @@ public:
                    ScratchStateRegion region) const;
   void set_state_valid(ScratchStateToken &state, ScratchStateRegion region,
                        bool valid);
+  // A level-step session arms one private pre-primary snapshot. Fault/discard
+  // keeps it alive; successful commit must disarm it explicitly.
+  void arm_live_evolved_rollback();
+  void disarm_live_evolved_rollback() noexcept;
+  // Terminally restores the armed snapshot without executing any schedule.
+  // This remains available after transaction fault/discard.
+  void rollback_live_evolved();
   // Terminal failure recovery for a captured primary-step left state. This
   // restores live TL0 in place and never executes PostStep or RHS schedules.
   void rollback_live_evolved(const ScratchStateToken &state);

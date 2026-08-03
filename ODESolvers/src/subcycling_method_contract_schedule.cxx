@@ -1,8 +1,8 @@
 #include "subcycling_method_contract_registration.hxx"
+#include "subcycling_group_schema_builder.hxx"
 
 #include <cctk.h>
 #include <cctk_Arguments.h>
-#include <cctk_Parameter.h>
 #include <cctk_Parameters.h>
 
 #include <subcycling_method_contract.hxx>
@@ -16,15 +16,6 @@ namespace {
 constexpr const char *steering_guard_name =
     "ODESolvers_SUBCYCLING_METHOD_STEERING_GUARD";
 bool steering_guard_registered = false;
-
-bool carpetx_subcycling_enabled() {
-  const auto *const enabled = static_cast<const CCTK_INT *>(
-      CCTK_ParameterGet("use_subcycling_wip", "CarpetX", nullptr));
-  if (enabled == nullptr)
-    throw std::logic_error(
-        "CarpetX::use_subcycling_wip parameter is unavailable");
-  return *enabled != 0;
-}
 
 void method_steering_callback(void *, const char *, const char *,
                               const char *const new_value) {
@@ -54,10 +45,17 @@ ODESolvers_RegisterSubcyclingMethodContract(CCTK_ARGUMENTS) {
     const bool enabled = ODESolvers::carpetx_subcycling_enabled();
     const auto contract =
         ODESolvers::make_subcycling_method_contract(enabled, method);
-    if (!contract)
+    const auto group_schema =
+        ODESolvers::maybe_build_cactus_subcycling_group_schema(enabled);
+    if (contract.has_value() != group_schema.has_value())
+      throw std::logic_error(
+          "method and group-schema handoff activation differ");
+    if (!contract || !group_schema)
       return;
 
     CarpetX::register_subcycling_method_contract(*contract);
+    CarpetX::register_subcycling_group_schema(
+        contract->provider_id, group_schema->contract);
     if (!ODESolvers::steering_guard_registered) {
       const int status = CCTK_ParameterSetNotifyRegister(
           ODESolvers::method_steering_callback, nullptr,

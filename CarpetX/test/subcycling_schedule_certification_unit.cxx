@@ -1325,6 +1325,30 @@ void test_if_while_storage_communication_sync_and_trigger_reject() {
   }
 }
 
+void test_wavetoy_global_sync_is_explicitly_rejected() {
+  fake::setup_valid();
+  auto &function =
+      fake::inventory["ODESolvers_RHS"].records.front()->function;
+  function.thorn = "WaveToyX";
+  function.routine = "WaveToyX_Boundaries";
+  function.sync_groups = {0};
+  function.data.global = 1;
+  function.refresh();
+
+  const auto result = certify(valid_expectation());
+  check_failure(
+      result, CarpetX::ScheduleCertificationErrorCode::unsupported_metadata);
+  CHECK(result.failure->target ==
+        CarpetX::SubcyclingScheduleTarget::rhs);
+  CHECK(result.failure->traversal_ordinal == 0);
+  CHECK(result.failure->field == "record.item.execution_mode");
+  CHECK(result.failure->detail ==
+        "only default-local or explicit local is supported");
+  CHECK(result.registry == nullptr);
+  CHECK(fake::poison_invocation_count == 0);
+  CHECK(fake::live_cloned_table_count == 0);
+}
+
 void test_raw_and_normalized_access_contradiction_rejects() {
   for (int which = 0; which < 2; ++which) {
     if (which != 0)
@@ -1579,6 +1603,8 @@ int main() {
        test_nonlocal_early_late_singlemap_and_loop_modes_reject},
       {"if while storage communication sync and trigger reject",
        test_if_while_storage_communication_sync_and_trigger_reject},
+      {"WaveToyX global SYNC is explicitly rejected",
+       test_wavetoy_global_sync_is_explicitly_rejected},
       {"raw and normalized access contradiction rejects",
        test_raw_and_normalized_access_contradiction_rejects},
       {"extra missing reordered or changed manifest rejects",

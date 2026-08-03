@@ -19,7 +19,7 @@ TransactionLevelStepSession::TransactionLevelStepSession(
   if (!evolution_)
     throw std::invalid_argument(
         "transaction level session requires an evolution callback");
-  primary_left_ = transaction_->capture_live_evolved();
+  transaction_->arm_live_evolved_rollback();
 }
 
 TransactionLevelStepSession::~TransactionLevelStepSession() noexcept {
@@ -84,6 +84,7 @@ void TransactionLevelStepSession::commit() {
     if (transaction_->faulted() || transaction_->discarded())
       throw std::logic_error(
           "accepted metadata callback left its transaction unavailable");
+    transaction_->disarm_live_evolved_rollback();
     transaction_->discard();
     lifecycle_ = Lifecycle::committed;
     transaction_.reset();
@@ -97,10 +98,10 @@ void TransactionLevelStepSession::rollback_or_terminate() noexcept {
   if (lifecycle_ == Lifecycle::committed ||
       lifecycle_ == Lifecycle::rolled_back)
     return;
-  if (transaction_ == nullptr || !primary_left_.valid())
+  if (transaction_ == nullptr)
     std::terminate();
   try {
-    transaction_->rollback_live_evolved(primary_left_);
+    transaction_->rollback_live_evolved();
     lifecycle_ = Lifecycle::rolled_back;
   } catch (...) {
     std::terminate();

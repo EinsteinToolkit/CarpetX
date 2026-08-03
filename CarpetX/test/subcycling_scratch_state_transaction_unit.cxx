@@ -953,6 +953,113 @@ void test_transaction_level_session_rolls_back_evolution_or_commit_failure() {
   }
 }
 
+void test_transaction_level_session_rolls_back_terminal_transaction_failures() {
+  const auto exercise_schedule_failure =
+      [](const ScratchSchedulePhase failing_phase, const double poison) {
+        Fixture fixture;
+        std::vector<ExactSourceSnapshot> expected;
+        for (const auto *const source : fixture.entries)
+          expected.push_back(exact_snapshot(*source));
+        int schedule_calls = 0;
+        const StepContext context{0, step_clock_t(3, 2), step_clock_t(2, 1),
+                                  1.5, 2.0, SubcyclingODEMethod::rk4};
+        const StagePoint stage{StageKind::fractional, 2, 4,
+                               step_clock_t(1, 2), 1.75};
+        TransactionLevelStepSession session(
+            make_transaction(
+                fixture,
+                [&](const ScratchSchedulePhase phase, const StepContext &,
+                    const ScratchStageCoordinates &)
+                    -> ScratchScheduleExecutionReceipt {
+                  ++schedule_calls;
+                  if (phase == failing_phase)
+                    throw std::runtime_error("injected scratch schedule failure");
+                  return {phase, 1, 1};
+                }),
+            false,
+            [&](ScratchStateTransaction &active) {
+              overwrite_live(fixture, poison);
+              if (failing_phase == ScratchSchedulePhase::post_step)
+                active.post_step_after_update(context, stage);
+              else
+                active.evaluate_rhs(context, stage);
+            });
+        NoopSessionPreparer preparer;
+        {
+          ScopedStepContext scope(context, preparer, session.transaction());
+          expect_throw<std::runtime_error>([&] { session.advance(); });
+        }
+        assert(schedule_calls == 1);
+        assert(session.transaction() == nullptr);
+        for (std::size_t entry = 0; entry < fixture.entries.size(); ++entry)
+          assert_exact_snapshot(*fixture.entries[entry], expected[entry]);
+      };
+
+  exercise_schedule_failure(ScratchSchedulePhase::post_step, -11100.0);
+  exercise_schedule_failure(ScratchSchedulePhase::rhs, -11200.0);
+
+  Fixture fixture;
+  std::vector<ExactSourceSnapshot> expected;
+  for (const auto *const source : fixture.entries)
+    expected.push_back(exact_snapshot(*source));
+  TransactionLevelStepSession session(
+      make_transaction(fixture), false,
+      [&](ScratchStateTransaction &active) {
+        overwrite_live(fixture, -11300.0);
+        active.discard();
+        throw std::runtime_error("injected solver discard");
+      });
+  expect_throw<std::runtime_error>([&] { session.advance(); });
+  assert(session.transaction() == nullptr);
+  for (std::size_t entry = 0; entry < fixture.entries.size(); ++entry)
+    assert_exact_snapshot(*fixture.entries[entry], expected[entry]);
+}
+
+void test_armed_live_rollback_disarms_and_fails_closed_on_stale_epoch() {
+  {
+    Fixture fixture;
+    auto transaction = make_transaction(fixture);
+    transaction->arm_live_evolved_rollback();
+    overwrite_live(fixture, 11400.0);
+    std::vector<ExactSourceSnapshot> accepted;
+    for (const auto *const source : fixture.entries)
+      accepted.push_back(exact_snapshot(*source));
+
+    transaction->disarm_live_evolved_rollback();
+    transaction->discard();
+    expect_throw<std::logic_error>(
+        [&] { transaction->rollback_live_evolved(); });
+    for (std::size_t entry = 0; entry < fixture.entries.size(); ++entry)
+      assert_exact_snapshot(*fixture.entries[entry], accepted[entry]);
+    assert(transaction->discarded());
+    assert(!transaction->faulted());
+  }
+
+  {
+    Fixture fixture;
+    auto transaction = make_transaction(fixture);
+    transaction->arm_live_evolved_rollback();
+    overwrite_live(fixture, -11500.0);
+    std::vector<ExactSourceSnapshot> still_mutated;
+    for (const auto *const source : fixture.entries)
+      still_mutated.push_back(exact_snapshot(*source));
+    fixture.observed_epoch = 8;
+
+    expect_throw<std::runtime_error>(
+        [&] { transaction->rollback_live_evolved(); });
+    for (std::size_t entry = 0; entry < fixture.entries.size(); ++entry)
+      assert_exact_snapshot(*fixture.entries[entry], still_mutated[entry]);
+    assert(transaction->faulted());
+    assert(transaction->discarded());
+
+    fixture.observed_epoch = 7;
+    expect_throw<std::logic_error>(
+        [&] { transaction->rollback_live_evolved(); });
+    for (std::size_t entry = 0; entry < fixture.entries.size(); ++entry)
+      assert_exact_snapshot(*fixture.entries[entry], still_mutated[entry]);
+  }
+}
+
 void test_uncommitted_transaction_level_session_destructor_rolls_back() {
   Fixture fixture;
   std::vector<ExactSourceSnapshot> expected;
@@ -1396,6 +1503,8 @@ int main() {
   test_level_one_factory_and_context_mismatches_fail_closed();
   test_transaction_level_session_accepts_dense_and_nondense_endpoints();
   test_transaction_level_session_rolls_back_evolution_or_commit_failure();
+  test_transaction_level_session_rolls_back_terminal_transaction_failures();
+  test_armed_live_rollback_disarms_and_fails_closed_on_stale_epoch();
   test_uncommitted_transaction_level_session_destructor_rolls_back();
   test_dense_commit_is_atomic_and_uses_phase7_builder();
   test_dense_commit_rejects_unrelated_interval_identity();

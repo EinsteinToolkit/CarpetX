@@ -10,6 +10,8 @@
 
 namespace CarpetX {
 
+class CertifiedLocalScheduleRegistry;
+
 struct NativeGateMethodContract {
   SubcyclingODEMethod method;
   const char *ode_parameter_value;
@@ -73,6 +75,12 @@ struct NativeGateReceipt {
 // Inventory mode is deliberately non-promoting. The path and build provenance
 // are supplied through CARPETX_NATIVE_GATE_EXPECTATION.
 void write_native_gate_inventory(cGH *cctkGH, int cctk_itlast);
+
+// Load the same immutable expectation used by the native gate, bind its
+// provenance to the current executable, and fail closed unless both the
+// provenance and local schedules certify exactly.
+[[nodiscard]] std::unique_ptr<CertifiedLocalScheduleRegistry>
+load_certified_local_schedule_registry();
 
 // Native mode consumes the frozen inventory, creates the certified transaction
 // and installs the StepContext for the immediately following ODESolvers call.

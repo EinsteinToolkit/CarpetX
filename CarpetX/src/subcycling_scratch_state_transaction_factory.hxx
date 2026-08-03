@@ -16,6 +16,7 @@ namespace CarpetX {
 
 class CertifiedLocalScheduleRegistry;
 class GHExt;
+class TwoLevelStageSpatialNativeBackend;
 
 using ScratchLiveEntryRestorer = std::function<void(
     const amrex::MultiFab &, const std::vector<ScratchValidity> &)>;
@@ -85,6 +86,24 @@ public:
       const ScratchStateTransaction &transaction,
       const ScratchStateToken &source);
 #endif
+
+private:
+  // Raw transaction storage is deliberately available only to the native
+  // driver-owned stage-spatial backend. It is never part of the public
+  // ScratchStateTransaction API.
+  struct StageSpatialAccess {
+    ScratchLevelFrame *working_frame;
+    std::vector<ScratchLiveEntrySnapshot> live_entries;
+    std::int64_t hierarchy_epoch;
+    int level;
+    int time_refinement_factor;
+  };
+
+  static StageSpatialAccess
+  stage_spatial_access(ScratchStateTransaction &transaction);
+  static void fault_stage_spatial_preparation(
+      ScratchStateTransaction &transaction) noexcept;
+  friend class TwoLevelStageSpatialNativeBackend;
 };
 
 } // namespace CarpetX

@@ -92,6 +92,19 @@ public:
 // TODO: Move this into ghext
 extern std::optional<active_levels_t> active_levels;
 
+namespace ScheduleInternal {
+
+// Narrow subcycling hooks around schedule-owned state. They deliberately do
+// not expose the underlying GH inventory or generic timelevel dispatcher.
+void propagate_root_runtime_metadata(cGH &root) noexcept;
+bool evolution_is_done_at_sync(cGH *cctkGH);
+void cycle_active_level_grid_function_timelevels(cGH *cctkGH);
+void cycle_synchronized_global_timelevels(cGH *cctkGH);
+void restrict_and_sync_static_v1_evolved_groups(
+    cGH *cctkGH, const std::vector<int> &restricted_evolved_groups);
+
+} // namespace ScheduleInternal
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Like an MFIter, but does not support iteration, instead it can be copied

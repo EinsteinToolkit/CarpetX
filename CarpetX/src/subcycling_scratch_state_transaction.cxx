@@ -162,6 +162,7 @@ struct ScratchStateTransaction::Storage {
   bool discarded{false};
   bool dense_committed_once{false};
   std::shared_ptr<const DenseInterval> committed_dense;
+  std::optional<ScratchLevelFrame> armed_live_evolved_rollback;
 
   // Declaration order is intentional: executor is destroyed before the
   // binding whose lease it owns.
@@ -191,6 +192,8 @@ struct ScratchStateTransaction::Storage {
     states.clear();
     committed_dense.reset();
     release_execution_storage();
+    // The session rollback snapshot is independent of disposable execution
+    // state and remains armed until commit disarms or rollback consumes it.
   }
 };
 
@@ -208,6 +211,9 @@ public:
                                          ScratchLevelFrame);
   static std::vector<ScratchLiveEntrySnapshot>
   read_and_validate_live(ScratchStateTransaction::Storage &);
+  static std::vector<ScratchLiveEntrySnapshot>
+  read_and_validate_live_against(ScratchStateTransaction::Storage &,
+                                 const ScratchLevelFrame &);
   static ScratchLevelFrame capture_live_frame(
       ScratchStateTransaction::Storage &, ScratchStateKind);
   static ScratchLevelFrame capture_working_frame(
@@ -279,13 +285,14 @@ ScratchStateToken ScratchStateTransactionCore::publish_state(
 }
 
 std::vector<ScratchLiveEntrySnapshot>
-ScratchStateTransactionCore::read_and_validate_live(
-    ScratchStateTransaction::Storage &storage) {
-  require_available(storage);
+ScratchStateTransactionCore::read_and_validate_live_against(
+    ScratchStateTransaction::Storage &storage,
+    const ScratchLevelFrame &reference) {
   if (!storage.epoch_reader ||
       storage.epoch_reader() != storage.hierarchy_epoch)
     throw std::runtime_error("scratch live hierarchy epoch changed");
-  if (storage.live_readers.size() != storage.expected_live.size())
+  if (storage.live_readers.size() != storage.expected_live.size() ||
+      reference.entry_count() != storage.expected_live.size())
     throw std::runtime_error("scratch live reader schema changed");
 
   std::vector<ScratchLiveEntrySnapshot> snapshots;
@@ -306,14 +313,19 @@ ScratchStateTransactionCore::read_and_validate_live(
         !observed.grid_function_real || !observed.restore ||
         observed.multifab == nullptr ||
         !observed.multifab->isDefined() ||
-        !same_layout(*observed.multifab,
-                     storage.working_frame->multifab(entry)) ||
-        observed.validity.size() !=
-            storage.working_frame->validity(entry).size())
+        !same_layout(*observed.multifab, reference.multifab(entry)) ||
+        observed.validity.size() != reference.validity(entry).size())
       throw std::runtime_error("scratch live identity or schema changed");
     snapshots.push_back(observed);
   }
   return snapshots;
+}
+
+std::vector<ScratchLiveEntrySnapshot>
+ScratchStateTransactionCore::read_and_validate_live(
+    ScratchStateTransaction::Storage &storage) {
+  require_available(storage);
+  return read_and_validate_live_against(storage, *storage.working_frame);
 }
 
 ScratchLevelFrame ScratchStateTransactionCore::capture_live_frame(
@@ -645,6 +657,60 @@ void ScratchStateTransaction::set_state_valid(
   }
 }
 
+void ScratchStateTransaction::arm_live_evolved_rollback() {
+  ScratchStateTransactionCore::require_available(*storage_);
+  if (storage_->armed_live_evolved_rollback.has_value())
+    throw std::logic_error("live evolved rollback is already armed");
+  try {
+    storage_->armed_live_evolved_rollback.emplace(
+        ScratchStateTransactionCore::capture_live_frame(
+            *storage_, ScratchStateKind::evolved));
+  } catch (...) {
+    storage_->fault_and_discard();
+    throw;
+  }
+}
+
+void ScratchStateTransaction::disarm_live_evolved_rollback() noexcept {
+  storage_->armed_live_evolved_rollback.reset();
+}
+
+void ScratchStateTransaction::rollback_live_evolved() {
+  if (!storage_->armed_live_evolved_rollback.has_value())
+    throw std::logic_error("live evolved rollback is not armed");
+  try {
+    const auto &frame = *storage_->armed_live_evolved_rollback;
+
+    // This path deliberately does not require disposable execution storage.
+    // Validate the epoch, every live identity, and every layout before the
+    // first restore callback can write live TL0.
+    const auto snapshots =
+        ScratchStateTransactionCore::read_and_validate_live_against(*storage_,
+                                                                     frame);
+    if (frame.entry_count() != snapshots.size())
+      throw std::runtime_error("armed live rollback state schema changed");
+    for (std::size_t entry = 0; entry < snapshots.size(); ++entry) {
+      const auto &snapshot = snapshots[entry];
+      if (!snapshot.restore || !same_key(frame.key(entry), snapshot.key) ||
+          !same_layout(frame.multifab(entry), *snapshot.multifab) ||
+          frame.validity(entry).size() != snapshot.validity.size())
+        throw std::runtime_error("armed live rollback state layout changed");
+    }
+
+    for (std::size_t entry = 0; entry < snapshots.size(); ++entry)
+      snapshots[entry].restore(frame.multifab(entry), frame.validity(entry));
+
+    storage_->armed_live_evolved_rollback.reset();
+    discard();
+  } catch (...) {
+    // A rollback attempt is terminal even when its preflight fails. Retrying
+    // after epoch or identity drift must never revive the private snapshot.
+    storage_->armed_live_evolved_rollback.reset();
+    storage_->fault_and_discard();
+    throw;
+  }
+}
+
 void ScratchStateTransaction::rollback_live_evolved(
     const ScratchStateToken &state) {
   // Preserve the distinction between a pre-existing terminal state and a
@@ -680,6 +746,7 @@ void ScratchStateTransaction::rollback_live_evolved(
 
     // Rollback is terminal for this attempted primary step. In particular,
     // no PostStep or RHS schedule is rerun after live TL0 is restored.
+    storage_->armed_live_evolved_rollback.reset();
     discard();
   } catch (...) {
     storage_->fault_and_discard();
@@ -957,6 +1024,32 @@ void ScratchStateTransaction::discard() noexcept {
   storage_->states.clear();
   storage_->committed_dense.reset();
   storage_->release_execution_storage();
+  // An armed session rollback is retained deliberately. Successful session
+  // commit disarms it before calling discard().
+}
+
+ScratchStateTransactionFactory::StageSpatialAccess
+ScratchStateTransactionFactory::stage_spatial_access(
+    ScratchStateTransaction &transaction) {
+  try {
+    auto &storage = *transaction.storage_;
+    ScratchStateTransactionCore::require_available(storage);
+    auto live_entries =
+        ScratchStateTransactionCore::read_and_validate_live(storage);
+    return StageSpatialAccess{storage.working_frame, std::move(live_entries),
+                              storage.hierarchy_epoch, storage.level,
+                              storage.time_refinement_factor};
+  } catch (...) {
+    if (transaction.storage_ != nullptr)
+      transaction.storage_->fault_and_discard();
+    throw;
+  }
+}
+
+void ScratchStateTransactionFactory::fault_stage_spatial_preparation(
+    ScratchStateTransaction &transaction) noexcept {
+  if (transaction.storage_ != nullptr)
+    transaction.storage_->fault_and_discard();
 }
 
 #ifndef CARPETX_SUBCYCLING_SCRATCH_STATE_TRANSACTION_UNIT

@@ -36,6 +36,7 @@ int main(const int argc, char **const argv) {
   const auto source = read_file(source_path);
 
   require_find(source, "#include \"subcycling_ode_provider_registry.hxx\"");
+  require_find(source, "#include \"subcycling_group_schema_builder.hxx\"");
   const auto active_begin =
       require_find(source, "if (CarpetX::step_context_active()) {");
   const auto active_end = require_find(source, "static bool did_output");
@@ -73,6 +74,21 @@ int main(const int argc, char **const argv) {
   check(source.find("explicit_rk_tableau_fingerprint(explicit_method)") ==
             std::string::npos,
         "solve still constructs interval fingerprints outside the registry");
+
+  require_find(source,
+               "build_cactus_group_schema(carpetx_subcycling_enabled())");
+  require_find(source,
+               "group_schema.contract.ordered_group_pairs");
+  require_find(source,
+               "group_schema.contract.dependent_groups");
+  check(source.find("int groupindex(") == std::string::npos,
+        "solve still owns group-name resolution");
+  check(source.find("int get_group_rhs(") == std::string::npos,
+        "solve still owns RHS tag parsing");
+  check(source.find("get_group_dependents(") == std::string::npos,
+        "solve still owns dependent tag parsing");
+  check(source.find("Util_TableGetString") == std::string::npos,
+        "solve still reads CCTK group tags directly");
 
   std::cout << "ODESolvers active subcycling provider contract tests passed\n";
   return 0;
