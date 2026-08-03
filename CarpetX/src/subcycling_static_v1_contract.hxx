@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -28,8 +29,12 @@ struct StaticV1LevelOneCreationEnvelope {
   int regrid_every;
   int coarse_patch;
   int coarse_level;
-  int coarse_iteration;
-  int coarse_delta_iteration;
+  struct StaticV1Rational {
+    std::int64_t numerator;
+    std::int64_t denominator;
+  };
+  StaticV1Rational coarse_iteration;
+  StaticV1Rational coarse_delta_iteration;
   bool coarse_is_subcycling_level;
   std::array<int, 3> spatial_refinement_ratio;
   double callback_time;
@@ -43,13 +48,22 @@ constexpr bool permits_static_v1_level_one_creation(
          envelope.configured_level_count == 2 &&
          envelope.existing_level_count == 1 && envelope.regrid_every == 0 &&
          envelope.coarse_patch == 0 && envelope.coarse_level == 0 &&
-         envelope.coarse_iteration == 0 &&
-         envelope.coarse_delta_iteration == 1 &&
+         envelope.coarse_iteration.numerator == 0 &&
+         envelope.coarse_iteration.denominator == 1 &&
+         envelope.coarse_delta_iteration.numerator == 1 &&
+         envelope.coarse_delta_iteration.denominator == 1 &&
          !envelope.coarse_is_subcycling_level &&
          envelope.spatial_refinement_ratio[0] == 2 &&
          envelope.spatial_refinement_ratio[1] == 2 &&
          envelope.spatial_refinement_ratio[2] == 2 &&
          envelope.callback_time == 0.0;
+}
+
+using StaticV1Rational = StaticV1LevelOneCreationEnvelope::StaticV1Rational;
+
+constexpr int
+static_v1_parent_refinement_ratio_index(const int callback_level) noexcept {
+  return callback_level - 1;
 }
 
 constexpr bool should_stop_static_v1_initial_regrid_loop(

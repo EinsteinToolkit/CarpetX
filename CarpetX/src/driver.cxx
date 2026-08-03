@@ -1313,6 +1313,8 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
 #pragma omp critical
     CCTK_VINFO("MakeNewLevelFromCoarse patch %d level %d", patch, level);
 
+  assert(level > 0);
+
   if (use_subcycling_wip) {
     if (patch != 0 || level != 1 || ghext->num_patches() != 1 ||
         max_num_levels != 2 || regrid_every != 0)
@@ -1328,7 +1330,8 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
           "coarse level before level-1 creation");
 
     const auto &coarseleveldata = patchdata.leveldata.at(0);
-    const auto refinement_ratio = refRatio(level);
+    const auto refinement_ratio =
+        refRatio(static_v1_parent_refinement_ratio_index(level));
     if (!permits_static_v1_level_one_creation(
             StaticV1LevelOneCreationEnvelope{
                 use_subcycling_wip,
@@ -1340,8 +1343,9 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
                 regrid_every,
                 coarseleveldata.patch,
                 coarseleveldata.level,
-                static_cast<int>(coarseleveldata.iteration),
-                static_cast<int>(coarseleveldata.delta_iteration),
+                {coarseleveldata.iteration.num, coarseleveldata.iteration.den},
+                {coarseleveldata.delta_iteration.num,
+                 coarseleveldata.delta_iteration.den},
                 coarseleveldata.is_subcycling_level,
                 {refinement_ratio[0], refinement_ratio[1], refinement_ratio[2]},
                 time}))

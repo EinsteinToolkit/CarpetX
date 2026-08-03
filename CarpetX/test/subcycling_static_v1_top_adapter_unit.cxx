@@ -14,6 +14,7 @@ using CarpetX::RuntimeClockMetadata;
 using CarpetX::StaticV1EvolvePath;
 using CarpetX::StaticV1LevelOneCreationEnvelope;
 using CarpetX::StaticV1PolicyEnvelope;
+using CarpetX::StaticV1Rational;
 using CarpetX::StaticV1SyncObserverAction;
 using CarpetX::StepContext;
 using CarpetX::SubcyclingODEMethod;
@@ -22,6 +23,7 @@ using CarpetX::cycle_then_capture_static_v1_level_state;
 using CarpetX::has_exact_static_v1_test_odesolvers2_active_thorns;
 using CarpetX::permits_static_v1_level_one_creation;
 using CarpetX::select_static_v1_evolve_path;
+using CarpetX::static_v1_parent_refinement_ratio_index;
 using CarpetX::should_stop_static_v1_initial_regrid_loop;
 using CarpetX::static_v1_sync_observer_order;
 using CarpetX::step_clock_t;
@@ -43,7 +45,9 @@ StaticV1PolicyEnvelope valid_policy() {
 }
 
 StaticV1LevelOneCreationEnvelope valid_level_one_creation() {
-  return {true, 1, 0, 1, 2, 1, 0, 0, 0, 0, 1, false, {2, 2, 2}, 0.0};
+  return {true, 1, 0, 1, 2, 1, 0, 0, 0,
+          StaticV1Rational{0, 1}, StaticV1Rational{1, 1}, false,
+          {2, 2, 2}, 0.0};
 }
 
 void test_legacy_selection_is_a_strict_false_branch() {
@@ -117,11 +121,19 @@ void test_static_v1_level_one_creation_envelope_is_exact() {
   assert(!permits_static_v1_level_one_creation(envelope));
 
   envelope = valid_level_one_creation();
-  envelope.coarse_iteration = 1;
+  envelope.coarse_iteration = {1, 1};
   assert(!permits_static_v1_level_one_creation(envelope));
 
   envelope = valid_level_one_creation();
-  envelope.coarse_delta_iteration = 2;
+  envelope.coarse_delta_iteration = {2, 1};
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.coarse_iteration = {1, 2};
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.coarse_delta_iteration = {3, 2};
   assert(!permits_static_v1_level_one_creation(envelope));
 
   envelope = valid_level_one_creation();
@@ -129,7 +141,15 @@ void test_static_v1_level_one_creation_envelope_is_exact() {
   assert(!permits_static_v1_level_one_creation(envelope));
 
   envelope = valid_level_one_creation();
+  envelope.spatial_refinement_ratio = {1, 2, 2};
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
   envelope.spatial_refinement_ratio = {2, 1, 2};
+  assert(!permits_static_v1_level_one_creation(envelope));
+
+  envelope = valid_level_one_creation();
+  envelope.spatial_refinement_ratio = {2, 2, 1};
   assert(!permits_static_v1_level_one_creation(envelope));
 
   envelope = valid_level_one_creation();
@@ -137,9 +157,15 @@ void test_static_v1_level_one_creation_envelope_is_exact() {
   assert(!permits_static_v1_level_one_creation(envelope));
 }
 
+void test_static_v1_level_one_uses_the_parent_refinement_ratio() {
+  assert(static_v1_parent_refinement_ratio_index(1) == 0);
+}
+
 void test_static_v1_stops_initial_regrid_after_one_l1_creation() {
   assert(should_stop_static_v1_initial_regrid_loop(true, 1, 2, 2));
   assert(!should_stop_static_v1_initial_regrid_loop(false, 1, 2, 2));
+  assert(!should_stop_static_v1_initial_regrid_loop(true, 2, 2, 2));
+  assert(!should_stop_static_v1_initial_regrid_loop(true, 1, 3, 2));
   assert(!should_stop_static_v1_initial_regrid_loop(true, 1, 2, 1));
 }
 
@@ -206,6 +232,7 @@ int main() {
   test_legacy_selection_is_a_strict_false_branch();
   test_static_policy_fails_closed_before_runtime_mutation();
   test_static_v1_level_one_creation_envelope_is_exact();
+  test_static_v1_level_one_uses_the_parent_refinement_ratio();
   test_static_v1_stops_initial_regrid_after_one_l1_creation();
   test_active_thorn_gate_is_an_exact_whitelist();
   test_active_level_history_rotates_once_before_tl0_capture();
