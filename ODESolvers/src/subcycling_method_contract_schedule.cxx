@@ -76,11 +76,9 @@ ODESolvers_RegisterSubcyclingMethodContract(CCTK_ARGUMENTS) {
   }
 }
 
-extern "C" void
-ODESolvers_UnregisterSubcyclingMethodSteeringGuard(CCTK_ARGUMENTS) {
-  static_cast<void>(cctkGH);
+extern "C" int ODESolvers_UnregisterSubcyclingMethodSteeringGuard(void) {
   if (!ODESolvers::steering_guard_registered)
-    return;
+    return 0;
   const int status =
       CCTK_ParameterSetNotifyUnregister(ODESolvers::steering_guard_name);
   if (status != 0)
@@ -89,4 +87,5 @@ ODESolvers_UnregisterSubcyclingMethodSteeringGuard(CCTK_ARGUMENTS) {
                "steering guard: %d",
                status);
   ODESolvers::steering_guard_registered = false;
+  return 0;
 }
