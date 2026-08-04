@@ -132,6 +132,46 @@ full_sync_root_runtime_clock(const std::uint64_t completed_epoch,
                               synchronized_time, base_delta_time, 1};
 }
 
+StaticV1StepperSeed static_v1_recovery_seed(
+    const StaticV1RecoverySeedEnvelope &envelope) {
+  if (envelope.level_count != 2 || envelope.refinement_ratio != 2)
+    throw std::invalid_argument(
+        "static-v1 recovery requires two factor-two levels");
+  if (!envelope.strict_recovery)
+    throw std::invalid_argument(
+        "static-v1 recovery requires Cactus strict recovery mode");
+  if (envelope.dynamic_regrid)
+    throw std::invalid_argument(
+        "static-v1 recovery does not support dynamic regridding");
+  if (envelope.root_iteration < 0)
+    throw std::invalid_argument(
+        "static-v1 recovered root iteration must be non-negative");
+  if (envelope.root_timefac != 1)
+    throw std::invalid_argument(
+        "static-v1 recovery requires synchronized root time metadata");
+  if (!std::isfinite(envelope.root_time))
+    throw std::invalid_argument(
+        "static-v1 recovered root time must be finite");
+  require_finite_positive_dt(envelope.base_delta_time);
+
+  for (const auto clock : envelope.rebuilt_level_clocks)
+    if (!equal_clock(clock, step_clock_t(0)))
+      throw std::invalid_argument(
+          "static-v1 recovery requires freshly rebuilt zero level clocks");
+  if (!clock_difference_is(envelope.level_delta_clocks[0], step_clock_t(0),
+                           1) ||
+      !clock_difference_is(envelope.level_delta_clocks[1], step_clock_t(0),
+                           2))
+    throw std::invalid_argument(
+        "static-v1 recovered level deltas must be one and one-half");
+
+  const auto epoch = static_cast<std::uint64_t>(envelope.root_iteration);
+  return StaticV1StepperSeed{step_clock_t(envelope.root_iteration),
+                             envelope.root_time,
+                             epoch,
+                             {epoch, 2 * epoch}};
+}
+
 void validate_static_v1_clock_envelope(
     const StaticV1ClockEnvelope &envelope) {
   if (envelope.level_count != 2 || envelope.refinement_ratio != 2)

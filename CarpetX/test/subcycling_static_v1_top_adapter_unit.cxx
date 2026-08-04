@@ -66,6 +66,14 @@ void test_static_policy_fails_closed_before_runtime_mutation() {
 
   policy = valid_policy();
   policy.recovering = true;
+  policy.root_iteration_zero = false;
+  validate_static_v1_policy_envelope(policy);
+
+  policy.level_clocks_zero = false;
+  rejects([&] { validate_static_v1_policy_envelope(policy); });
+
+  policy = valid_policy();
+  policy.root_iteration_zero = false;
   rejects([&] { validate_static_v1_policy_envelope(policy); });
 
   policy = valid_policy();
@@ -170,17 +178,37 @@ void test_static_v1_stops_initial_regrid_after_one_l1_creation() {
 }
 
 void test_active_thorn_gate_is_an_exact_whitelist() {
-  std::vector<std::string> active{
+  const std::vector<std::string> p1_active{
       "zlib",          "AMReX",       "TestODESolvers2", "CarpetX",
       "CarpetXRegrid", "Cactus",      "Arith",            "BoxInBox",
       "IOUtil",        "Loop",        "MPI",              "NSIMD",
       "ODESolvers",    "yaml_cpp"};
-  assert(has_exact_static_v1_test_odesolvers2_active_thorns(active));
-  active.push_back("ADMBase");
-  assert(!has_exact_static_v1_test_odesolvers2_active_thorns(active));
-  active.pop_back();
-  active.pop_back();
-  assert(!has_exact_static_v1_test_odesolvers2_active_thorns(active));
+  assert(has_exact_static_v1_test_odesolvers2_active_thorns(p1_active));
+
+  auto p2_checkpoint_active = p1_active;
+  p2_checkpoint_active.push_back("HDF5");
+  p2_checkpoint_active.push_back("Silo");
+  assert(has_exact_static_v1_test_odesolvers2_active_thorns(
+      p2_checkpoint_active));
+
+  auto one_backend_only = p1_active;
+  one_backend_only.push_back("HDF5");
+  assert(!has_exact_static_v1_test_odesolvers2_active_thorns(
+      one_backend_only));
+  one_backend_only.back() = "Silo";
+  assert(!has_exact_static_v1_test_odesolvers2_active_thorns(
+      one_backend_only));
+
+  auto unrelated_extra = p2_checkpoint_active;
+  unrelated_extra.push_back("ADMBase");
+  assert(!has_exact_static_v1_test_odesolvers2_active_thorns(
+      unrelated_extra));
+
+  auto missing_required = p2_checkpoint_active;
+  missing_required.erase(
+      std::find(missing_required.begin(), missing_required.end(), "MPI"));
+  assert(!has_exact_static_v1_test_odesolvers2_active_thorns(
+      missing_required));
 }
 
 void test_active_level_history_rotates_once_before_tl0_capture() {

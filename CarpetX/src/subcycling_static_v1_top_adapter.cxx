@@ -245,7 +245,8 @@ struct StaticV1Preflight {
   GHExt *driver;
   SubcyclingMethodContractSnapshot method_snapshot;
   std::int64_t hierarchy_epoch;
-  double initial_physical_time;
+  bool recovering;
+  StaticV1StepperSeed stepper_seed;
   double base_delta_time;
   std::vector<int> restricted_evolved_groups;
   std::array<LevelContractIdentity, 2> level_contracts;
@@ -312,7 +313,7 @@ StaticV1Preflight preflight_static_v1(cGH &root,
       supported_schema,
       bounded_configuration});
 
-  const auto &levels = ghext->patchdata.front().leveldata;
+  auto &levels = ghext->patchdata.front().leveldata;
   for (std::size_t level = 0; level < levels.size(); ++level) {
     const auto &data = levels[level];
     if (data.patch != 0 || data.level != static_cast<int>(level) ||
@@ -322,24 +323,45 @@ StaticV1Preflight preflight_static_v1(cGH &root,
           "static-v1 requires initialized, non-empty level and patch-GH "
           "storage for levels zero and one");
   }
-  validate_static_v1_clock_envelope(StaticV1ClockEnvelope{
-      2,
-      2,
-      recovering,
-      regrid_every != 0,
-      step_clock_t(0),
-      {exact_clock(levels[0].iteration),
-       exact_clock(levels[1].iteration)},
-      {exact_clock(levels[0].delta_iteration),
-       exact_clock(levels[1].delta_iteration)},
-      0,
-      {0, 0}});
+  if (!recovering)
+    validate_static_v1_clock_envelope(StaticV1ClockEnvelope{
+        2,
+        2,
+        false,
+        regrid_every != 0,
+        step_clock_t(0),
+        {exact_clock(levels[0].iteration),
+         exact_clock(levels[1].iteration)},
+        {exact_clock(levels[0].delta_iteration),
+         exact_clock(levels[1].delta_iteration)},
+        0,
+        {0, 0}});
 
   if (!std::isfinite(root.cctk_time))
     throw std::invalid_argument(
         "static-v1 initial physical time must be finite");
   const double base_delta_time =
       static_v1_base_delta_time(root.cctk_delta_time, level_count);
+  StaticV1StepperSeed stepper_seed{
+      step_clock_t(0), root.cctk_time, 0, {0, 0}};
+  if (recovering) {
+    const auto *const recovery_mode = static_cast<const char *const *>(
+        CCTK_ParameterGet("recovery_mode", "Cactus", nullptr));
+    stepper_seed = static_v1_recovery_seed(StaticV1RecoverySeedEnvelope{
+        level_count,
+        spatial_refinement_ratio,
+        recovery_mode != nullptr && *recovery_mode != nullptr &&
+            CCTK_Equals(*recovery_mode, "strict"),
+        regrid_every != 0,
+        root.cctk_iteration,
+        root.cctk_timefac,
+        root.cctk_time,
+        base_delta_time,
+        {exact_clock(levels[0].iteration),
+         exact_clock(levels[1].iteration)},
+        {exact_clock(levels[0].delta_iteration),
+         exact_clock(levels[1].delta_iteration)}});
+  }
   const auto groups = contract_groups(*method_snapshot.group_schema);
   std::vector<int> restricted_evolved_groups;
   restricted_evolved_groups.reserve(
@@ -367,15 +389,17 @@ StaticV1Preflight preflight_static_v1(cGH &root,
     throw std::invalid_argument(
         "static-v1 hierarchy epoch must be non-negative");
 
-  return StaticV1Preflight{
+  StaticV1Preflight result{
       ghext.get(),
       std::move(method_snapshot),
       hierarchy_epoch,
-      root.cctk_time,
+      recovering,
+      stepper_seed,
       base_delta_time,
       std::move(restricted_evolved_groups),
       {capture_level_contract(levels[0], groups),
        capture_level_contract(levels[1], groups)}};
+  return result;
 }
 
 struct BeginLevelSnapshot {
@@ -389,7 +413,8 @@ public:
       : root_(root), driver_(preflight.driver),
         method_snapshot_(std::move(preflight.method_snapshot)),
         hierarchy_epoch_(preflight.hierarchy_epoch),
-        initial_physical_time_(preflight.initial_physical_time),
+        initial_clock_(preflight.stepper_seed.initial_clock),
+        initial_physical_time_(preflight.stepper_seed.initial_physical_time),
         base_delta_time_(preflight.base_delta_time),
         restricted_evolved_groups_(
             std::move(preflight.restricted_evolved_groups)),
@@ -406,15 +431,25 @@ public:
         method_snapshot_.contract.dense.method,
         method_snapshot_.contract.dense.tableau_fingerprint};
     HierarchyStepperConfig config{
-        {method, method}, step_clock_t(0), initial_physical_time_,
-        base_delta_time_, 2, 0, {0, 0}};
+        {method, method}, initial_clock_, initial_physical_time_,
+        base_delta_time_, 2, preflight.stepper_seed.initial_epoch,
+        {preflight.stepper_seed.initial_accepted_steps[0],
+         preflight.stepper_seed.initial_accepted_steps[1]}};
     stepper_ =
         std::make_unique<HierarchyStepper>(std::move(config), dense_registry_);
 
     // Everything above is preflight/read-only. This is the single transition
-    // from the legacy finest physical delta to the static-v1 coarse base delta.
+    // from the recovered SetupLevel clocks and legacy finest physical delta
+    // to the canonical static-v1 full-sync seed and coarse base delta.
+    if (preflight.recovering) {
+      auto &levels = driver_->patchdata.front().leveldata;
+      const auto synchronized_clock = level_clock(initial_clock_);
+      levels[0].iteration = synchronized_clock;
+      levels[1].iteration = synchronized_clock;
+    }
     const auto initial_metadata = full_sync_root_runtime_clock(
-        0, initial_physical_time_, base_delta_time_);
+        preflight.stepper_seed.initial_epoch, initial_physical_time_,
+        base_delta_time_);
     apply_persistent_metadata(initial_metadata);
   }
 
@@ -521,7 +556,8 @@ public:
       throw std::logic_error(
           "static-v1 synchronization clock is not a coarse endpoint");
     const double physical_time =
-        initial_physical_time_ + static_cast<double>(time) * base_delta_time_;
+        initial_physical_time_ +
+        static_cast<double>(time - initial_clock_) * base_delta_time_;
     const auto runtime = full_sync_root_runtime_clock(
         static_cast<std::uint64_t>(time.num), physical_time,
         base_delta_time_);
@@ -726,6 +762,7 @@ private:
   GHExt *const driver_;
   const SubcyclingMethodContractSnapshot method_snapshot_;
   const std::int64_t hierarchy_epoch_;
+  const hierarchy_time_t initial_clock_;
   const double initial_physical_time_;
   const double base_delta_time_;
   const std::vector<int> restricted_evolved_groups_;

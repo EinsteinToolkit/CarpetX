@@ -102,9 +102,6 @@ validate_static_v1_policy_envelope(const StaticV1PolicyEnvelope &policy) {
   if (policy.spatial_refinement_ratio != 2)
     throw std::invalid_argument(
         "static-v1 requires factor-two spatial refinement");
-  if (policy.recovering)
-    throw std::invalid_argument(
-        "static-v1 supports new starts only; recovery is disabled");
   if (policy.regrid_every != 0)
     throw std::invalid_argument(
         "static-v1 requires CarpetX::regrid_every=0");
@@ -123,9 +120,14 @@ validate_static_v1_policy_envelope(const StaticV1PolicyEnvelope &policy) {
   if (!policy.level_one_subcycles)
     throw std::invalid_argument(
         "static-v1 requires level one to be marked for subcycling");
-  if (!policy.root_iteration_zero || !policy.level_clocks_zero)
+  if (policy.recovering) {
+    if (!policy.level_clocks_zero)
+      throw std::invalid_argument(
+          "static-v1 recovery requires freshly rebuilt zero level clocks");
+  } else if (!policy.root_iteration_zero || !policy.level_clocks_zero) {
     throw std::invalid_argument(
         "static-v1 requires zero root and level clocks at a new start");
+  }
   if (!policy.complete_method_schema)
     throw std::invalid_argument(
         "static-v1 requires a frozen complete ODE method/group schema");
@@ -143,17 +145,25 @@ validate_static_v1_policy_envelope(const StaticV1PolicyEnvelope &policy) {
 
 inline bool has_exact_static_v1_test_odesolvers2_active_thorns(
     std::vector<std::string> active_thorns) {
-  static const std::array<const char *, 14> expected{
+  static const std::array<const char *, 14> p1_expected{
       "AMReX",          "Arith", "BoxInBox",    "Cactus", "CarpetX",
       "CarpetXRegrid",  "IOUtil", "Loop",        "MPI",    "NSIMD",
       "ODESolvers",     "TestODESolvers2", "yaml_cpp", "zlib"};
+  static const std::array<const char *, 16> p2_checkpoint_expected{
+      "AMReX",         "Arith",       "BoxInBox", "Cactus",
+      "CarpetX",       "CarpetXRegrid", "HDF5",   "IOUtil",
+      "Loop",          "MPI",         "NSIMD",    "ODESolvers",
+      "Silo",          "TestODESolvers2", "yaml_cpp", "zlib"};
   std::sort(active_thorns.begin(), active_thorns.end());
-  return active_thorns.size() == expected.size() &&
-         std::equal(active_thorns.begin(), active_thorns.end(),
-                    expected.begin(), [](const std::string &active,
-                                         const char *const required) {
-                      return active == required;
-                    });
+  const auto matches = [&](const auto &expected) {
+    return active_thorns.size() == expected.size() &&
+           std::equal(active_thorns.begin(), active_thorns.end(),
+                      expected.begin(), [](const std::string &active,
+                                           const char *const required) {
+                        return active == required;
+                      });
+  };
+  return matches(p1_expected) || matches(p2_checkpoint_expected);
 }
 
 // Accepted active-level GF history must rotate before the canonical TL0

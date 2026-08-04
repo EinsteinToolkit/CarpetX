@@ -1,5 +1,6 @@
 #include "subcycling_runtime_clock.hxx"
 
+#include <array>
 #include <cassert>
 #include <climits>
 #include <cmath>
@@ -13,11 +14,14 @@ namespace {
 
 using CarpetX::RuntimeClockMetadata;
 using CarpetX::StaticV1ClockEnvelope;
+using CarpetX::StaticV1RecoverySeedEnvelope;
+using CarpetX::StaticV1StepperSeed;
 using CarpetX::StepContext;
 using CarpetX::SubcyclingODEMethod;
 using CarpetX::candidate_runtime_clock;
 using CarpetX::full_sync_root_runtime_clock;
 using CarpetX::static_v1_base_delta_time;
+using CarpetX::static_v1_recovery_seed;
 using CarpetX::step_clock_t;
 using CarpetX::validate_static_v1_clock_envelope;
 
@@ -159,6 +163,83 @@ StaticV1ClockEnvelope valid_envelope() {
                                {7, 14}};
 }
 
+StaticV1RecoverySeedEnvelope valid_recovery_seed_envelope() {
+  return StaticV1RecoverySeedEnvelope{
+      2,
+      2,
+      true,
+      false,
+      2,
+      1,
+      0.025,
+      0.0125,
+      {step_clock_t(0), step_clock_t(0)},
+      {step_clock_t(1), step_clock_t(1, 2)}};
+}
+
+void test_strict_full_sync_recovery_seed_at_epoch_two() {
+  const StaticV1StepperSeed seed =
+      static_v1_recovery_seed(valid_recovery_seed_envelope());
+
+  assert(seed.initial_clock == step_clock_t(2));
+  assert(seed.initial_physical_time == 0.025);
+  assert(seed.initial_epoch == 2);
+  assert((seed.initial_accepted_steps ==
+          std::array<std::uint64_t, 2>{2, 4}));
+}
+
+void test_recovery_seed_rejects_desynchronized_rebuilt_state() {
+  auto envelope = valid_recovery_seed_envelope();
+  envelope.root_timefac = 2;
+  expect_throw<std::invalid_argument>(
+      [&] { static_cast<void>(static_v1_recovery_seed(envelope)); });
+
+  envelope = valid_recovery_seed_envelope();
+  envelope.rebuilt_level_clocks[1] = step_clock_t(1, 2);
+  expect_throw<std::invalid_argument>(
+      [&] { static_cast<void>(static_v1_recovery_seed(envelope)); });
+}
+
+void test_recovery_seed_rejects_malformed_or_nonfinite_state() {
+  auto rejects = [](StaticV1RecoverySeedEnvelope envelope) {
+    expect_throw<std::invalid_argument>(
+        [&] { static_cast<void>(static_v1_recovery_seed(envelope)); });
+  };
+
+  auto envelope = valid_recovery_seed_envelope();
+  envelope.level_count = 3;
+  rejects(envelope);
+
+  envelope = valid_recovery_seed_envelope();
+  envelope.refinement_ratio = 4;
+  rejects(envelope);
+
+  envelope = valid_recovery_seed_envelope();
+  envelope.strict_recovery = false;
+  rejects(envelope);
+
+  envelope = valid_recovery_seed_envelope();
+  envelope.dynamic_regrid = true;
+  rejects(envelope);
+
+  envelope = valid_recovery_seed_envelope();
+  envelope.root_iteration = -1;
+  rejects(envelope);
+
+  envelope = valid_recovery_seed_envelope();
+  envelope.level_delta_clocks[1] = step_clock_t(1, 4);
+  rejects(envelope);
+
+  envelope = valid_recovery_seed_envelope();
+  envelope.root_time = std::numeric_limits<double>::quiet_NaN();
+  rejects(envelope);
+
+  envelope = valid_recovery_seed_envelope();
+  envelope.base_delta_time =
+      std::numeric_limits<double>::infinity();
+  rejects(envelope);
+}
+
 void test_static_v1_envelope_fails_closed() {
   auto envelope = valid_envelope();
   envelope.refinement_ratio = 4;
@@ -216,6 +297,9 @@ int main() {
   test_full_sync_and_static_v1_envelope();
   test_base_dt_rejects_invalid_static_v1_inputs();
   test_candidate_rejects_invalid_level_clock_time_and_iteration();
+  test_strict_full_sync_recovery_seed_at_epoch_two();
+  test_recovery_seed_rejects_desynchronized_rebuilt_state();
+  test_recovery_seed_rejects_malformed_or_nonfinite_state();
   test_static_v1_envelope_fails_closed();
   std::cout << "subcycling_runtime_clock_unit: PASS\n";
 }

@@ -1,4 +1,5 @@
 #include "hierarchy_stepper.hxx"
+#include "subcycling_runtime_clock.hxx"
 
 #include <cassert>
 #include <atomic>
@@ -31,10 +32,13 @@ using CarpetX::LevelStepSession;
 using CarpetX::LevelAdvanceConfig;
 using CarpetX::LevelAdvanceResult;
 using CarpetX::ScratchStateTransaction;
+using CarpetX::StaticV1RecoverySeedEnvelope;
+using CarpetX::StaticV1StepperSeed;
 using CarpetX::StepContext;
 using CarpetX::SubcyclingODEMethod;
 using CarpetX::TableauFingerprint;
 using CarpetX::hierarchy_time_t;
+using CarpetX::static_v1_recovery_seed;
 
 std::string time_string(const hierarchy_time_t time) {
   return std::to_string(time.num) + "/" + std::to_string(time.den);
@@ -142,6 +146,7 @@ public:
   bool observers_saw_all_dense_released{false};
   bool observer_stop_requested{false};
   bool throw_during_observer{false};
+  std::vector<std::uint64_t> observer_epochs;
   std::function<void()> sync_observer_hook;
   std::size_t begin_level_step_calls{0};
   std::size_t committed_level_sessions{0};
@@ -308,6 +313,7 @@ public:
                           const double physical_time,
                           const std::uint64_t completed_epoch,
                           const bool stop_requested) override {
+    observer_epochs.push_back(completed_epoch);
     observer_stop_requested = stop_requested;
     observers_saw_all_dense_released = true;
     for (const auto &record : dense_lifetimes)
@@ -805,6 +811,61 @@ void test_recovery_metadata_initializes_epoch_clocks_and_step_counts() {
   assert(stepper.clocks()[1].accepted_steps == 16);
 }
 
+void test_reconstructed_epoch_matches_uninterrupted_next_epoch_trace() {
+  Fixture fixture(2);
+  fixture.config.initial_physical_time = 4.0;
+  fixture.config.coarse_dt = 0.25;
+  HierarchyStepper uninterrupted(fixture.config, fixture.registry);
+  RecordingAdapter uninterrupted_adapter(fixture.capabilities,
+                                          hierarchy_time_t(0), 4.0, 0.25);
+  uninterrupted.advance_one_epoch(uninterrupted_adapter);
+  uninterrupted.advance_one_epoch(uninterrupted_adapter);
+  const auto uninterrupted_result =
+      uninterrupted.advance_one_epoch(uninterrupted_adapter);
+
+  const StaticV1StepperSeed seed = static_v1_recovery_seed(
+      StaticV1RecoverySeedEnvelope{
+          2,
+          2,
+          true,
+          false,
+          2,
+          1,
+          4.5,
+          0.25,
+          {hierarchy_time_t(0), hierarchy_time_t(0)},
+          {hierarchy_time_t(1), hierarchy_time_t(1, 2)}});
+  auto recovered_config = fixture.config;
+  recovered_config.initial_clock = seed.initial_clock;
+  recovered_config.initial_physical_time = seed.initial_physical_time;
+  recovered_config.initial_epoch = seed.initial_epoch;
+  recovered_config.initial_accepted_steps = {
+      seed.initial_accepted_steps[0], seed.initial_accepted_steps[1]};
+  HierarchyStepper recovered(recovered_config, fixture.registry);
+  RecordingAdapter recovered_adapter(
+      fixture.capabilities, seed.initial_clock, seed.initial_physical_time,
+      fixture.config.coarse_dt);
+  const auto recovered_result = recovered.advance_one_epoch(recovered_adapter);
+
+  assert(recovered_result.synchronized_time ==
+         uninterrupted_result.synchronized_time);
+  assert(recovered_result.synchronized_physical_time ==
+         uninterrupted_result.synchronized_physical_time);
+  assert(recovered_result.epoch == uninterrupted_result.epoch);
+  assert(recovered_adapter.observer_epochs ==
+         std::vector<std::uint64_t>{3});
+  assert(recovered_adapter.observer_epochs.back() ==
+         uninterrupted_adapter.observer_epochs.back());
+  assert(recovered.clocks().size() == uninterrupted.clocks().size());
+  for (std::size_t level = 0; level < recovered.clocks().size(); ++level) {
+    assert(recovered.clocks()[level].time ==
+           uninterrupted.clocks()[level].time);
+    assert(recovered.clocks()[level].dt == uninterrupted.clocks()[level].dt);
+    assert(recovered.clocks()[level].accepted_steps ==
+           uninterrupted.clocks()[level].accepted_steps);
+  }
+}
+
 void test_stop_request_is_safe_from_an_asynchronous_thread() {
   Fixture fixture(2);
   HierarchyStepper stepper(fixture.config, fixture.registry);
@@ -848,6 +909,7 @@ int main() {
   test_endpoint_roundoff_is_canonicalized_before_parent_dense_evaluation();
   test_synchronization_scope_ends_and_releases_dense_on_failure();
   test_recovery_metadata_initializes_epoch_clocks_and_step_counts();
+  test_reconstructed_epoch_matches_uninterrupted_next_epoch_trace();
   test_stop_request_is_safe_from_an_asynchronous_thread();
   std::cout << "HierarchyStepper dense recursion tests passed\n";
   return 0;
