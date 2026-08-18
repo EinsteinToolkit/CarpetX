@@ -58,6 +58,24 @@ enum class boundary_t {
 };
 std::ostream &operator<<(std::ostream &os, const boundary_t boundary);
 
+// Which subset of the boundary/symmetry faces a single boundary-condition pass
+// is responsible for. On a multipatch grid the interpatch ghosts are written by
+// `MultiPatch_Interpolate`, not by `apply_boundary_conditions`, so a cell that
+// is simultaneously in an interpatch direction and in an outer-boundary
+// direction (an "interpatch corner") has no honest source until the
+// interpolator has run. Splitting the work into two disjoint passes is what
+// lets the corners be written exactly once, after their interpatch source
+// exists.
+//
+// `all` is the historical behaviour and the default everywhere; nothing selects
+// the other two yet.
+enum class bc_pass_t {
+  all,                     // every face, edge and corner (the default)
+  skip_interpatch_corners, // everything except interpatch x outer corners
+  interpatch_corners_only, // only interpatch x outer corners
+};
+std::ostream &operator<<(std::ostream &os, const bc_pass_t bc_pass);
+
 static_assert(AMREX_SPACEDIM == dim,
               "AMReX's AMREX_SPACEDIM must be the same as Cactus's cctk_dim");
 
@@ -409,7 +427,9 @@ struct GHExt {
         amrex::Vector<amrex::BCRec> bcrecs;
 
         // Apply outer (physical) boundary conditions to a MultiFab
-        void apply_boundary_conditions(amrex::MultiFab &mfab) const;
+        void
+        apply_boundary_conditions(amrex::MultiFab &mfab,
+                                  bc_pass_t bc_pass = bc_pass_t::all) const;
 
         // each amrex::MultiFab has numvars components
         std::vector<std::unique_ptr<amrex::MultiFab> > mfab; // [time level]

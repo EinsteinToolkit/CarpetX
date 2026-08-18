@@ -30,12 +30,15 @@ using namespace amrex::detail;
 
 void FillPatch_Sync(task_manager &tasks2,
                     const GHExt::PatchData::LevelData::GroupData &groupdata,
-                    MultiFab &mfab, const Geometry &geom) {
+                    MultiFab &mfab, const Geometry &geom,
+                    const bc_pass_t bc_pass) {
   mfab.FillBoundary_nowait(0, mfab.nComp(), mfab.nGrowVect(),
                            geom.periodicity());
-  tasks2.submit_serially([&groupdata, &mfab]() {
+  // `bc_pass` is captured by value: this closure runs from `tasks2`, long after
+  // this function has returned.
+  tasks2.submit_serially([&groupdata, &mfab, bc_pass]() {
     mfab.FillBoundary_finish();
-    groupdata.apply_boundary_conditions(mfab);
+    groupdata.apply_boundary_conditions(mfab, bc_pass);
   });
 }
 
@@ -45,7 +48,7 @@ void FillPatch_ProlongateGhosts(
     const GHExt::PatchData::LevelData::GroupData &coarsegroupdata,
     MultiFab &mfab, const MultiFab &cmfab, const Geometry &fgeom,
     const Geometry &cgeom, Interpolater *const mapper,
-    const Vector<BCRec> &bcrecs) {
+    const Vector<BCRec> &bcrecs, const bc_pass_t bc_pass) {
   const IntVect &nghosts = mfab.nGrowVect();
   if (nghosts.max() == 0)
     return;
@@ -67,12 +70,12 @@ void FillPatch_ProlongateGhosts(
     // There is no coarser level for our boundaries, i.e. there is no
     // prolongation. Apply the boundary conditions right away.
 
-    tasks2.submit_serially([&groupdata, &mfab]() {
+    tasks2.submit_serially([&groupdata, &mfab, bc_pass]() {
       // Finish synchronizing
       mfab.FillBoundary_finish();
 
       // Apply symmetry and boundary conditions
-      groupdata.apply_boundary_conditions(mfab);
+      groupdata.apply_boundary_conditions(mfab, bc_pass);
     });
     return;
   }
@@ -93,8 +96,8 @@ void FillPatch_ProlongateGhosts(
       mfab_crse_patch.nGrowVect(), cgeom.periodicity());
 
   tasks2.submit_serially([&tasks3, &groupdata, &coarsegroupdata, &mfab, &cgeom,
-                          &fgeom, mapper, &bcrecs, &fpc,
-                          mfab_crse_patch_ptr]() {
+                          &fgeom, mapper, &bcrecs, &fpc, mfab_crse_patch_ptr,
+                          bc_pass]() {
     const IntVect &nghosts = mfab.nGrowVect();
     const int ncomps = mfab.nComp();
     const IntVect ratio{2, 2, 2};
@@ -106,7 +109,10 @@ void FillPatch_ProlongateGhosts(
     // Finish copying parts of coarse grid into temporary buffer
     mfab_crse_patch.ParallelCopy_finish();
 
-    coarsegroupdata.apply_boundary_conditions(mfab_crse_patch);
+    // The coarse TEMPORARY, not the real `mfab`: `FillPatchInterp` below reads
+    // it and nothing runs a second BC pass over it, so it must be filled
+    // completely. Deliberately `all`, never `bc_pass`.
+    coarsegroupdata.apply_boundary_conditions(mfab_crse_patch, bc_pass_t::all);
 
     MultiFab *const mfab_fine_patch_ptr =
         new MultiFab(make_mf_fine_patch<MultiFab>(fpc, ncomps));
@@ -125,12 +131,12 @@ void FillPatch_ProlongateGhosts(
 
     delete mfab_crse_patch_ptr;
 
-    tasks3.submit_serially([&groupdata, &mfab, mfab_fine_patch_ptr]() {
+    tasks3.submit_serially([&groupdata, &mfab, mfab_fine_patch_ptr, bc_pass]() {
       // Finish copying fine buffer into destination
       mfab.ParallelCopy_finish();
 
       // Apply symmetry and boundary conditions
-      groupdata.apply_boundary_conditions(mfab);
+      groupdata.apply_boundary_conditions(mfab, bc_pass);
 
       delete mfab_fine_patch_ptr;
     });

@@ -33,9 +33,10 @@ namespace CarpetX {
 
 BoundaryCondition::BoundaryCondition(
     const GHExt::PatchData::LevelData::GroupData &groupdata,
-    amrex::FArrayBox &dest)
+    amrex::FArrayBox &dest, const bc_pass_t bc_pass)
     : groupdata(groupdata), patchdata(ghext->patchdata.at(groupdata.patch)),
       geom(patchdata.amrcore->Geom(groupdata.level)), dest(dest),
+      bc_pass(bc_pass),
       imin{geom.Domain().smallEnd(0), geom.Domain().smallEnd(1),
            geom.Domain().smallEnd(2)},
       imax{geom.Domain().bigEnd(0) + 1 + !groupdata.indextype[0],

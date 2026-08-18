@@ -36,6 +36,14 @@ struct BoundaryCondition {
   const amrex::Geometry &geom;
   amrex::FArrayBox &dest;
 
+  // Which subset of the faces/edges/corners this pass is responsible for. Set
+  // once by the constructor; `apply_on_face` is a member template that takes no
+  // function arguments (see the explicit instantiations in
+  // `boundaries_impl_*.cxx`), so a runtime member is the only way to reach it
+  // without changing 26 instantiation signatures. Nothing selects anything but
+  // `all` yet.
+  const bc_pass_t bc_pass;
+
   // Interior of the domain: Do not set any points in this region
   Arith::vect<int, dim> imin, imax;
   Arith::vect<CCTK_REAL, dim> xmin, xmax, dx;
@@ -47,7 +55,8 @@ struct BoundaryCondition {
   CCTK_REAL *restrict destptr;
 
   BoundaryCondition(const GHExt::PatchData::LevelData::GroupData &groupdata,
-                    amrex::FArrayBox &dest);
+                    amrex::FArrayBox &dest,
+                    bc_pass_t bc_pass = bc_pass_t::all);
 
   BoundaryCondition(const BoundaryCondition &) = delete;
   BoundaryCondition(BoundaryCondition &&) = delete;

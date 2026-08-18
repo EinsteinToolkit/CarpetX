@@ -138,6 +138,20 @@ std::ostream &operator<<(std::ostream &os, const boundary_t boundary) {
   return os;
 }
 
+std::ostream &operator<<(std::ostream &os, const bc_pass_t bc_pass) {
+  switch (bc_pass) {
+  case bc_pass_t::all:
+    return os << "all";
+  case bc_pass_t::skip_interpatch_corners:
+    return os << "skip_interpatch_corners";
+  case bc_pass_t::interpatch_corners_only:
+    return os << "interpatch_corners_only";
+  default:
+    assert(0);
+  }
+  return os;
+}
+
 std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
   // patch < 0 return symmetries without taking interpatch boundaries into
   // account
@@ -991,7 +1005,7 @@ bool GHExt::PatchData::LevelData::GroupData::
 }
 
 void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
-    amrex::MultiFab &mfab) const {
+    amrex::MultiFab &mfab, const bc_pass_t bc_pass) const {
   DECLARE_CCTK_PARAMETERS;
 
   static Timer timer("apply_boundary_conditions");
@@ -1061,7 +1075,7 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     // If there are cells not in the valid + periodic grown box, then
     // we need to fill them here
     if (!gdomain.contains(dest.box()))
-      BoundaryCondition(*this, dest).apply();
+      BoundaryCondition(*this, dest, bc_pass).apply();
   }
 }
 
