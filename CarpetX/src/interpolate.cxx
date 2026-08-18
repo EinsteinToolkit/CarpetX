@@ -317,6 +317,38 @@ template <typename T, int order, int centering> struct interpolator {
       // or an interior overlap-band cell that slave_overlap can mutate
       // (mp_slave_2.md §5). Opt-in via env var to avoid flooding every debug
       // run.
+      //
+      // BUGFIX_TODO.md [O8] / B10, added for step A9: four more fields, so that
+      // the question "does this anchor's tensor-product support {i..i+order}
+      // reach the DONOR patch's outer-boundary ghosts?" is answered from the
+      // dump instead of from a hand derivation of the donor's shape. The
+      // unapplied form of exactly such a derivation is what forced the
+      // retraction of the whole coordinate-staleness result (mp_slave_5.md),
+      // so the bound is now printed by the same code that enforces it.
+      //
+      //   index  -- GridDescBase::component IS mfp.index() (schedule.cxx:154).
+      //             It therefore joins to the `index=` field of CapyrX's
+      //             VICTIM/GHOSTSKIP lines, NOT to their `component=`, which is
+      //             a per-level tile counter in active_levels_t::loop_parallel
+      //             / loop_serially (schedule.cxx:868, :893). Do not confuse
+      //             the two: with tiling enabled one `index` can carry several
+      //             `component`s.
+      //   lsh    -- this box's allocated shape, the upper bound the support has
+      //             to be tested against (i1_allowed above subtracts `order`
+      //             AND nghostzones from it, so i1_allowed is NOT that bound).
+      //   bbox   -- true where the box face touches the patch's AMReX domain,
+      //             i.e. where a ghost plane is O, I or C rather than G.
+      //   allowed-- patch_allowed_boundaries as this interpolator received it:
+      //             the per-face anchor policy, which is `is_outer_boundary`
+      //             on a domain face (CapyrX multipatch.cxx:75-91 negated at
+      //             CapyrX interpolate.cxx:516) and is forced true on a
+      //             non-domain face. A face bounds an O region iff
+      //             bbox && allowed; bbox && !allowed is an interpatch face
+      //             (I/C); !bbox is an intra-patch box ghost (G).
+      //
+      // Fields are APPENDED, so a parser anchored on the old form sees the new
+      // lines as malformed rather than silently mis-parsing them; A8's
+      // a8_report.py was widened to accept both.
       {
         static const bool log_donors = std::getenv("CAPYRX_LOG_DONORS") != nullptr;
         if (log_donors) {
@@ -326,7 +358,21 @@ template <typename T, int order, int centering> struct interpolator {
                     << " i=(" << i[0] << "," << i[1] << "," << i[2] << ")"
                     << " nghostzones=(" << grid.nghostzones[0] << ","
                     << grid.nghostzones[1] << "," << grid.nghostzones[2] << ")"
-                    << " is_allowed=" << is_allowed << "\n";
+                    << " is_allowed=" << is_allowed
+                    << " index=" << grid.component
+                    << " lsh=(" << grid.lsh[0] << "," << grid.lsh[1] << ","
+                    << grid.lsh[2] << ")"
+                    << " bbox_lo=(" << grid.bbox[0][0] << "," << grid.bbox[0][1]
+                    << "," << grid.bbox[0][2] << ")"
+                    << " bbox_hi=(" << grid.bbox[1][0] << "," << grid.bbox[1][1]
+                    << "," << grid.bbox[1][2] << ")"
+                    << " allowed_lo=(" << allowed_boundaries[0][0] << ","
+                    << allowed_boundaries[0][1] << ","
+                    << allowed_boundaries[0][2] << ")"
+                    << " allowed_hi=(" << allowed_boundaries[1][0] << ","
+                    << allowed_boundaries[1][1] << ","
+                    << allowed_boundaries[1][2] << ")"
+                    << "\n";
         }
       }
 #endif
