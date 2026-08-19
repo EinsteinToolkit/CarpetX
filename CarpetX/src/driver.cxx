@@ -1069,6 +1069,18 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
   }
 #endif // CCTK_DEBUG
 
+  // B2 instrument (R2 / B10): debug builds only, off unless
+  // `CARPETX_LOG_BC_PASS` is set. Counted per `apply_boundary_conditions`
+  // call, i.e. per (group, patch, level, time level, pass). `bc_pass_t::all`
+  // has nothing to census -- it skips nothing -- so it is not reset or
+  // reported, and the `all` code path stays free of this entirely.
+#ifdef CCTK_DEBUG
+  const bool do_census =
+      bc_pass_census_level() > 0 && bc_pass != bc_pass_t::all;
+  if (do_census)
+    bc_pass_census_reset();
+#endif
+
 #pragma omp parallel
   for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi) {
     amrex::FArrayBox &dest = mfab[mfi];
@@ -1077,6 +1089,11 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
     if (!gdomain.contains(dest.box()))
       BoundaryCondition(*this, dest, bc_pass).apply();
   }
+
+#ifdef CCTK_DEBUG
+  if (do_census)
+    bc_pass_census_report(groupname, patch, level, bc_pass);
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////

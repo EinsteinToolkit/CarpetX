@@ -10,7 +10,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <sstream>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -28,6 +30,56 @@ namespace CarpetX {
 // build times, and also improve run time. It would not be necessary
 // any more to run on edges or corners; instead, one could extend some
 // of the faces to cover edges and corners.
+
+////////////////////////////////////////////////////////////////////////////////
+
+#ifdef CCTK_DEBUG
+
+bc_pass_census_t bc_pass_census;
+
+int bc_pass_census_level() {
+  static const int level = []() {
+    const char *const env = std::getenv("CARPETX_LOG_BC_PASS");
+    if (!env)
+      return 0;
+    const int l = std::atoi(env);
+    return l < 0 ? 0 : l;
+  }();
+  return level;
+}
+
+void bc_pass_census_reset() {
+  bc_pass_census.corner_cells_skipped = 0;
+  bc_pass_census.corner_cells_kept = 0;
+  bc_pass_census.other_cells_skipped = 0;
+  bc_pass_census.other_cells_kept = 0;
+  bc_pass_census.corner_regions_skipped = 0;
+  bc_pass_census.corner_regions_kept = 0;
+  bc_pass_census.other_regions_skipped = 0;
+  bc_pass_census.other_regions_kept = 0;
+}
+
+void bc_pass_census_report(const std::string &groupname, const int patch,
+                           const int level, const bc_pass_t bc_pass) {
+  std::ostringstream buf;
+  buf << bc_pass;
+  CCTK_VINFO("BCPASS group=%s patch=%d level=%d pass=%s "
+             "corner_cells_kept=%lld corner_cells_skipped=%lld "
+             "other_cells_kept=%lld other_cells_skipped=%lld "
+             "corner_regions_kept=%lld corner_regions_skipped=%lld "
+             "other_regions_kept=%lld other_regions_skipped=%lld",
+             groupname.c_str(), patch, level, buf.str().c_str(),
+             bc_pass_census.corner_cells_kept.load(),
+             bc_pass_census.corner_cells_skipped.load(),
+             bc_pass_census.other_cells_kept.load(),
+             bc_pass_census.other_cells_skipped.load(),
+             bc_pass_census.corner_regions_kept.load(),
+             bc_pass_census.corner_regions_skipped.load(),
+             bc_pass_census.other_regions_kept.load(),
+             bc_pass_census.other_regions_skipped.load());
+}
+
+#endif // CCTK_DEBUG
 
 ////////////////////////////////////////////////////////////////////////////////
 

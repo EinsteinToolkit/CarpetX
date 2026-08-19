@@ -2637,6 +2637,15 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   // needed to drive the pre-existing second BC pass for outer+interpatch
   // corner cells, and to pick up any interpatch ghosts invalidated by the
   // sync itself.
+  //
+  // BUGFIX_TODO.md step B2 has made the reason above void, and step B3 is
+  // where this block goes. Pass 1 now runs `skip_interpatch_corners` at
+  // tl = 0, so it no longer reaches a corner's interpatch source at all and
+  // there is nothing left for this bootstrap to make finite. It is left in
+  // place here on purpose: removing it is a separate mechanism (R1), and A5's
+  // debug abort -- which this bootstrap causes, by interpolating from a
+  // donor's just-poisoned outer ghost -- is the before/after test B3 needs.
+  // An A5 that went green at B2 would mean B2 had quietly done B3's job.
   if (have_multipatch_boundaries) {
     // mp_corners_11.md: mp_corners_10.md made the interpolator *refuse* to
     // anchor on not-yet-filled intra-patch (box-split) ghosts during this
@@ -2730,10 +2739,32 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
         // Copy from adjacent boxes on same level
 
         for (int tl = 0; tl < sync_tl; ++tl) {
-          tasks1.submit_serially([&tasks2, &leveldata, &groupdata, tl]() {
+          // BUGFIX_TODO.md step B2(c). The pass is chosen PER TIME LEVEL, not
+          // per call site. Pass 1 runs once per synced time level; the
+          // interpolator and pass 2 both run at `tl = 0` only. A flat
+          // `skip_interpatch_corners` here would leave every `tl >= 1`
+          // interpatch corner written by nobody and then marked valid.
+          //
+          // Gating on `have_multipatch_boundaries` as well is not decoration:
+          // it makes a single-patch run pass `bc_pass_t::all` literally, so
+          // the "this commit is inert on a single patch" claim is a statement
+          // about which code path executes rather than about a boolean.
+          //
+          // What this ternary does NOT do, and B8 is what does: after step B7
+          // removes the outer BC from `groupdata.boundaries` on interpatch
+          // faces, `all` stops writing the interpatch ghost at `tl >= 1` while
+          // the validity marks below still claim it -- so the `tl` axis is
+          // closed by B8's refusal of more than one time level, not by this
+          // line. Do not read a correctness into it that it does not have.
+          const bc_pass_t bc_pass = (have_multipatch_boundaries && tl == 0)
+                                        ? bc_pass_t::skip_interpatch_corners
+                                        : bc_pass_t::all;
+          tasks1.submit_serially([&tasks2, &leveldata, &groupdata, tl,
+                                  bc_pass]() {
             FillPatch_Sync(tasks2, groupdata, *groupdata.mfab.at(tl),
                            ghext->patchdata.at(leveldata.patch)
-                               .amrcore->Geom(leveldata.level));
+                               .amrcore->Geom(leveldata.level),
+                           bc_pass);
           });
         } // for tl
 
@@ -2751,8 +2782,17 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 
         for (int tl = 0; tl < sync_tl; ++tl) {
 
+          // B2(c), same selection as the level-0 branch above. It reaches the
+          // two calls in `FillPatch_ProlongateGhosts` that fill the real
+          // `mfab`; the coarse temporary inside it is pinned to
+          // `bc_pass_t::all` there, because nothing ever runs a second pass
+          // over a temporary that `FillPatchInterp` is about to read.
+          const bc_pass_t bc_pass = (have_multipatch_boundaries && tl == 0)
+                                        ? bc_pass_t::skip_interpatch_corners
+                                        : bc_pass_t::all;
           tasks1.submit_serially([&tasks2, &tasks3, &leveldata, &groupdata,
-                                  &coarsegroupdata, interpolator, tl]() {
+                                  &coarsegroupdata, interpolator, tl,
+                                  bc_pass]() {
             FillPatch_ProlongateGhosts(tasks2, tasks3, groupdata,
                                        coarsegroupdata, *groupdata.mfab.at(tl),
                                        *coarsegroupdata.mfab.at(tl),
@@ -2760,7 +2800,7 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
                                            .amrcore->Geom(leveldata.level),
                                        ghext->patchdata.at(leveldata.patch)
                                            .amrcore->Geom(leveldata.level - 1),
-                                       interpolator, groupdata.bcrecs);
+                                       interpolator, groupdata.bcrecs, bc_pass);
           });
 
         } // for tl
@@ -2792,12 +2832,15 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
 
     // For the multipatch case, corner ghost cells at the outer+interpatch face
-    // intersection are not yet correct at this point: the first BC pass (inside
-    // FillPatch_Sync / FillPatch_ProlongateGhosts) sourced from unpopulated
-    // interpatch ghost zones.  MultiPatch_Interpolate and a second BC pass
-    // (below) will correct them.  Defer the validity marks and poison/check
+    // intersection are not yet written at this point.  Since BUGFIX_TODO.md
+    // step B2 the first BC pass (inside FillPatch_Sync /
+    // FillPatch_ProlongateGhosts) runs `bc_pass_t::skip_interpatch_corners` at
+    // tl = 0 and skips them outright, rather than writing them from an
+    // unpopulated interpatch ghost zone as it used to.  MultiPatch_Interpolate
+    // fills the interpatch ghosts and the corners-only second BC pass (below)
+    // then writes the corners, once.  Defer the validity marks and poison/check
     // calls to after that second pass so that validity flags never claim corner
-    // cells are valid while they still hold stale data.
+    // cells are valid while they are still unwritten.
     if (!have_multipatch_boundaries) {
       active_levels->loop_serially([&](auto &restrict leveldata) {
         auto &restrict groupdata = *leveldata.groupdata.at(gi);
@@ -2855,33 +2898,79 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     // one direction and on an outer-BC face in another — are therefore never
     // touched by MultiPatch_Interpolate.
     //
-    // The first BC pass (inside FillPatch_Sync / FillPatch_ProlongateGhosts,
-    // which calls apply_boundary_conditions) DID write values to these corner
-    // cells, but using interpatch ghost sources that were not yet populated
-    // (MultiPatch had not run).  For non-Dirichlet BCs (Neumann, Robin,
-    // linear extrapolation) this produces wrong values: the stencil source
-    // src[d] = dst[d] is in the interpatch ghost zone and was NaN/stale.
+    // Until BUGFIX_TODO.md step B2, the first BC pass (inside FillPatch_Sync /
+    // FillPatch_ProlongateGhosts) DID write these corner cells, using
+    // interpatch ghost sources that were not yet populated (MultiPatch had not
+    // run).  For non-Dirichlet BCs (Neumann, Robin, linear extrapolation) that
+    // produces wrong values: the stencil source src[d] = dst[d] is in the
+    // interpatch ghost zone and was NaN/stale.  This pass then overwrote them
+    // -- a second write of every corner, and of every pure outer ghost too.
     //
     // Now that MultiPatch_Interpolate has filled all pure interpatch ghost
-    // cells, their values are valid sources.  Re-running
-    // apply_boundary_conditions correctly computes the corner cell values.
+    // cells, their values are valid sources, and this pass computes the corner
+    // cell values from them.
     //
     // NOTE: This second pass must happen AFTER MultiPatch_Interpolate and
     // BEFORE the validity checks below.
+    //
+    // BUGFIX_TODO.md step B2(d): this pass is now CORNERS-ONLY, and runs at
+    // `tl = 0` only.
+    //
+    //   - corners-only, because it used to be a full `all` pass: pass 1 had
+    //     already written every pure outer ghost `O`, and this pass wrote all
+    //     of them again.  That is the double write the objection names.  Pass 1
+    //     now writes `O` and skips the corners; this pass writes the corners
+    //     and skips everything else; the two are disjoint and every cell is
+    //     written exactly once after the data motion.
+    //
+    //     MEASURED COST OF REMOVING THE SECOND `O` WRITE, and it is not zero
+    //     (evidence/fix/b2/README.md, finding [P45]).  The second write was
+    //     redundant only while nothing changed the interior between the two
+    //     passes.  With `CapyrX_MultiPatch::slave_overlap = yes`,
+    //     `MultiPatch_Interpolate` writes INTERIOR overlap cells, so an outer
+    //     BC that reads the interior -- neumann, linear_extrapolation, robin,
+    //     but not dirichlet, which reads nothing -- gave a different answer the
+    //     second time, and that answer was the one consistent with the final
+    //     interior.  After this commit `O` is computed from the PRE-slave
+    //     interior and is stale by one interpolation error: on the battery's
+    //     analytic smooth field, max |delta| falls 1.0e-1 -> 4.8e-3 -> 3.8e-4
+    //     -> 3.9e-5 -> 1.4e-5 as interpolation_order goes 0 -> 4, and a Neumann
+    //     leg goes from 0 to 1792 outer ghosts (of 7500) that no longer equal
+    //     the interior plane they copy.  Every slave-OFF leg is bit-identical.
+    //     This is a property of the target ordering in BUGFIX_TODO.md section
+    //     0, whose DAG has the interpolator writing only `I`; with
+    //     `slave_overlap` the real graph has an interior -> `O` edge and is
+    //     cyclic through Channel 1.  It is recorded, not fixed here: removing
+    //     the second write is exactly what this step is for, and re-adding it
+    //     conditionally would be a new mechanism.
+    //
+    //   - `tl = 0` only, because `MultiPatch_Interpolate` writes `tl = 0`. A
+    //     corners-only pass at `tl >= 1` would read an interpatch ghost that
+    //     nobody has filled -- exactly the read this partition exists to
+    //     remove. At `tl >= 1` pass 1 runs `all` and keeps doing what `main`
+    //     does; see the ternary at the `FillPatch_*` call sites above, and B8
+    //     for why that is refused rather than relied on.
+    //
+    // Nothing else moves. The `set_ghosts` / `set_outer` / `poison_invalid_gf`
+    // trio is a unit (moving the `set_*` calls without the poison call
+    // silently destroys the just-communicated inter-box ghost data); on this
+    // path it has already been split, and repairing that is NOT part of this
+    // commit.
     active_levels->loop_serially([&](auto &restrict leveldata) {
       for (const int gi : groups) {
         auto &restrict groupdata = *leveldata.groupdata.at(gi);
-        const int ntls = groupdata.mfab.size();
-        const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
-        for (int tl = 0; tl < sync_tl; ++tl)
-          groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl));
+        groupdata.apply_boundary_conditions(*groupdata.mfab.at(0),
+                                            bc_pass_t::interpatch_corners_only);
       }
     });
 
-    // Corner cells are now correct.  Mark ghost zones and outer boundaries
+    // Corner cells are now written.  Mark ghost zones and outer boundaries
     // valid for all groups across all patches and levels.  This is deferred
-    // from the postcondition loop above because the first BC pass leaves corner
-    // cells at outer+interpatch junctions with stale values until this point.
+    // from the postcondition loop above because the first BC pass leaves the
+    // corner cells at outer+interpatch junctions UNWRITTEN until this point
+    // (before BUGFIX_TODO.md step B2 it left them written from an unpopulated
+    // source, which is why this comment used to say "stale" rather than
+    // "unwritten").
     for (const int gi : groups) {
       const auto &groupdata0 =
           *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);

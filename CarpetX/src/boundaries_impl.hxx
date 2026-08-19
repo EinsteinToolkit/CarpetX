@@ -5,6 +5,7 @@
 
 #include <array>
 #include <functional>
+#include <sstream>
 #include <type_traits>
 
 namespace CarpetX {
@@ -58,6 +59,104 @@ void BoundaryCondition::apply_on_face() const {
   if (npoints_is_zero)
     return;
 
+  /*
+   * BUGFIX_TODO.md step B2(b): the two partitioned passes are disjoint here.
+   *
+   * An "interpatch corner" is a region that is outside the patch domain in an
+   * INTERPATCH direction and, simultaneously, in a direction carrying a real
+   * outer boundary or symmetry condition. `MultiPatch_Interpolate` never fills
+   * such a cell (it skips any ghost with `p.NI[d] != 0` on an outer face), and
+   * the only honest source for it is the pure interpatch ghost one step inward
+   * -- which does not exist until the interpolator has run. So pass 1 skips
+   * these, the interpolator runs, and pass 2 writes them and nothing else.
+   *
+   * Two traps, both of which this had to be written around:
+   *
+   *  1. The dispatch below ERASES interpatch-ness: it maps every interpatch
+   *     face to `symmetry_t::none` / `boundary_t::none`, and there is a
+   *     `static_assert` downstream that it did. The classification therefore
+   *     cannot be made anywhere below this point, and needs its own loop over
+   *     the three directions.
+   *
+   *  2. `groupdata.boundaries` still carries the globally configured outer BC
+   *     on interpatch faces (`get_group_boundaries` uses `get_symmetries(-1)`),
+   *     and will until step B7. So an interpatch direction must be excluded
+   *     from `has_outer_bc` EXPLICITLY -- the `!ip &&`. Without it an
+   *     interpatch x interpatch edge reads as a "corner", pass 2 writes cells
+   *     the interpolator owns, and this commit re-creates the double write it
+   *     exists to remove.
+   *
+   * One classification is made here silently and is worth naming. A reflection
+   * or periodic face carries `boundary_t::symmetry_boundary`, which is
+   * `!= none`, so an interpatch x REFLECTION edge is counted as a corner and
+   * deferred to pass 2. That is harmless -- it is still exactly one write, and
+   * pass 2 runs where the interpatch leg is filled -- but the class is
+   * `interpatch x (outer BC or symmetry)`, not `interpatch x outer`. (The
+   * always-on `CCTK_VERROR` below forbids interpatch and `symmetry_boundary`
+   * on the SAME face, which is a different thing.)
+   *
+   * A pure interpatch face, and an interpatch x interpatch edge or corner,
+   * need no flag: the dispatch maps them to all-`none`, and the
+   * `if constexpr (all(symmetries == none && boundaries == none))` early-out
+   * in `apply_on_face_symbcxyz` already skips them.
+   *
+   * The whole block is inside `if (bc_pass != all)` so that a run which never
+   * selects a partitioned pass -- every single-patch run, since the call site
+   * gates the selection on `have_multipatch_boundaries` -- executes literally
+   * none of it. That is what makes the inertness claim structural rather than
+   * merely measured.
+   */
+  if (bc_pass != bc_pass_t::all) {
+    bool has_interpatch = false, has_outer_bc = false;
+    for (int d = 0; d < dim; ++d) {
+      if (inormal[d] == 0)
+        continue;
+      const int f = inormal[d] > 0;
+      const bool ip = patchdata.symmetries[f][d] == symmetry_t::interpatch;
+      has_interpatch |= ip;
+      has_outer_bc |= !ip && groupdata.boundaries[f][d] != boundary_t::none;
+    }
+    const bool is_interpatch_corner = has_interpatch && has_outer_bc;
+    const bool skip =
+        (bc_pass == bc_pass_t::skip_interpatch_corners && is_interpatch_corner) ||
+        (bc_pass == bc_pass_t::interpatch_corners_only && !is_interpatch_corner);
+
+#ifdef CCTK_DEBUG
+    if (bc_pass_census_level() > 0) {
+      long long ncells = 1;
+      for (int d = 0; d < dim; ++d)
+        ncells *= bmax[d] - bmin[d];
+      auto &cells = is_interpatch_corner
+                        ? (skip ? bc_pass_census.corner_cells_skipped
+                                : bc_pass_census.corner_cells_kept)
+                        : (skip ? bc_pass_census.other_cells_skipped
+                                : bc_pass_census.other_cells_kept);
+      auto &regions = is_interpatch_corner
+                          ? (skip ? bc_pass_census.corner_regions_skipped
+                                  : bc_pass_census.corner_regions_kept)
+                          : (skip ? bc_pass_census.other_regions_skipped
+                                  : bc_pass_census.other_regions_kept);
+      cells += ncells;
+      regions += 1;
+      if (bc_pass_census_level() > 1) {
+        std::ostringstream buf;
+        buf << bc_pass;
+#pragma omp critical
+        CCTK_VINFO("BCPASSREGION group=%s patch=%d level=%d pass=%s "
+                   "n=(%d,%d,%d) corner=%d skip=%d ncells=%lld "
+                   "bmin=(%d,%d,%d) bmax=(%d,%d,%d)",
+                   groupdata.groupname.c_str(), patchdata.patch,
+                   groupdata.level, buf.str().c_str(), NI, NJ, NK,
+                   int(is_interpatch_corner), int(skip), ncells, bmin[0],
+                   bmin[1], bmin[2], bmax[0], bmax[1], bmax[2]);
+      }
+    }
+#endif // CCTK_DEBUG
+
+    if (skip)
+      return;
+  }
+
   // Find which symmetry or boundary conditions apply to us. On edges
   // or in corners multiple conditions will apply.
   if constexpr (NI == 0) {
@@ -93,19 +192,29 @@ void BoundaryCondition::apply_on_face() const {
      * configured in groupdata.boundaries.  We detect and suppress that here,
      * letting MultiPatch_Interpolate fill the interpatch ghost zone instead.
      */
+    // B2(a) made this message pass-dependent: it used to say "suppressing"
+    // unconditionally, which is now true for the two partitioned passes and
+    // FALSE for `bc_pass_t::all`, where the configured outer BC really is
+    // applied to the interpatch face (`main`'s behaviour, kept deliberately --
+    // see the dispatch comment below).
 #ifdef CCTK_DEBUG
     {
       if (symmetry_x == symmetry_t::interpatch &&
           boundary_x != boundary_t::none &&
           boundary_x != boundary_t::symmetry_boundary) {
+        std::ostringstream buf;
+        buf << bc_pass;
 #pragma omp critical
         {
           CCTK_VINFO("apply_on_face: group '%s' patch %d x-face f=%d is "
-                     "symmetry_t::interpatch; suppressing configured outer BC "
-                     "(boundary=%d). Ghost zone will be filled by "
-                     "MultiPatch_Interpolate.",
+                     "symmetry_t::interpatch with configured outer BC "
+                     "(boundary=%d); bc_pass=%s => %s",
                      groupdata.groupname.c_str(), patchdata.patch, f,
-                     static_cast<int>(boundary_x));
+                     static_cast<int>(boundary_x), buf.str().c_str(),
+                     bc_pass == bc_pass_t::all
+                         ? "APPLYING it (pre-B7 `all` behaviour)"
+                         : "suppressing it; the ghost zone is filled by "
+                           "MultiPatch_Interpolate");
         }
       }
     }
@@ -117,11 +226,27 @@ void BoundaryCondition::apply_on_face() const {
      * boundary_x to the globally configured outer BC even for interpatch faces.
      * The original condition therefore NEVER matched for interpatch faces with
      * a configured outer BC, causing the outer BC to fire on interpatch ghost
-     * cells instead of being suppressed. Thus we treat ALL interpatch faces as
-     * none/none regardless of groupdata.boundaries.
+     * cells instead of being suppressed.
+     *
+     * BUGFIX_TODO.md step B2(a): suppressing it UNCONDITIONALLY is wrong too.
+     * A coarse temporary's interpatch faces are written by nobody -- the
+     * interpolator only ever touches the real `mfab` -- and `mf_set_domain_bndry`
+     * has just NaN-filled them, so `FillPatchInterp` would prolongate NaN. The
+     * suppression is therefore tied to the pass: the two partitioned passes
+     * (which run only where `MultiPatch_Interpolate` follows/precedes them) map
+     * interpatch to none/none, and `bc_pass_t::all` keeps `main`'s behaviour of
+     * writing the configured outer BC there -- finite garbage that something
+     * later overwrites, rather than nothing at all.
+     *
+     * NOTE: after step B7 removes the outer BC from `groupdata.boundaries` on
+     * interpatch faces, `boundary_x == none` holds there and the first
+     * disjunct's second half makes this clause fire in EVERY pass again. That
+     * is deliberate, and B8 is what refuses the configuration in which it
+     * matters (more than one time level).
      */
     if ((symmetry_x == symmetry_t::none && boundary_x == boundary_t::none) ||
-        symmetry_x == symmetry_t::interpatch ||
+        (symmetry_x == symmetry_t::interpatch &&
+         (boundary_x == boundary_t::none || bc_pass != bc_pass_t::all)) ||
         symmetry_x == symmetry_t::periodic) {
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::none>(
           bmin, bmax);
@@ -175,22 +300,31 @@ void BoundaryCondition::apply_on_face_symbcx(
           groupdata.groupname.c_str(), patchdata.patch, f);
     }
 
+    // B2(a): pass-dependent, see the x-face copy.
 #ifdef CCTK_DEBUG
     if (symmetry_y == symmetry_t::interpatch &&
         boundary_y != boundary_t::none &&
         boundary_y != boundary_t::symmetry_boundary) {
+      std::ostringstream buf;
+      buf << bc_pass;
 #pragma omp critical
       CCTK_VINFO("apply_on_face: group '%s' patch %d y-face f=%d is "
-                 "symmetry_t::interpatch; suppressing configured outer BC "
-                 "(boundary=%d). Ghost zone will be filled by "
-                 "MultiPatch_Interpolate.",
+                 "symmetry_t::interpatch with configured outer BC "
+                 "(boundary=%d); bc_pass=%s => %s",
                  groupdata.groupname.c_str(), patchdata.patch, f,
-                 static_cast<int>(boundary_y));
+                 static_cast<int>(boundary_y), buf.str().c_str(),
+                 bc_pass == bc_pass_t::all
+                     ? "APPLYING it (pre-B7 `all` behaviour)"
+                     : "suppressing it; the ghost zone is filled by "
+                       "MultiPatch_Interpolate");
     }
 #endif // CCTK_DEBUG
 
+    // B2(a): the interpatch suppression is pass-dependent. See the long
+    // comment on the x-face above.
     if ((symmetry_y == symmetry_t::none && boundary_y == boundary_t::none) ||
-        symmetry_y == symmetry_t::interpatch ||
+        (symmetry_y == symmetry_t::interpatch &&
+         (boundary_y == boundary_t::none || bc_pass != bc_pass_t::all)) ||
         symmetry_y == symmetry_t::periodic) {
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::none>(bmin, bmax);
@@ -245,22 +379,31 @@ void BoundaryCondition::apply_on_face_symbcxy(
           groupdata.groupname.c_str(), patchdata.patch, f);
     }
 
+    // B2(a): pass-dependent, see the x-face copy.
 #ifdef CCTK_DEBUG
     if (symmetry_z == symmetry_t::interpatch &&
         boundary_z != boundary_t::none &&
         boundary_z != boundary_t::symmetry_boundary) {
+      std::ostringstream buf;
+      buf << bc_pass;
 #pragma omp critical
       CCTK_VINFO("apply_on_face: group '%s' patch %d z-face f=%d is "
-                 "symmetry_t::interpatch; suppressing configured outer BC "
-                 "(boundary=%d). Ghost zone will be filled by "
-                 "MultiPatch_Interpolate.",
+                 "symmetry_t::interpatch with configured outer BC "
+                 "(boundary=%d); bc_pass=%s => %s",
                  groupdata.groupname.c_str(), patchdata.patch, f,
-                 static_cast<int>(boundary_z));
+                 static_cast<int>(boundary_z), buf.str().c_str(),
+                 bc_pass == bc_pass_t::all
+                     ? "APPLYING it (pre-B7 `all` behaviour)"
+                     : "suppressing it; the ghost zone is filled by "
+                       "MultiPatch_Interpolate");
     }
 #endif // CCTK_DEBUG
 
+    // B2(a): the interpatch suppression is pass-dependent. See the long
+    // comment on the x-face above.
     if ((symmetry_z == symmetry_t::none && boundary_z == boundary_t::none) ||
-        symmetry_z == symmetry_t::interpatch ||
+        (symmetry_z == symmetry_t::interpatch &&
+         (boundary_z == boundary_t::none || bc_pass != bc_pass_t::all)) ||
         symmetry_z == symmetry_t::periodic) {
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::none>(bmin, bmax);
@@ -392,23 +535,26 @@ void BoundaryCondition::apply_on_face_symbcxyz(
      *
      * IMPORTANT: CapyrX's MultiPatch_Interpolate skips corner cells that are on
      * any outer-boundary face (see loop_bnd skip logic in
-     * CapyrX_MultiPatch/src/interpolate.cxx), so it never populates them. On the
-     * FIRST apply_boundary_conditions call (before MultiPatch_Interpolate runs)
-     * this therefore writes incorrect values to those corner cells, because
-     * their interpatch ghost sources are still uninitialized. SyncGroupsByDirI
-     * corrects this by calling apply_boundary_conditions a SECOND time,
-     * immediately after MultiPatch_Interpolate (see schedule.cxx, the block
-     * beginning "Second BC pass"); by then the interpatch ghost sources are
-     * valid, so the corner cells are recomputed correctly.
+     * CapyrX_MultiPatch/src/interpolate.cxx), so it never populates them.
      *
-     * NOTE ON THE WARNING BELOW: the check that emits it is purely geometric --
+     * UNTIL BUGFIX_TODO.md step B2 this was reached by BOTH BC passes: the
+     * first wrote these corner cells from a not-yet-populated interpatch ghost
+     * zone, and SyncGroupsByDirI called apply_boundary_conditions a SECOND time
+     * after MultiPatch_Interpolate to overwrite them from valid sources. Since
+     * B2 the passes are disjoint -- pass 1 runs
+     * `bc_pass_t::skip_interpatch_corners` and returns before reaching this
+     * function for a corner, pass 2 runs `bc_pass_t::interpatch_corners_only`
+     * -- so on the partitioned path this scenario is reached ONLY by pass 2,
+     * and only after the interpatch sources exist. It is still reachable with
+     * `bc_pass_t::all`, which is what every non-sync call site and every
+     * `tl >= 1` uses.
+     *
+     * NOTE ON THE MESSAGE BELOW: the check that emits it is purely geometric --
      * it only tests whether a pass-through direction's bmin/bmax reaches into
-     * the ghost zone. It has no way to tell which pass is running, so it fires
-     * on BOTH BC passes (the corner geometry is identical each time). This is
-     * expected and does NOT indicate a bug: on the first pass the values it
-     * warns about are stale but will be corrected by the second pass; on the
-     * second pass the very same cells are recomputed from now-valid interpatch
-     * ghost data. In neither case does the warning signal a permanent error.
+     * the ghost zone -- so it says nothing about whether the sources are valid.
+     * The pass is printed with it precisely so that the reader can tell the two
+     * cases apart: `interpatch_corners_only` is the healthy case (sources
+     * populated), `all` is the one where the old hazard survives.
      */
 #ifdef CCTK_DEBUG
     {
@@ -427,20 +573,25 @@ void BoundaryCondition::apply_on_face_symbcxyz(
         }
       }
       if (has_passthrough_in_ghost) {
+        std::ostringstream passbuf;
+        passbuf << bc_pass;
 #pragma omp critical
         CCTK_VINFO("apply_on_face_symbcxyz: [group '%s' patch %d] Corner-cell "
                    "scenario: applying BC [NI=%d NJ=%d NK=%d] "
                    "on bmin=[%d,%d,%d] bmax=[%d,%d,%d] with imin=[%d,%d,%d] "
-                   "imax=[%d,%d,%d]. One or more pass-through directions "
-                   "extend into the interpatch ghost zone. These corner cells "
-                   "are SKIPPED by MultiPatch_Interpolate; on the first BC pass "
-                   "they are computed from not-yet-populated ghost data and are "
-                   "re-corrected by the second BC pass in SyncGroupsByDirI "
-                   "(schedule.cxx). This geometric warning fires on BOTH BC "
-                   "passes and does not indicate a bug.",
+                   "imax=[%d,%d,%d] in bc_pass=%s. One or more pass-through "
+                   "directions extend into the interpatch ghost zone. These "
+                   "corner cells are SKIPPED by MultiPatch_Interpolate. In "
+                   "bc_pass=interpatch_corners_only this is the healthy case: "
+                   "the pass runs after MultiPatch_Interpolate, so the sources "
+                   "are populated. In bc_pass=all the sources may not be, which "
+                   "is the hazard BUGFIX_TODO.md step B2 partitions away on the "
+                   "sync path. Geometric only; it does not by itself indicate a "
+                   "bug.",
                    groupdata.groupname.c_str(), patchdata.patch, NI, NJ, NK,
                    bmin[0], bmin[1], bmin[2], bmax[0], bmax[1], bmax[2],
-                   imin[0], imin[1], imin[2], imax[0], imax[1], imax[2]);
+                   imin[0], imin[1], imin[2], imax[0], imax[1], imax[2],
+                   passbuf.str().c_str());
       }
     }
 #endif // CCTK_DEBUG
