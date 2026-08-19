@@ -1319,19 +1319,6 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
     for (int tl = 0; tl < int(groupdata.mfab.size()); ++tl)
       for (int vi = 0; vi < groupdata.numvars; ++vi)
         poison_invalid_gf(active_levels, gi, vi, tl);
-
-    // mp_corners_7.md section 5 point 3: newly allocated ghost cells sit at
-    // poison-NaN (above) until something writes them. On a group's very
-    // first sync, CarpetX's own outer-BC kernel can read an as-yet-unfilled
-    // interpatch ghost as a Neumann/Robin echo source before
-    // MultiPatch_Interpolate ever runs, aborting a CCTK_DEBUG build. Seed
-    // ghost cells (only; the interior stays poisoned so real invalid-read
-    // bugs are still caught) to a finite placeholder so that first read
-    // returns 0.0 instead of NaN. This does not fix the underlying
-    // interpatch/outer-BC ordering (see the SyncGroupsByDirI fix), it only
-    // stops the cold-start case from being fatal.
-    for (int tl = 0; tl < int(groupdata.mfab.size()); ++tl)
-      groupdata.mfab.at(tl)->setBndry(0.0);
   }
 
   if (verbose)
