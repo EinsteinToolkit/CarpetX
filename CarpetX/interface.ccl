@@ -43,19 +43,14 @@ USES FUNCTION MultiPatch_GetBoundarySpecification2 \
 
 # Patch interpolation
 #
-# apply_slave_writes: gates CapyrX_MultiPatch's slave_overlap write-back
-# (mp_slave_2.md §7 Fix #1). SyncGroupsByDirI calls this twice per sync
-# (bootstrap, then main); slaving on the bootstrap call would let the main
-# call read an already-slaved interior cell as its own donor
-# (mp_slave_2.md/mp_slave_3.md's confirmed two-pass non-idempotency for
-# bucket (a)), so bootstrap passes 0 and only the main call passes 1. The
-# two regrid-path calls are each standalone (no second pass reads their
-# output before the regrid step completes), so they pass 1 unconditionally.
+# Three arguments, as upstream: BUGFIX_TODO.md step B3 removed the
+# apply_slave_writes gate together with the bootstrap call it existed for.
+# SyncGroupsByDirI now calls this once per sync, so no call can read another
+# call's output and slave_overlap's write-back needs no gate.
 void FUNCTION MultiPatch_Interpolate( \
   CCTK_POINTER_TO_CONST IN cctkGH, \
   CCTK_INT IN nvars, \
-  CCTK_INT ARRAY IN varinds, \
-  CCTK_INT IN apply_slave_writes)
+  CCTK_INT ARRAY IN varinds)
 USES FUNCTION MultiPatch_Interpolate
 
 

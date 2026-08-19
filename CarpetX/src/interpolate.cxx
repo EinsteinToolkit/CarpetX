@@ -727,8 +727,7 @@ void CarpetX::InterpolationSetup::Interpolate(
     const CCTK_INT *restrict const operations,
     const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
         &allowed_boundaries, //  [patch][face][direction]
-    const CCTK_POINTER resultptrs_,
-    const bool force_conservative_intrapatch) const {
+    const CCTK_POINTER resultptrs_) const {
   DECLARE_CCTK_PARAMETERS;
 
   // Define result variables
@@ -766,20 +765,16 @@ void CarpetX::InterpolationSetup::Interpolate(
         // Derive per-box stencil-anchor permissions. bbox[f][d] is true when
         // the box face touches the patch's AMReX domain boundary (both physical
         // outer boundaries and inter-patch boundaries). Interior intra-patch
-        // faces (bbox=false) ordinarily allow anchoring unconditionally,
-        // because AMReX guarantees their ghost zones are filled by the time
-        // this runs -- except when the caller sets
-        // force_conservative_intrapatch, meaning it is calling before that
-        // guarantee holds (see mp_corners_9.md), in which case bbox=false
-        // faces honor allowed_boundaries just like any other face. See
-        // function comment above for the semantics of allowed_boundaries.
+        // faces (bbox=false) allow anchoring unconditionally, because AMReX
+        // guarantees their ghost zones are filled by the time this runs. The
+        // force_conservative_intrapatch escape hatch that used to relax that
+        // for a caller running before AMReX's fill-patch pass went with the
+        // caller itself in BUGFIX_TODO.md step B3; see interp.hxx.
         vect<vect<bool, dim>, 2> patch_allowed_boundaries;
         for (int f = 0; f < 2; ++f)
           for (int d = 0; d < dim; ++d)
             patch_allowed_boundaries[f][d] =
-                (grid.bbox[f][d] || force_conservative_intrapatch)
-                    ? allowed_boundaries.at(patch)[f][d]
-                    : true;
+                grid.bbox[f][d] ? allowed_boundaries.at(patch)[f][d] : true;
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();

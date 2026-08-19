@@ -117,23 +117,25 @@ public:
    *
    * When bbox[f][d] is false, the box face is interior to the patch, between
    * AMReX boxes. In this case AMReX fill-patch operations guarantee these ghost
-   * zones are valid -- ordinarily. That guarantee only holds once AMReX's own
-   * fill-patch pass (FillPatch_Sync / FillPatch_ProlongateGhosts) has actually
-   * run for the current sync. A caller invoked *before* that pass (as
-   * MultiPatch_Interpolate is, per mp_corners_7.md/mp_corners_8.md's call-
-   * ordering fix) cannot rely on it, and passing false in allowed_boundaries
-   * for such a face would otherwise be silently discarded. Setting
-   * force_conservative_intrapatch makes bbox[f][d]==false faces honor
-   * allowed_boundaries like any other face instead of being hardcoded to true
-   * (see mp_corners_9.md).
+   * zones are valid, so anchoring there is allowed unconditionally and
+   * allowed_boundaries is not consulted.
+   *
+   * That guarantee holds only once AMReX's own fill-patch pass has run for the
+   * current sync. Every caller now satisfies that: BUGFIX_TODO.md step B3
+   * deleted the one that did not -- SyncGroupsByDirI's bootstrap
+   * MultiPatch_Interpolate, which ran before tasks1/2/3 -- and with it the
+   * force_conservative_intrapatch escape hatch (mp_corners_9.md) that let a
+   * caller ask for bbox==false faces to honour allowed_boundaries anyway. If a
+   * caller invoked before the fill-patch pass is ever reintroduced, it needs
+   * that escape hatch back, not a `false` in allowed_boundaries, which this
+   * function would silently discard for such a face.
    */
   void Interpolate(CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
                    const CCTK_INT nvars, const CCTK_INT *restrict const varinds,
                    const CCTK_INT *restrict const operations,
                    const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
                        &allowed_boundaries, //  [patch][face][direction]
-                   const CCTK_POINTER resultptrs_,
-                   const bool force_conservative_intrapatch = false) const;
+                   const CCTK_POINTER resultptrs_) const;
 };
 
 // a dummy routine for now

@@ -1410,11 +1410,11 @@ int Initialise(tFleshConfig *config) {
             log_mp_interpolate_call("regrid (new/remade levels)",
                                     cactusvarinds);
 #endif
-            // Standalone call (not one of a bootstrap/main pair): no later
-            // pass in this regrid step reads its output, so slave writes
-            // apply immediately (mp_slave_2.md §7 Fix #1).
+            // Standalone call: no later pass in this regrid step reads its
+            // output. B8 refuses the configuration that reaches this block at
+            // all; A8 measured it dead at max_num_levels = 1 ([P28]).
             MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
-                                   cactusvarinds.data(), 1);
+                                   cactusvarinds.data());
             active_levels->loop_serially([&](auto &restrict leveldata) {
               for (int gi = 0; gi < ngroups; ++gi) {
                 cGroup gdata;
@@ -1858,11 +1858,11 @@ int Evolve(tFleshConfig *config) {
 #ifdef CCTK_DEBUG
           log_mp_interpolate_call("regrid (level removal)", cactusvarinds);
 #endif
-          // Standalone call (not one of a bootstrap/main pair): no later
-          // pass in this regrid step reads its output, so slave writes
-          // apply immediately (mp_slave_2.md §7 Fix #1).
+          // Standalone call: no later pass in this regrid step reads its
+          // output. B8 refuses the configuration that reaches this block at
+          // all; A8 measured it dead at max_num_levels = 1 ([P28]).
           MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
-                                 cactusvarinds.data(), 1);
+                                 cactusvarinds.data());
           active_levels->loop_serially([&](auto &restrict leveldata) {
             for (int gi = 0; gi < ngroups; ++gi) {
               cGroup gdata;
@@ -2623,97 +2623,18 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     } // for tl
   } // for gi
 
-  // mp_corners_7.md section 5 point 2, fix option (a): fill interpatch
-  // ghosts *before* the first BC pass below (inside FillPatch_Sync /
-  // FillPatch_ProlongateGhosts) sweeps a group's edges/corners. Without
-  // this, apply_on_face_symbcxyz can compute a Neumann/Robin/linear-
-  // extrapolation echo whose source point lies in an interpatch ghost that
-  // MultiPatch_Interpolate has never populated (e.g. a group's very first
-  // sync, where that ghost is still poison-NaN) -- see boundaries_impl.hxx.
-  // Calling it here makes those source cells finite by construction. The
-  // interior data this reads from was just validated above ("Check
-  // preconditions"), so it is safe to interpolate from at this point. The
-  // call below (after the first BC pass) still runs afterwards: it is
-  // needed to drive the pre-existing second BC pass for outer+interpatch
-  // corner cells, and to pick up any interpatch ghosts invalidated by the
-  // sync itself.
-  //
-  // BUGFIX_TODO.md step B2 has made the reason above void, and step B3 is
-  // where this block goes. Pass 1 now runs `skip_interpatch_corners` at
-  // tl = 0, so it no longer reaches a corner's interpatch source at all and
-  // there is nothing left for this bootstrap to make finite. It is left in
-  // place here on purpose: removing it is a separate mechanism (R1), and A5's
-  // debug abort -- which this bootstrap causes, by interpolating from a
-  // donor's just-poisoned outer ghost -- is the before/after test B3 needs.
-  // An A5 that went green at B2 would mean B2 had quietly done B3's job.
-  if (have_multipatch_boundaries) {
-    // mp_corners_11.md: mp_corners_10.md made the interpolator *refuse* to
-    // anchor on not-yet-filled intra-patch (box-split) ghosts during this
-    // bootstrap pass (force_conservative_intrapatch), instead of making
-    // those ghosts valid. That traded one crash for another: the point-to-
-    // donor-box assignment inside MultiPatch1_Interpolate is computed under
-    // the ordinary (non-conservative) policy, so shrinking the allowed
-    // interior out from under it leaves many already-assigned points with
-    // no legal anchor at all -- "Interpolation anchor is not allowed"
-    // (interpolate.cxx:310), independent of whether the data underneath is
-    // actually finite.
-    //
-    // Fix this at the root instead: give level-0 intra-patch ghosts real,
-    // finite same-level neighbour data *before* the bootstrap pass reads
-    // them, via a plain FillBoundary -- exactly the data movement
-    // FillPatch_Sync's level==0 branch below performs, just done here,
-    // synchronously, with no boundary-condition application attached (BCs
-    // are still applied at the usual point, further down). This makes the
-    // interpolator's ordinary ("bbox=false faces are always anchorable")
-    // policy correct again, so force_conservative_intrapatch is no longer
-    // needed -- and, per the above, would be actively wrong to use here.
-    // FillPatch_Sync/tasks1 below will redo this same fill shortly after;
-    // that is harmless, not incorrect, since FillBoundary is idempotent.
-    //
-    // level>0 boxes are not covered by this pre-fill (their ghosts also
-    // need coarse-fine prolongation, which itself depends on the coarse
-    // level's boundary conditions already being applied -- see
-    // FillPatch_ProlongateGhosts). They are therefore still exposed to the
-    // poison-NaN-read hazard mp_corners_9.md diagnosed; this has not
-    // regressed (this run never reaches level>0), but is an open gap for a
-    // future run that does.
-    active_levels->loop_serially([&](auto &restrict leveldata) {
-      if (leveldata.level != 0)
-        return;
-      const auto &geom =
-          ghext->patchdata.at(leveldata.patch).amrcore->Geom(leveldata.level);
-      for (const int gi : groups) {
-        auto &restrict groupdata = *leveldata.groupdata.at(gi);
-        const int ntls = groupdata.mfab.size();
-        const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
-        for (int tl = 0; tl < sync_tl; ++tl) {
-          amrex::MultiFab &mfab = *groupdata.mfab.at(tl);
-          mfab.FillBoundary(0, mfab.nComp(), mfab.nGrowVect(),
-                            geom.periodicity());
-        }
-      }
-    });
-
-    std::vector<CCTK_INT> cactusvarinds;
-    for (int group : groups) {
-      const auto &groupdata =
-          *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(group);
-      for (int var = 0; var < groupdata.numvars; ++var)
-        cactusvarinds.push_back(groupdata.firstvarindex + var);
-    }
-#ifdef CCTK_DEBUG
-    log_mp_interpolate_call("SyncGroupsByDirI bootstrap", cactusvarinds);
-#endif
-    // mp_slave_2.md §7 Fix #1: don't apply slave_overlap's write-back yet.
-    // This bootstrap pass's own interior overlap cells are the donor source
-    // data the main pass's ordinary ghost fill (and its own slave writes)
-    // read below; slaving them here first would make that read
-    // non-idempotent (mp_slave_2.md/mp_slave_3.md's confirmed root cause of
-    // bucket (a)'s corruption). Ordinary ghost cells are still filled.
-    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data(),
-                           0);
-  }
-
+  // BUGFIX_TODO.md step B3 deleted the bootstrap MultiPatch_Interpolate that
+  // used to run here, together with the level-0 FillBoundary pre-pass that fed
+  // it and the 14-line mp_corners_7.md comment that justified it. Step B2 made
+  // pass 1 skip the interpatch x outer corners, so it no longer reads an
+  // interpatch ghost at all, and making those ghosts finite ahead of it -- the
+  // bootstrap's only purpose -- is no longer anything. The surviving call is the
+  // one below, after tasks1/2/3 have run: by then AMReX has filled the
+  // intra-patch (box-split) ghosts itself, which is what the FillBoundary
+  // pre-pass was standing in for, and pass 1 has written the outer ghosts.
+  // There is now exactly ONE interpolate call per sync, so no call can read
+  // another call's output within a sync -- the two-pass non-idempotency behind
+  // the 696 + 312 corruption is absent by construction rather than gated off.
   // We need to loop over groups, patches, and levels in a definite
   // order so that AMReX's communication pattern does not get
   // confused. Therefore all the loops here are serial. The only
@@ -2881,11 +2802,12 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 #ifdef CCTK_DEBUG
     log_mp_interpolate_call("SyncGroupsByDirI main", cactusvarinds);
 #endif
-    // mp_slave_2.md §7 Fix #1: this is the sync's final interpolation pass,
-    // so it's safe to apply slave_overlap's write-back now -- nothing later
-    // in this sync reads these interior cells as a donor.
-    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data(),
-                           1);
+    // The sync's only interpolation pass (BUGFIX_TODO.md step B3 deleted the
+    // bootstrap one above), so slave_overlap's write-back is unconditional
+    // again: nothing later in this sync reads these interior cells as a donor,
+    // and no earlier call in it can have read them either.
+    MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
+                           cactusvarinds.data());
 
     // Second BC pass: correct corner ghost cells at the outer+interpatch face
     // intersection.
