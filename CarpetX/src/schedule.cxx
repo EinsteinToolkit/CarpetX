@@ -2946,6 +2946,50 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     });
 #endif // CCTK_DEBUG
 
+    // WHY THERE IS NO `poison_invalid_gf` HERE, AND WHY ADDING ONE WOULD BE A
+    // BUG (BUGFIX_TODO.md step B5, withdrawn; `multipatch_case.md` [C8]/[N2]).
+    //
+    // The non-multipatch postcondition above runs `set_* -> poison_invalid_gf
+    // -> check_valid_gf`; this path runs `set_* -> check_valid_gf` and skips
+    // the poison call. That asymmetry looks like an oversight and has been
+    // proposed as a symmetry repair twice. It is not one: on a patch system
+    // the added call is a no-op where it is safe and a data destroyer where it
+    // is not.
+    //
+    //   - `poison_invalid_gf` poisons `where_t::boundary` whenever
+    //     `valid_outer` is false (`valid.cxx:198-202`).
+    //   - `where_t::boundary` is not the physical outer boundary here. It is
+    //     whatever `cctk_bbox` marks, and `cctk_bbox` comes from
+    //     `GridDesc::GridDesc(leveldata, mfp)`, which sets
+    //     `bbox[f][d] = vbx[...] == domain[...]` with NO symmetry test (`:178`,
+    //     reaching `cctk_bbox` at `:698`). On a patch system every interpatch
+    //     face IS a patch-domain face, so `where_t::boundary` is the whole of
+    //     outer ghosts + interpatch ghosts + their corners, and
+    //     `where_t::ghosts` is only the inter-box ghosts. (The one bbox
+    //     definition in the tree that does test
+    //     `symmetries[f][d] != symmetry_t::none` is the sibling constructor
+    //     `GridDesc::GridDesc(leveldata, global_component)` -- `:235`, its
+    //     bbox at `:285` -- and it has no callers, in this thorn or any
+    //     other.)
+    //   - `set_ghosts(true)` therefore does not cover the interpatch ghosts.
+    //     The *outer* bit governs them, and `set_outer(true)` above is
+    //     conditional on `all_faces_have_symmetries_or_boundaries()`
+    //     (`driver.cxx:995-1005`), which is per patch AND per group.
+    //
+    // So with an outer boundary condition set, `set_outer(true)` has just run
+    // and a poison call here does nothing. With `boundary_* = "none"` the
+    // predicate is false on any patch that owns a physical outer face, and the
+    // call NaN-fills the interpatch ghosts `MultiPatch_Interpolate` wrote
+    // correctly a few lines above -- between that write and its next reader.
+    //
+    // The real defect is that CarpetX has no `O`-only validity bit: one bit
+    // covers the outer boundary, the interpatch ghosts and their corners, so
+    // the interpolator's own output lives inside the region the poison call
+    // would clear. That is `main`'s defect, not this branch's, and splitting
+    // the bit is separate work with its own failing-before test. Until it is
+    // split, this path deliberately marks validity and checks, and does not
+    // poison.
+
     for (const int gi : groups) {
       const auto &patchdata0 = ghext->patchdata.at(0);
       const auto &leveldata0 = patchdata0.leveldata.at(0);
