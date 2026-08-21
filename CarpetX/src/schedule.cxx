@@ -2574,6 +2574,58 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     const int ntls0 = groupdata0.mfab.size();
     const int sync_tl0 = ntls0 > 1 ? ntls0 - 1 : ntls0;
 
+    // BUGFIX_TODO.md step B8b ([O4]): A MULTI-PATCH SYNC OF A GROUP WITH MORE
+    // THAN ONE SYNCED TIME LEVEL IS REFUSED.
+    //
+    // THE HOLE.  `MultiPatch_Interpolate` writes the interpatch ghost zones at
+    // `tl = 0` only.  An interpatch face carries no stored outer boundary
+    // condition, so the boundary passes write nothing there either, at any
+    // time level.  Yet the postcondition below marks ghosts and outer
+    // boundaries VALID for every `tl < sync_tl0`.  At `sync_tl0 > 1` that
+    // certifies, as valid, cells this sync has just poisoned and nothing has
+    // written -- which is precisely the charge this project is making against
+    // the code it is fixing.  Neither state we could reach here is one we are
+    // willing to certify: before an interpatch face stopped carrying an outer
+    // BC, `tl >= 1` was written with an outer-boundary echo across a seam
+    // instead.
+    //
+    // WHY `sync_tl0 > 1` AND NOT `ntls0 > 1`.  Every time-level loop in this
+    // function -- the preconditions, the two `FillPatch_*` call sites, the
+    // postcondition, the debug NaN sweep -- is bounded by
+    // `sync_tl = ntls > 1 ? ntls - 1 : ntls`, the expression two lines above.
+    // A TWO-time-level group therefore syncs `tl = 0` alone: `tl >= 1` is
+    // never poisoned here, never filled here, and never marked valid here, so
+    // it has no hole in it and refusing it would refuse a configuration that
+    // works.  The predicate is the number of time levels this function
+    // actually touches, not the number the group declares.
+    //
+    // WHY THE PATCH COUNT AND NOT `have_multipatch_boundaries`.  The hole needs
+    // an interpatch face.  A `patch_system = "Cartesian"` grid is a single
+    // patch with six physical outer faces and none, so the `all` pass fills its
+    // boundaries at every time level exactly as on a non-patch grid; the alias
+    // is nonetheless aliased there.  Same reason as the PARAMCHECK guard in
+    // `driver.cxx`.
+    //
+    // UNEXERCISED, AND SAID SO RATHER THAN LEFT TO BE NOTICED.  A group's time
+    // level count is compile time (`driver.cxx`, `mfab.resize`), and no thorn
+    // in this thorn list declares a `CCTK_GF` group with more than two.  The
+    // guard was reached and its message read on a purpose-built configuration
+    // (`evidence/fix/b8/tl3/`), not on any rig that ships.  Note what that
+    // witness also shows: without this check the same configuration already
+    // stops one loop later, at the `error_if_invalid` below, complaining that
+    // `tl = 1` is invalid.  This moves the refusal and names the reason; it
+    // does not turn a silently wrong run into a refused one.
+    if (ghext->num_patches() > 1 && sync_tl0 > 1)
+      CCTK_VERROR(
+          "SyncGroupsByDirI: group %s has %d time levels, of which %d are "
+          "synchronised, on a multi-patch system (%d patches). Only the "
+          "current time level of a synchronised group is filled across patch "
+          "boundaries; the older ones would be marked valid without anything "
+          "having written their interpatch ghost zones. Refusing rather than "
+          "certifying them. Declare the group with at most 2 time levels, or "
+          "use a single-patch grid.",
+          groupdata0.groupname.c_str(), ntls0, sync_tl0, ghext->num_patches());
+
     active_levels->loop_serially([&](auto &restrict leveldata) {
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
 
