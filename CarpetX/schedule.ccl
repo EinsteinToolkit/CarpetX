@@ -9,6 +9,18 @@ SCHEDULE CarpetX_Startup AT startup AS Driver_Startup
   LANG: C
 } "Start up the driver"
 
+# OPTIONS: global IS LOAD BEARING, NOT DECORATION.  CarpetX traverses
+# CCTK_PARAMCHECK from its own Initialise (schedule.cxx), with `active_levels`
+# set to the EMPTY range (0, 0) -- there is no grid yet.  A routine scheduled
+# without OPTIONS is in LOCAL mode, and CallFunction's local arm runs it once
+# per tile of that empty range, i.e. NEVER.  The refusal below would then be
+# silently dead, which is the failure mode a guard must not have.
+SCHEDULE CarpetX_ParamCheck AT paramcheck
+{
+  LANG: C
+  OPTIONS: global
+} "Refuse parameter combinations this driver cannot honour"
+
 if (!CCTK_Equals(recover, "no") && *recover_file)
 {
   SCHEDULE CarpetX_RecoverParameters AT recover_parameters

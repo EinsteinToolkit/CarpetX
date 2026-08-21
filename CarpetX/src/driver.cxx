@@ -2047,6 +2047,74 @@ extern "C" int CarpetX_Startup() {
   return 0;
 }
 
+// Refuse parameter combinations this driver cannot honour.
+//
+// BUGFIX_TODO.md step B8a: A PATCH SYSTEM WITH MORE THAN ONE PATCH AND MESH
+// REFINEMENT IS REFUSED, HERE, AT PARAMCHECK.
+//
+// It is refused rather than fixed because the regrid path is only partially
+// implemented for a patch system and no rig in this tree has ever exercised
+// it.  Three things are wrong with it at once, and each is recorded at the
+// line it belongs to:
+//
+//   - `FillPatch_NewLevel` / `FillPatch_ProlongateGhosts` build a COARSE
+//     TEMPORARY whose interpatch faces `mf_set_domain_bndry` NaN-fills and
+//     which nothing then writes, because an interpatch face no longer carries
+//     a stored outer boundary condition; `FillPatchInterp` prolongates from
+//     it.  See the pass selection in `schedule.cxx` and the dispatch note in
+//     `boundaries_impl.hxx`.
+//   - the two standalone regrid blocks in `schedule.cxx` build their variable
+//     list from EVERY `CCTK_GF` group rather than from the synced set, and
+//     then apply the `all` boundary pass to every one of them on every level.
+//     That is a wider version of the double write the surrounding commits
+//     exist to remove, and it is still there.
+//   - `CapyrX_MultiPatch`'s interpolator refuses non-vertex-centred groups,
+//     and the two blocks above hand it `CarpetXRegrid::regrid_error`, which is
+//     cell centred.
+//
+// WHY THE PREDICATE IS THE PATCH COUNT AND NOT THE ALIAS.  Asking
+// `CCTK_IsFunctionAliased("MultiPatch_Interpolate")` -- the obvious reading of
+// "a multipatch system is active" -- would ALSO refuse a `patch_system =
+// "Cartesian"` run, which is a SINGLE patch with six physical outer faces and
+// no interpatch face anywhere.  Those runs work today, mesh refinement
+// included, and two of them are the only positive controls this project has
+// for the regrid-path code above.  Refusing a configuration that works is the
+// one thing this commit may not do, so the predicate is `num_patches() > 1`.
+//
+// WHAT THIS DOES AND DOES NOT BUY, stated here because a one-line commit
+// message cannot hold it.  The configuration ALREADY fails today, in both
+// builds: the optimized build stops in the interpolator's centering guard with
+// a message about `[1,1,1]` grid functions, and the debug build stops on a
+// non-finite value inside the prolongation.  Neither says what is actually
+// unsupported, and both happen after the grid has been built and initial data
+// laid down.  What changes here is WHEN the run stops and WHAT IT SAYS -- not
+// whether an unvalidated result could previously escape.  Do not describe this
+// as closing a hole through which wrong answers were leaving.
+extern "C" void CarpetX_ParamCheck(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS;
+  DECLARE_CCTK_PARAMETERS;
+
+  // `ghext->patchdata` is populated by `InitGH`, which runs from
+  // `CCTKi_InitGHExtensions` -- before the PARAMCHECK traverse and before any
+  // level exists.  So the patch count is available here and the grid is not,
+  // which is exactly the pair this check needs.
+  const int num_patches = ghext->num_patches();
+
+  if (num_patches > 1 && max_num_levels > 1)
+    CCTK_VERROR(
+        "CarpetX_ParamCheck: a multi-patch system (%d patches) is active "
+        "together with CarpetX::max_num_levels = %d. Mesh refinement on a "
+        "patch system is only partially implemented in this driver and is "
+        "untested: nothing writes the interpatch faces of the coarse "
+        "temporaries that the prolongation reads, and the regrid-path "
+        "boundary passes are applied to every CCTK_GF group on every level "
+        "rather than to the synced set. Refusing at startup rather than "
+        "failing later with a message about grid-function centering or about "
+        "a non-finite value in the prolongation. Set "
+        "CarpetX::max_num_levels = 1, or use a single-patch grid.",
+        num_patches, int(max_num_levels));
+}
+
 // Set up GH extension
 void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   DECLARE_CCTK_PARAMETERS;
