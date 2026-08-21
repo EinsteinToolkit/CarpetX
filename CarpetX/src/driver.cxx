@@ -154,7 +154,14 @@ std::ostream &operator<<(std::ostream &os, const bc_pass_t bc_pass) {
 
 std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
   // patch < 0 return symmetries without taking interpatch boundaries into
-  // account
+  // account.
+  //
+  // After BUGFIX_TODO.md step B7, NO caller passes a negative patch: the two
+  // that did -- `get_default_boundaries` and `get_group_boundaries` -- are
+  // exactly where the patch-agnostic answer became a stored outer BC on an
+  // interpatch face. The mode is left in place because it is a meaningful
+  // query (the domain's symmetries irrespective of the patch system), but
+  // routing a `boundary_t` decision through it again is the defect B7 removed.
   DECLARE_CCTK_PARAMETERS;
 
   std::array<std::array<bool, 3>, 2> is_interpatch{
@@ -223,15 +230,41 @@ std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
   return symmetries;
 }
 
-std::array<std::array<boundary_t, dim>, 2> get_default_boundaries() {
+// The `patch` argument is what BUGFIX_TODO.md step B7 added, and it is the
+// whole of that step. This used to call `get_symmetries(-1)`, i.e. "the
+// symmetries with no patch in mind", which by construction reports NO
+// interpatch face -- so the globally configured `boundary_x`... was stored for
+// interpatch faces too and `groupdata.boundaries` lied about them. The boundary
+// dispatch suppresses the CONSEQUENCE (`boundaries_impl.hxx` maps an interpatch
+// face to none/none); this removes the CAUSE. Both are kept on purpose: the
+// suppression is defence in depth, and the corner predicate at the top of
+// `apply_on_face` is written to be correct either way (its `!ip &&`).
+//
+// An interpatch face gets `boundary_t::none`, NOT `boundary_t::symmetry_boundary`
+// -- which is what the `is_symmetry` arm below would otherwise hand it. The
+// always-on consistency check in the boundary kernel (`boundaries_impl.hxx:79`
+// and its y/z twins) treats `symmetry_t::interpatch` together with
+// `boundary_t::symmetry_boundary` as an internal inconsistency and calls
+// `CCTK_VERROR`, so that spelling would abort every multipatch run at its first
+// boundary pass. `none` is also the honest value: nobody applies an outer
+// boundary condition on an interpatch face, `MultiPatch_Interpolate` owns those
+// ghosts.
+std::array<std::array<boundary_t, dim>, 2>
+get_default_boundaries(const int patch) {
   DECLARE_CCTK_PARAMETERS;
 
   const std::array<std::array<symmetry_t, dim>, 2> symmetries =
-      get_symmetries(-1);
-  std::array<std::array<bool, 3>, 2> is_symmetry;
+      get_symmetries(patch);
+  std::array<std::array<bool, 3>, 2> is_interpatch, is_symmetry;
   for (int f = 0; f < 2; ++f)
-    for (int d = 0; d < dim; ++d)
-      is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none;
+    for (int d = 0; d < dim; ++d) {
+      is_interpatch[f][d] = symmetries[f][d] == symmetry_t::interpatch;
+      // "symmetry" here means periodic or reflection, i.e. the kinds that DO
+      // carry `boundary_t::symmetry_boundary`. Interpatch is kept separate
+      // because it carries `none`.
+      is_symmetry[f][d] =
+          symmetries[f][d] != symmetry_t::none && !is_interpatch[f][d];
+    }
 
   const std::array<std::array<bool, 3>, 2> is_dirichlet{{
       {{
@@ -281,17 +314,25 @@ std::array<std::array<boundary_t, dim>, 2> get_default_boundaries() {
           bool(CCTK_EQUALS(boundary_upper_z, "robin")),
       }},
   }};
+  // An interpatch face DISCARDS whatever the parameters configure for it, so it
+  // is exempt from the at-most-one rule: `boundary_x = "neumann"` together with
+  // an interpatch lower x face is a legal and completely ordinary configuration
+  // -- every multipatch par file in the tree is one -- and not a contradiction.
+  // On every other face at most one condition may apply, which is what this has
+  // always asserted.
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      assert(is_symmetry[f][d] + is_dirichlet[f][d] +
-                 is_linear_extrapolation[f][d] + is_neumann[f][d] +
-                 is_robin[f][d] <=
-             1);
+      assert(is_interpatch[f][d] ||
+             is_symmetry[f][d] + is_dirichlet[f][d] +
+                     is_linear_extrapolation[f][d] + is_neumann[f][d] +
+                     is_robin[f][d] <=
+                 1);
 
   std::array<std::array<boundary_t, dim>, 2> boundaries;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
-      boundaries[f][d] = is_symmetry[f][d]    ? boundary_t::symmetry_boundary
+      boundaries[f][d] = is_interpatch[f][d] ? boundary_t::none
+                         : is_symmetry[f][d] ? boundary_t::symmetry_boundary
                          : is_dirichlet[f][d] ? boundary_t::dirichlet
                          : is_linear_extrapolation[f][d]
                              ? boundary_t::linear_extrapolation
@@ -302,18 +343,29 @@ std::array<std::array<boundary_t, dim>, 2> get_default_boundaries() {
   return boundaries;
 }
 
-std::array<std::array<boundary_t, dim>, 2> get_group_boundaries(const int gi) {
+// B7 threads `patch` in here as well, and the second use of it is not
+// cosmetic. `is_symmetry` below is the mask that makes the 24 per-group
+// `{dirichlet,linear_extrapolation,neumann,robin}_{,upper_}{x,y,z}_vars`
+// overrides skip a face ("we are never applying outer boundary conditions
+// there"). Interpatch faces have to be IN that mask: without them, a par file
+// that names an evolved group in e.g. `neumann_upper_z_vars` would put the
+// outer BC straight back onto its interpatch faces, one override at a time,
+// and this commit would be undone through the back door. So `is_symmetry` here
+// deliberately covers interpatch as well -- it is an override mask, not a
+// classification, and it is never used to pick a `boundary_t`.
+std::array<std::array<boundary_t, dim>, 2> get_group_boundaries(const int gi,
+                                                                const int patch) {
   DECLARE_CCTK_PARAMETERS;
 
   const std::array<std::array<symmetry_t, dim>, 2> symmetries =
-      get_symmetries(-1);
+      get_symmetries(patch);
   std::array<std::array<bool, 3>, 2> is_symmetry;
   for (int f = 0; f < 2; ++f)
     for (int d = 0; d < dim; ++d)
       is_symmetry[f][d] = symmetries[f][d] != symmetry_t::none;
 
   std::array<std::array<boundary_t, dim>, 2> boundaries =
-      get_default_boundaries();
+      get_default_boundaries(patch);
 
   const auto override_group_boundary = [&](const char *const var_set_string,
                                            const int dir, const int face,
@@ -739,7 +791,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   {
     const std::array faces{"lower", "upper"};
     const std::array dirs{"x", "y", "z"};
-    const auto boundaries = get_default_boundaries();
+    const auto boundaries = get_default_boundaries(patch);
     std::ostringstream buf;
     buf << "\nSymmetries:";
     for (int f = 0; f < 2; ++f)
@@ -900,7 +952,7 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
     if (geom.isPeriodic(d))
       assert(geom.Domain().length(d) >= nghostzones[d]);
 
-  boundaries = get_group_boundaries(gi);
+  boundaries = get_group_boundaries(gi, patch);
   parities = get_group_parities(gi);
   if (parities.empty()) {
     std::array<int, dim> parity;

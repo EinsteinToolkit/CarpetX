@@ -112,6 +112,13 @@ void FillPatch_ProlongateGhosts(
     // The coarse TEMPORARY, not the real `mfab`: `FillPatchInterp` below reads
     // it and nothing runs a second BC pass over it, so it must be filled
     // completely. Deliberately `all`, never `bc_pass`.
+    //
+    // "Completely" stopped being true at step B7 on a multipatch grid: `all`
+    // writes the temporary's physical outer faces and, since B7, not its
+    // interpatch faces, which `mf_set_domain_bndry` above has NaN-filled and
+    // which nothing else touches -- the interpolator only ever writes the real
+    // `mfab`. `FillPatchInterp` then reads them. This is why step B8 refuses
+    // multipatch + AMR outright instead of leaving it to be discovered.
     coarsegroupdata.apply_boundary_conditions(mfab_crse_patch, bc_pass_t::all);
 
     MultiFab *const mfab_fine_patch_ptr =

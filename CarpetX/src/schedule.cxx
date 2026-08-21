@@ -2671,12 +2671,14 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
           // the "this commit is inert on a single patch" claim is a statement
           // about which code path executes rather than about a boolean.
           //
-          // What this ternary does NOT do, and B8 is what does: after step B7
-          // removes the outer BC from `groupdata.boundaries` on interpatch
-          // faces, `all` stops writing the interpatch ghost at `tl >= 1` while
-          // the validity marks below still claim it -- so the `tl` axis is
-          // closed by B8's refusal of more than one time level, not by this
-          // line. Do not read a correctness into it that it does not have.
+          // What this ternary does NOT do, and B8 is what does: step B7 has
+          // now removed the outer BC from `groupdata.boundaries` on interpatch
+          // faces, so `all` no longer writes the interpatch ghost at
+          // `tl >= 1` while the validity marks below still claim it -- the
+          // `tl` axis is closed by B8's refusal of more than one time level,
+          // not by this line. Do not read a correctness into it that it does
+          // not have. (No group in any rig here declares more than one time
+          // level, so this is latent rather than live.)
           const bc_pass_t bc_pass = (have_multipatch_boundaries && tl == 0)
                                         ? bc_pass_t::skip_interpatch_corners
                                         : bc_pass_t::all;
@@ -2708,6 +2710,12 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
           // `mfab`; the coarse temporary inside it is pinned to
           // `bc_pass_t::all` there, because nothing ever runs a second pass
           // over a temporary that `FillPatchInterp` is about to read.
+          //
+          // After B7 that `all` no longer covers the temporary's INTERPATCH
+          // faces -- nothing does -- so the prolongation reads what
+          // `mf_set_domain_bndry` left there ([P22]). B8 refuses multipatch +
+          // AMR for exactly this reason; see the dispatch comment in
+          // `boundaries_impl.hxx`.
           const bc_pass_t bc_pass = (have_multipatch_boundaries && tl == 0)
                                         ? bc_pass_t::skip_interpatch_corners
                                         : bc_pass_t::all;

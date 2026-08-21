@@ -78,13 +78,16 @@ void BoundaryCondition::apply_on_face() const {
    *     cannot be made anywhere below this point, and needs its own loop over
    *     the three directions.
    *
-   *  2. `groupdata.boundaries` still carries the globally configured outer BC
-   *     on interpatch faces (`get_group_boundaries` uses `get_symmetries(-1)`),
-   *     and will until step B7. So an interpatch direction must be excluded
-   *     from `has_outer_bc` EXPLICITLY -- the `!ip &&`. Without it an
-   *     interpatch x interpatch edge reads as a "corner", pass 2 writes cells
-   *     the interpolator owns, and this commit re-creates the double write it
-   *     exists to remove.
+   *  2. An interpatch direction is excluded from `has_outer_bc` EXPLICITLY --
+   *     the `!ip &&`. Before step B7 that was load-bearing:
+   *     `get_group_boundaries` called `get_symmetries(-1)` and stored the
+   *     configured outer BC on interpatch faces, so without the `!ip &&` an
+   *     interpatch x interpatch edge read as a "corner", pass 2 wrote cells the
+   *     interpolator owns, and the double write this partition exists to remove
+   *     came back. B7 now stores `none` there, so the guard is redundant on
+   *     today's tree -- and it is KEPT, because it states the classification
+   *     this block is making instead of inheriting it from a value set three
+   *     functions away.
    *
    * One classification is made here silently and is worth naming. A reflection
    * or periodic face carries `boundary_t::symmetry_boundary`, which is
@@ -187,62 +190,51 @@ void BoundaryCondition::apply_on_face() const {
     }
 
     /*
-     * get_group_boundaries() uses get_symmetries(-1). The -1 means "ignore
-     * patches", so interpatch faces receive whatever outer BC is globally
-     * configured in groupdata.boundaries.  We detect and suppress that here,
-     * letting MultiPatch_Interpolate fill the interpatch ghost zone instead.
+     * There used to be a `CCTK_DEBUG` report here (and one on each of the y and
+     * z faces) firing when an interpatch face carried a configured outer BC,
+     * because `get_group_boundaries` called `get_symmetries(-1)` and stored one
+     * there.  Step B7 stopped storing it, so the condition became unreachable
+     * and the three reports were deleted with it -- dead code that documents a
+     * bug we fixed is worse than no comment.  Measured across the B7 gate:
+     * 972 such lines per run on the colour rig before, 0 after, on a build that
+     * still contained them.
      */
-    // B2(a) made this message pass-dependent: it used to say "suppressing"
-    // unconditionally, which is now true for the two partitioned passes and
-    // FALSE for `bc_pass_t::all`, where the configured outer BC really is
-    // applied to the interpatch face (`main`'s behaviour, kept deliberately --
-    // see the dispatch comment below).
-#ifdef CCTK_DEBUG
-    {
-      if (symmetry_x == symmetry_t::interpatch &&
-          boundary_x != boundary_t::none &&
-          boundary_x != boundary_t::symmetry_boundary) {
-        std::ostringstream buf;
-        buf << bc_pass;
-#pragma omp critical
-        {
-          CCTK_VINFO("apply_on_face: group '%s' patch %d x-face f=%d is "
-                     "symmetry_t::interpatch with configured outer BC "
-                     "(boundary=%d); bc_pass=%s => %s",
-                     groupdata.groupname.c_str(), patchdata.patch, f,
-                     static_cast<int>(boundary_x), buf.str().c_str(),
-                     bc_pass == bc_pass_t::all
-                         ? "APPLYING it (pre-B7 `all` behaviour)"
-                         : "suppressing it; the ghost zone is filled by "
-                           "MultiPatch_Interpolate");
-        }
-      }
-    }
-#endif // CCTK_DEBUG
-
     /*
-     * The original condition required `boundary_x == none` for the interpatch
-     * branch, but get_group_boundaries() (which is patch-agnostic) sets
-     * boundary_x to the globally configured outer BC even for interpatch faces.
-     * The original condition therefore NEVER matched for interpatch faces with
-     * a configured outer BC, causing the outer BC to fire on interpatch ghost
-     * cells instead of being suppressed.
+     * History, because the shape of this condition is otherwise unreadable.
      *
-     * BUGFIX_TODO.md step B2(a): suppressing it UNCONDITIONALLY is wrong too.
-     * A coarse temporary's interpatch faces are written by nobody -- the
-     * interpolator only ever touches the real `mfab` -- and `mf_set_domain_bndry`
-     * has just NaN-filled them, so `FillPatchInterp` would prolongate NaN. The
-     * suppression is therefore tied to the pass: the two partitioned passes
-     * (which run only where `MultiPatch_Interpolate` follows/precedes them) map
-     * interpatch to none/none, and `bc_pass_t::all` keeps `main`'s behaviour of
-     * writing the configured outer BC there -- finite garbage that something
-     * later overwrites, rather than nothing at all.
+     * The original required `boundary_x == none` for the interpatch branch, but
+     * `get_group_boundaries` was patch-agnostic and stored the globally
+     * configured outer BC on interpatch faces, so the branch never matched
+     * there and the outer BC fired on interpatch ghosts. BUGFIX_TODO.md step
+     * B2(a) made the suppression PASS-DEPENDENT rather than unconditional,
+     * because a coarse temporary's interpatch faces are written by nobody --
+     * the interpolator only ever touches the real `mfab` -- and
+     * `mf_set_domain_bndry` has just NaN-filled them, so `FillPatchInterp`
+     * would prolongate NaN. `bc_pass_t::all` therefore kept writing the
+     * configured BC there: finite garbage that something later overwrites,
+     * rather than nothing at all.
      *
-     * NOTE: after step B7 removes the outer BC from `groupdata.boundaries` on
-     * interpatch faces, `boundary_x == none` holds there and the first
-     * disjunct's second half makes this clause fire in EVERY pass again. That
-     * is deliberate, and B8 is what refuses the configuration in which it
-     * matters (more than one time level).
+     * STEP B7 REMOVED THE STORED BC, and that inverts the `all` case: on an
+     * interpatch face `boundary_x == none` now holds, the first disjunct's
+     * second half matches in EVERY pass, and `bc_pass_t::all` no longer writes
+     * an interpatch ghost at all. Two consequences, both deliberate, neither
+     * free:
+     *
+     *   - at `tl >= 1` nothing writes the interpatch ghost while the sync's
+     *     postcondition still marks it valid ([O4]); and
+     *   - a coarse temporary's interpatch faces stay NaN, so the level>0
+     *     prolongation reads them ([P22]). Measured, not feared: B7's gate G
+     *     watched 189 `all`-pass interpatch writes on `a7_level_L2_Pno`
+     *     disappear.
+     *
+     * Step B8 is what refuses both configurations -- multipatch with more than
+     * one time level, and multipatch with AMR. Neither is fixed here, and
+     * neither is a reason to put the stored BC back: that is the defect.
+     *
+     * The `|| bc_pass != bc_pass_t::all` disjunct is therefore redundant today
+     * and is kept: it is what makes the partitioned passes' behaviour explicit
+     * at the point of dispatch rather than dependent on what
+     * `get_group_boundaries` happens to store.
      */
     if ((symmetry_x == symmetry_t::none && boundary_x == boundary_t::none) ||
         (symmetry_x == symmetry_t::interpatch &&
@@ -299,26 +291,6 @@ void BoundaryCondition::apply_on_face_symbcx(
           "interpatch and symmetry_boundary are mutually exclusive.",
           groupdata.groupname.c_str(), patchdata.patch, f);
     }
-
-    // B2(a): pass-dependent, see the x-face copy.
-#ifdef CCTK_DEBUG
-    if (symmetry_y == symmetry_t::interpatch &&
-        boundary_y != boundary_t::none &&
-        boundary_y != boundary_t::symmetry_boundary) {
-      std::ostringstream buf;
-      buf << bc_pass;
-#pragma omp critical
-      CCTK_VINFO("apply_on_face: group '%s' patch %d y-face f=%d is "
-                 "symmetry_t::interpatch with configured outer BC "
-                 "(boundary=%d); bc_pass=%s => %s",
-                 groupdata.groupname.c_str(), patchdata.patch, f,
-                 static_cast<int>(boundary_y), buf.str().c_str(),
-                 bc_pass == bc_pass_t::all
-                     ? "APPLYING it (pre-B7 `all` behaviour)"
-                     : "suppressing it; the ghost zone is filled by "
-                       "MultiPatch_Interpolate");
-    }
-#endif // CCTK_DEBUG
 
     // B2(a): the interpatch suppression is pass-dependent. See the long
     // comment on the x-face above.
@@ -378,26 +350,6 @@ void BoundaryCondition::apply_on_face_symbcxy(
           "interpatch and symmetry_boundary are mutually exclusive.",
           groupdata.groupname.c_str(), patchdata.patch, f);
     }
-
-    // B2(a): pass-dependent, see the x-face copy.
-#ifdef CCTK_DEBUG
-    if (symmetry_z == symmetry_t::interpatch &&
-        boundary_z != boundary_t::none &&
-        boundary_z != boundary_t::symmetry_boundary) {
-      std::ostringstream buf;
-      buf << bc_pass;
-#pragma omp critical
-      CCTK_VINFO("apply_on_face: group '%s' patch %d z-face f=%d is "
-                 "symmetry_t::interpatch with configured outer BC "
-                 "(boundary=%d); bc_pass=%s => %s",
-                 groupdata.groupname.c_str(), patchdata.patch, f,
-                 static_cast<int>(boundary_z), buf.str().c_str(),
-                 bc_pass == bc_pass_t::all
-                     ? "APPLYING it (pre-B7 `all` behaviour)"
-                     : "suppressing it; the ghost zone is filled by "
-                       "MultiPatch_Interpolate");
-    }
-#endif // CCTK_DEBUG
 
     // B2(a): the interpatch suppression is pass-dependent. See the long
     // comment on the x-face above.
