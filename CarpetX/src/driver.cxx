@@ -177,6 +177,17 @@ std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
     // that multipatch is inactive: silently treating every face as physical
     // (is_interpatch=false) would open every outer face to donor stencils
     // reading outer-BC ghosts into interpatch values (mp_noise_3 sec 11.4).
+    //
+    // The reason that has to be an error and not a warning is what makes it
+    // undetectable downstream: the silent fallback would desynchronise
+    // CarpetX's face classification from the interpolator's target set while
+    // leaving the INTERPOLATOR self-consistent. CapyrX would go on filling
+    // exactly the interpatch ghosts it believes in, CarpetX would go on
+    // applying an outer BC to the same cells, and every internal check on
+    // either side would pass. Since step B7 this map is also what decides
+    // whether a face carries a stored outer BC at all, so a wrong answer here
+    // is no longer merely a wrong stencil source.
+    //
     // A genuine single-patch run has neither alias, which is the legitimate
     // case this check must not break.
     if (!have_boundary_spec &&
@@ -242,11 +253,11 @@ std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
 //
 // An interpatch face gets `boundary_t::none`, NOT `boundary_t::symmetry_boundary`
 // -- which is what the `is_symmetry` arm below would otherwise hand it. The
-// always-on consistency check in the boundary kernel (`boundaries_impl.hxx:79`
-// and its y/z twins) treats `symmetry_t::interpatch` together with
-// `boundary_t::symmetry_boundary` as an internal inconsistency and calls
-// `CCTK_VERROR`, so that spelling would abort every multipatch run at its first
-// boundary pass. `none` is also the honest value: nobody applies an outer
+// always-on consistency checks in the boundary kernel
+// (`boundaries_impl.hxx:181`, `:284`, `:343`) treat `symmetry_t::interpatch`
+// together with `boundary_t::symmetry_boundary` as an internal inconsistency
+// and call `CCTK_VERROR`, so that spelling would abort every multipatch run at
+// its first boundary pass. `none` is also the honest value: nobody applies an outer
 // boundary condition on an interpatch face, `MultiPatch_Interpolate` owns those
 // ghosts.
 std::array<std::array<boundary_t, dim>, 2>
