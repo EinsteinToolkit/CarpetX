@@ -425,42 +425,18 @@ void BoundaryCondition::apply_on_face_symbcxyz(
       "boundary_t::symmetry_boundary reached apply_on_face_symbcxyz. This "
       "sentinel type must not be used for actual BC application.");
 
-  // mp_slave_7.md §5 / mp_slave_8.md instrumentation: bucket (b) (312
-  // "corner" cells at an angular-interpatch face x the wedges' cartesian-
-  // facing inner-radial face) empirically cleared when Fix #1 deferred
-  // slave_overlap's write-back, even though mp_slave_3.md §5 showed those
-  // cells never enter MultiPatch1_Interpolate's ghost-fill/slave-write loop
-  // at all. This logs, for the CAPYRX_TESTMULTIPATCH::COLOR group only and
-  // only for genuine 2-or-3-axis corners (bucket (b)'s cell class), which
-  // branch below actually fires for this (NI,NJ,NK) face combination -- the
-  // "NOOP" branch (all 3 axes none/none: nothing is ever written here by
-  // apply_boundary_conditions, in EITHER BC pass) or the "WRITE" branch
-  // (some axis has a real symmetry/boundary condition configured) -- plus
-  // the per-axis symmetry_t/boundary_t values that decided it. This settles
-  // whether bucket (b)'s cells are, per this function's own logic, ever
-  // written by the "2nd BC pass" at all (mp_slave_3.md §5 assumed they are,
-  // without checking).
-#ifdef CCTK_DEBUG
-  {
-    constexpr int n_active_axes =
-        int(NI != 0) + int(NJ != 0) + int(NK != 0);
-    static const bool log_donors = std::getenv("CAPYRX_LOG_DONORS") != nullptr;
-    if (log_donors && n_active_axes >= 2 &&
-        groupdata.groupname == "CAPYRX_TESTMULTIPATCH::COLOR") {
-      constexpr bool is_noop = all(symmetries == symmetry_t::none &&
-                                   boundaries == boundary_t::none);
-#pragma omp critical
-      CCTK_VINFO(
-          "CORNERBC branch=%s patch=%d level=%d NI=%d NJ=%d NK=%d "
-          "sym=(%d,%d,%d) bnd=(%d,%d,%d) bmin=(%d,%d,%d) bmax=(%d,%d,%d)",
-          is_noop ? "NOOP" : "WRITE", patchdata.patch, groupdata.level, NI, NJ,
-          NK, static_cast<int>(SCI), static_cast<int>(SCJ),
-          static_cast<int>(SCK), static_cast<int>(BCI), static_cast<int>(BCJ),
-          static_cast<int>(BCK), bmin[0], bmin[1], bmin[2], bmax[0], bmax[1],
-          bmax[2]);
-    }
-  }
-#endif // CCTK_DEBUG
+  /*
+   * DELETED (BUGFIX_TODO.md B10): a `CORNERBC` report, and below it a per-cell
+   * `CORNERBC_WRITE`, both gated on
+   * `groupdata.groupname == "CAPYRX_TESTMULTIPATCH::COLOR"` -- a CapyrX TEST
+   * THORN's group name, compiled into CarpetX's boundary dispatch and, for the
+   * second one, into the `CCTK_DEVICE` kernel's capture list.  They answered
+   * mp_slave_8.md's bucket-(b) question, which is answered (the 312 cells are
+   * the same two-pass non-idempotency as bucket (a), and B3 deleted the second
+   * pass), and no upstream form of them exists.  Measured loud before deletion
+   * rather than after: 140 `CORNERBC` and 1056 `CORNERBC_WRITE` lines on
+   * `color.par`, 272 / 1536 on `color_ghost.par` -- evidence/fix/b10/before/.
+   */
 
   if constexpr (all(symmetries == symmetry_t::none &&
                     boundaries == boundary_t::none)) {
@@ -633,28 +609,12 @@ void BoundaryCondition::apply_on_face_symbcxyz(
     // We cannot use a `restrict` declaration either.
     CCTK_REAL *const destptr1 = destptr;
 
-    // mp_slave_7.md §5 / mp_slave_8.md instrumentation: per-cell src/val log
-    // for the "WRITE" branch (the CORNERBC log above already reports whether
-    // this face combination is NOOP or WRITE at the call level; this adds
-    // the actual value for genuine 2+-axis corners in the color group, when
-    // it does write).
-#ifdef CCTK_DEBUG
-    constexpr int n_active_axes = int(NI != 0) + int(NJ != 0) + int(NK != 0);
-    static const bool log_donors_cells =
-        std::getenv("CAPYRX_LOG_DONORS") != nullptr;
-    const bool log_this_corner =
-        log_donors_cells && n_active_axes >= 2 &&
-        groupdata.groupname == "CAPYRX_TESTMULTIPATCH::COLOR";
-    const int log_patch = patchdata.patch;
-    const int log_level = groupdata.level;
-#endif
-
     const auto kernel =
         [
 #ifdef CCTK_DEBUG
+            // Captured for the asserts below, and for nothing else since B10
+            // deleted the per-cell corner log that used to ride along here.
             dmin = dmin, dmax = dmax, imin = imin, imax = imax,
-            log_this_corner = log_this_corner, log_patch = log_patch,
-            log_level = log_level,
 #endif
             xmin = xmin, dx = dx, layout = layout, destptr = destptr1,
             //
@@ -792,18 +752,6 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                 }
 #ifdef CCTK_DEBUG
                 assert(!isnan(val));
-                // CCTK_VINFO is host-only; this kernel is also compiled for
-                // the device (CCTK_DEVICE lambda), so the logging call must
-                // not be compiled in the device pass.
-#if !AMREX_DEVICE_COMPILE
-                if (log_this_corner && comp == 0) {
-#pragma omp critical
-                  CCTK_VINFO("CORNERBC_WRITE patch=%d level=%d dst=(%d,%d,%d) "
-                             "src=(%d,%d,%d) val=%.17g",
-                             log_patch, log_level, dst[0], dst[1], dst[2],
-                             src[0], src[1], src[2], double(val));
-                }
-#endif
 #endif
                 var.store(dst, val);
               }
