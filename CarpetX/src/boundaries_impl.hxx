@@ -4,6 +4,7 @@
 #include "boundaries.hxx"
 
 #include <array>
+#include <cstdlib>
 #include <functional>
 #include <sstream>
 #include <type_traits>
@@ -485,7 +486,22 @@ void BoundaryCondition::apply_on_face_symbcxyz(
      * populated), `all` is the one where the old hazard survives.
      */
 #ifdef CCTK_DEBUG
+    // INSTRUMENT (BUGFIX_TODO.md R2 / B10), debug builds only and OFF unless
+    // `CAPYRX_LOG_DONORS` is set.  It used to be `CCTK_DEBUG`-only, which made
+    // it the one block in a family of eight that printed whether or not anyone
+    // asked: 144 lines per `color.par` run and 216 per `color_ghost.par`, on
+    // every debug run of every rig (evidence/fix/b10/before/h_report.txt).  It
+    // is KEPT rather than deleted because it prints the `bc_pass`, and that
+    // makes it the only witness separating B2's healthy corner write
+    // (`interpatch_corners_only`, sources populated) from the `all`-pass hazard
+    // that survives at every non-sync call site and every `tl >= 1`.
+    //
+    // The gate is on the PRINT and not on the geometric loop below, which is
+    // three integer comparisons in a debug build.  Short-circuiting the loop
+    // instead would save nothing measurable and would read, at a glance, like a
+    // loop-bound bug.
     {
+      static const bool log_donors = std::getenv("CAPYRX_LOG_DONORS") != nullptr;
       bool has_passthrough_in_ghost = false;
 
       for (int d = 0; d < dim; ++d) {
@@ -500,7 +516,7 @@ void BoundaryCondition::apply_on_face_symbcxyz(
             has_passthrough_in_ghost = true;
         }
       }
-      if (has_passthrough_in_ghost) {
+      if (log_donors && has_passthrough_in_ghost) {
         std::ostringstream passbuf;
         passbuf << bc_pass;
 #pragma omp critical

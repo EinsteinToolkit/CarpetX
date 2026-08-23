@@ -2548,9 +2548,16 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
   // relative ordering of this per-group BC sweep against
   // MultiPatch1_Interpolate's own per-call log (see interpolate.cxx).
   {
-    static long call_counter = 0;
-    ++call_counter;
+    // BUGFIX_TODO.md B10: the increment used to sit OUTSIDE the `verbose` test,
+    // so an unsynchronised mutable static was written on every sync of every
+    // run while being read on none of them.  Moved inside.  The PRINTED numbers
+    // do not move: the only path that reads the counter is the one that also
+    // increments it, so any evidence quoting a call number (`[E3]`'s 32 NaNs at
+    // "SyncGroupsByDirI call #2") was taken with `verbose` on and still reads
+    // the same.
     if (verbose) {
+      static long call_counter = 0;
+      ++call_counter;
       for (const int gi : groups) {
 #pragma omp critical
         CCTK_VINFO("SyncGroupsByDirI call #%ld: group %s", call_counter,

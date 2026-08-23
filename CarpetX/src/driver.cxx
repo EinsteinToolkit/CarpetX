@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
@@ -1090,22 +1091,54 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
   const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync();
 
   /*
-   * This will report once per level/group what boundaries and symmetries are
-   * being applied to each face. It will also check if a
-   * pure outer BC face (symmetry=none) somehow also has
-   * boundary=symmetry_boundary, which is an internal inconsistency.
+   * INSTRUMENT (BUGFIX_TODO.md R2 / B10), debug builds only, always on there.
+   *
+   * THE REPORT IS ONCE PER RUN, NOT "once per level/group" AS THIS COMMENT USED
+   * TO SAY.  The flag is one object for the whole process, so the face table is
+   * printed for whichever (group, patch, level) reaches
+   * `apply_boundary_conditions` first and for none after it -- six lines,
+   * total, per run.  That is worth having (those six lines are the
+   * symmetry/boundary table B2 and B7 both argue from), but a reader who
+   * believed the old sentence would read its silence as "later groups have no
+   * boundaries".
+   *
+   * THE CONSISTENCY CHECK IS NO LONGER ONCE PER RUN, AND THAT IS THE ONE
+   * BEHAVIOUR THIS BLOCK CHANGES.  It used to sit INSIDE the once-only flag, so
+   * a `symmetry=none` face carrying `boundary=symmetry_boundary` was detected
+   * only if it happened to be on the first group to reach here, and every other
+   * group went unchecked while the block called itself a consistency check.
+   * Its three always-on siblings in `boundaries_impl.hxx` do run for every
+   * group, but they test a DIFFERENT predicate (`interpatch` +
+   * `symmetry_boundary`), so they do not cover this one.  Hoisted out of the
+   * flag.
+   *
+   * IT CANNOT FIRE TODAY, AND THAT IS WHY HOISTING IT IS SAFE RATHER THAN BOLD.
+   * `boundary_t::symmetry_boundary` has exactly one producer,
+   * `get_default_boundaries` at :345, and the arm that assigns it is guarded by
+   * `is_symmetry[f][d]`, which is `symmetries[f][d] != none && !is_interpatch`.
+   * None of the 24 per-group `*_vars` overrides in `get_group_boundaries` can
+   * assign it either -- they name dirichlet, linear_extrapolation, neumann and
+   * robin.  So `symmetry == none && boundary == symmetry_boundary` is
+   * unreachable from the only two places that write `boundaries`.  If it ever
+   * fires, a third writer appeared and that is a finding, not a reason to put
+   * the check back inside the flag.
+   *
+   * `[N7]` withdrew the reason this block was first flagged: it is NOT inside
+   * `#pragma omp parallel` (that region starts below, at the `MFIter` loop).
+   * The real defect was that a non-atomic mutable static is written from a
+   * member function reachable from the sync's task closures.  Hence the
+   * `atomic` and the single `exchange`.
    */
 #ifdef CCTK_DEBUG
   {
-    static bool reported_bc_config = false;
+    static std::atomic<bool> reported_bc_config{false};
+    const bool report = !reported_bc_config.exchange(true);
 
-    if (!reported_bc_config) {
-      reported_bc_config = true;
+    const auto &symm = ghext->patchdata.at(patch).symmetries;
 
-      const auto &symm = ghext->patchdata.at(patch).symmetries;
-
-      for (int f = 0; f < 2; ++f) {
-        for (int d = 0; d < dim; ++d) {
+    for (int f = 0; f < 2; ++f) {
+      for (int d = 0; d < dim; ++d) {
+        if (report) {
 #pragma omp critical
           {
             CCTK_VINFO(
@@ -1114,17 +1147,17 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
                 groupname.c_str(), patch, level, f, d,
                 static_cast<int>(symm[f][d]), static_cast<int>(boundaries[f][d]));
           }
+        }
 
-          if (symm[f][d] == symmetry_t::none &&
-              boundaries[f][d] == boundary_t::symmetry_boundary) {
+        if (symm[f][d] == symmetry_t::none &&
+            boundaries[f][d] == boundary_t::symmetry_boundary) {
 #pragma omp critical
-            {
-              CCTK_VERROR(
-                  "Group '%s' patch %d face[%d][%d] has symmetry_t::none but "
-                  "boundary_t::symmetry_boundary, which is reserved for "
-                  "non-none symmetry faces, This is an internal inconsistency.",
-                  groupname.c_str(), patch, f, d);
-            }
+          {
+            CCTK_VERROR(
+                "Group '%s' patch %d face[%d][%d] has symmetry_t::none but "
+                "boundary_t::symmetry_boundary, which is reserved for "
+                "non-none symmetry faces, This is an internal inconsistency.",
+                groupname.c_str(), patch, f, d);
           }
         }
       }

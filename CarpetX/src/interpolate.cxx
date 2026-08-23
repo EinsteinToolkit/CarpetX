@@ -349,6 +349,26 @@ template <typename T, int order, int centering> struct interpolator {
       // Fields are APPENDED, so a parser anchored on the old form sees the new
       // lines as malformed rather than silently mis-parsing them; A8's
       // a8_report.py was widened to accept both.
+      //
+      // READING THIS STREAM: `OMP_NUM_THREADS=1` AND `MPIEXEC=none`, and they
+      // are two different preconditions, not one restated (BUGFIX_TODO.md B10).
+      // This is a bare `std::cerr` chain, one `<<` per field, emitted from
+      // inside an `omp parallel for`: at 16 threads the lines INTERLEAVE, and
+      // the damage is invisible to `wc -l` because every thread still writes
+      // its own newline -- 19.8M of 21.2M lines malformed at 16 threads and 0
+      // at 1 (`[P26]`, `[P32]`).  Separately, at ONE thread, mpiexec's stderr
+      // forwarder DROPS BYTES from the head of a line under an instrument
+      // flood (`[P31]`), which no amount of atomicity here would fix.  B10
+      // considered building each line in an `ostringstream` and emitting it
+      // with a single `<<`; rejected, because it removes only the first hazard,
+      // leaves both operational gates in place unchanged, and would make every
+      // stream A8 and A9 have already measured incomparable with the next one.
+      // `tools/run_split.sh` pins both.
+      //
+      // COST WHEN ON, measured (evidence/fix/b10/before/h_report.txt): 149664
+      // lines on `color.par` and 378624 on `color_ghost.par`, at
+      // `cctk_itlast = 0`.  It shares one environment variable with seven other
+      // blocks, so it cannot be switched on alone (`[P27]`).
       {
         static const bool log_donors = std::getenv("CAPYRX_LOG_DONORS") != nullptr;
         if (log_donors) {
