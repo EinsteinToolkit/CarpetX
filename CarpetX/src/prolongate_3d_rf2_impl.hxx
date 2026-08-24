@@ -42,11 +42,12 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
 
   const amrex::Box box(amrex::IntVect(imin[0], imin[1], imin[2]),
                        amrex::IntVect(imax[0] - 1, imax[1] - 1, imax[2] - 1));
-  amrex::ParallelFor(box, [=] CCTK_DEVICE(const int i, const int j, const int k)
-                              __attribute__((__always_inline__, __flatten__)) {
-                                const Arith::vect<int, dim> p{i, j, k};
-                                f(p);
-                              });
+  amrex::ParallelFor(
+      box, [=] CCTK_DEVICE(const int i, const int j, const int k)
+               __attribute__((__always_inline__, __flatten__)) {
+                 const Arith::vect<int, dim> p{i, j, k};
+                 f(p);
+               });
 }
 } // namespace
 
@@ -1014,9 +1015,9 @@ template <int ORDER, typename T> struct test_interp1d<CC, CONS, ORDER, T> {
       // const auto f{[&](T x) __attribute__((__always_inline__, __flatten__)) {
       // return (order + 1) * pown(x, order); }}; Integral of f (antiderivative)
       const auto fint = [&](T x)
-                            __attribute__((__always_inline__, __flatten__)) {
-                              return pown(x, order + 1);
-                            };
+          __attribute__((__always_inline__, __flatten__)) {
+        return pown(x, order + 1);
+      };
       std::array<T, 2> x1;
       std::array<T, 2> y1;
       for (int off = 0; off < 2; ++off) {
@@ -1088,9 +1089,9 @@ template <int ORDER, typename T> struct test_interp1d<CC, ENO, ORDER, T> {
         // { return (order + 1) * pown(x, order); }}; Integral of f
         // (antiderivative)
         const auto fint = [&](T x)
-                              __attribute__((__always_inline__, __flatten__)) {
-                                return pown(x, order + 1);
-                              };
+            __attribute__((__always_inline__, __flatten__)) {
+          return pown(x, order + 1);
+        };
         std::array<T, 2> x1;
         std::array<T, 2> y1;
         for (int off = 0; off < 2; ++off) {
@@ -1153,9 +1154,9 @@ template <typename T> struct test_interp1d<CC, MINMOD, 1, T> {
       // { return (order + 1) * pown(x, order); }}; Integral of f
       // (antiderivative)
       const auto fint = [&](T x)
-                            __attribute__((__always_inline__, __flatten__)) {
-                              return pown(x, order + 1);
-                            };
+          __attribute__((__always_inline__, __flatten__)) {
+        return pown(x, order + 1);
+      };
       std::array<T, 2> x1;
       std::array<T, 2> y1;
       for (int off = 0; off < 2; ++off) {
@@ -1210,10 +1211,8 @@ template <typename F, typename Si, typename T = std::invoke_result_t<F, int> >
 CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_1d(const F &crse, const Si &si) {
   return si([&](const int i) __attribute__((__always_inline__, __flatten__)) {
-    return call_stencil_0d([&]()
-                               __attribute__((__always_inline__, __flatten__)) {
-                                 return crse(i);
-                               });
+    return call_stencil_0d([&]() __attribute__((
+        __always_inline__, __flatten__)) { return crse(i); });
   });
 }
 
@@ -1378,39 +1377,45 @@ void prolongate_3d_rf2<
     CCTK_REAL *restrict fineptr = fine.dataPtr(fine_comp + comp);
 
     const auto crse = [=] CCTK_DEVICE(const int i, const int j, const int k)
-                          __attribute__((__always_inline__, __flatten__)) {
-                            const amrex::IntVect vcrse(i, j, k);
+        __attribute__((__always_inline__, __flatten__)) {
+      const amrex::IntVect vcrse(i, j, k);
 #ifdef CCTK_DEBUG
-                            assert(crsebox.contains(vcrse));
+      assert(crsebox.contains(vcrse));
 #endif
-                            return crseptr[crsebox.index(vcrse)];
-                          };
+      return crseptr[crsebox.index(vcrse)];
+    };
     const auto fine = [=] CCTK_DEVICE(const int i, const int j, const int k)
-                          __attribute__((__always_inline__, __flatten__)) {
-                            const amrex::IntVect vfine(i, j, k);
+        __attribute__((__always_inline__, __flatten__)) {
+      const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-                            assert(finebox.contains(vfine));
+      assert(finebox.contains(vfine));
 #endif
-                            return fineptr[finebox.index(vfine)];
-                          };
+      return fineptr[finebox.index(vfine)];
+    };
     const auto setfine = [=] CCTK_DEVICE(const int i, const int j, const int k,
                                          const CCTK_REAL val)
-                             __attribute__((__always_inline__, __flatten__)) {
-                               const amrex::IntVect vfine(i, j, k);
+        __attribute__((__always_inline__, __flatten__)) {
+      const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-                               assert(finebox.contains(vfine));
+      assert(finebox.contains(vfine));
 #endif
-                               fineptr[finebox.index(vfine)] = val;
-                             };
+      fineptr[finebox.index(vfine)] = val;
+    };
 
+    if (
 #ifdef CCTK_DEBUG
-    // Check that the input values are finite
-    amrex::ParallelFor(source_region,
-                       [=] CCTK_DEVICE(const int i, const int j, const int k)
-                           __attribute__((__always_inline__, __flatten__)) {
-                             assert(isfinite(crse(i, j, k)));
-                           });
+        true
+#else
+        prolongate_assert_finite
 #endif
+    ) {
+      // Check that the input values are finite
+      amrex::ParallelFor(
+          source_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
+                             __attribute__((__always_inline__, __flatten__)) {
+                               assert(isfinite(crse(i, j, k)));
+                             });
+    }
 
     // Undivided differences
     // Maximum ENO shift
@@ -1825,14 +1830,20 @@ void prolongate_3d_rf2<
         },
         imin, imax);
 
+    if (
 #ifdef CCTK_DEBUG
-    // Check that the output values are finite
-    amrex::ParallelFor(target_region,
-                       [=] CCTK_DEVICE(const int i, const int j, const int k)
-                           __attribute__((__always_inline__, __flatten__)) {
-                             assert(isfinite(fine(i, j, k)));
-                           });
+        true
+#else
+        prolongate_assert_finite
 #endif
+    ) {
+      // Check that the output values are finite
+      amrex::ParallelFor(
+          target_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
+                             __attribute__((__always_inline__, __flatten__)) {
+                               assert(isfinite(fine(i, j, k)));
+                             });
+    }
 
   } // for comp
 
@@ -1932,41 +1943,40 @@ void prolongate_3d_rf2<
   CCTK_REAL *restrict fineptr = fine_box.dataPtr(fine_comp);
   const std::ptrdiff_t finenp = fine_box.dataPtr(1) - fine_box.dataPtr(0);
 
-  const auto crse =
-      [=] CCTK_DEVICE(const int i, const int j, const int k, const int comp)
-          __attribute__((__always_inline__, __flatten__)) {
-            const amrex::IntVect vcrse(i, j, k);
+  const auto crse = [=] CCTK_DEVICE(const int i, const int j, const int k,
+                                    const int comp)
+      __attribute__((__always_inline__, __flatten__)) {
+    const amrex::IntVect vcrse(i, j, k);
 #ifdef CCTK_DEBUG
-            assert(crsebox.contains(vcrse));
+    assert(crsebox.contains(vcrse));
 #endif
-            return crseptr[crsebox.index(vcrse) + comp * crsenp];
-          };
+    return crseptr[crsebox.index(vcrse) + comp * crsenp];
+  };
 #ifdef CCTK_DEBUG
-  const auto fine =
-      [=] CCTK_DEVICE(const int i, const int j, const int k, const int comp)
-          __attribute__((__always_inline__, __flatten__)) {
-            const amrex::IntVect vfine(i, j, k);
+  const auto fine = [=] CCTK_DEVICE(const int i, const int j, const int k,
+                                    const int comp)
+      __attribute__((__always_inline__, __flatten__)) {
+    const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-            assert(finebox.contains(vfine));
+    assert(finebox.contains(vfine));
 #endif
-            return fineptr[finebox.index(vfine) + comp * finenp];
-          };
+    return fineptr[finebox.index(vfine) + comp * finenp];
+  };
 #endif
   const auto setfine = [=] CCTK_DEVICE(const int i, const int j, const int k,
                                        const int comp, const CCTK_REAL val)
-                           __attribute__((__always_inline__, __flatten__)) {
-                             const amrex::IntVect vfine(i, j, k);
+      __attribute__((__always_inline__, __flatten__)) {
+    const amrex::IntVect vfine(i, j, k);
 #ifdef CCTK_DEBUG
-                             assert(finebox.contains(vfine));
+    assert(finebox.contains(vfine));
 #endif
-                             fineptr[finebox.index(vfine) + comp * finenp] =
-                                 val;
-                           };
+    fineptr[finebox.index(vfine) + comp * finenp] = val;
+  };
 
 #ifdef CCTK_DEBUG
   // Check that the input values are finite
-  amrex::ParallelFor(source_region,
-                     [=] CCTK_DEVICE(const int i, const int j, const int k)
+  amrex::ParallelFor(
+      source_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
                          __attribute__((__always_inline__, __flatten__)) {
                            for (int comp = 0; comp < ncomps; ++comp)
                              assert(isfinite(crse(i, j, k, comp)));
@@ -2328,8 +2338,8 @@ void prolongate_3d_rf2<
 
 #ifdef CCTK_DEBUG
   // Check that the output values are finite
-  amrex::ParallelFor(target_region,
-                     [=] CCTK_DEVICE(const int i, const int j, const int k)
+  amrex::ParallelFor(
+      target_region, [=] CCTK_DEVICE(const int i, const int j, const int k)
                          __attribute__((__always_inline__, __flatten__)) {
                            for (int comp = 0; comp < ncomps; ++comp)
                              assert(isfinite(fine(i, j, k, comp)));

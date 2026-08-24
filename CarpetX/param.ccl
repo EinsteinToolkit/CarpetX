@@ -454,6 +454,10 @@ BOOLEAN prolongate_per_group "Prolongate all variables in a group together"
 {
 } no
 
+BOOLEAN prolongate_assert_finite "Assert that prolongation inputs and outputs are finite" STEERABLE=always
+{
+} no
+
 CCTK_INT interpolation_order "Interpolation order" STEERABLE=always
 {
   0:* :: ""
