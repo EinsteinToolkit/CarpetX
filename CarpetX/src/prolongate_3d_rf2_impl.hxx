@@ -1348,11 +1348,9 @@ void prolongate_3d_rf2<
     static test_interp1d<CENTK, INTPK, ORDERK, CCTK_REAL> testk;
   }
 
-#ifdef CCTK_DEBUG
   // The points we will access, i.e. the coarsened fine region, with ghosts
   // added
   const amrex::Box source_region = CoarseBox(target_region, /*reffact*/ 2);
-#endif
 
   const auto crsebox = crse.box();
   const auto finebox = fine.box();
