@@ -38,7 +38,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Check out the repository under $GITHUB_WORKSPACE, so our job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Log the triggering commit
         run: echo ${{github.event.client_payload.trigger}}
