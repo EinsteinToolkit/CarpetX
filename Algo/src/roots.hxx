@@ -58,20 +58,42 @@ constexpr ALGO_HOST ALGO_DEVICE T ldexp1(const T &x, const int n) {
 
 namespace {
 template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE T max1(const T &x, const T &y) {
+  using std::max;
+  return max(x, y);
+}
+} // namespace
+
+namespace {
+template <typename T>
 constexpr ALGO_HOST ALGO_DEVICE T clamp1(const T &x, const T &lo, const T &hi) {
   using std::max, std::min;
   return min(max(x, lo), hi);
 }
 } // namespace
 
+// A relative convergence criterion, equivalent to
+// `boost::math::tools::eps_tolerance`: two values are considered equal once
+// they agree to `min_bits` binary digits.
+//
+// Note that this is a purely relative criterion, as it is in Boost. A bracket
+// that straddles zero therefore never satisfies it, because `min(|x|, |y|)`
+// tends to zero along with the bracket; such a search terminates on its
+// iteration count instead. Callers looking for a root at zero need an absolute
+// criterion, which this class deliberately does not provide.
 template <typename T> class eps_tolerance {
   T eps;
 
 public:
   constexpr ALGO_HOST ALGO_DEVICE eps_tolerance()
-      : eps(10 * std::numeric_limits<T>::epsilon()) {}
-  constexpr ALGO_HOST ALGO_DEVICE eps_tolerance(const int min_bits)
-      : eps(ldexp1(T(1), -min_bits)) {}
+      : eps(4 * std::numeric_limits<T>::epsilon()) {}
+  // `eps` is clamped from below at `4 * epsilon`, as Boost does. Without the
+  // clamp, any `min_bits >= digits` asks for a precision that no two distinct
+  // floating-point numbers can satisfy, and the search silently runs until it
+  // exhausts its iteration count.
+  explicit constexpr ALGO_HOST ALGO_DEVICE eps_tolerance(const int min_bits)
+      : eps(max1(ldexp1(T(1), 1 - min_bits),
+                 T(4 * std::numeric_limits<T>::epsilon()))) {}
   constexpr ALGO_HOST ALGO_DEVICE bool operator()(const T &x,
                                                   const T &y) const {
     using std::abs, std::min;
