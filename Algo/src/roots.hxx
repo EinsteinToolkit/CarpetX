@@ -7,6 +7,7 @@
 
 #include <cctk.h>
 
+#include <boost/math/policies/error_handling.hpp>
 #include <boost/math/tools/roots.hpp>
 
 #ifdef __HIPCC__
@@ -40,8 +41,7 @@ namespace Algo {
 // named `min` and `max` that would otherwise shadow `std::min` and `std::max`.
 
 namespace {
-template <typename T>
-constexpr ALGO_HOST ALGO_DEVICE void swap1(T &x, T &y) {
+template <typename T> constexpr ALGO_HOST ALGO_DEVICE void swap1(T &x, T &y) {
   T z = std::move(x);
   x = std::move(y);
   y = std::move(z);
@@ -112,27 +112,52 @@ public:
   }
 };
 
+// The wrappers below run on the host only: Boost's root finders are not
+// device code. Each reports failure through `failed` rather than by throwing.
+// Boost raises `evaluation_error` both for argument errors it can detect (a
+// reversed `[min, max]`) and for a search that genuinely fails (it decides it
+// is at a local minimum rather than a root); neither can be suppressed with a
+// policy for the derivative-based iterates, which hardcode `policy<>()`, and
+// an exception escaping into the flesh would terminate the run.
+
+
 template <typename F, typename T>
 std::pair<T, T> bisect(F &&f, T min, T max, int min_bits, int max_iters,
-                       int &iters) {
+                       int &iters, bool &failed) {
+  iters = 0;
+  failed = false;
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::bisect(
-      std::forward<F>(f), min, max,
-      boost::math::tools::eps_tolerance<T>(min_bits), max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::bisect(
+        std::forward<F>(f), min, max,
+        boost::math::tools::eps_tolerance<T>(min_bits), max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return {min, max};
+  }
 }
 
 template <typename F, typename T>
 std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
-                                       int min_bits, int max_iters,
-                                       int &iters) {
+                                       int min_bits, int max_iters, int &iters,
+                                       bool &failed) {
+  iters = 0;
+  failed = false;
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::bracket_and_solve_root(
-      std::forward<F>(f), guess, factor, rising, eps_tolerance<T>(min_bits),
-      max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::bracket_and_solve_root(
+        std::forward<F>(f), guess, factor, rising, eps_tolerance<T>(min_bits),
+        max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return {guess, guess};
+  }
 }
 
 // See <https://en.wikipedia.org/wiki/Brent%27s_method>
@@ -227,34 +252,58 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters, bool &failed) {
 // Requires function and its derivative
 template <typename F, typename T>
 T newton_raphson(F &&f, T guess, T min, T max, int min_bits, int max_iters,
-                 int &iters) {
+                 int &iters, bool &failed) {
+  iters = 0;
+  failed = false;
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::newton_raphson_iterate(
-      std::forward<F>(f), guess, min, max, min_bits, max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::newton_raphson_iterate(
+        std::forward<F>(f), guess, min, max, min_bits, max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return guess;
+  }
 }
 
 // Requires function and first two derivatives
 template <typename F, typename T>
-T halley(F &&f, T guess, T min, T max, int min_bits, int max_iters,
-         int &iters) {
+T halley(F &&f, T guess, T min, T max, int min_bits, int max_iters, int &iters,
+         bool &failed) {
+  iters = 0;
+  failed = false;
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess, min,
-                                                max, min_bits, max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess,
+                                                  min, max, min_bits, max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return guess;
+  }
 }
 
 // Requires function and first two derivatives
 template <typename F, typename T>
 T schroder(F &&f, T guess, T min, T max, int min_bits, int max_iters,
-           int &iters) {
+           int &iters, bool &failed) {
+  iters = 0;
+  failed = false;
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::schroder_iterate(
-      std::forward<F>(f), guess, min, max, min_bits, max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::schroder_iterate(
+        std::forward<F>(f), guess, min, max, min_bits, max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return guess;
+  }
 }
 
 // Multi-dimensional Newton-Raphson iteration. `f` returns both the residual

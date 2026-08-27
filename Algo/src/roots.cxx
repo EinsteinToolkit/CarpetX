@@ -43,7 +43,9 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
     const int minbits = std::numeric_limits<CCTK_REAL>::digits - 4;
     const int maxiters = 100;
     int iters;
-    auto [lo, hi] = bisect(fn, 1.0, 2.0, minbits, maxiters, iters);
+    bool failed;
+    auto [lo, hi] = bisect(fn, 1.0, 2.0, minbits, maxiters, iters, failed);
+    assert(!failed);
     assert(iters < maxiters);
     assert(hi >= lo && hi - lo <= std::scalbn(2.0, -minbits));
     assert(fn(lo) <= 0 && fn(hi) >= 0);
@@ -54,8 +56,10 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
     const int minbits = std::numeric_limits<CCTK_REAL>::digits - 4;
     const int maxiters = 100;
     int iters;
-    auto [lo, hi] =
-        bracket_and_solve_root(fn, 1.0, 2.0, true, minbits, maxiters, iters);
+    bool failed;
+    auto [lo, hi] = bracket_and_solve_root(fn, 1.0, 2.0, true, minbits,
+                                           maxiters, iters, failed);
+    assert(!failed);
     assert(iters < maxiters);
     assert(hi >= lo && hi - lo <= std::scalbn(2.0, -minbits));
     assert(fn(lo) <= 0 && fn(hi) >= 0);
@@ -67,7 +71,10 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
         static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
     const int maxiters = 100;
     int iters;
-    auto x = newton_raphson(fnd, 1.0, 0.0, 10.0, minbits, maxiters, iters);
+    bool failed;
+    auto x =
+        newton_raphson(fnd, 1.0, 0.0, 10.0, minbits, maxiters, iters, failed);
+    assert(!failed);
     assert(iters < maxiters);
     CCTK_REAL delta = std::scalbn(CCTK_REAL(1), -minbits);
     assert(fn(x - delta) * fn(x + delta) < 0);
@@ -79,7 +86,9 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
         static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
     const int maxiters = 100;
     int iters;
-    auto x = halley(fnd2, 1.0, 0.0, 10.0, minbits, maxiters, iters);
+    bool failed;
+    auto x = halley(fnd2, 1.0, 0.0, 10.0, minbits, maxiters, iters, failed);
+    assert(!failed);
     assert(iters < maxiters);
     CCTK_REAL delta = std::scalbn(CCTK_REAL(1), -minbits);
     assert(fn(x - delta) * fn(x + delta) < 0);
@@ -91,7 +100,9 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
         static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
     const int maxiters = 100;
     int iters;
-    auto x = schroder(fnd2, 1.0, 0.0, 10.0, minbits, maxiters, iters);
+    bool failed;
+    auto x = schroder(fnd2, 1.0, 0.0, 10.0, minbits, maxiters, iters, failed);
+    assert(!failed);
     assert(iters < maxiters);
     CCTK_REAL delta = std::scalbn(CCTK_REAL(1), -minbits);
     assert(fn(x - delta) * fn(x + delta) < 0);
@@ -104,13 +115,49 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       return std::make_tuple(exp(x) - 3, exp(x), exp(x));
     };
     int iters_h, iters_s;
-    auto xh = halley(expfn, 0.1, -5.0, 5.0, minbits, maxiters, iters_h);
-    auto xs = schroder(expfn, 0.1, -5.0, 5.0, minbits, maxiters, iters_s);
+    bool failed_h, failed_s;
+    auto xh =
+        halley(expfn, 0.1, -5.0, 5.0, minbits, maxiters, iters_h, failed_h);
+    auto xs =
+        schroder(expfn, 0.1, -5.0, 5.0, minbits, maxiters, iters_s, failed_s);
+    assert(!failed_h && !failed_s);
     using std::abs, std::log;
     assert(abs(xh - log(CCTK_REAL(3))) < 1.0e-9);
     assert(abs(xs - log(CCTK_REAL(3))) < 1.0e-9);
     assert(iters_h != iters_s);
     CCTK_VINFO("Test_schroder succeeded in %d iterations", iters);
+  }
+
+  // The Boost-backed wrappers must report failure rather than let Boost's
+  // `evaluation_error` escape into the flesh.
+  {
+    const int minbits =
+        static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
+    const int maxiters = 100;
+    int iters;
+    bool failed;
+
+    // Boost raises for a reversed range...
+    newton_raphson(fnd, 1.0, 10.0, 0.0, minbits, maxiters, iters, failed);
+    assert(failed);
+
+    // ...and when it decides it sits at a local minimum rather than a root.
+    auto noroot = [](CCTK_REAL x) { return std::make_tuple(x * x + 1, 2 * x); };
+    newton_raphson(noroot, 1.0, -10.0, 10.0, minbits, maxiters, iters, failed);
+    assert(failed);
+    auto noroot2 = [](CCTK_REAL x) {
+      return std::make_tuple(x * x + 1, 2 * x, 2);
+    };
+    halley(noroot2, 1.0, -10.0, 10.0, minbits, maxiters, iters, failed);
+    assert(failed);
+    schroder(noroot2, 1.0, -10.0, 10.0, minbits, maxiters, iters, failed);
+    assert(failed);
+
+    // An interval with no sign change is a failure, not an exception.
+    bisect(fn, 2.0, 3.0, minbits, maxiters, iters, failed);
+    assert(failed);
+
+    CCTK_VINFO("Test_wrapper_exceptions succeeded");
   }
 
   // Bracketing edge cases for `brent`. These are all cases where deciding the
@@ -166,25 +213,22 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
 
     auto g1d = [](vec<CCTK_REAL, 1> x)
         -> std::pair<vec<CCTK_REAL, 1>, mat<CCTK_REAL, 1> > {
-      return {vec<CCTK_REAL, 1>{x(0) * x(0) - 2},
-              mat<CCTK_REAL, 1>{2 * x(0)}};
+      return {vec<CCTK_REAL, 1>{x(0) * x(0) - 2}, mat<CCTK_REAL, 1>{2 * x(0)}};
     };
 
     // N == 1 exercises the same code path as N == 2 and N == 3, and would read
     // out of range if the step were summed over a hardcoded dimension.
     using std::abs;
-    auto x1 = newton_raphson_nd(g1d, vec<CCTK_REAL, 1>{1.0},
-                                vec<CCTK_REAL, 1>{0.0},
-                                vec<CCTK_REAL, 1>{10.0}, minbits, 100, iters,
-                                failed);
+    auto x1 =
+        newton_raphson_nd(g1d, vec<CCTK_REAL, 1>{1.0}, vec<CCTK_REAL, 1>{0.0},
+                          vec<CCTK_REAL, 1>{10.0}, minbits, 100, iters, failed);
     assert(!failed);
     assert(abs(x1(0) - root) < 1.0e-9);
 
     // Bounds that exclude the root must be honoured, and the failure reported.
-    auto x2 = newton_raphson_nd(g1d, vec<CCTK_REAL, 1>{1.0},
-                                vec<CCTK_REAL, 1>{0.0},
-                                vec<CCTK_REAL, 1>{1.2}, minbits, 100, iters,
-                                failed);
+    auto x2 =
+        newton_raphson_nd(g1d, vec<CCTK_REAL, 1>{1.0}, vec<CCTK_REAL, 1>{0.0},
+                          vec<CCTK_REAL, 1>{1.2}, minbits, 100, iters, failed);
     assert(failed);
     assert(x2(0) <= 1.2);
 
@@ -195,10 +239,9 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       return {vec<CCTK_REAL, 2>{x(0) * x(0) - 2, x(0) * x(1) - 2},
               mat<CCTK_REAL, 2>{2 * x(0), 0, x(1), x(0)}};
     };
-    auto x3 = newton_raphson_nd(g2d, vec<CCTK_REAL, 2>{1.0, 1.0},
-                                vec<CCTK_REAL, 2>{0.0, 0.0},
-                                vec<CCTK_REAL, 2>{10.0, 10.0}, minbits, 4,
-                                iters, failed);
+    auto x3 = newton_raphson_nd(
+        g2d, vec<CCTK_REAL, 2>{1.0, 1.0}, vec<CCTK_REAL, 2>{0.0, 0.0},
+        vec<CCTK_REAL, 2>{10.0, 10.0}, minbits, 4, iters, failed);
     assert(!failed);
     assert(sumabs(gn(x3)) < 1.0e-9);
 
@@ -208,10 +251,9 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
         -> std::pair<vec<CCTK_REAL, 2>, mat<CCTK_REAL, 2> > {
       return {vec<CCTK_REAL, 2>{1.0, 1.0}, mat<CCTK_REAL, 2>{0, 0, 0, 0}};
     };
-    newton_raphson_nd(gsing, vec<CCTK_REAL, 2>{1.0, 1.0},
-                      vec<CCTK_REAL, 2>{-10.0, -10.0},
-                      vec<CCTK_REAL, 2>{10.0, 10.0}, minbits, 100, iters,
-                      failed);
+    newton_raphson_nd(
+        gsing, vec<CCTK_REAL, 2>{1.0, 1.0}, vec<CCTK_REAL, 2>{-10.0, -10.0},
+        vec<CCTK_REAL, 2>{10.0, 10.0}, minbits, 100, iters, failed);
     assert(failed);
     assert(iters < 100);
 
@@ -274,10 +316,10 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       // dimension silently drops a term and gets the last component wrong.
       auto gnd3_CCTK_REAL = [](vec<CCTK_REAL, 3> x)
           -> std::pair<vec<CCTK_REAL, 3>, mat<CCTK_REAL, 3> > {
-        return {vec<CCTK_REAL, 3>{x(0) * x(0) - 2, x(0) * x(1) - 2,
-                                  x(1) * x(2) - 2},
-                mat<CCTK_REAL, 3>{2 * x(0), 0, 0, x(1), x(0), 0, 0, x(2),
-                                  x(1)}};
+        return {
+            vec<CCTK_REAL, 3>{x(0) * x(0) - 2, x(0) * x(1) - 2,
+                              x(1) * x(2) - 2},
+            mat<CCTK_REAL, 3>{2 * x(0), 0, 0, x(1), x(0), 0, 0, x(2), x(1)}};
       };
       auto x3 = newton_raphson_nd(
           gnd3_CCTK_REAL, vec<CCTK_REAL, 3>{1.0, 1.0, 1.0},
