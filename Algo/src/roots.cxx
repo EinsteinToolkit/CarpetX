@@ -129,7 +129,8 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
   }
 
   // The Boost-backed wrappers must report failure rather than let Boost's
-  // `evaluation_error` escape into the flesh.
+  // `evaluation_error` escape into the flesh, and must refuse an empty
+  // iteration budget rather than hand Boost one it would read as unbounded.
   {
     const int minbits =
         static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
@@ -157,7 +158,14 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
     bisect(fn, 2.0, 3.0, minbits, maxiters, iters, failed);
     assert(failed);
 
-    CCTK_VINFO("Test_wrapper_exceptions succeeded");
+    // A zero budget must be an empty search. Boost decrements before it tests,
+    // so passing zero through would underflow into an unbounded one.
+    bisect(fn, 1.0, 2.0, minbits, 0, iters, failed);
+    assert(failed && iters == 0);
+    newton_raphson(fnd, 1.0, 0.0, 10.0, minbits, 0, iters, failed);
+    assert(failed && iters == 0);
+
+    CCTK_VINFO("Test_wrapper_failure_modes succeeded");
   }
 
   // Bracketing edge cases for `brent`. These are all cases where deciding the

@@ -119,13 +119,23 @@ public:
 // is at a local minimum rather than a root); neither can be suppressed with a
 // policy for the derivative-based iterates, which hardcode `policy<>()`, and
 // an exception escaping into the flesh would terminate the run.
-
+//
+// They also refuse an empty iteration budget rather than passing it on. Boost
+// counts down in a `do ... while (count && ...)` and decrements before it
+// tests, so a budget of zero underflows to an unbounded search; a negative
+// `max_iters` would convert to an enormous unsigned budget in the first place.
+// Neither can be expressed to Boost, so an empty budget is answered here.
 
 template <typename F, typename T>
 std::pair<T, T> bisect(F &&f, T min, T max, int min_bits, int max_iters,
                        int &iters, bool &failed) {
   iters = 0;
   failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return {min, max};
+  }
   std::uintmax_t max_iter = max_iters;
   try {
     auto res = boost::math::tools::bisect(
@@ -146,6 +156,11 @@ std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
                                        bool &failed) {
   iters = 0;
   failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return {guess, guess};
+  }
   std::uintmax_t max_iter = max_iters;
   try {
     auto res = boost::math::tools::bracket_and_solve_root(
@@ -255,6 +270,11 @@ T newton_raphson(F &&f, T guess, T min, T max, int min_bits, int max_iters,
                  int &iters, bool &failed) {
   iters = 0;
   failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return guess;
+  }
   std::uintmax_t max_iter = max_iters;
   try {
     auto res = boost::math::tools::newton_raphson_iterate(
@@ -274,6 +294,11 @@ T halley(F &&f, T guess, T min, T max, int min_bits, int max_iters, int &iters,
          bool &failed) {
   iters = 0;
   failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return guess;
+  }
   std::uintmax_t max_iter = max_iters;
   try {
     auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess,
@@ -293,6 +318,11 @@ T schroder(F &&f, T guess, T min, T max, int min_bits, int max_iters,
            int &iters, bool &failed) {
   iters = 0;
   failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return guess;
+  }
   std::uintmax_t max_iter = max_iters;
   try {
     auto res = boost::math::tools::schroder_iterate(
