@@ -49,6 +49,8 @@ template <typename T, int D> struct reduction {
   constexpr T norm2() const noexcept { return sqrt(sum2abs / vol); }
   constexpr T norm_inf() const noexcept { return maxabs; }
 
+  constexpr vect<T, D> com() const noexcept { return sumloc / sum; }
+
   template <typename T1, int D1>
   friend std::ostream &operator<<(std::ostream &os,
                                   const reduction<T1, D1> &red);
@@ -86,7 +88,9 @@ constexpr reduction<T, D>::reduction(const vect<T, D> &p, const T &V,
                                      const T &x)
     : min(x), max(x), sum(V * x), sum2(V * pow2(x)), vol(V), maxabs(fabs(x)),
       sumabs(V * fabs(x)), sum2abs(V * pow2(fabs(x))), minloc(p), maxloc(p),
-      sumloc(x * p) {}
+      // `sumloc` carries the volume element, as `sum` does, so that
+      // `com() == sumloc / sum` is the volume-weighted centre of mass
+      sumloc(V * x * p) {}
 
 template <typename T, int D>
 constexpr reduction<T, D>::reduction(const reduction &x, const reduction &y)
@@ -117,6 +121,7 @@ std::ostream &operator<<(std::ostream &os, const reduction<T, D> &red) {
             << "  norm1:    " << red.norm1() << "\n"
             << "  norm2:    " << red.norm2() << "\n"
             << "  norm_inf: " << red.norm_inf() << "\n"
+            << "  com:      " << red.com() << "\n"
             << "}\n";
 }
 
