@@ -72,6 +72,17 @@ constexpr ALGO_HOST ALGO_DEVICE T clamp1(const T &x, const T &lo, const T &hi) {
 }
 } // namespace
 
+namespace {
+// Whether `x` and `y` bracket a sign change. Do not test this as `x * y < 0`:
+// that product underflows to `-0` for small operands, and `-0 < 0` is false,
+// so a bracket of e.g. `+1e-200` and `-1e-200` would be misread as having no
+// sign change at all.
+template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE bool opposite_signs1(const T &x, const T &y) {
+  return (x < 0 && y > 0) || (x > 0 && y < 0);
+}
+} // namespace
+
 // A relative convergence criterion, equivalent to
 // `boost::math::tools::eps_tolerance`: two values are considered equal once
 // they agree to `min_bits` binary digits.
@@ -126,14 +137,19 @@ std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
 
 // See <https://en.wikipedia.org/wiki/Brent%27s_method>
 //
+// Returns a bracket containing the root. `iters` is the number of iterations
+// performed. `failed` is set if no root was found, either because `[a, b]` did
+// not bracket one to begin with, or because `max_iters` was reached before the
+// bracket converged.
 template <typename F, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE ALGO_HOST ALGO_DEVICE std::pair<T, T>
-brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
+brent(F f, T a, T b, int min_bits, int max_iters, int &iters, bool &failed) {
   using std::abs, std::min, std::max;
 
   const auto tol = eps_tolerance<T>(min_bits);
 
   iters = 0;
+  failed = false;
   auto fa = f(a);
   auto fb = f(b);
   if (abs(fa) < abs(fb)) {
@@ -142,9 +158,9 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
   }
   if (fb == 0)
     return {b, b};
-  if (fa * fb >= 0) {
+  if (!opposite_signs1(fa, fb)) {
     // Root is not bracketed
-    iters = max_iters;
+    failed = true;
     return {min(a, b), max(a, b)};
   }
   T c = a;
@@ -184,14 +200,17 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
     d = c;
     c = b;
     fc = fb;
-    if (fa * fs < 0) {
+    if (opposite_signs1(fa, fs)) {
       b = s;
       fb = fs;
     } else {
       a = s;
       fa = fs;
     }
-    assert(fa * fb <= 0);
+    // The bracket is still valid. `fa` can be exactly zero here: if `fs` was
+    // zero we took the `else` branch above, and the swap below has not yet run
+    // to move that root into `b`.
+    assert(fa == 0 || fb == 0 || opposite_signs1(fa, fb));
     if (abs(fa) < abs(fb)) {
       swap1(a, b);
       swap1(fa, fb);
@@ -201,6 +220,7 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
 
   if (fb == 0)
     return {b, b};
+  failed = !tol(a, b);
   return {min(a, b), max(a, b)};
 }
 

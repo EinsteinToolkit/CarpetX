@@ -118,7 +118,9 @@ extern "C" void Test_roots(CCTK_ARGUMENTS) {
       const int minbits = std::numeric_limits<CCTK_REAL>::digits - 4;
       const int maxiters = 100;
       int iters;
-      auto [lo, hi] = brent(fn, 1.0, 2.0, minbits, maxiters, iters);
+      bool failed;
+      auto [lo, hi] = brent(fn, 1.0, 2.0, minbits, maxiters, iters, failed);
+      assert(!failed);
       // CCTK_VINFO("maxiters=%d iters=%d", maxiters, iters);
       // CCTK_VINFO("lo=%.17g hi=%.17g", double(lo), double(hi));
       assert(iters < maxiters);
