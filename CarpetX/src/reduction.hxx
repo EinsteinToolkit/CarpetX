@@ -20,8 +20,11 @@ template <typename T, int D> struct reduction {
   T vol, maxabs, sumabs, sum2abs;
   vect<T, D> minloc, maxloc, sumloc;
 
-  // We currently omit minloc/maxloc/sumloc (TODO: fix this)
-  using tuple_type = amrex::GpuTuple<T, T, T, T, T, T, T, T>;
+  // The eight scalar reductions, plus `sumloc`. `minloc` and `maxloc` are not
+  // expressible with AMReX's reduction operators, which only support sums and
+  // extrema of arithmetic types; reduction.cxx obtains them from a second
+  // reduction pass.
+  using tuple_type = amrex::GpuTuple<T, T, T, T, T, T, T, T, T, T, T>;
   constexpr reduction(tuple_type);
   constexpr operator tuple_type() const;
 
@@ -56,12 +59,19 @@ constexpr reduction<T, D>::reduction(tuple_type tuple)
     : min(amrex::get<0>(tuple)), max(amrex::get<1>(tuple)),
       sum(amrex::get<2>(tuple)), sum2(amrex::get<3>(tuple)),
       vol(amrex::get<4>(tuple)), maxabs(amrex::get<5>(tuple)),
-      sumabs(amrex::get<6>(tuple)), sum2abs(amrex::get<7>(tuple)), minloc{},
-      maxloc{}, sumloc{} {}
+      sumabs(amrex::get<6>(tuple)), sum2abs(amrex::get<7>(tuple)),
+      // `minloc` and `maxloc` are unknown here; the caller fills them in
+      minloc(vect<T, D>::pure(0.0 / 0.0)), maxloc(vect<T, D>::pure(0.0 / 0.0)),
+      sumloc{amrex::get<8>(tuple), amrex::get<9>(tuple),
+             amrex::get<10>(tuple)} {
+  static_assert(D == 3, "`tuple_type` assumes that `sumloc` has 3 components");
+}
 
 template <typename T, int D>
 constexpr reduction<T, D>::operator reduction<T, D>::tuple_type() const {
-  return tuple_type{min, max, sum, sum2, vol, maxabs, sumabs, sum2abs};
+  static_assert(D == 3, "`tuple_type` assumes that `sumloc` has 3 components");
+  return tuple_type{min,    max,     sum,       sum2,      vol,      maxabs,
+                    sumabs, sum2abs, sumloc[0], sumloc[1], sumloc[2]};
 }
 
 template <typename T, int D>
