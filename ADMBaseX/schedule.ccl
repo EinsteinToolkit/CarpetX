@@ -1,5 +1,23 @@
 # Schedule definitions for thorn ADMBaseX
 
+STORAGE: lapse
+STORAGE: metric curv
+
+if (! CCTK_Equals(initial_shift, "none"))
+{
+  STORAGE: shift
+}
+
+if (! CCTK_Equals(initial_dtlapse, "none"))
+{
+  STORAGE: dtlapse
+}
+
+if (! CCTK_Equals(initial_dtshift, "none"))
+{
+  STORAGE: dtshift
+}
+
 if (CCTK_IsThornActive("ODESolvers")) {
 
   SCHEDULE GROUP ADMBaseX_InitialData IN ODESolvers_Initial
@@ -107,6 +125,9 @@ if (CCTK_EQUALS(initial_dtshift, "zero")) {
 
 
 if (noise_amplitude != 0) {
+if (! CCTK_Equals(initial_dtlapse, "none")) {
+if (! CCTK_Equals(initial_shift, "none")) {
+if (! CCTK_Equals(initial_dtshift, "none")) {
   # TODO: Also add noise during evolution?
   # TODO: Noise should be added by a separate thorn.
 
@@ -132,4 +153,5 @@ if (noise_amplitude != 0) {
     SYNC: shift
     SYNC: dtshift
   } "Add noise to ADMBaseX variables"
+}}}
 }
