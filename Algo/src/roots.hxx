@@ -35,8 +35,13 @@
 
 namespace Algo {
 
+// These helpers exist so that the `using std::...` declaration can live in a
+// function body. That matters for `clamp1`, which is called with arguments
+// named `min` and `max` that would otherwise shadow `std::min` and `std::max`.
+
 namespace {
-template <typename T> constexpr void swap1(T &x, T &y) {
+template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE void swap1(T &x, T &y) {
   T z = std::move(x);
   x = std::move(y);
   y = std::move(z);
@@ -44,9 +49,18 @@ template <typename T> constexpr void swap1(T &x, T &y) {
 } // namespace
 
 namespace {
-template <typename T> constexpr T ldexp1(const T &x, const int n) {
+template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE T ldexp1(const T &x, const int n) {
   using std::ldexp;
   return ldexp(x, n);
+}
+} // namespace
+
+namespace {
+template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE T clamp1(const T &x, const T &lo, const T &hi) {
+  using std::max, std::min;
+  return min(max(x, lo), hi);
 }
 } // namespace
 
@@ -54,9 +68,12 @@ template <typename T> class eps_tolerance {
   T eps;
 
 public:
-  constexpr eps_tolerance() : eps(10 * std::numeric_limits<T>::epsilon()) {}
-  constexpr eps_tolerance(const int min_bits) : eps(ldexp1(T(1), -min_bits)) {}
-  constexpr bool operator()(const T &x, const T &y) const {
+  constexpr ALGO_HOST ALGO_DEVICE eps_tolerance()
+      : eps(10 * std::numeric_limits<T>::epsilon()) {}
+  constexpr ALGO_HOST ALGO_DEVICE eps_tolerance(const int min_bits)
+      : eps(ldexp1(T(1), -min_bits)) {}
+  constexpr ALGO_HOST ALGO_DEVICE bool operator()(const T &x,
+                                                  const T &y) const {
     using std::abs, std::min;
     return abs(x - y) <= eps * min(abs(x), abs(y));
   }
@@ -79,20 +96,19 @@ std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
                                        int &iters) {
   std::uintmax_t max_iter = max_iters;
   auto res = boost::math::tools::bracket_and_solve_root(
-      std::forward<F>(f), guess, factor, rising,
-      // boost::math::tools::eps_tolerance<T>(min_bits),
-      eps_tolerance<T>(min_bits), max_iter);
+      std::forward<F>(f), guess, factor, rising, eps_tolerance<T>(min_bits),
+      max_iter);
   iters = max_iter;
   return res;
 }
 
 // See <https://en.wikipedia.org/wiki/Brent%27s_method>
+//
 template <typename F, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE ALGO_HOST ALGO_DEVICE std::pair<T, T>
 brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
   using std::abs, std::min, std::max;
 
-  // auto tol = boost::math::tools::eps_tolerance<T>(min_bits);
   const auto tol = eps_tolerance<T>(min_bits);
 
   iters = 0;
@@ -153,10 +169,6 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
       a = s;
       fa = fs;
     }
-    // CCTK_VINFO("iters=%d mflag=%d   a=%.17g b=%.17g c=%.17g d=%.17g fa=%.17g"
-    //            "fb=%.17g fc=%.17g",
-    //            iters, int(mflag), double(a), double(b), double(c), double(d),
-    //            double(fa), double(fb), double(fc));
     assert(fa * fb <= 0);
     if (abs(fa) < abs(fb)) {
       swap1(a, b);
@@ -172,7 +184,7 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
 
 // Requires function and its derivative
 template <typename F, typename T>
-T newton_raphson(F f, T guess, T min, T max, int min_bits, int max_iters,
+T newton_raphson(F &&f, T guess, T min, T max, int min_bits, int max_iters,
                  int &iters) {
   std::uintmax_t max_iter = max_iters;
   auto res = boost::math::tools::newton_raphson_iterate(
@@ -183,7 +195,8 @@ T newton_raphson(F f, T guess, T min, T max, int min_bits, int max_iters,
 
 // Requires function and first two derivatives
 template <typename F, typename T>
-T halley(F f, T guess, T min, T max, int min_bits, int max_iters, int &iters) {
+T halley(F &&f, T guess, T min, T max, int min_bits, int max_iters,
+         int &iters) {
   std::uintmax_t max_iter = max_iters;
   auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess, min,
                                                 max, min_bits, max_iter);
@@ -193,15 +206,21 @@ T halley(F f, T guess, T min, T max, int min_bits, int max_iters, int &iters) {
 
 // Requires function and first two derivatives
 template <typename F, typename T>
-T schroder(F f, T guess, T min, T max, int min_bits, int max_iters,
+T schroder(F &&f, T guess, T min, T max, int min_bits, int max_iters,
            int &iters) {
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess, min,
-                                                max, min_bits, max_iter);
+  auto res = boost::math::tools::schroder_iterate(
+      std::forward<F>(f), guess, min, max, min_bits, max_iter);
   iters = max_iter;
   return res;
 }
 
+// Multi-dimensional Newton-Raphson iteration. `f` returns both the residual
+// and its Jacobian. Iterates are confined to the box `[min, max]`.
+//
+// `iters` is the number of Newton steps taken, at most `max_iters`. `failed`
+// is set if no solution was found, i.e. if the Jacobian became singular, if the
+// iteration stalled on a bound, or if `max_iters` was reached.
 template <typename F, typename T, int N>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE ALGO_HOST ALGO_DEVICE Arith::vec<T, N>
 newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
@@ -209,25 +228,48 @@ newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
                   int min_bits, int max_iters, int &iters, bool &failed) {
   using vec = Arith::vec<T, N>;
   using mat = Arith::mat<T, N>;
-  failed = false;
-  // auto tolfx = boost::math::tools::eps_tolerance<T>(min_bits);
+  using std::isfinite;
+
   const auto tolfx = eps_tolerance<T>(min_bits);
-  vec x = guess;
-  for (iters = 1; iters <= max_iters; ++iters) {
+
+  failed = true;
+  vec x([&](int i) { return clamp1(guess(i), min(i), max(i)); });
+
+  for (iters = 0; iters <= max_iters; ++iters) {
     const auto [fx0, jac0] = f(x);
     const vec fx = fx0;
     const mat jac = jac0;
+
+    // Comparing `1 + errfx` against `1` reduces to `errfx <= eps`, i.e. this is
+    // an absolute criterion on the residual, and hence sensitive to how `f` is
+    // scaled.
     const T errfx = sumabs(fx);
-    if (tolfx(1 + errfx, 1))
+    if (tolfx(1 + errfx, 1)) {
+      failed = false;
       return x;
+    }
+    if (iters == max_iters)
+      break;
+
     const T det_jac = calc_det(jac);
+    if (!isfinite(det_jac) || det_jac == 0)
+      // Singular Jacobian; there is no Newton step to take
+      break;
     const mat inv_jac = calc_inv(jac, det_jac);
     const vec dx([&](int i) {
-      return -Arith::sum<2>([&](int j) { return inv_jac(i, j) * fx(j); });
+      return -Arith::sum<N>([&](int j) { return inv_jac(i, j) * fx(j); });
     });
-    x += dx;
+    const vec xnew([&](int i) { return clamp1(x(i) + dx(i), min(i), max(i)); });
+
+    bool moved = false;
+    for (int i = 0; i < N; ++i)
+      moved |= xnew(i) != x(i);
+    if (!moved)
+      // The iteration is stuck, most likely against a bound
+      break;
+    x = xnew;
   }
-  failed = true;
+
   return x;
 }
 
