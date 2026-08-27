@@ -1,0 +1,21 @@
+# Interface definition for thorn TestProlongateStar
+
+IMPLEMENTS: TestProlongateStar
+
+INHERITS: CoordinatesX
+
+USES INCLUDE HEADER: defs.hxx
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: vect.hxx
+
+
+
+PRIVATE:
+
+CCTK_REAL alp TYPE=gf "Vertex-centred grid function"
+
+CCTK_REAL dens TYPE=gf CENTERING={ccc} TAGS='prolongation_type_parameter="TestProlongateStar::dens_prolongation_type" prolongation_order_parameter="TestProlongateStar::dens_prolongation_order"' "Cell-centred grid function"
+
+CCTK_REAL flux_x TYPE=gf CENTERING={vcc} TAGS='prolongation_type_parameter="TestProlongateStar::flux_prolongation_type" prolongation_order_parameter="TestProlongateStar::flux_prolongation_order"' "Face-centred grid function"
+CCTK_REAL flux_y TYPE=gf CENTERING={cvc} TAGS='prolongation_type_parameter="TestProlongateStar::flux_prolongation_type" prolongation_order_parameter="TestProlongateStar::flux_prolongation_order"' "Face-centred grid function"
+CCTK_REAL flux_z TYPE=gf CENTERING={ccv} TAGS='prolongation_type_parameter="TestProlongateStar::flux_prolongation_type" prolongation_order_parameter="TestProlongateStar::flux_prolongation_order"' "Face-centred grid function"

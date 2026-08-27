@@ -1,0 +1,36 @@
+# Parameter definitions for thorn TestProlongateStar
+
+INT max_power_x ""
+{
+  0:* :: ""
+} 0
+
+INT max_power_y ""
+{
+  0:* :: ""
+} 0
+
+INT max_power_z ""
+{
+  0:* :: ""
+} 0
+
+STRING dens_prolongation_type ""
+{
+  ".*" :: ""
+} "star-cons"
+
+INT dens_prolongation_order ""
+{
+  0:* :: ""
+} 0
+
+STRING flux_prolongation_type ""
+{
+  ".*" :: ""
+} "star-cons"
+
+INT flux_prolongation_order ""
+{
+  0:* :: ""
+} 0

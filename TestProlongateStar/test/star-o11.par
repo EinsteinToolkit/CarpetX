@@ -1,0 +1,78 @@
+ActiveThorns = "
+    BoxInBox
+    CarpetX
+    CoordinatesX
+    ODESolvers
+    TestProlongatestar
+"
+
+# Setup
+
+Cactus::cctk_show_schedule = yes
+Cactus::presync_mode = "mixed-error"
+
+CarpetX::verbose = no
+CarpetX::poison_undefined_values = yes
+
+# Domain
+
+CarpetX::xmin = 0.0
+CarpetX::ymin = 0.0
+CarpetX::zmin = 0.0
+
+CarpetX::xmax = 1.0
+CarpetX::ymax = 1.0
+CarpetX::zmax = 1.0
+
+CarpetX::ncells_x = 32
+CarpetX::ncells_y = 32
+CarpetX::ncells_z = 32
+
+CarpetX::boundary_x = "dirichlet"
+CarpetX::boundary_y = "dirichlet"
+CarpetX::boundary_z = "dirichlet"
+CarpetX::boundary_upper_x = "dirichlet"
+CarpetX::boundary_upper_y = "dirichlet"
+CarpetX::boundary_upper_z = "dirichlet"
+
+CarpetX::max_num_levels = 2
+
+BoxInBox::num_regions = 1
+BoxInBox::num_levels_1 = 2
+BoxInBox::position_x_1 = 0.5
+BoxInBox::position_y_1 = 0.5
+BoxInBox::position_z_1 = 0.5
+BoxInBox::radius_1[1] = 0.25
+
+CarpetX::prolongation_type = "star-poly"
+
+$order = 11
+CarpetX::prolongation_order = $order
+
+CarpetX::ghost_size = ($order - 1) / 2
+
+# Functions
+
+$max_power_x = $order
+$max_power_y = $order
+$max_power_z = $order
+
+TestProlongateStar::max_power_x = $max_power_x
+TestProlongateStar::max_power_y = $max_power_y
+TestProlongateStar::max_power_z = $max_power_z
+
+# Time evolution
+
+$itlast = ($max_power_x + 1) * ($max_power_y + 1) * ($max_power_z + 1)
+Cactus::cctk_itlast = $itlast
+
+# Output
+
+IO::out_dir = $parfile
+IO::out_every = $itlast
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+CarpetX::out_tsv_vars = "
+    TestProlongateStar::alp
+"
