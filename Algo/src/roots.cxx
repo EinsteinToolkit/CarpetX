@@ -29,7 +29,7 @@ template <typename T> ALGO_DEVICE vec<T, 3> gn3(vec<T, 3> x) {
 } // namespace
 
 extern "C" void Test_roots(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS;
+  DECLARE_CCTK_ARGUMENTSX_Test_roots;
 
   auto fn = [] ALGO_HOST ALGO_DEVICE(CCTK_REAL x) { return x * x - 2; };
   auto fnd = [] ALGO_HOST ALGO_DEVICE(CCTK_REAL x) {
