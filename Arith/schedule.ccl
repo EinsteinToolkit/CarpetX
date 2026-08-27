@@ -1,5 +1,11 @@
 # Schedule definitions for thorn Arith
 
+SCHEDULE Test_cplx AT wragh
+{
+  LANG: C
+  OPTIONS: meta
+} "Test complex numbers"
+
 SCHEDULE Test_smallvector AT wragh
 {
   LANG: C

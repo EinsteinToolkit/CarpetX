@@ -513,6 +513,25 @@ template <typename T> struct simd {
 #endif
   }
 
+  friend constexpr ARITH_DEVICE ARITH_HOST simd atan2(const simd &x,
+                                                      const simd &y) {
+    count_flop(10);
+#ifndef SIMD_DISABLE
+    return atan2_u10(x.elts, y.elts);
+#else
+    using std::atan2;
+    return atan2(x.elts, y.elts);
+#endif
+  }
+  friend constexpr ARITH_DEVICE ARITH_HOST simd atan2(const simd &x,
+                                                      const T &b) {
+    return atan2(x, simd(b));
+  }
+  friend constexpr ARITH_DEVICE ARITH_HOST simd atan2(const T &a,
+                                                      const simd &y) {
+    return atan2(simd(a), y);
+  }
+
   friend constexpr ARITH_DEVICE ARITH_HOST simd atanh(const simd &x) {
     count_flop(10);
 #ifndef SIMD_DISABLE
