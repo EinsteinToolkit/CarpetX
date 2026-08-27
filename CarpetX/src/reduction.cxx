@@ -321,8 +321,6 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
       const CCTK_REAL dV = prod(dx);
       const int vi1 = vi;
       const vect<int, dim> indextype1 = indextype;
-      const vect<CCTK_REAL, dim> x01 = x0;
-      const vect<CCTK_REAL, dim> dx1 = dx;
 
       // First pass: the sums and the extrema
       reduction<CCTK_REAL, dim> level_red = amrex::ParReduce(
@@ -350,7 +348,7 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
               return tuple_type(reduction<CCTK_REAL, dim>());
             const CCTK_REAL W = nactive / CCTK_REAL(8);
 
-            const vect<CCTK_REAL, dim> x = x01 + ipos * dx1;
+            const vect<CCTK_REAL, dim> x = x0 + ipos * dx;
             return tuple_type(
                 reduction<CCTK_REAL, dim>(x, W * dV, vars(i, j, k, vi1)));
           });
@@ -411,7 +409,7 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
           const vect<int, dim> ipos{int(idx % nx) + blo.x,
                                     int(idx / nx % ny) + blo.y,
                                     int(idx / (nx * ny)) + blo.z};
-          return x01 + ipos * dx1;
+          return x0 + ipos * dx;
         };
         level_red.minloc = decode(amrex::get<0>(locs));
         level_red.maxloc = decode(amrex::get<1>(locs));
