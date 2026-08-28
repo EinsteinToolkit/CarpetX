@@ -20,10 +20,12 @@ using Arith::mat, Arith::vec;
 namespace {
 // Residuals used to check the multi-dimensional solutions. The Jacobians live
 // with their call sites: SYCL cannot call a templated function from a kernel.
-template <typename T> ALGO_DEVICE vec<T, 2> gn(vec<T, 2> x) {
+// These are called from both the host-side and the kernel-side checks, so they
+// must be available in both places.
+template <typename T> ALGO_HOST ALGO_DEVICE vec<T, 2> gn(vec<T, 2> x) {
   return vec<T, 2>{x(0) * x(0) - 2, x(0) * x(1) - 2};
 }
-template <typename T> ALGO_DEVICE vec<T, 3> gn3(vec<T, 3> x) {
+template <typename T> ALGO_HOST ALGO_DEVICE vec<T, 3> gn3(vec<T, 3> x) {
   return vec<T, 3>{x(0) * x(0) - 2, x(0) * x(1) - 2, x(1) * x(2) - 2};
 }
 } // namespace
