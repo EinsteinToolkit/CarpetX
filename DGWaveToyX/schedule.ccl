@@ -1,0 +1,53 @@
+# Schedule definitions for thorn DGWaveToyX
+
+SCHEDULE DGWaveToyX_Init IN ODESolvers_Initial
+{
+  LANG: C
+  READS: DGCoordinatesX::coords(interior)
+  WRITES: u(interior)
+  WRITES: f(interior)
+} "Initialise wave equation"
+
+SCHEDULE DGWaveToyX_Boundaries IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: level
+  SYNC: u f
+} "Set boundaries of wave equation"
+
+SCHEDULE DGWaveToyX_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: u(everywhere)
+  READS: f(everywhere)
+  WRITES: u_rhs(interior)
+  WRITES: f_rhs(interior)
+} "Calculate RHS of wave equation"
+
+SCHEDULE DGWaveToyX_RHS IN ODESolvers_Analysis
+{
+  LANG: C
+  READS: u(everywhere)
+  READS: f(everywhere)
+  WRITES: u_rhs(interior)
+  WRITES: f_rhs(interior)
+  SYNC: u_rhs f_rhs
+} "Calculate RHS of wave equation for output"
+
+SCHEDULE DGWaveToyX_Energy IN ODESolvers_Analysis
+{
+  LANG: C
+  READS: f(interior)
+  WRITES: eps(interior)
+  SYNC: eps
+} "Calculate energy of wave equation"
+
+SCHEDULE DGWaveToyX_Error IN ODESolvers_Analysis
+{
+  LANG: C
+  READS: DGCoordinatesX::coords(everywhere)
+  READS: u(everywhere)
+  READS: f(everywhere)
+  WRITES: u_error(everywhere)
+  WRITES: f_error(everywhere)
+} "Calculate error of wave equation"

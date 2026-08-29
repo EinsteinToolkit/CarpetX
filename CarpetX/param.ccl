@@ -481,6 +481,17 @@ BOOLEAN restrict_during_sync "Restrict fine to coarse grid functions when syncin
 
 
 
+KEYWORD timestep_choice "How to set the time step size"
+{
+  "timestep" :: "Set the time step `timestep` directly"
+  "dtfac"    :: "Set the time step factor `dtfac`"
+} "dtfac"
+
+CCTK_REAL timestep "The time step size"
+{
+  *:* :: ""
+} 0.5
+
 CCTK_REAL dtfac "The standard timestep condition dt = dtfac*min(delta_space)"
 {
   *:* :: ""
@@ -643,6 +654,11 @@ INT out_silo_every "Output in Silo format every that many iterations" STEERABLE=
   1:* :: "every that many iterations"
 } -1
 
+STRING out_silo_compression_options "Compression options (method and level) to use when creating Silo files" STEERABLE=always
+{
+  ".*" :: ""
+} "METHOD=GZIP LEVEL=1"
+
 
 
 
@@ -663,6 +679,21 @@ INT out_tsv_every "Output in TSV format every that many iterations" STEERABLE=al
   0 :: "never output TSV"
   1:* :: "every that many iterations"
 } -1
+
+KEYWORD out_tsv_header "How to output TSV column header" STEERABLE=always
+{
+  "none" :: "no header"
+  "comment" :: "as comment (for backward compatibility)"
+  "plain" :: "plain TSV header"
+} "comment"
+
+BOOLEAN out_tsv_combine_iterations "Combine all iterations into a single TSV file" STEERABLE=recover
+{
+} no
+
+BOOLEAN out_tsv_output_boundary_points "Output outer boundary points in 1d TSV files" STEERABLE=always
+{
+} yes
 
 
 
@@ -686,6 +717,7 @@ USES STRING out_dir
 USES CCTK_INT out_every
 USES KEYWORD out_mode
 USES CCTK_INT out_proc_every
+USES KEYWORD out_fileinfo
 
 USES BOOLEAN checkpoint_ID
 USES INT checkpoint_every

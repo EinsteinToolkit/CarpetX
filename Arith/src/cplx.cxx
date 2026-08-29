@@ -4,8 +4,9 @@
 
 #include <functional>
 
-namespace Arith {
 using namespace std;
+
+namespace Arith {
 
 // This function is compiled, but not executed. The tests are "run" at
 // compile time. If this function compiles, the tests pass.

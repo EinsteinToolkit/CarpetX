@@ -239,17 +239,17 @@ void synchronize();
 
 void error_if_invalid(const GHExt::PatchData::LevelData::GroupData &grouppdata,
                       int vi, int tl, const valid_t &required,
-                      const function<string()> &msg);
+                      const std::function<std::string()> &msg);
 void warn_if_invalid(const GHExt::PatchData::LevelData::GroupData &grouppdata,
                      int vi, int tl, const valid_t &required,
-                     const function<string()> &msg);
+                     const std::function<std::string()> &msg);
 
 void error_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata,
                       int vi, int tl, const valid_t &required,
-                      const function<string()> &msg);
+                      const std::function<std::string()> &msg);
 void warn_if_invalid(const GHExt::GlobalData::ArrayGroupData &groupdata, int vi,
                      int tl, const valid_t &required,
-                     const function<string()> &msg);
+                     const std::function<std::string()> &msg);
 
 enum class nan_handling_t { allow_nans, forbid_nans };
 
@@ -259,9 +259,9 @@ void poison_invalid_ga(int gi, int vi, int tl);
 
 void check_valid_gf(const active_levels_t &active_levels, int gi, int vi,
                     int tl, nan_handling_t nan_handling,
-                    const function<string()> &msg);
+                    const std::function<std::string()> &msg);
 void check_valid_ga(int gi, int vi, int tl, nan_handling_t nan_handling,
-                    const function<string()> &msg);
+                    const std::function<std::string()> &msg);
 
 } // namespace CarpetX
 

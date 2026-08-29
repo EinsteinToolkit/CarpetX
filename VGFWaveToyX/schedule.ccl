@@ -1,0 +1,48 @@
+# Schedule definitions for thorn VGFWaveToyX
+
+STORAGE: state
+
+SCHEDULE VGFWaveToyX_Initial AT initial
+{
+  LANG: C
+  WRITES: state(interior)
+} "Initialize scalar wave state"
+
+SCHEDULE VGFWaveToyX_Boundaries IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Apply boundary conditions"
+
+SCHEDULE VGFWaveToyX_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: rhs(interior)
+} "Calculate scalar wave RHS"
+
+SCHEDULE VGFWaveToyX_RHS AT analysis
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: rhs(interior)
+  # Sync for test output
+  SYNC: rhs
+} "Calculate scalar wave RHS (so that it can be output)"
+
+SCHEDULE VGFWaveToyX_Energy at analysis
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: energy(interior)
+  SYNC: energy
+} "Calculate scalar wave energy density"
+
+SCHEDULE VGFWaveToyX_Error at analysis
+{
+  LANG: C
+  READS: state(interior)
+  WRITES: error(interior)
+  SYNC: error
+} "Calculate error in scalar wave state"

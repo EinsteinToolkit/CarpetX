@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -60,7 +61,7 @@ std::ostream &operator<<(std::ostream &os, const boundary_t boundary);
 static_assert(AMREX_SPACEDIM == dim,
               "AMReX's AMREX_SPACEDIM must be the same as Cactus's cctk_dim");
 
-static_assert(is_same<amrex::Real, CCTK_REAL>::value,
+static_assert(std::is_same<amrex::Real, CCTK_REAL>::value,
               "AMReX's Real type must be the same as Cactus's CCTK_REAL");
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -92,7 +93,7 @@ public:
                         int ngrow) override;
   void SetupLevel(int level, const amrex::BoxArray &ba,
                   const amrex::DistributionMapping &dm,
-                  const function<string()> &why);
+                  const std::function<std::string()> &why);
   virtual void
   MakeNewLevelFromScratch(int level, amrex::Real time,
                           const amrex::BoxArray &ba,
@@ -290,7 +291,8 @@ struct GHExt {
     // we assume that grid scalars only hold "analysis" data.
 
     struct ArrayGroupData : public CommonGroupData {
-      vector<AnyTypeVector> data; // [time level][var index + grid point index]
+      std::vector<AnyTypeVector>
+          data; // [time level][var index + grid point index]
       int array_size;
       int dimension;
       int activetimelevels;
@@ -339,6 +341,8 @@ struct GHExt {
     PatchData(int patch);
 
     int patch;
+
+    bool is_cartesian;
 
     std::array<std::array<symmetry_t, dim>, 2> symmetries;
 
@@ -395,9 +399,11 @@ struct GHExt {
         std::array<int, dim> indextype;
         std::array<int, dim> nghostzones;
 
+        amrex::Interpolater *interpolator;
+
         std::array<std::array<boundary_t, dim>, 2> boundaries;
         bool all_faces_have_symmetries_or_boundaries() const;
-        std::vector<array<int, dim> > parities;
+        std::vector<std::array<int, dim> > parities;
         std::vector<CCTK_REAL> dirichlet_values;
         std::vector<CCTK_REAL> robin_values;
         amrex::Vector<amrex::BCRec> bcrecs;
@@ -434,7 +440,7 @@ struct GHExt {
                                          const GroupData &groupdata);
       };
       // TODO: right now this is sized for the total number of groups
-      std::vector<unique_ptr<GroupData> > groupdata; // [group index]
+      std::vector<std::unique_ptr<GroupData> > groupdata; // [group index]
 
       friend YAML::Emitter &operator<<(YAML::Emitter &yaml,
                                        const LevelData &leveldata);
@@ -447,6 +453,9 @@ struct GHExt {
   std::vector<PatchData> patchdata; // [patch]
 
   int num_patches() const { return patchdata.size(); }
+  int num_levels(const int patch) const {
+    return patchdata.at(patch).leveldata.size();
+  }
   int num_levels() const {
     int nlevels = 0;
     using std::max;
@@ -476,7 +485,11 @@ struct GHExt {
 
 extern std::unique_ptr<GHExt> ghext;
 
-amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype);
+// Monotonically increasing counter. Incremented whenever the AMR grid
+// hierarchy is invalidated (regridding, recovery). Starts at 0.
+extern std::atomic<CCTK_INT> carpetx_epoch;
+
+extern "C" CCTK_INT CarpetX_GetEpoch(void);
 
 } // namespace CarpetX
 

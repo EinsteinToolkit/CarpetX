@@ -41,7 +41,6 @@ static inline int omp_get_max_threads() { return 1; }
 #include <vector>
 
 namespace ODESolvers {
-using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -77,7 +76,6 @@ constexpr details::return_type<D, Types...> make_array(Types &&...t) {
 
 // A state vector component, with mfabs for each level, group, and variable
 struct statecomp_t {
-
   statecomp_t() = default;
 
   statecomp_t(statecomp_t &&) = default;
@@ -87,45 +85,47 @@ struct statecomp_t {
   statecomp_t(const statecomp_t &) = delete;
   statecomp_t &operator=(const statecomp_t &) = delete;
 
-  vector<GHExt::PatchData::LevelData::GroupData *> groupdatas;
-  vector<amrex::MultiFab *> mfabs;
+  std::vector<CarpetX::GHExt::PatchData::LevelData::GroupData *> groupdatas;
+  std::vector<amrex::MultiFab *> mfabs;
 
   static void init_tmp_mfabs();
   static void free_tmp_mfabs();
 
-  void set_valid(const valid_t valid) const;
-  template <size_t N>
+  void set_valid(const CarpetX::valid_t valid) const;
+  template <std::size_t N>
   static void combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
-                             const array<CCTK_REAL, N> &factors,
-                             const array<const statecomp_t *, N> &srcs,
-                             const valid_t where);
-  void check_valid(const valid_t required, const function<string()> &why) const;
-  void check_valid(const valid_t required, const string &why) const {
+                             const std::array<CCTK_REAL, N> &factors,
+                             const std::array<const statecomp_t *, N> &srcs,
+                             const CarpetX::valid_t where);
+  void check_valid(const CarpetX::valid_t required,
+                   const std::function<std::string()> &why) const;
+  void check_valid(const CarpetX::valid_t required,
+                   const std::string &why) const {
     check_valid(required, [=]() { return why; });
   }
 
-  statecomp_t copy(const valid_t where) const;
+  statecomp_t copy(const CarpetX::valid_t where) const;
 
-  template <size_t N>
+  template <std::size_t N>
   static void lincomb(const statecomp_t &dst, CCTK_REAL scale,
-                      const array<CCTK_REAL, N> &factors,
-                      const array<const statecomp_t *, N> &srcs,
-                      const valid_t where);
-  template <size_t N>
+                      const std::array<CCTK_REAL, N> &factors,
+                      const std::array<const statecomp_t *, N> &srcs,
+                      const CarpetX::valid_t where);
+  template <std::size_t N>
   static void lincomb(const statecomp_t &dst, CCTK_REAL scale,
-                      const array<CCTK_REAL, N> &factors,
-                      const array<statecomp_t *, N> &srcs,
-                      const valid_t where) {
-    array<const statecomp_t *, N> srcs1;
-    for (size_t n = 0; n < N; ++n)
+                      const std::array<CCTK_REAL, N> &factors,
+                      const std::array<statecomp_t *, N> &srcs,
+                      const CarpetX::valid_t where) {
+    std::array<const statecomp_t *, N> srcs1;
+    for (std::size_t n = 0; n < N; ++n)
       srcs1[n] = srcs[n];
     lincomb(dst, scale, factors, srcs1, where);
   }
 
   static void lincomb(const statecomp_t &dst, CCTK_REAL scale,
-                      const vector<CCTK_REAL> &factors,
-                      const vector<const statecomp_t *> &srcs,
-                      const valid_t where);
+                      const std::vector<CCTK_REAL> &factors,
+                      const std::vector<const statecomp_t *> &srcs,
+                      const CarpetX::valid_t where);
 };
 
 template <std::size_t N> using reals = std::array<CCTK_REAL, N>;
@@ -160,31 +160,31 @@ void statecomp_t::free_tmp_mfabs() {
 }
 
 // State that the state vector has valid data in the interior
-void statecomp_t::set_valid(const valid_t valid) const {
+void statecomp_t::set_valid(const CarpetX::valid_t valid) const {
   for (auto groupdata : groupdatas) {
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
       const int tl = 0;
       groupdata->valid.at(tl).at(vi).set_int(valid.valid_int, [=]() {
-        ostringstream buf;
+        std::ostringstream buf;
         buf << "ODESolvers after lincomb: Mark interior as "
             << (valid.valid_int ? "valid" : "invalid");
         return buf.str();
       });
       groupdata->valid.at(tl).at(vi).set_outer(valid.valid_outer, [=]() {
-        ostringstream buf;
+        std::ostringstream buf;
         buf << "ODESolvers after lincomb: Mark outer boundary as "
             << (valid.valid_outer ? "valid" : "invalid");
         return buf.str();
       });
       groupdata->valid.at(tl).at(vi).set_ghosts(valid.valid_ghosts, [=]() {
-        ostringstream buf;
+        std::ostringstream buf;
         buf << "ODESolvers after lincomb: Mark ghosts as "
             << (valid.valid_int ? "valid" : "invalid");
         return buf.str();
       });
       // TODO: Parallelize over patches, levels, group, variables, and
       // timelevels
-      const active_levels_t active_levels(
+      const CarpetX::active_levels_t active_levels(
           groupdata->level, groupdata->level + 1, groupdata->patch,
           groupdata->patch + 1);
       CarpetX::poison_invalid_gf(active_levels, groupdata->groupindex, vi, tl);
@@ -193,11 +193,11 @@ void statecomp_t::set_valid(const valid_t valid) const {
 }
 
 // Combine validity information from several sources
-template <size_t N>
+template <std::size_t N>
 void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
-                                 const array<CCTK_REAL, N> &factors,
-                                 const array<const statecomp_t *, N> &srcs,
-                                 const valid_t where) {
+                                 const std::array<CCTK_REAL, N> &factors,
+                                 const std::array<const statecomp_t *, N> &srcs,
+                                 const CarpetX::valid_t where) {
   const int ngroups = dst.groupdatas.size();
   for (const auto &src : srcs)
     assert(int(src->groupdatas.size()) == ngroups);
@@ -215,13 +215,13 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
     const int nvars = dstgroup->numvars;
     const int tl = 0;
     for (int vi = 0; vi < nvars; ++vi) {
-      valid_t valid = where;
+      CarpetX::valid_t valid = where;
       bool did_set_valid = false;
       if (scale != 0) {
         valid &= dstgroup->valid.at(tl).at(vi).get();
         did_set_valid = true;
       }
-      for (size_t m = 0; m < srcs.size(); ++m) {
+      for (std::size_t m = 0; m < srcs.size(); ++m) {
         if (factors.at(m) != 0) {
           const auto &src = srcs.at(m);
           const auto &srcgroup = src->groupdatas.at(group);
@@ -230,38 +230,38 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
         }
       }
       if (!did_set_valid)
-        valid = valid_t(false);
-      dstgroup->valid.at(tl).at(vi) =
-          why_valid_t(valid, []() { return "Set from RHS in ODESolvers"; });
+        valid = CarpetX::valid_t(false);
+      dstgroup->valid.at(tl).at(vi) = CarpetX::why_valid_t(
+          valid, []() { return "Set from RHS in ODESolvers"; });
     }
   }
 }
 
 // Ensure a state vector has valid data in the interior
-void statecomp_t::check_valid(const valid_t required,
-                              const function<string()> &why) const {
+void statecomp_t::check_valid(const CarpetX::valid_t required,
+                              const std::function<std::string()> &why) const {
   for (const auto groupdata : groupdatas) {
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
       const int tl = 0;
       CarpetX::error_if_invalid(*groupdata, vi, tl, required, why);
       // TODO: Parallelize over pathces, levels, group, variables, and
       // timelevels
-      const active_levels_t active_levels(
+      const CarpetX::active_levels_t active_levels(
           groupdata->level, groupdata->level + 1, groupdata->patch,
           groupdata->patch + 1);
       CarpetX::check_valid_gf(active_levels, groupdata->groupindex, vi, tl,
-                              nan_handling_t::forbid_nans, why);
+                              CarpetX::nan_handling_t::forbid_nans, why);
     }
   }
 }
 
 // Copy state vector into newly allocated memory
-statecomp_t statecomp_t::copy(const valid_t where) const {
-  const size_t size = mfabs.size();
+statecomp_t statecomp_t::copy(const CarpetX::valid_t where) const {
+  const std::size_t size = mfabs.size();
   statecomp_t result;
   result.groupdatas.reserve(size);
   result.mfabs.reserve(size);
-  for (size_t n = 0; n < size; ++n) {
+  for (std::size_t n = 0; n < size; ++n) {
     const auto groupdata = groupdatas.at(n);
     // This global nan-check doesn't work since we don't care about the
     // boundaries
@@ -278,7 +278,7 @@ statecomp_t statecomp_t::copy(const valid_t where) const {
   lincomb(result, 0, make_array(CCTK_REAL(1)), make_array(this), where);
   // This global nan-check doesn't work since we don't care about the boundaries
   // #ifdef CCTK_DEBUG
-  //   for (size_t n = 0; n < size; ++n) {
+  //   for (std::size_t n = 0; n < size; ++n) {
   //     const auto groupdata = result.groupdatas.at(n);
   //     const auto &y = result.mfabs.at(n);
   //     if (y->contains_nan())
@@ -289,65 +289,68 @@ statecomp_t statecomp_t::copy(const valid_t where) const {
   return result;
 }
 
-template <size_t N>
+template <std::size_t N>
 void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
-                          const array<CCTK_REAL, N> &factors,
-                          const array<const statecomp_t *, N> &srcs,
-                          const valid_t where) {
-  const size_t size = dst.mfabs.size();
-  for (size_t n = 0; n < N; ++n)
+                          const std::array<CCTK_REAL, N> &factors,
+                          const std::array<const statecomp_t *, N> &srcs,
+                          const CarpetX::valid_t where) {
+  const std::size_t size = dst.mfabs.size();
+  for (std::size_t n = 0; n < N; ++n)
     assert(srcs[n]->mfabs.size() == size);
-  for (size_t m = 0; m < size; ++m) {
+  for (std::size_t m = 0; m < size; ++m) {
     const auto ncomp = dst.mfabs.at(m)->nComp();
     const auto ngrowvect = dst.mfabs.at(m)->nGrowVect();
-    for (size_t n = 0; n < N; ++n) {
+    for (std::size_t n = 0; n < N; ++n) {
       assert(srcs[n]->mfabs.at(m)->nComp() == ncomp);
       assert(srcs[n]->mfabs.at(m)->nGrowVect() == ngrowvect);
     }
   }
 
+  using std::isfinite;
   assert(isfinite(scale));
   const bool read_dst = scale != 0;
-  for (size_t n = 0; n < N; ++n)
+  for (std::size_t n = 0; n < N; ++n)
     assert(isfinite(factors[n]));
 
   statecomp_t::combine_valids(dst, scale, factors, srcs, where);
 
 #ifndef AMREX_USE_GPU
-  vector<function<void()> > tasks;
+  std::vector<std::function<void()> > tasks;
 #endif
 
-  for (size_t m = 0; m < size; ++m) {
-    const ptrdiff_t ncomps = dst.mfabs.at(m)->nComp();
+  // TODO: Poison ghosts/boundaries
+
+  for (std::size_t m = 0; m < size; ++m) {
+    const std::ptrdiff_t ncomps = dst.mfabs.at(m)->nComp();
     const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync();
     for (amrex::MFIter mfi(*dst.mfabs.at(m), mfitinfo); mfi.isValid(); ++mfi) {
       const amrex::Array4<CCTK_REAL> dstvar = dst.mfabs.at(m)->array(mfi);
-      array<amrex::Array4<const CCTK_REAL>, N> srcvars;
-      for (size_t n = 0; n < N; ++n)
+      std::array<amrex::Array4<const CCTK_REAL>, N> srcvars;
+      for (std::size_t n = 0; n < N; ++n)
         srcvars[n] = srcs[n]->mfabs.at(m)->const_array(mfi);
-      for (size_t n = 0; n < N; ++n) {
+      for (std::size_t n = 0; n < N; ++n) {
         assert(srcvars[n].jstride == dstvar.jstride);
         assert(srcvars[n].kstride == dstvar.kstride);
         assert(srcvars[n].nstride == dstvar.nstride);
       }
-      const ptrdiff_t nstride = dstvar.nstride;
-      const ptrdiff_t npoints = nstride * ncomps;
+      const std::ptrdiff_t nstride = dstvar.nstride;
+      const std::ptrdiff_t npoints = nstride * ncomps;
 
       CCTK_REAL *restrict const dstptr = dstvar.dataPtr();
-      array<const CCTK_REAL *restrict, N> srcptrs;
-      for (size_t n = 0; n < N; ++n)
+      std::array<const CCTK_REAL *restrict, N> srcptrs;
+      for (std::size_t n = 0; n < N; ++n)
         srcptrs[n] = srcvars[n].dataPtr();
 
 #ifndef AMREX_USE_GPU
       // CPU
 
-      const ptrdiff_t ntiles = omp_get_max_threads();
-      const ptrdiff_t tile_size =
-          Arith::align_ceil(Arith::div_ceil(npoints, ntiles), ptrdiff_t(64));
+      const std::ptrdiff_t ntiles = omp_get_max_threads();
+      const std::ptrdiff_t tile_size = Arith::align_ceil(
+          Arith::div_ceil(npoints, ntiles), std::ptrdiff_t(64));
 
-      for (ptrdiff_t imin = 0; imin < npoints; imin += tile_size) {
+      for (std::ptrdiff_t imin = 0; imin < npoints; imin += tile_size) {
         using std::min;
-        const ptrdiff_t imax = min(npoints, imin + tile_size);
+        const std::ptrdiff_t imax = min(npoints, imin + tile_size);
 
         if (!read_dst && N == 1 && factors[0] == 1) {
           // Copy
@@ -363,9 +366,9 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
           auto task = [=]() {
 #pragma omp simd
-            for (ptrdiff_t i = imin; i < imax; ++i) {
+            for (std::ptrdiff_t i = imin; i < imax; ++i) {
               CCTK_REAL accum = srcptrs[0][i];
-              for (size_t n = 1; n < N; ++n)
+              for (std::size_t n = 1; n < N; ++n)
                 accum += factors[n] * srcptrs[n][i];
               dstptr[i] = accum;
             }
@@ -377,9 +380,9 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
           auto task = [=]() {
 #pragma omp simd
-            for (ptrdiff_t i = imin; i < imax; ++i) {
+            for (std::ptrdiff_t i = imin; i < imax; ++i) {
               CCTK_REAL accum = 0;
-              for (size_t n = 0; n < N; ++n)
+              for (std::size_t n = 0; n < N; ++n)
                 accum += factors[n] * srcptrs[n][i];
               dstptr[i] = accum;
             }
@@ -391,9 +394,9 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
           auto task = [=]() {
 #pragma omp simd
-            for (ptrdiff_t i = imin; i < imax; ++i) {
+            for (std::ptrdiff_t i = imin; i < imax; ++i) {
               CCTK_REAL accum = dstptr[i];
-              for (size_t n = 0; n < N; ++n)
+              for (std::size_t n = 0; n < N; ++n)
                 accum += factors[n] * srcptrs[n][i];
               dstptr[i] = accum;
             }
@@ -405,9 +408,9 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
           auto task = [=]() {
 #pragma omp simd
-            for (ptrdiff_t i = imin; i < imax; ++i) {
+            for (std::ptrdiff_t i = imin; i < imax; ++i) {
               CCTK_REAL accum = scale * dstptr[i];
-              for (size_t n = 0; n < N; ++n)
+              for (std::size_t n = 0; n < N; ++n)
                 accum += factors[n] * srcptrs[n][i];
               dstptr[i] = accum;
             }
@@ -429,46 +432,44 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
       if (!read_dst) {
 
         amrex::launch(
-            box,
-            [=] CCTK_DEVICE(const amrex::Box &box)
-                __attribute__((__always_inline__, __flatten__)) {
-                  const int i = box.smallEnd()[0];
-                  // const int j = box.smallEnd()[1];
-                  // const int k = box.smallEnd()[2];
-                  CCTK_REAL accum = 0;
-                  // The ROCM 6.2 compiler can't handle
-                  // `std::array::operator[]`, so we avoid it via pointers: for
-                  // (size_t n = 0; n < N; ++n)
-                  //   accum += factors[n] * srcptrs[n][i];
-                  const CCTK_REAL *restrict const factors_ptr = factors.data();
-                  const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
-                      srcptrs.data();
-                  for (size_t n = 0; n < N; ++n)
-                    accum += factors_ptr[n] * srcptrs_ptr[n][i];
-                  dstptr[i] = accum;
-                });
+            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
+                     __always_inline__, __flatten__)) {
+              const int i = box.smallEnd()[0];
+              // const int j = box.smallEnd()[1];
+              // const int k = box.smallEnd()[2];
+              CCTK_REAL accum = 0;
+              // The ROCM 6.2 compiler can't handle
+              // `std::array::operator[]`, so we avoid it via pointers:
+              // for (std::size_t n = 0; n < N; ++n)
+              //   accum += factors[n] * srcptrs[n][i];
+              const CCTK_REAL *restrict const factors_ptr = factors.data();
+              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
+                  srcptrs.data();
+              for (std::size_t n = 0; n < N; ++n)
+                accum += factors_ptr[n] * srcptrs_ptr[n][i];
+              dstptr[i] = accum;
+            });
 
       } else {
 
         amrex::launch(
-            box,
-            [=] CCTK_DEVICE(const amrex::Box &box)
-                __attribute__((__always_inline__, __flatten__)) {
-                  const int i = box.smallEnd()[0];
-                  // const int j = box.smallEnd()[1];
-                  // const int k = box.smallEnd()[2];
-                  CCTK_REAL accum = scale1 * dstptr[i];
-                  // The ROCM 6.2 compiler can't handle
-                  // `std::array::operator[]`, so we avoid it via pointers: for
-                  // (size_t n = 0; n < N; ++n)
-                  //   accum += factors[n] * srcptrs[n][i];
-                  const CCTK_REAL *restrict const factors_ptr = factors.data();
-                  const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
-                      srcptrs.data();
-                  for (size_t n = 0; n < N; ++n)
-                    accum += factors_ptr[n] * srcptrs_ptr[n][i];
-                  dstptr[i] = accum;
-                });
+            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
+                     __always_inline__, __flatten__)) {
+              const int i = box.smallEnd()[0];
+              // const int j = box.smallEnd()[1];
+              // const int k = box.smallEnd()[2];
+              CCTK_REAL accum = scale1 * dstptr[i];
+              // The ROCM 6.2 compiler can't handle
+              // `std::array::operator[]`, so we avoid it via pointers:
+              // for (std::size_t n = 0; n < N; ++n)
+              //   accum += factors[n] * srcptrs[n][i];
+              const CCTK_REAL *restrict const factors_ptr = factors.data();
+              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
+                  srcptrs.data();
+              for (std::size_t n = 0; n < N; ++n)
+                accum += factors_ptr[n] * srcptrs_ptr[n][i];
+              dstptr[i] = accum;
+            });
       }
 
 #endif
@@ -478,7 +479,7 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 #ifndef AMREX_USE_GPU
   // run all tasks
 #pragma omp parallel for schedule(dynamic)
-  for (size_t i = 0; i < tasks.size(); ++i)
+  for (std::size_t i = 0; i < tasks.size(); ++i)
     tasks[i]();
 #else
   // wait for all tasks
@@ -488,15 +489,16 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 }
 
 namespace detail {
-template <size_t N>
+template <std::size_t N>
 void call_lincomb(const statecomp_t &dst, const CCTK_REAL scale,
-                  const vector<CCTK_REAL> &factors,
-                  const vector<const statecomp_t *> &srcs,
-                  const vector<size_t> &indices, const valid_t where) {
+                  const std::vector<CCTK_REAL> &factors,
+                  const std::vector<const statecomp_t *> &srcs,
+                  const std::vector<std::size_t> &indices,
+                  const CarpetX::valid_t where) {
   assert(indices.size() == N);
-  array<CCTK_REAL, N> factors1;
-  array<const statecomp_t *, N> srcs1;
-  for (size_t n = 0; n < N; ++n) {
+  std::array<CCTK_REAL, N> factors1;
+  std::array<const statecomp_t *, N> srcs1;
+  for (std::size_t n = 0; n < N; ++n) {
     factors1[n] = factors.at(indices[n]);
     srcs1[n] = srcs.at(indices[n]);
   }
@@ -505,18 +507,18 @@ void call_lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 } // namespace detail
 
 void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
-                          const vector<CCTK_REAL> &factors,
-                          const vector<const statecomp_t *> &srcs,
-                          const valid_t where) {
-  const size_t N = factors.size();
+                          const std::vector<CCTK_REAL> &factors,
+                          const std::vector<const statecomp_t *> &srcs,
+                          const CarpetX::valid_t where) {
+  const std::size_t N = factors.size();
   assert(srcs.size() == N);
 
-  size_t NNZ = 0;
-  for (size_t n = 0; n < N; ++n)
+  std::size_t NNZ = 0;
+  for (std::size_t n = 0; n < N; ++n)
     NNZ += factors[n] != 0;
-  vector<size_t> indices;
+  std::vector<std::size_t> indices;
   indices.reserve(NNZ);
-  for (size_t n = 0; n < N; ++n)
+  for (std::size_t n = 0; n < N; ++n)
     if (factors[n] != 0)
       indices.push_back(n);
   assert(indices.size() == NNZ);
@@ -728,13 +730,20 @@ void mark_invalid(const std::vector<int> &groups) {
       // Invalidate all variables of the current time level
       const int tl = 0;
       for (auto &why_valid : groupdata.valid.at(tl))
-        why_valid =
-            why_valid_t([] { return "ODESolvers updated the state vector"; });
+        why_valid = CarpetX::why_valid_t(
+            [] { return "ODESolvers updated the state vector"; });
     }
   });
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+
+extern "C" void ODESolvers_InitConstants(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ODESolvers_InitConstants;
+  DECLARE_CCTK_PARAMETERS;
+
+  *do_substeps = 0;
+}
 
 extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_ODESolvers_Solve;
@@ -746,17 +755,17 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   static bool did_output = false;
   if (verbose || !did_output)
-    CCTK_VINFO("Integrator is %s", method);
+    CCTK_VINFO("ODE integrator is %s", method);
   did_output = true;
 
-  static Timer timer("ODESolvers::Solve");
-  Interval interval(timer);
+  static CarpetX::Timer timer("ODESolvers::Solve");
+  CarpetX::Interval interval(timer);
 
   const CCTK_REAL dt = cctk_delta_time;
   const int tl = 0;
 
-  static Timer timer_setup("ODESolvers::Solve::setup");
-  std::optional<Interval> interval_setup(timer_setup);
+  static CarpetX::Timer timer_setup("ODESolvers::Solve::setup");
+  std::optional<CarpetX::Interval> interval_setup(timer_setup);
 
   statecomp_t var, rhs, p_rhs, pp_rhs;
   std::vector<int> var_groups, rhs_groups, dep_groups;
@@ -876,27 +885,27 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   interval_setup.reset();
 
   {
-    static Timer timer_alloc_temps("ODESolvers::Solve::alloc_temps");
-    Interval interval_alloc_temps(timer_alloc_temps);
+    static CarpetX::Timer timer_alloc_temps("ODESolvers::Solve::alloc_temps");
+    CarpetX::Interval interval_alloc_temps(timer_alloc_temps);
     statecomp_t::init_tmp_mfabs();
   }
 
   const CCTK_REAL saved_time = cctkGH->cctk_time;
   const CCTK_REAL old_time = cctkGH->cctk_time - dt;
 
-  static Timer timer_lincomb("ODESolvers::Solve::lincomb");
-  static Timer timer_rhs("ODESolvers::Solve::rhs");
-  static Timer timer_poststep("ODESolvers::Solve::poststep");
+  static CarpetX::Timer timer_lincomb("ODESolvers::Solve::lincomb");
+  static CarpetX::Timer timer_rhs("ODESolvers::Solve::rhs");
+  static CarpetX::Timer timer_poststep("ODESolvers::Solve::poststep");
 
-  const auto copy_state = [](const auto &var, const valid_t where) {
+  const auto copy_state = [](const auto &var, const CarpetX::valid_t where) {
     return var.copy(where);
   };
   const auto calcrhs = [&](const int n) {
-    Interval interval_rhs(timer_rhs);
+    CarpetX::Interval interval_rhs(timer_rhs);
     if (verbose)
       CCTK_VINFO("Calculating RHS #%d at t=%g", n, double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
-    rhs.check_valid(make_valid_int(),
+    rhs.check_valid(CarpetX::make_valid_int(),
                     "ODESolvers after calling ODESolvers_RHS");
   };
   // t = t_0 + c
@@ -905,14 +914,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                               const CCTK_REAL a0, const auto &as,
                               const auto &vars) {
     {
-      Interval interval_lincomb(timer_lincomb);
-      statecomp_t::lincomb(var, a0, as, vars, make_valid_int());
-      var.check_valid(make_valid_int(),
+      CarpetX::Interval interval_lincomb(timer_lincomb);
+      statecomp_t::lincomb(var, a0, as, vars, CarpetX::make_valid_int());
+      var.check_valid(CarpetX::make_valid_int(),
                       "ODESolvers after defining new state vector");
       mark_invalid(dep_groups);
     }
     {
-      Interval interval_poststep(timer_poststep);
+      CarpetX::Interval interval_poststep(timer_poststep);
       *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + c;
       CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
       if (verbose)
@@ -943,7 +952,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // k2 = f(y0 + h/2 k1)
     // y1 = y0 + h k2
 
-    const auto old = copy_state(var, make_valid_all());
+    const auto old = copy_state(var, CarpetX::make_valid_all());
 
     calcrhs(1);
     calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&rhs});
@@ -958,14 +967,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // k3 = f(y0 - h k1 + 2 h k2)
     // y1 = y0 + h/6 k1 + 2/3 h k2 + h/6 k3
 
-    const auto old = copy_state(var, make_valid_all());
+    const auto old = copy_state(var, CarpetX::make_valid_all());
 
     calcrhs(1);
-    const auto k1 = copy_state(rhs, make_valid_int());
+    const auto k1 = copy_state(rhs, CarpetX::make_valid_int());
     calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&k1});
 
     calcrhs(2);
-    const auto k2 = copy_state(rhs, make_valid_int());
+    const auto k2 = copy_state(rhs, CarpetX::make_valid_int());
     calcupdate(2, dt, 0.0, reals<3>{1.0, -dt, 2 * dt},
                states<3>{&old, &k1, &k2});
 
@@ -980,14 +989,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // k3 = f(y0 + h/4 k1 + h/4 k2)
     // y1 = y0 + h/6 k1 + h/6 k2 + 2/3 h k3
 
-    const auto old = copy_state(var, make_valid_all());
+    const auto old = copy_state(var, CarpetX::make_valid_all());
 
     calcrhs(1);
-    const auto k1 = copy_state(rhs, make_valid_int());
+    const auto k1 = copy_state(rhs, CarpetX::make_valid_int());
     calcupdate(1, dt, 1.0, reals<1>{dt}, states<1>{&k1});
 
     calcrhs(2);
-    const auto k2 = copy_state(rhs, make_valid_int());
+    const auto k2 = copy_state(rhs, CarpetX::make_valid_int());
     calcupdate(2, dt / 2, 0.0, reals<3>{1.0, dt / 4, dt / 4},
                states<3>{&old, &k1, &k2});
 
@@ -1003,31 +1012,133 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // k4 = f(y0 + h k3)
     // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
 
-    const auto old = copy_state(var, make_valid_all());
+    const auto old = copy_state(var, CarpetX::make_valid_all());
 
     calcrhs(1);
-    const auto kaccum = copy_state(rhs, make_valid_int());
+    const auto kaccum = copy_state(rhs, CarpetX::make_valid_int());
     calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
 
     calcrhs(2);
     {
-      Interval interval_lincomb(timer_lincomb);
+      CarpetX::Interval interval_lincomb(timer_lincomb);
       statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
     }
     calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
 
     calcrhs(3);
     {
-      Interval interval_lincomb(timer_lincomb);
+      CarpetX::Interval interval_lincomb(timer_lincomb);
       statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
     }
     calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
 
     calcrhs(4);
     calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
                states<3>{&old, &kaccum, &rhs});
+
+  } else if (CCTK_EQUALS(method, "RK4(3)6[2S]")) {
+
+    constexpr std::size_t m{6};
+
+    constexpr std::array<CCTK_REAL, m + 1> gamma_1{
+        0.000000000000000, 0.000000000000000,  1.587969352283926,
+        1.345849277346560, -0.088819115511932, 0.206532710491623,
+        -3.422331114067989};
+
+    constexpr std::array<CCTK_REAL, m + 1> gamma_2{
+        0.000000000000000,  1.000000000000000, 0.888063312510453,
+        -0.953407216543495, 0.798778614781935, 0.544596034836750,
+        1.402871254395165};
+
+    constexpr std::array<CCTK_REAL, m + 1> beta{
+        0.000000000000000, 0.653858677151052, 0.258675602947738,
+        0.802263873737920, 0.104618887237994, 0.199273700611894,
+        0.318145532666168};
+
+    constexpr std::array<CCTK_REAL, m + 1> delta{
+        1.000000000000000, -1.662080444041546, 1.024831293149243,
+        1.000354140638651, 0.093878239568257,  1.695359582053809,
+        0.392860285418747};
+
+    // y_1
+    const auto s_2 = copy_state(rhs, CarpetX::make_valid_int());
+    statecomp_t::lincomb(s_2, 0.0, reals<1>{0.0}, states<1>{&rhs},
+                         CarpetX::make_valid_int());
+
+    // y_i
+    for (std::size_t i = 2; i <= m + 1; i++) {
+      statecomp_t::lincomb(s_2, 1.0, reals<1>{delta[i - 2]}, states<1>{&var},
+                           CarpetX::make_valid_int());
+
+      calcrhs(i - 1);
+      calcupdate(i - 1, dt, gamma_1[i - 1],
+                 reals<2>{gamma_2[i - 1], beta[i - 1] * dt},
+                 states<2>{&s_2, &rhs});
+    }
+
+  } else if (CCTK_EQUALS(method, "RK4()9[3S*]")) {
+    constexpr std::size_t s{9};
+
+    constexpr std::array<CCTK_REAL, s> c{
+        0.0000000000000000e+00,  2.8363432481011769e-01,
+        5.4840742446661772e-01,  3.6872298094969475e-01,
+        -6.8061183026103156e-01, 3.5185265855105619e-01,
+        1.6659419385562171e+00,  9.7152778807463247e-01,
+        9.0515694340066954e-01};
+
+    constexpr std::array<CCTK_REAL, s> beta{
+        2.8363432481011769e-01,  9.7364980747486463e-01,
+        3.3823592364196498e-01,  -3.5849518935750763e-01,
+        -4.1139587569859462e-03, 1.4279689871485013e+00,
+        1.8084680519536503e-02,  1.6057708856060501e-01,
+        2.9522267863254809e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_1{
+        0.0000000000000000e+00,  -4.6556413837561301e+00,
+        -7.7202649689034453e-01, -4.0244202720632174e+00,
+        -2.1296873883702272e-02, -2.4350219407769953e+00,
+        1.9856336960249132e-02,  -2.8107894116913812e-01,
+        1.6894354373677900e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_2{
+        1.0000000000000000e+00, 2.4992627683300688e+00, 5.8668202764174726e-01,
+        1.2051419816240785e+00, 3.4747937498564541e-01, 1.3213458736302766e+00,
+        3.1196363453264964e-01, 4.3514189245414447e-01, 2.3596980658341213e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_3{
+        0.0000000000000000e+00,  0.0000000000000000e+00,
+        0.0000000000000000e+00,  7.6209857891449362e-01,
+        -1.9811817832965520e-01, -6.2289587091629484e-01,
+        -3.7522475499063573e-01, -3.3554373281046146e-01,
+        -4.5609629702116454e-02};
+
+    constexpr std::array<CCTK_REAL, s> delta{
+        1.0000000000000000e+00,  1.2629238731608268e+00,
+        7.5749675232391733e-01,  5.1635907196195419e-01,
+        -2.7463346616574083e-02, -4.3826743572318672e-01,
+        1.2735870231839268e+00,  -6.2947382217730230e-01,
+        0.0000000000000000e+00};
+
+    // y_1
+    const auto s_3 = copy_state(var, CarpetX::make_valid_all());
+
+    const auto s_2 = copy_state(rhs, CarpetX::make_valid_int());
+    statecomp_t::lincomb(s_2, 0.0, reals<1>{0.0}, states<1>{&rhs},
+                         CarpetX::make_valid_int());
+
+    for (std::size_t i = 1; i <= s; i++) {
+      const auto ti{c[i - 1] * dt};
+
+      statecomp_t::lincomb(s_2, 1.0, reals<1>{delta[i - 1]}, states<1>{&var},
+                           CarpetX::make_valid_int());
+
+      calcrhs(i - 1);
+      calcupdate(i - 1, ti, gamma_1[i - 1],
+                 reals<3>{gamma_2[i - 1], gamma_3[i - 1], beta[i - 1] * dt},
+                 states<3>{&s_2, &s_3, &rhs});
+    }
 
   } else if (CCTK_EQUALS(method, "HRK423")) {
 
@@ -1045,27 +1156,27 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k4 = f(y0 + h k3)
       // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
 
-      const auto old = copy_state(var, make_valid_all());
+      const auto old = copy_state(var, CarpetX::make_valid_all());
 
       calcrhs(1);
       statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
-                           make_valid_int());
-      const auto kaccum = copy_state(rhs, make_valid_int());
+                           CarpetX::make_valid_int());
+      const auto kaccum = copy_state(rhs, CarpetX::make_valid_int());
       calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
 
       calcrhs(2);
       {
-        Interval interval_lincomb(timer_lincomb);
+        CarpetX::Interval interval_lincomb(timer_lincomb);
         statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                             make_valid_int());
+                             CarpetX::make_valid_int());
       }
       calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
 
       calcrhs(3);
       {
-        Interval interval_lincomb(timer_lincomb);
+        CarpetX::Interval interval_lincomb(timer_lincomb);
         statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                             make_valid_int());
+                             CarpetX::make_valid_int());
       }
       calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
 
@@ -1118,31 +1229,31 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
 
       // y(t)
-      const auto old = copy_state(var, make_valid_all());
+      const auto old = copy_state(var, CarpetX::make_valid_all());
 
       // k0
-      const auto k0 = copy_state(p_rhs, make_valid_int());
+      const auto k0 = copy_state(p_rhs, CarpetX::make_valid_int());
 
       // k1
       calcrhs(1);
 
       // cycle current RHS to previous
       statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
 
-      const auto k1 = copy_state(rhs, make_valid_int());
+      const auto k1 = copy_state(rhs, CarpetX::make_valid_int());
       calcupdate(1, dt / 2, 0.0, reals<3>{1.0, a20, a21},
                  states<3>{&old, &k0, &k1});
 
       // k2
       calcrhs(2);
-      const auto k2 = copy_state(rhs, make_valid_int());
+      const auto k2 = copy_state(rhs, CarpetX::make_valid_int());
       calcupdate(2, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
                  states<4>{&old, &k0, &k1, &k2});
 
       // k3
       calcrhs(3);
-      const auto k3 = copy_state(rhs, make_valid_int());
+      const auto k3 = copy_state(rhs, CarpetX::make_valid_int());
       calcupdate(3, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
                  states<5>{&old, &k0, &k1, &k2, &k3});
     }
@@ -1163,32 +1274,32 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k4 = f(y0 + h k3)
       // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
 
-      const auto old = copy_state(var, make_valid_all());
+      const auto old = copy_state(var, CarpetX::make_valid_all());
 
       calcrhs(1);
 
       //  Cycle RHS storage
       statecomp_t::lincomb(pp_rhs, 0.0, reals<1>{1.0}, states<1>{&p_rhs},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
       statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
 
-      const auto kaccum = copy_state(rhs, make_valid_int());
+      const auto kaccum = copy_state(rhs, CarpetX::make_valid_int());
       calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
 
       calcrhs(2);
       {
-        Interval interval_lincomb(timer_lincomb);
+        CarpetX::Interval interval_lincomb(timer_lincomb);
         statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                             make_valid_int());
+                             CarpetX::make_valid_int());
       }
       calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
 
       calcrhs(3);
       {
-        Interval interval_lincomb(timer_lincomb);
+        CarpetX::Interval interval_lincomb(timer_lincomb);
         statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                             make_valid_int());
+                             CarpetX::make_valid_int());
       }
       calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
 
@@ -1232,23 +1343,23 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
 
       // y(t)
-      const auto old = copy_state(var, make_valid_all());
+      const auto old = copy_state(var, CarpetX::make_valid_all());
 
       // k0
-      const auto k0 = copy_state(pp_rhs, make_valid_int());
+      const auto k0 = copy_state(pp_rhs, CarpetX::make_valid_int());
 
       // k1
-      const auto k1 = copy_state(p_rhs, make_valid_int());
+      const auto k1 = copy_state(p_rhs, CarpetX::make_valid_int());
 
       // k2
       calcrhs(1);
-      const auto k2 = copy_state(rhs, make_valid_int());
+      const auto k2 = copy_state(rhs, CarpetX::make_valid_int());
 
       // Cycle RHS storage
       statecomp_t::lincomb(pp_rhs, 0.0, reals<1>{1.0}, states<1>{&p_rhs},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
       statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&k2},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
 
       calcupdate(1, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
                  states<4>{&old, &k0, &k1, &k2});
@@ -1283,14 +1394,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         0.392860285418747};
 
     // y_1
-    const auto s_2 = copy_state(rhs, make_valid_int());
+    const auto s_2 = copy_state(rhs, CarpetX::make_valid_int());
     statecomp_t::lincomb(s_2, 0.0, reals<1>{0.0}, states<1>{&rhs},
-                         make_valid_int());
+                         CarpetX::make_valid_int());
 
     // y_i
     for (std::size_t i = 2; i <= m + 1; i++) {
       statecomp_t::lincomb(s_2, 1.0, reals<1>{delta[i - 2]}, states<1>{&var},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
 
       calcrhs(i - 1);
       calcupdate(i - 1, dt, gamma_1[i - 1],
@@ -1342,17 +1453,17 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         0.0000000000000000e+00};
 
     // y_1
-    const auto s_3 = copy_state(var, make_valid_all());
+    const auto s_3 = copy_state(var, CarpetX::make_valid_all());
 
-    const auto s_2 = copy_state(rhs, make_valid_int());
+    const auto s_2 = copy_state(rhs, CarpetX::make_valid_int());
     statecomp_t::lincomb(s_2, 0.0, reals<1>{0.0}, states<1>{&rhs},
-                         make_valid_int());
+                         CarpetX::make_valid_int());
 
     for (std::size_t i = 1; i <= s; i++) {
       const auto ti{c[i - 1] * dt};
 
       statecomp_t::lincomb(s_2, 1.0, reals<1>{delta[i - 1]}, states<1>{&var},
-                           make_valid_int());
+                           CarpetX::make_valid_int());
 
       calcrhs(i - 1);
       calcupdate(i - 1, ti, gamma_1[i - 1],
@@ -1364,82 +1475,86 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     typedef CCTK_REAL T;
     const auto R = [](T x, T y) { return x / y; };
-    const tuple<vector<tuple<T, vector<T> > >, vector<T> > tableau{
-        {
-            {/* 1 */ 0, {}},                                           //
-            {/* 2 */ R(2, 27), {R(2, 27)}},                            //
-            {/* 3 */ R(1, 9), {R(1, 36), R(3, 36)}},                   //
-            {/* 4 */ R(1, 6), {R(1, 24), 0, R(3, 24)}},                //
-            {/* 5 */ R(5, 12), {R(20, 48), 0, R(-75, 48), R(75, 48)}}, //
-            {/* 6 */ R(1, 2), {R(1, 20), 0, 0, R(5, 20), R(4, 20)}},   //
-            {/* 7 */ R(5, 6),
-             {R(-25, 108), 0, 0, R(125, 108), R(-260, 108), R(250, 108)}}, //
-            {/* 8 */ R(1, 6),
-             {R(31, 300), 0, 0, 0, R(61, 225), R(-2, 9), R(13, 900)}}, //
-            {/* 9 */ R(2, 3),
-             {2, 0, 0, R(-53, 6), R(704, 45), R(-107, 9), R(67, 90), 3}}, //
-            {/* 10 */ R(1, 3),
-             {R(-91, 108), 0, 0, R(23, 108), R(-976, 135), R(311, 54),
-              R(-19, 60), R(17, 6), R(-1, 12)}}, //
-            {/* 11 */ 1,
-             {R(2383, 4100), 0, 0, R(-341, 164), R(4496, 1025), R(-301, 82),
-              R(2133, 4100), R(45, 82), R(45, 164), R(18, 41)}}, //
-                                                                 // {/* 12 */ 0,
-            //  {R(3, 205), 0, 0, 0, 0, R(-6, 41), R(-3, 205), R(-3, 41), R(3,
-            //  41),
-            //   R(6, 41)}}, //
-            // {/* 13 */ 1,
-            //  {R(-1777, 4100), 0, 0, R(-341, 164), R(4496, 1025), R(-289,
-            //  82),
-            //   R(2193, 4100), R(51, 82), R(33, 164), R(12, 41), 0, 1}}, //
-        },
-        {
-            R(41, 840), 0, 0, 0, 0, R(34, 105), R(9, 35), R(9, 35), R(9, 280),
-            R(9, 280), R(41, 840),
-            // 0,
-            // 0,
-        }};
+    const std::tuple<std::vector<std::tuple<T, std::vector<T> > >,
+                     std::vector<T> >
+        tableau{
+            {
+                {/* 1 */ 0, {}},                                           //
+                {/* 2 */ R(2, 27), {R(2, 27)}},                            //
+                {/* 3 */ R(1, 9), {R(1, 36), R(3, 36)}},                   //
+                {/* 4 */ R(1, 6), {R(1, 24), 0, R(3, 24)}},                //
+                {/* 5 */ R(5, 12), {R(20, 48), 0, R(-75, 48), R(75, 48)}}, //
+                {/* 6 */ R(1, 2), {R(1, 20), 0, 0, R(5, 20), R(4, 20)}},   //
+                {/* 7 */ R(5, 6),
+                 {R(-25, 108), 0, 0, R(125, 108), R(-260, 108),
+                  R(250, 108)}}, //
+                {/* 8 */ R(1, 6),
+                 {R(31, 300), 0, 0, 0, R(61, 225), R(-2, 9), R(13, 900)}}, //
+                {/* 9 */ R(2, 3),
+                 {2, 0, 0, R(-53, 6), R(704, 45), R(-107, 9), R(67, 90), 3}}, //
+                {/* 10 */ R(1, 3),
+                 {R(-91, 108), 0, 0, R(23, 108), R(-976, 135), R(311, 54),
+                  R(-19, 60), R(17, 6), R(-1, 12)}}, //
+                {/* 11 */ 1,
+                 {R(2383, 4100), 0, 0, R(-341, 164), R(4496, 1025), R(-301, 82),
+                  R(2133, 4100), R(45, 82), R(45, 164),
+                  R(18, 41)}}, //
+                               // {/* 12 */ 0,
+                //  {R(3, 205), 0, 0, 0, 0, R(-6, 41), R(-3, 205), R(-3, 41),
+                //  R(3, 41),
+                //   R(6, 41)}}, //
+                // {/* 13 */ 1,
+                //  {R(-1777, 4100), 0, 0, R(-341, 164), R(4496, 1025), R(-289,
+                //  82),
+                //   R(2193, 4100), R(51, 82), R(33, 164), R(12, 41), 0, 1}}, //
+            },
+            {
+                R(41, 840), 0, 0, 0, 0, R(34, 105), R(9, 35), R(9, 35),
+                R(9, 280), R(9, 280), R(41, 840),
+                // 0,
+                // 0,
+            }};
 
     // Check Butcher tableau
-    const size_t nsteps = get<0>(tableau).size();
+    const std::size_t nsteps = std::get<0>(tableau).size();
     {
-      for (size_t step = 0; step < nsteps; ++step) {
+      for (std::size_t step = 0; step < nsteps; ++step) {
         // TODO: Could allow <=
-        assert(get<1>(get<0>(tableau).at(step)).size() == step);
-        const auto &c = get<0>(get<0>(tableau).at(step));
-        const auto &as = get<1>(get<0>(tableau).at(step));
+        assert(std::get<1>(std::get<0>(tableau).at(step)).size() == step);
+        const auto &c = std::get<0>(std::get<0>(tableau).at(step));
+        const auto &as = std::get<1>(std::get<0>(tableau).at(step));
         T x = 0;
         for (const auto &a : as)
           x += a;
-        assert(fabs(x - c) <= 10 * numeric_limits<T>::epsilon());
+        assert(fabs(x - c) <= 10 * std::numeric_limits<T>::epsilon());
       }
       // TODO: Could allow <=
-      assert(get<1>(tableau).size() == nsteps);
-      const auto &bs = get<1>(tableau);
+      assert(std::get<1>(tableau).size() == nsteps);
+      const auto &bs = std::get<1>(tableau);
       T x = 0;
       for (const auto &b : bs)
         x += b;
-      assert(fabs(x - 1) <= 10 * numeric_limits<T>::epsilon());
+      assert(fabs(x - 1) <= 10 * std::numeric_limits<T>::epsilon());
     }
 
-    const auto old = copy_state(var, make_valid_all());
+    const auto old = copy_state(var, CarpetX::make_valid_all());
 
-    vector<statecomp_t> ks;
+    std::vector<statecomp_t> ks;
     ks.reserve(nsteps);
-    for (size_t step = 0; step < nsteps; ++step) {
+    for (std::size_t step = 0; step < nsteps; ++step) {
       // Skip the first state vector calculation, it is always trivial
       if (step > 0) {
-        const auto &c = get<0>(get<0>(tableau).at(step));
-        const auto &as = get<1>(get<0>(tableau).at(step));
+        const auto &c = std::get<0>(std::get<0>(tableau).at(step));
+        const auto &as = std::get<1>(std::get<0>(tableau).at(step));
 
         // Add scaled RHS to state vector
-        vector<CCTK_REAL> factors;
-        vector<const statecomp_t *> srcs;
+        std::vector<CCTK_REAL> factors;
+        std::vector<const statecomp_t *> srcs;
         factors.reserve(as.size() + 1);
         srcs.reserve(as.size() + 1);
         factors.push_back(1.0);
         srcs.push_back(&old);
-        for (size_t i = 0; i < as.size(); ++i) {
+        for (std::size_t i = 0; i < as.size(); ++i) {
           if (as.at(i) != 0) {
             factors.push_back(as.at(i) * dt);
             srcs.push_back(&ks.at(i));
@@ -1450,18 +1565,18 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
 
       calcrhs(step + 1);
-      ks.push_back(copy_state(rhs, make_valid_int()));
+      ks.push_back(copy_state(rhs, CarpetX::make_valid_int()));
     }
 
     // Calculate new state vector
-    const auto &bs = get<1>(tableau);
-    vector<CCTK_REAL> factors;
-    vector<const statecomp_t *> srcs;
+    const auto &bs = std::get<1>(tableau);
+    std::vector<CCTK_REAL> factors;
+    std::vector<const statecomp_t *> srcs;
     factors.reserve(bs.size() + 1);
     srcs.reserve(bs.size() + 1);
     factors.push_back(1);
     srcs.push_back(&old);
-    for (size_t i = 0; i < bs.size(); ++i) {
+    for (std::size_t i = 0; i < bs.size(); ++i) {
       if (bs.at(i) != 0) {
         factors.push_back(bs.at(i) * dt);
         srcs.push_back(&ks.at(i));
@@ -1476,7 +1591,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     // CactusNumerical/MoL, file RK87.c, written by Peter Diener,
     // following P. J. Prince and J. R. Dormand, Journal of
     // Computational and Applied Mathematics, volume 7, no 1, 1981
-    const tuple<vector<vector<T> >, vector<T> > tableau{
+    const std::tuple<std::vector<std::vector<T> >, std::vector<T> > tableau{
         {
             {/*1*/},                                    //
             {/*2*/ R(1, 18)},                           //
@@ -1517,40 +1632,40 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
          R(118820643, 751138087), -R(528747749, 2220607170), R(1, 4)}};
 
     // Check Butcher tableau
-    const size_t nsteps = get<0>(tableau).size();
+    const std::size_t nsteps = std::get<0>(tableau).size();
     {
-      for (size_t step = 0; step < nsteps; ++step)
+      for (std::size_t step = 0; step < nsteps; ++step)
         // TODO: Could allow <=
-        assert(get<0>(tableau).at(step).size() == step);
+        assert(std::get<0>(tableau).at(step).size() == step);
       // TODO: Could allow <=
-      assert(get<1>(tableau).size() == nsteps);
-      const auto &bs = get<1>(tableau);
+      assert(std::get<1>(tableau).size() == nsteps);
+      const auto &bs = std::get<1>(tableau);
       T x = 0;
       for (const auto &b : bs)
         x += b;
-      assert(fabs(x - 1) <= 10 * numeric_limits<T>::epsilon());
+      assert(fabs(x - 1) <= 10 * std::numeric_limits<T>::epsilon());
     }
 
-    const auto old = copy_state(var, make_valid_all());
+    const auto old = copy_state(var, CarpetX::make_valid_all());
 
-    vector<statecomp_t> ks;
+    std::vector<statecomp_t> ks;
     ks.reserve(nsteps);
-    for (size_t step = 0; step < nsteps; ++step) {
+    for (std::size_t step = 0; step < nsteps; ++step) {
       // Skip the first state vector calculation, it is always trivial
       if (step > 0) {
-        const auto &as = get<0>(tableau).at(step);
+        const auto &as = std::get<0>(tableau).at(step);
         T c = 0;
         for (const auto &a : as)
           c += a;
 
         // Add scaled RHS to state vector
-        vector<CCTK_REAL> factors;
-        vector<const statecomp_t *> srcs;
+        std::vector<CCTK_REAL> factors;
+        std::vector<const statecomp_t *> srcs;
         factors.reserve(as.size() + 1);
         srcs.reserve(as.size() + 1);
         factors.push_back(1.0);
         srcs.push_back(&old);
-        for (size_t i = 0; i < as.size(); ++i) {
+        for (std::size_t i = 0; i < as.size(); ++i) {
           if (as.at(i) != 0) {
             factors.push_back(as.at(i) * dt);
             srcs.push_back(&ks.at(i));
@@ -1561,26 +1676,27 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
 
       calcrhs(step + 1);
-      ks.push_back(copy_state(rhs, make_valid_int()));
+      ks.push_back(copy_state(rhs, CarpetX::make_valid_int()));
     }
 
     // Calculate new state vector
-    const auto &bs = get<1>(tableau);
-    vector<CCTK_REAL> factors;
-    vector<const statecomp_t *> srcs;
+    const auto &bs = std::get<1>(tableau);
+    std::vector<CCTK_REAL> factors;
+    std::vector<const statecomp_t *> srcs;
     factors.reserve(bs.size() + 1);
     srcs.reserve(bs.size() + 1);
     factors.push_back(1);
     srcs.push_back(&old);
-    for (size_t i = 0; i < bs.size(); ++i) {
+    for (std::size_t i = 0; i < bs.size(); ++i) {
       if (bs.at(i) != 0) {
         factors.push_back(bs.at(i) * dt);
         srcs.push_back(&ks.at(i));
       }
     }
     calcupdate(nsteps, dt, 0.0, factors, srcs);
-  } else if (CCTK_EQUALS(method, "Implicit Euler")) {
 
+  } else if (CCTK_EQUALS(method, "IMEX122") ||
+             CCTK_EQUALS(method, "Implicit Euler")) {
     // Implicit definition:
     //   y1 = y0 + h/2 f(y0) + h/2 g(y1)
     //   y2 = y0 + h f(y1) + h g(y1)
@@ -1595,18 +1711,18 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     //   k2 = f(y1)
     //   y2 = y0 + h k2 + h k'2
 
-    const auto y0 = var.copy(make_valid_int /*all*/ ());
+    const auto y0 = var.copy(CarpetX::make_valid_int /*all*/ ());
 
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
     if (verbose)
       CCTK_VINFO("Calculating RHS #1 at t=%g", double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
-    const auto k1 = rhs.copy(make_valid_int());
+    const auto k1 = rhs.copy(CarpetX::make_valid_int());
 
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt / 2;
     statecomp_t::lincomb(var, 1, make_array(dt / 2), make_array(&rhs),
-                         make_valid_int());
-    var.check_valid(make_valid_int(),
+                         CarpetX::make_valid_int());
+    var.check_valid(CarpetX::make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
@@ -1621,22 +1737,23 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt;
     CallScheduleGroup(cctkGH, "ODESolvers_PostStep");
-    const auto y1 = var.copy(make_valid_int /*all*/ ());
+    const auto y1 = var.copy(CarpetX::make_valid_int /*all*/ ());
 
     statecomp_t kprime2;
     statecomp_t::lincomb(kprime2, 0,
                          make_array(-CCTK_REAL(1), +CCTK_REAL(1), -dt / 2),
-                         make_array(&y0, &y1, &k1), make_valid_int());
+                         make_array(&y0, &y1, &k1), CarpetX::make_valid_int());
 
     *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time + dt;
     if (verbose)
       CCTK_VINFO("Calculating RHS #2 at t=%g", double(cctkGH->cctk_time));
     CallScheduleGroup(cctkGH, "ODESolvers_RHS");
-    const auto k2 = rhs.copy(make_valid_int());
+    const auto k2 = rhs.copy(CarpetX::make_valid_int());
 
     statecomp_t::lincomb(var, 0, make_array(CCTK_REAL(1), dt, dt),
-                         make_array(&y0, &k2, &kprime2), make_valid_int());
-    var.check_valid(make_valid_int(),
+                         make_array(&y0, &k2, &kprime2),
+                         CarpetX::make_valid_int());
+    var.check_valid(CarpetX::make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
   } else {
@@ -1644,8 +1761,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   }
 
   {
-    static Timer timer_free_temps("ODESolvers::Solve::free_temps");
-    Interval interval_free_temps(timer_free_temps);
+    static CarpetX::Timer timer_free_temps("ODESolvers::Solve::free_temps");
+    CarpetX::Interval interval_free_temps(timer_free_temps);
     statecomp_t::free_tmp_mfabs();
   }
 

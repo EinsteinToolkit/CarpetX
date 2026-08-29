@@ -1,4 +1,3 @@
-#pragma GCC optimize("O0")
 #include "driver.hxx"
 
 #include "boundaries.hxx"
@@ -20,7 +19,6 @@
 #include <AMReX_BCRec.H>
 #include <AMReX_ParmParse.H>
 
-#include <omp.h>
 #include <mpi.h>
 
 #include <algorithm>
@@ -44,6 +42,8 @@ int ghext_handle = -1;
 
 amrex::AMReX *restrict pamrex = nullptr;
 std::unique_ptr<GHExt> ghext;
+
+std::atomic<CCTK_INT> carpetx_epoch{0};
 
 // Registered functions
 
@@ -74,6 +74,28 @@ extern "C" CCTK_INT CarpetX_GetBoundarySizesAndTypes(
     const void *cctkGH_, CCTK_INT patch, CCTK_INT size,
     CCTK_INT *restrict const bndsize, CCTK_INT *restrict const is_ghostbnd,
     CCTK_INT *restrict const is_symbnd, CCTK_INT *restrict const is_physbnd);
+
+/* Return the current AMR grid epoch — a monotonically increasing counter that
+ * is incremented whenever the grid hierarchy is structurally modified.
+ *
+ * Specifically, the epoch advances on:
+ *   - Level creation   (MakeNewLevelFromScratch, MakeNewLevelFromCoarse)
+ *   - Level remeshing  (RemakeLevel)
+ *   - Level removal    (ClearLevel)
+ *   - Checkpoint recovery (InputInitial)
+ *
+ * Callers that cache data derived from the grid topology (e.g. interpolation
+ * setup objects) can use this value as a cheap validity stamp: if the epoch
+ * returned here differs from the one stored when the cache was built, the
+ * cached data must be rebuilt before use.
+ *
+ * The counter starts at 0 and is read atomically with relaxed ordering, which
+ * is safe for a simple snapshot — no synchronisation with other memory
+ * operations is implied or required.
+ */
+extern "C" CCTK_INT CarpetX_GetEpoch(void) {
+  return carpetx_epoch.load(std::memory_order_relaxed);
+}
 
 // Local functions
 void SetupGlobals();
@@ -139,7 +161,7 @@ std::array<std::array<symmetry_t, dim>, 2> get_symmetries(const int patch) {
       {{bool(periodic && periodic_x), bool(periodic && periodic_y),
         bool(periodic && periodic_z)}},
   }};
-  const array<array<bool, 3>, 2> is_reflection{{
+  const std::array<std::array<bool, 3>, 2> is_reflection{{
       {{bool(reflection_x), bool(reflection_y), bool(reflection_z)}},
       {{bool(reflection_upper_x), bool(reflection_upper_y),
         bool(reflection_upper_z)}},
@@ -387,7 +409,7 @@ std::array<int, dim> get_group_indextype(const int gi) {
   }
 
   // Convert to index type
-  array<int, dim> indextype;
+  std::array<int, dim> indextype;
   for (int d = 0; d < dim; ++d)
     indextype[d] = index[d];
 
@@ -414,7 +436,7 @@ std::array<int, dim> get_group_fluxes(const int gi) {
   std::size_t end = 0;
   while (end < str.size()) {
     const std::size_t begin = str.find_first_not_of(' ', end);
-    if (begin == string::npos)
+    if (begin == std::string::npos)
       break;
     end = str.find(' ', begin);
     strs.push_back(str.substr(begin, end - begin));
@@ -428,9 +450,9 @@ std::array<int, dim> get_group_fluxes(const int gi) {
   assert(strs.size() == dim); // Check number of fluxes
   for (int d = 0; d < dim; ++d) {
     auto str1 = strs[d];
-    if (str1.find(':') == string::npos) {
+    if (str1.find(':') == std::string::npos) {
       const char *const impl = CCTK_GroupImplementationI(gi);
-      str1 = string(impl) + "::" + str1;
+      str1 = std::string(impl) + "::" + str1;
     }
     int gi1 = CCTK_GroupIndex(str1.c_str());
     assert(gi1 >= 0); // Check fluxes are valid groups
@@ -533,794 +555,90 @@ std::vector<CCTK_REAL> get_group_robin_values(const int gi) {
   return robin_values;
 }
 
-amrex::Interpolater *get_interpolator(const std::array<int, dim> indextype) {
+std::string get_group_prolongation_type(const int gi) {
+  DECLARE_CCTK_PARAMETERS;
+  assert(gi >= 0);
+  const int tags = CCTK_GroupTagsTableI(gi);
+  assert(tags >= 0);
+  std::vector<char> group_prolongation_type_buf(1000);
+  const int iret = Util_TableGetString(tags, group_prolongation_type_buf.size(),
+                                       group_prolongation_type_buf.data(),
+                                       "prolongation_type");
+  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY)
+    return prolongation_type; // unset (use global default)
+  assert(iret >= 0);
+  const std::string group_prolongation_type(group_prolongation_type_buf.data());
+  return group_prolongation_type;
+}
+
+int get_group_prolongation_order(const int gi) {
+  DECLARE_CCTK_PARAMETERS;
+  assert(gi >= 0);
+  const int tags = CCTK_GroupTagsTableI(gi);
+  assert(tags >= 0);
+  CCTK_INT group_prolongation_order;
+  int iret =
+      Util_TableGetInt(tags, &group_prolongation_order, "prolongation_order");
+  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
+    // default: use driver parameter
+    group_prolongation_order = prolongation_order;
+  } else if (iret >= 0) {
+    assert(iret == 1);
+  } else {
+    assert(0);
+  }
+  return group_prolongation_order;
+}
+
+amrex::Interpolater *get_interpolator(const std::string prolongation_type,
+                                      const int prolongation_order,
+                                      const std::array<int, dim> indextype) {
+  const int indextype_scalar =
+      (indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0);
+
+  const std::map<int, std::array<amrex::Interpolater *, 8> > *operators =
+      nullptr;
+
+  if (prolongation_type == "interpolate")
+    operators = &prolongate_poly_3d_rf2;
+  else if (prolongation_type == "conservative")
+    operators = &prolongate_cons_3d_rf2;
+  else if (prolongation_type == "ddf")
+    operators = &prolongate_ddf_3d_rf2;
+  else if (prolongation_type == "eno")
+    operators = &prolongate_eno_3d_rf2;
+  else if (prolongation_type == "minmod")
+    operators = &prolongate_minmod_3d_rf2;
+  else if (prolongation_type == "hermite")
+    operators = &prolongate_hermite_3d_rf2;
+  else if (prolongation_type == "natural")
+    operators = &prolongate_natural_3d_rf2;
+  else if (prolongation_type == "poly-cons3lfb")
+    operators = &prolongate_poly_cons3lfb_3d_rf2;
+  else if (prolongation_type == "poly-eno3lfb")
+    operators = &prolongate_poly_eno3lfb_3d_rf2;
+  else
+    CCTK_VERROR("Unsupported prolongation type %s", prolongation_type.c_str());
+
+  if (operators->count(prolongation_order) == 0)
+    CCTK_VERROR("Unsupported prolongation order %d for prolongation type %s",
+                prolongation_order, prolongation_type.c_str());
+
+  return operators->at(prolongation_order).at(indextype_scalar);
+}
+
+amrex::Interpolater *
+get_interpolator(const GHExt::PatchData::LevelData::GroupData &groupdata) {
   DECLARE_CCTK_PARAMETERS;
 
-  enum class interp_t {
-    unset,
-    interpolate,
-    conservative,
-    ddf,
-    eno,
-    minmod,
-    hermite,
-    natural,
-    poly_cons3lfb,
-    poly_eno3lfb,
-  };
-  static interp_t interp = [&]() {
-    if (CCTK_EQUALS(prolongation_type, "interpolate"))
-      return interp_t::interpolate;
-    else if (CCTK_EQUALS(prolongation_type, "conservative"))
-      return interp_t::conservative;
-    else if (CCTK_EQUALS(prolongation_type, "ddf"))
-      return interp_t::ddf;
-    else if (CCTK_EQUALS(prolongation_type, "eno"))
-      return interp_t::eno;
-    else if (CCTK_EQUALS(prolongation_type, "minmod"))
-      return interp_t::minmod;
-    else if (CCTK_EQUALS(prolongation_type, "hermite"))
-      return interp_t::hermite;
-    else if (CCTK_EQUALS(prolongation_type, "natural"))
-      return interp_t::natural;
-    else if (CCTK_EQUALS(prolongation_type, "poly-cons3lfb"))
-      return interp_t::poly_cons3lfb;
-    else if (CCTK_EQUALS(prolongation_type, "poly-eno3lfb"))
-      return interp_t::poly_eno3lfb;
-    else
-      assert(0);
-  }();
+  const std::string group_prolongation_type =
+      get_group_prolongation_type(groupdata.groupindex);
+  const int group_prolongation_order =
+      get_group_prolongation_order(groupdata.groupindex);
+  const std::array<int, dim> &group_indextype = groupdata.indextype;
 
-  switch (interp) {
-  case interp_t::interpolate:
-
-    switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-
-    case 0b000:
-      switch (prolongation_order) {
-      case 1:
-        return &prolongate_poly_3d_rf2_c000_o1;
-      case 3:
-        return &prolongate_poly_3d_rf2_c000_o3;
-      case 5:
-        return &prolongate_poly_3d_rf2_c000_o5;
-      case 7:
-        return &prolongate_poly_3d_rf2_c000_o7;
-      }
-      break;
-
-    case 0b001:
-      switch (prolongation_order) {
-      case 1:
-        return &prolongate_poly_3d_rf2_c001_o1;
-      case 3:
-        return &prolongate_poly_3d_rf2_c001_o3;
-      case 5:
-        return &prolongate_poly_3d_rf2_c001_o5;
-      case 7:
-        return &prolongate_poly_3d_rf2_c001_o7;
-      }
-      break;
-
-    case 0b010:
-      switch (prolongation_order) {
-      case 1:
-        return &prolongate_poly_3d_rf2_c010_o1;
-      case 3:
-        return &prolongate_poly_3d_rf2_c010_o3;
-      case 5:
-        return &prolongate_poly_3d_rf2_c010_o5;
-      case 7:
-        return &prolongate_poly_3d_rf2_c010_o7;
-      }
-      break;
-
-    case 0b011:
-      switch (prolongation_order) {
-      case 1:
-        return &prolongate_poly_3d_rf2_c011_o1;
-      case 3:
-        return &prolongate_poly_3d_rf2_c011_o3;
-      case 5:
-        return &prolongate_poly_3d_rf2_c011_o5;
-      case 7:
-        return &prolongate_poly_3d_rf2_c011_o7;
-      }
-      break;
-
-    case 0b100:
-      switch (prolongation_order) {
-      case 1:
-        return &prolongate_poly_3d_rf2_c100_o1;
-      case 3:
-        return &prolongate_poly_3d_rf2_c100_o3;
-      case 5:
-        return &prolongate_poly_3d_rf2_c100_o5;
-      case 7:
-        return &prolongate_poly_3d_rf2_c100_o7;
-      }
-      break;
-
-    case 0b101:
-      switch (prolongation_order) {
-      case 1:
-        return &prolongate_poly_3d_rf2_c101_o1;
-      case 3:
-        return &prolongate_poly_3d_rf2_c101_o3;
-      case 5:
-        return &prolongate_poly_3d_rf2_c101_o5;
-      case 7:
-        return &prolongate_poly_3d_rf2_c101_o7;
-      }
-      break;
-
-    case 0b110:
-      switch (prolongation_order) {
-      case 1:
-        return &prolongate_poly_3d_rf2_c110_o1;
-      case 3:
-        return &prolongate_poly_3d_rf2_c110_o3;
-      case 5:
-        return &prolongate_poly_3d_rf2_c110_o5;
-      case 7:
-        return &prolongate_poly_3d_rf2_c110_o7;
-      }
-      break;
-
-    case 0b111:
-      switch (prolongation_order) {
-      case 1:
-        return &prolongate_poly_3d_rf2_c111_o1;
-      case 3:
-        return &prolongate_poly_3d_rf2_c111_o3;
-      case 5:
-        return &prolongate_poly_3d_rf2_c111_o5;
-      case 7:
-        return &prolongate_poly_3d_rf2_c111_o7;
-      }
-      break;
-    }
-    break;
-
-  case interp_t::conservative:
-
-    switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-
-    case 0b000:
-      switch (prolongation_order) {
-      case 0:
-        return &prolongate_cons_3d_rf2_c000_o0;
-      case 1:
-        return &prolongate_cons_3d_rf2_c000_o1;
-      }
-      break;
-
-    case 0b001:
-      switch (prolongation_order) {
-      case 0:
-        return &prolongate_cons_3d_rf2_c001_o0;
-      case 1:
-        return &prolongate_cons_3d_rf2_c001_o1;
-      }
-      break;
-
-    case 0b010:
-      switch (prolongation_order) {
-      case 0:
-        return &prolongate_cons_3d_rf2_c010_o0;
-      case 1:
-        return &prolongate_cons_3d_rf2_c010_o1;
-      }
-      break;
-
-    case 0b011:
-      switch (prolongation_order) {
-      case 0:
-        return &prolongate_cons_3d_rf2_c011_o0;
-      case 1:
-        return &prolongate_cons_3d_rf2_c011_o1;
-      }
-      break;
-
-    case 0b100:
-      switch (prolongation_order) {
-      case 0:
-        return &prolongate_cons_3d_rf2_c100_o0;
-      case 1:
-        return &prolongate_cons_3d_rf2_c100_o1;
-      }
-      break;
-
-    case 0b101:
-      switch (prolongation_order) {
-      case 0:
-        return &prolongate_cons_3d_rf2_c101_o0;
-      case 1:
-        return &prolongate_cons_3d_rf2_c101_o1;
-      }
-      break;
-
-    case 0b110:
-      switch (prolongation_order) {
-      case 0:
-        return &prolongate_cons_3d_rf2_c110_o0;
-      case 1:
-        return &prolongate_cons_3d_rf2_c110_o1;
-      }
-      break;
-
-    case 0b111:
-      switch (prolongation_order) {
-      case 0:
-        return &prolongate_cons_3d_rf2_c111_o0;
-      case 1:
-        return &prolongate_cons_3d_rf2_c111_o1;
-      }
-      break;
-    }
-    break;
-
-  case interp_t::ddf:
-
-    switch (prolongation_order) {
-
-    case 1:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_ddf_3d_rf2_c000_o1;
-      case 0b001:
-        return &prolongate_ddf_3d_rf2_c001_o1;
-      case 0b010:
-        return &prolongate_ddf_3d_rf2_c010_o1;
-      case 0b011:
-        return &prolongate_ddf_3d_rf2_c011_o1;
-      case 0b100:
-        return &prolongate_ddf_3d_rf2_c100_o1;
-      case 0b101:
-        return &prolongate_ddf_3d_rf2_c101_o1;
-      case 0b110:
-        return &prolongate_ddf_3d_rf2_c110_o1;
-      case 0b111:
-        return &prolongate_ddf_3d_rf2_c111_o1;
-      }
-      break;
-
-    case 3:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_ddf_3d_rf2_c000_o3;
-      case 0b001:
-        return &prolongate_ddf_3d_rf2_c001_o3;
-      case 0b010:
-        return &prolongate_ddf_3d_rf2_c010_o3;
-      case 0b011:
-        return &prolongate_ddf_3d_rf2_c011_o3;
-      case 0b100:
-        return &prolongate_ddf_3d_rf2_c100_o3;
-      case 0b101:
-        return &prolongate_ddf_3d_rf2_c101_o3;
-      case 0b110:
-        return &prolongate_ddf_3d_rf2_c110_o3;
-      case 0b111:
-        return &prolongate_ddf_3d_rf2_c111_o3;
-      }
-      break;
-
-    case 5:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_ddf_3d_rf2_c000_o5;
-      case 0b001:
-        return &prolongate_ddf_3d_rf2_c001_o5;
-      case 0b010:
-        return &prolongate_ddf_3d_rf2_c010_o5;
-      case 0b011:
-        return &prolongate_ddf_3d_rf2_c011_o5;
-      case 0b100:
-        return &prolongate_ddf_3d_rf2_c100_o5;
-      case 0b101:
-        return &prolongate_ddf_3d_rf2_c101_o5;
-      case 0b110:
-        return &prolongate_ddf_3d_rf2_c110_o5;
-      case 0b111:
-        return &prolongate_ddf_3d_rf2_c111_o5;
-      }
-      break;
-
-    case 7:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_ddf_3d_rf2_c000_o7;
-      case 0b001:
-        return &prolongate_ddf_3d_rf2_c001_o7;
-      case 0b010:
-        return &prolongate_ddf_3d_rf2_c010_o7;
-      case 0b011:
-        return &prolongate_ddf_3d_rf2_c011_o7;
-      case 0b100:
-        return &prolongate_ddf_3d_rf2_c100_o7;
-      case 0b101:
-        return &prolongate_ddf_3d_rf2_c101_o7;
-      case 0b110:
-        return &prolongate_ddf_3d_rf2_c110_o7;
-      case 0b111:
-        return &prolongate_ddf_3d_rf2_c111_o7;
-      }
-      break;
-    }
-    break;
-
-  case interp_t::eno:
-
-    switch (prolongation_order) {
-
-    case 3:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_eno_3d_rf2_c000_o3;
-      case 0b001:
-        return &prolongate_eno_3d_rf2_c001_o3;
-      case 0b010:
-        return &prolongate_eno_3d_rf2_c010_o3;
-      case 0b011:
-        return &prolongate_eno_3d_rf2_c011_o3;
-      case 0b100:
-        return &prolongate_eno_3d_rf2_c100_o3;
-      case 0b101:
-        return &prolongate_eno_3d_rf2_c101_o3;
-      case 0b110:
-        return &prolongate_eno_3d_rf2_c110_o3;
-      case 0b111:
-        return &prolongate_eno_3d_rf2_c111_o3;
-      }
-      break;
-
-    case 5:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_eno_3d_rf2_c000_o5;
-      case 0b001:
-        return &prolongate_eno_3d_rf2_c001_o5;
-      case 0b010:
-        return &prolongate_eno_3d_rf2_c010_o5;
-      case 0b011:
-        return &prolongate_eno_3d_rf2_c011_o5;
-      case 0b100:
-        return &prolongate_eno_3d_rf2_c100_o5;
-      case 0b101:
-        return &prolongate_eno_3d_rf2_c101_o5;
-      case 0b110:
-        return &prolongate_eno_3d_rf2_c110_o5;
-      case 0b111:
-        return &prolongate_eno_3d_rf2_c111_o5;
-      }
-      break;
-    }
-    break;
-
-  case interp_t::minmod:
-
-    switch (prolongation_order) {
-
-    case 1:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_minmod_3d_rf2_c000_o1;
-      case 0b001:
-        return &prolongate_minmod_3d_rf2_c001_o1;
-      case 0b010:
-        return &prolongate_minmod_3d_rf2_c010_o1;
-      case 0b011:
-        return &prolongate_minmod_3d_rf2_c011_o1;
-      case 0b100:
-        return &prolongate_minmod_3d_rf2_c100_o1;
-      case 0b101:
-        return &prolongate_minmod_3d_rf2_c101_o1;
-      case 0b110:
-        return &prolongate_minmod_3d_rf2_c110_o1;
-      case 0b111:
-        return &prolongate_minmod_3d_rf2_c111_o1;
-      }
-      break;
-
-    case 3:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_minmod_3d_rf2_c000_o3;
-      case 0b001:
-        return &prolongate_minmod_3d_rf2_c001_o3;
-      case 0b010:
-        return &prolongate_minmod_3d_rf2_c010_o3;
-      case 0b011:
-        return &prolongate_minmod_3d_rf2_c011_o3;
-      case 0b100:
-        return &prolongate_minmod_3d_rf2_c100_o3;
-      case 0b101:
-        return &prolongate_minmod_3d_rf2_c101_o3;
-      case 0b110:
-        return &prolongate_minmod_3d_rf2_c110_o3;
-      case 0b111:
-        return &prolongate_minmod_3d_rf2_c111_o3;
-      }
-      break;
-
-    case 5:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_minmod_3d_rf2_c000_o5;
-      case 0b001:
-        return &prolongate_minmod_3d_rf2_c001_o5;
-      case 0b010:
-        return &prolongate_minmod_3d_rf2_c010_o5;
-      case 0b011:
-        return &prolongate_minmod_3d_rf2_c011_o5;
-      case 0b100:
-        return &prolongate_minmod_3d_rf2_c100_o5;
-      case 0b101:
-        return &prolongate_minmod_3d_rf2_c101_o5;
-      case 0b110:
-        return &prolongate_minmod_3d_rf2_c110_o5;
-      case 0b111:
-        return &prolongate_minmod_3d_rf2_c111_o5;
-      }
-      break;
-    }
-    break;
-
-  case interp_t::hermite:
-
-    switch (prolongation_order) {
-
-    case 1:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_hermite_3d_rf2_c000_o1;
-      case 0b001:
-        return &prolongate_hermite_3d_rf2_c001_o1;
-      case 0b010:
-        return &prolongate_hermite_3d_rf2_c010_o1;
-      case 0b011:
-        return &prolongate_hermite_3d_rf2_c011_o1;
-      case 0b100:
-        return &prolongate_hermite_3d_rf2_c100_o1;
-      case 0b101:
-        return &prolongate_hermite_3d_rf2_c101_o1;
-      case 0b110:
-        return &prolongate_hermite_3d_rf2_c110_o1;
-      case 0b111:
-        return &prolongate_hermite_3d_rf2_c111_o1;
-      }
-      break;
-
-    case 3:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_hermite_3d_rf2_c000_o3;
-      case 0b001:
-        return &prolongate_hermite_3d_rf2_c001_o3;
-      case 0b010:
-        return &prolongate_hermite_3d_rf2_c010_o3;
-      case 0b011:
-        return &prolongate_hermite_3d_rf2_c011_o3;
-      case 0b100:
-        return &prolongate_hermite_3d_rf2_c100_o3;
-      case 0b101:
-        return &prolongate_hermite_3d_rf2_c101_o3;
-      case 0b110:
-        return &prolongate_hermite_3d_rf2_c110_o3;
-      case 0b111:
-        return &prolongate_hermite_3d_rf2_c111_o3;
-      }
-      break;
-
-    case 5:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_hermite_3d_rf2_c000_o5;
-      case 0b001:
-        return &prolongate_hermite_3d_rf2_c001_o5;
-      case 0b010:
-        return &prolongate_hermite_3d_rf2_c010_o5;
-      case 0b011:
-        return &prolongate_hermite_3d_rf2_c011_o5;
-      case 0b100:
-        return &prolongate_hermite_3d_rf2_c100_o5;
-      case 0b101:
-        return &prolongate_hermite_3d_rf2_c101_o5;
-      case 0b110:
-        return &prolongate_hermite_3d_rf2_c110_o5;
-      case 0b111:
-        return &prolongate_hermite_3d_rf2_c111_o5;
-      }
-      break;
-    }
-    break;
-
-  case interp_t::natural:
-
-    switch (prolongation_order) {
-
-    case 1:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_natural_3d_rf2_c000_o1;
-      case 0b001:
-        return &prolongate_natural_3d_rf2_c001_o1;
-      case 0b010:
-        return &prolongate_natural_3d_rf2_c010_o1;
-      case 0b011:
-        return &prolongate_natural_3d_rf2_c011_o1;
-      case 0b100:
-        return &prolongate_natural_3d_rf2_c100_o1;
-      case 0b101:
-        return &prolongate_natural_3d_rf2_c101_o1;
-      case 0b110:
-        return &prolongate_natural_3d_rf2_c110_o1;
-      case 0b111:
-        return &prolongate_natural_3d_rf2_c111_o1;
-      }
-      break;
-
-    case 3:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_natural_3d_rf2_c000_o3;
-      case 0b001:
-        return &prolongate_natural_3d_rf2_c001_o3;
-      case 0b010:
-        return &prolongate_natural_3d_rf2_c010_o3;
-      case 0b011:
-        return &prolongate_natural_3d_rf2_c011_o3;
-      case 0b100:
-        return &prolongate_natural_3d_rf2_c100_o3;
-      case 0b101:
-        return &prolongate_natural_3d_rf2_c101_o3;
-      case 0b110:
-        return &prolongate_natural_3d_rf2_c110_o3;
-      case 0b111:
-        return &prolongate_natural_3d_rf2_c111_o3;
-      }
-      break;
-
-    case 5:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_natural_3d_rf2_c000_o5;
-      case 0b001:
-        return &prolongate_natural_3d_rf2_c001_o5;
-      case 0b010:
-        return &prolongate_natural_3d_rf2_c010_o5;
-      case 0b011:
-        return &prolongate_natural_3d_rf2_c011_o5;
-      case 0b100:
-        return &prolongate_natural_3d_rf2_c100_o5;
-      case 0b101:
-        return &prolongate_natural_3d_rf2_c101_o5;
-      case 0b110:
-        return &prolongate_natural_3d_rf2_c110_o5;
-      case 0b111:
-        return &prolongate_natural_3d_rf2_c111_o5;
-      }
-      break;
-
-    case 7:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_natural_3d_rf2_c000_o7;
-      case 0b001:
-        return &prolongate_natural_3d_rf2_c001_o7;
-      case 0b010:
-        return &prolongate_natural_3d_rf2_c010_o7;
-      case 0b011:
-        return &prolongate_natural_3d_rf2_c011_o7;
-      case 0b100:
-        return &prolongate_natural_3d_rf2_c100_o7;
-      case 0b101:
-        return &prolongate_natural_3d_rf2_c101_o7;
-      case 0b110:
-        return &prolongate_natural_3d_rf2_c110_o7;
-      case 0b111:
-        return &prolongate_natural_3d_rf2_c111_o7;
-      }
-      break;
-    }
-    break;
-
-  case interp_t::poly_cons3lfb:
-
-    switch (prolongation_order) {
-
-    case 1:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_poly_cons3lfb_3d_rf2_c000_o1;
-      case 0b001:
-        return &prolongate_poly_cons3lfb_3d_rf2_c001_o1;
-      case 0b010:
-        return &prolongate_poly_cons3lfb_3d_rf2_c010_o1;
-      case 0b011:
-        return &prolongate_poly_cons3lfb_3d_rf2_c011_o1;
-      case 0b100:
-        return &prolongate_poly_cons3lfb_3d_rf2_c100_o1;
-      case 0b101:
-        return &prolongate_poly_cons3lfb_3d_rf2_c101_o1;
-      case 0b110:
-        return &prolongate_poly_cons3lfb_3d_rf2_c110_o1;
-      case 0b111:
-        return &prolongate_poly_cons3lfb_3d_rf2_c111_o1;
-      }
-      break;
-
-    case 3:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_poly_cons3lfb_3d_rf2_c000_o3;
-      case 0b001:
-        return &prolongate_poly_cons3lfb_3d_rf2_c001_o3;
-      case 0b010:
-        return &prolongate_poly_cons3lfb_3d_rf2_c010_o3;
-      case 0b011:
-        return &prolongate_poly_cons3lfb_3d_rf2_c011_o3;
-      case 0b100:
-        return &prolongate_poly_cons3lfb_3d_rf2_c100_o3;
-      case 0b101:
-        return &prolongate_poly_cons3lfb_3d_rf2_c101_o3;
-      case 0b110:
-        return &prolongate_poly_cons3lfb_3d_rf2_c110_o3;
-      case 0b111:
-        return &prolongate_poly_cons3lfb_3d_rf2_c111_o3;
-      }
-      break;
-
-    case 5:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_poly_cons3lfb_3d_rf2_c000_o5;
-      case 0b001:
-        return &prolongate_poly_cons3lfb_3d_rf2_c001_o5;
-      case 0b010:
-        return &prolongate_poly_cons3lfb_3d_rf2_c010_o5;
-      case 0b011:
-        return &prolongate_poly_cons3lfb_3d_rf2_c011_o5;
-      case 0b100:
-        return &prolongate_poly_cons3lfb_3d_rf2_c100_o5;
-      case 0b101:
-        return &prolongate_poly_cons3lfb_3d_rf2_c101_o5;
-      case 0b110:
-        return &prolongate_poly_cons3lfb_3d_rf2_c110_o5;
-      case 0b111:
-        return &prolongate_poly_cons3lfb_3d_rf2_c111_o5;
-      }
-      break;
-
-#if 0
-    case 7:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_poly_cons3lfb_3d_rf2_c000_o7;
-      case 0b001:
-        return &prolongate_poly_cons3lfb_3d_rf2_c001_o7;
-      case 0b010:
-        return &prolongate_poly_cons3lfb_3d_rf2_c010_o7;
-      case 0b011:
-        return &prolongate_poly_cons3lfb_3d_rf2_c011_o7;
-      case 0b100:
-        return &prolongate_poly_cons3lfb_3d_rf2_c100_o7;
-      case 0b101:
-        return &prolongate_poly_cons3lfb_3d_rf2_c101_o7;
-      case 0b110:
-        return &prolongate_poly_cons3lfb_3d_rf2_c110_o7;
-      case 0b111:
-        return &prolongate_poly_cons3lfb_3d_rf2_c111_o7;
-      }
-      break;
-#endif
-    }
-    break;
-
-  case interp_t::poly_eno3lfb:
-
-    switch (prolongation_order) {
-
-    case 1:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_poly_eno3lfb_3d_rf2_c000_o1;
-      case 0b001:
-        return &prolongate_poly_eno3lfb_3d_rf2_c001_o1;
-      case 0b010:
-        return &prolongate_poly_eno3lfb_3d_rf2_c010_o1;
-      case 0b011:
-        return &prolongate_poly_eno3lfb_3d_rf2_c011_o1;
-      case 0b100:
-        return &prolongate_poly_eno3lfb_3d_rf2_c100_o1;
-      case 0b101:
-        return &prolongate_poly_eno3lfb_3d_rf2_c101_o1;
-      case 0b110:
-        return &prolongate_poly_eno3lfb_3d_rf2_c110_o1;
-      case 0b111:
-        return &prolongate_poly_eno3lfb_3d_rf2_c111_o1;
-      }
-      break;
-
-    case 3:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_poly_eno3lfb_3d_rf2_c000_o3;
-      case 0b001:
-        return &prolongate_poly_eno3lfb_3d_rf2_c001_o3;
-      case 0b010:
-        return &prolongate_poly_eno3lfb_3d_rf2_c010_o3;
-      case 0b011:
-        return &prolongate_poly_eno3lfb_3d_rf2_c011_o3;
-      case 0b100:
-        return &prolongate_poly_eno3lfb_3d_rf2_c100_o3;
-      case 0b101:
-        return &prolongate_poly_eno3lfb_3d_rf2_c101_o3;
-      case 0b110:
-        return &prolongate_poly_eno3lfb_3d_rf2_c110_o3;
-      case 0b111:
-        return &prolongate_poly_eno3lfb_3d_rf2_c111_o3;
-      }
-      break;
-
-    case 5:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_poly_eno3lfb_3d_rf2_c000_o5;
-      case 0b001:
-        return &prolongate_poly_eno3lfb_3d_rf2_c001_o5;
-      case 0b010:
-        return &prolongate_poly_eno3lfb_3d_rf2_c010_o5;
-      case 0b011:
-        return &prolongate_poly_eno3lfb_3d_rf2_c011_o5;
-      case 0b100:
-        return &prolongate_poly_eno3lfb_3d_rf2_c100_o5;
-      case 0b101:
-        return &prolongate_poly_eno3lfb_3d_rf2_c101_o5;
-      case 0b110:
-        return &prolongate_poly_eno3lfb_3d_rf2_c110_o5;
-      case 0b111:
-        return &prolongate_poly_eno3lfb_3d_rf2_c111_o5;
-      }
-      break;
-
-#if 0
-    case 7:
-      switch ((indextype[0] << 2) | (indextype[1] << 1) | (indextype[2] << 0)) {
-      case 0b000:
-        return &prolongate_poly_eno3lfb_3d_rf2_c000_o7;
-      case 0b001:
-        return &prolongate_poly_eno3lfb_3d_rf2_c001_o7;
-      case 0b010:
-        return &prolongate_poly_eno3lfb_3d_rf2_c010_o7;
-      case 0b011:
-        return &prolongate_poly_eno3lfb_3d_rf2_c011_o7;
-      case 0b100:
-        return &prolongate_poly_eno3lfb_3d_rf2_c100_o7;
-      case 0b101:
-        return &prolongate_poly_eno3lfb_3d_rf2_c101_o7;
-      case 0b110:
-        return &prolongate_poly_eno3lfb_3d_rf2_c110_o7;
-      case 0b111:
-        return &prolongate_poly_eno3lfb_3d_rf2_c111_o7;
-      }
-      break;
-#endif
-    }
-    break;
-
-  case interp_t::unset:
-    // do nothing; errors are handled below
-    break;
-
-  } // switch prolongation_type
-
-  CCTK_VERROR("Unsupported combination of prolongation_type \"%s\", "
-              "prolongation order %d, and index type [%d,%d,%d]",
-              prolongation_type, prolongation_order, indextype[0], indextype[1],
-              indextype[2]);
-  assert(0);
+  return get_interpolator(group_prolongation_type, group_prolongation_order,
+                          group_indextype);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1355,12 +673,16 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
   // Number of coarse grid cells
   amrex::Vector<int> ncells{ncells_x, ncells_y, ncells_z};
 
+  is_cartesian = true;
+
   if (CCTK_IsFunctionAliased("MultiPatch_GetPatchSpecification2")) {
+    CCTK_INT is_cartesian1;
     CCTK_INT ncells1[dim];
     CCTK_REAL xmin1[dim], xmax1[dim];
-    const int ierr = MultiPatch_GetPatchSpecification2(patch, nullptr, dim,
-                                                       ncells1, xmin1, xmax1);
+    const int ierr = MultiPatch_GetPatchSpecification2(
+        patch, &is_cartesian1, dim, ncells1, xmin1, xmax1);
     assert(!ierr);
+    is_cartesian = is_cartesian1;
     for (int d = 0; d < dim; ++d)
       ncells[d] = ncells1[d];
     domain = amrex::RealBox(xmin1, xmax1);
@@ -1394,8 +716,8 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
       symmetries[0][1] == symmetry_t::periodic,
       symmetries[0][2] == symmetry_t::periodic};
 
-  amrcore = make_unique<CactusAmrCore>(patch, domain, max_num_levels - 1,
-                                       ncells, coord, reffacts, is_periodic);
+  amrcore = std::make_unique<CactusAmrCore>(
+      patch, domain, max_num_levels - 1, ncells, coord, reffacts, is_periodic);
 
   if (verbose) {
 #pragma omp critical
@@ -1403,7 +725,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
       const int maxnumlevels = amrcore->maxLevel() + 1;
       for (int level = 0; level < maxnumlevels; ++level) {
         CCTK_VINFO("amrex::Geometry level %d:", level);
-        cout << amrcore->Geom(level) << "\n";
+        std::cout << amrcore->Geom(level) << "\n";
       }
     }
   }
@@ -1412,7 +734,7 @@ GHExt::PatchData::PatchData(const int patch) : patch(patch) {
 GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
                                        const amrex::BoxArray &ba,
                                        const amrex::DistributionMapping &dm,
-                                       const function<string()> &why)
+                                       const std::function<std::string()> &why)
     : patch(patch), level(level) {
   DECLARE_CCTK_PARAMETERS;
 
@@ -1434,7 +756,7 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
       ghost_size >= 0 ? ghost_size : ghost_size_x,
       ghost_size >= 0 ? ghost_size : ghost_size_y,
       ghost_size >= 0 ? ghost_size : ghost_size_z};
-  fab = make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
+  fab = std::make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
   assert(ba.ixType() == amrex::IndexType(amrex::IndexType::CELL,
                                          amrex::IndexType::CELL,
                                          amrex::IndexType::CELL));
@@ -1452,8 +774,9 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
     if (group.grouptype != CCTK_GF)
       groupdata.emplace_back(nullptr);
     else
-      groupdata.push_back(make_unique<GHExt::PatchData::LevelData::GroupData>(
-          patch, level, gi, ba, dm, why));
+      groupdata.push_back(
+          std::make_unique<GHExt::PatchData::LevelData::GroupData>(
+              patch, level, gi, ba, dm, why));
   }
 
   // Check flux register consistency
@@ -1508,7 +831,8 @@ GHExt::PatchData::LevelData::LevelData(const int patch, const int level,
 
 GHExt::PatchData::LevelData::GroupData::GroupData(
     const int patch, const int level, const int gi, const amrex::BoxArray &ba,
-    const amrex::DistributionMapping &dm, const function<string()> &why)
+    const amrex::DistributionMapping &dm,
+    const std::function<std::string()> &why)
     : patch(patch), level(level), next_tmp_mfab(0) {
   cGroup group;
   int ierr = CCTK_GroupData(gi, &group);
@@ -1527,6 +851,8 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
   do_restrict = get_group_restrict_flag(gi);
   indextype = get_group_indextype(gi);
   nghostzones = get_group_nghostzones(gi);
+
+  interpolator = get_interpolator(*this); // reads groupindex, indextype
 
   // Periodic boundaries require (num interior points) >= (num ghost points)
   const auto &geom = ghext->patchdata.at(patch).amrcore->Geom(level);
@@ -1583,8 +909,8 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
   mfab.resize(group.numtimelevels);
   valid.resize(group.numtimelevels);
   for (int tl = 0; tl < int(mfab.size()); ++tl) {
-    mfab.at(tl) = make_unique<amrex::MultiFab>(gba, dm, numvars,
-                                               amrex::IntVect(nghostzones));
+    mfab.at(tl) = std::make_unique<amrex::MultiFab>(
+        gba, dm, numvars, amrex::IntVect(nghostzones));
     valid.at(tl).resize(numvars, why_valid_t(why));
   }
 
@@ -1592,8 +918,8 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
     fluxes = get_group_fluxes(groupindex);
     const bool have_fluxes = fluxes[0] >= 0;
     if (have_fluxes) {
-      assert((indextype == array<int, dim>{1, 1, 1}));
-      freg = make_unique<amrex::FluxRegister>(
+      assert((indextype == std::array<int, dim>{1, 1, 1}));
+      freg = std::make_unique<amrex::FluxRegister>(
           gba, dm, ghext->patchdata.at(patch).amrcore->refRatio(level - 1),
           level, numvars);
     }
@@ -1789,7 +1115,7 @@ void SetupGlobals() {
     assert(group.dim <= dim);
 
     globaldata.arraygroupdata.at(gi) =
-        make_unique<GHExt::GlobalData::ArrayGroupData>();
+        std::make_unique<GHExt::GlobalData::ArrayGroupData>();
     GHExt::GlobalData::ArrayGroupData &arraygroupdata =
         *globaldata.arraygroupdata.at(gi);
     arraygroupdata.groupname = CCTK_FullGroupName(gi);
@@ -1873,6 +1199,7 @@ void CactusAmrCore::SetupLevel(const int level, const amrex::BoxArray &ba,
   if (level >= int(level_modified.size()))
     level_modified.resize(level + 1, true);
   level_modified.at(level) = true;
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
   const active_levels_t active_levels(level, level + 1, patch, patch + 1);
 
   // Initialize data
@@ -1949,8 +1276,7 @@ void CactusAmrCore::MakeNewLevelFromCoarse(
     auto &restrict groupdata = *leveldata.groupdata.at(gi);
     auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
     assert(coarsegroupdata.numvars == groupdata.numvars);
-    amrex::Interpolater *const interpolator =
-        get_interpolator(groupdata.indextype);
+    amrex::Interpolater *const interpolator = groupdata.interpolator;
 
     const int ntls = groupdata.mfab.size();
     // We only prolongate the state vector. And if there is more than
@@ -2081,7 +1407,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
       ghost_size >= 0 ? ghost_size : ghost_size_x,
       ghost_size >= 0 ? ghost_size : ghost_size_y,
       ghost_size >= 0 ? ghost_size : ghost_size_z};
-  leveldata.fab = make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
+  leveldata.fab = std::make_unique<amrex::FabArrayBase>(ba, dm, 1, nghostzones);
   assert(ba.ixType() == amrex::IndexType(amrex::IndexType::CELL,
                                          amrex::IndexType::CELL,
                                          amrex::IndexType::CELL));
@@ -2107,8 +1433,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
     auto &restrict oldgroupdata = *oldleveldata.groupdata.at(gi);
     auto &restrict coarsegroupdata = *coarseleveldata.groupdata.at(gi);
     assert(coarsegroupdata.numvars == groupdata.numvars);
-    amrex::Interpolater *const interpolator =
-        get_interpolator(groupdata.indextype);
+    amrex::Interpolater *const interpolator = groupdata.interpolator;
 
     const auto outer_valid = groupdata.all_faces_have_symmetries_or_boundaries()
                                  ? make_valid_outer()
@@ -2150,6 +1475,7 @@ void CactusAmrCore::RemakeLevel(const int level, const amrex::Real time,
   } // for gi
 
   level_modified.at(level) = true;
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
 
   if (verbose)
 #pragma omp critical
@@ -2167,6 +1493,7 @@ void CactusAmrCore::ClearLevel(const int level) {
   leveldata.erase(leveldata.begin() + level, leveldata.end());
 
   level_modified.resize(level);
+  carpetx_epoch.fetch_add(1, std::memory_order_relaxed); // Increment epoch
 
   if (verbose)
 #pragma omp critical
@@ -2481,7 +1808,7 @@ extern "C" int CarpetX_Startup() {
     CCTK_VINFO("Startup");
 
   // Output a startup message
-  const vector<string> features{
+  const std::vector<std::string> features{
 #ifdef AMREX_USE_MPI
       "MPI",
 #else
@@ -2651,7 +1978,7 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   args.clear();
 
   // Create grid structure
-  ghext = make_unique<GHExt>();
+  ghext = std::make_unique<GHExt>();
 
   return ghext.get();
 }

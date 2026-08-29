@@ -6,9 +6,10 @@
 #     docker build --build-arg real_precision=real32 --file carpetx-oneapi.dockerfile --tag einsteintoolkit/carpetx:oneapi-real32 .
 #     docker push einsteintoolkit/carpetx:oneapi-real32
 
-# FROM intel/oneapi-basekit:2024.2.1-0-devel-ubuntu22.04
-# FROM intel/oneapi-basekit:2025.0.0-0-devel-ubuntu24.04
-FROM intel/oneapi-basekit:2025.0.1-0-devel-ubuntu24.04
+# FROM intel/oneapi-basekit:2025.2.0-0-devel-ubuntu24.04
+FROM intel/oneapi-basekit:2025.2.2-0-devel-ubuntu24.04
+# [AMReX linker step is broken]
+# FROM intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANGUAGE=en_US.en \
@@ -33,12 +34,16 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA &&
         gdb \
         gfortran \
         git \
+        hdf5-filter-plugin \
+        hdf5-filter-plugin-blosc-serial \
         hdf5-filter-plugin-zfp-serial \
+        hdf5-plugin-lzf \
         hdf5-tools \
         hwloc-nox \
         language-pack-en \
         less \
         libblosc-dev \
+        libblosc2-dev \
         libboost-all-dev \
         libbz2-dev \
         libfftw3-dev \
@@ -46,10 +51,12 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA &&
         libgsl-dev \
         libhdf5-dev \
         libhwloc-dev \
+        liblz4-dev \
         libopenblas-dev \
         libopenmpi-dev \
         libpetsc-real-dev \
         libprotobuf-dev \
+        libreadline-dev \
         libtool \
         libudev-dev \
         libyaml-cpp-dev \
@@ -59,11 +66,13 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 28DA432DAAC8BAEA &&
         m4 \
         meson \
         ninja-build \
+        nlohmann-json3-dev \
         numactl \
         perl \
         pkgconf \
         protobuf-compiler \
         python3 \
+        python3-numpy \
         python3-pip \
         python3-requests \
         rsync \
@@ -86,26 +95,29 @@ RUN find /opt/intel -name 'impi.pc' -delete && \
     find /opt/intel -name 'mpiexec' -delete && \
     find /opt/intel -name 'mpirun' -delete
 
-# Install blosc2
-# blosc2 is a compression library, comparable to zlib
-RUN mkdir src && \
-    (cd src && \
-    wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.15.2.tar.gz && \
-    tar xzf v2.15.2.tar.gz && \
-    cd c-blosc2-2.15.2 && \
-    cmake -B build -G Ninja \
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-        -DCMAKE_INSTALL_PREFIX=/usr/local \
-        -DBUILD_BENCHMARKS=OFF \
-        -DBUILD_EXAMPLES=OFF \
-        -DBUILD_FUZZERS=OFF \
-        -DBUILD_STATIC=OFF \
-        -DBUILD_TESTS=OFF \
-        && \
-    cmake --build build && \
-    cmake --install build && \
-    true) && \
-    rm -rf src
+# # Install blosc2
+# # blosc2 is a compression library, comparable to zlib
+# RUN mkdir src && \
+#     (cd src && \
+#     wget https://github.com/Blosc/c-blosc2/archive/refs/tags/v2.18.0.tar.gz && \
+#     tar xzf v2.18.0.tar.gz && \
+#     cd c-blosc2-2.18.0 && \
+#     cmake -B build -G Ninja \
+#         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+#         -DCMAKE_INSTALL_PREFIX=/usr/local \
+#         -DBUILD_BENCHMARKS=OFF \
+#         -DBUILD_EXAMPLES=OFF \
+#         -DBUILD_FUZZERS=OFF \
+#         -DBUILD_STATIC=OFF \
+#         -DBUILD_TESTS=OFF \
+#         -DPREFER_EXTERNAL_LZ4=ON  \
+#         -DPREFER_EXTERNAL_ZLIB=ON \
+#         -DPREFER_EXTERNAL_ZSTD=ON \
+#         && \
+#     cmake --build build && \
+#     cmake --install build && \
+#     true) && \
+#     rm -rf src
 
 # Install MGARD
 # MGARD is a lossy compression library
@@ -192,18 +204,16 @@ RUN mkdir src && \
     true) && \
     rm -rf src
 
-COPY patches/openPMD-api.patch /cactus/patches/
+# COPY patches/openPMD-api.patch /cactus/patches/
 
 # Install openPMD-api
 # openPMD-api defines a standard for laying out AMR data in a file
 # - depends on ADIOS2
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.16.0.tar.gz && \
-    tar xzf 0.16.0.tar.gz && \
-    cd openPMD-api-0.16.0 && \
-    patch -p1 </cactus/patches/openPMD-api.patch && \
-    rm /cactus/patches/openPMD-api.patch && \
+    wget https://github.com/openPMD/openPMD-api/archive/refs/tags/0.16.1.tar.gz && \
+    tar xzf 0.16.1.tar.gz && \
+    cd openPMD-api-0.16.1 && \
     cmake -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -249,6 +259,43 @@ RUN mkdir src && \
         && \
     make -j$(nproc) && \
     make -j$(nproc) install && \
+    true) && \
+    rm -rf src
+
+# Install Conduit
+# Conduit defines a standard for laying out AMR data in a file.
+# - depends on Silo
+# TODO:
+# - enable CUDA? HIP?
+# -DADIOS_DIR=/usr/local   # conduit doesn't find ADIOS because there is no FindADIOS.cmake
+# -DZFP_DIR=/usr           # conduit doesn't find zfp because the library directory is wrong
+RUN mkdir src && \
+    (cd src && \
+    wget https://github.com/LLNL/conduit/releases/download/v0.9.5/conduit-v0.9.5-src-with-blt.tar.gz && \
+    tar xzf conduit-v0.9.5-src-with-blt.tar.gz && \
+    cd conduit-v0.9.5 && \
+    cmake -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DBUILD_SHARED_LIBS=ON \
+        -DCONDUIT_ENABLE_TESTS=OFF \
+        -DENABLE_COVERAGE=OFF \
+        -DENABLE_DOCS=OFF \
+        -DENABLE_EXAMPLES=OFF \
+        -DENABLE_FORTRAN=OFF \
+        -DENABLE_MPI=ON \
+        -DENABLE_OPENMP=ON \
+        -DENABLE_PYTHON=ON \
+        -DENABLE_RELAY_WEBSERVER=OFF \
+        -DENABLE_TESTS=OFF \
+        -DENABLE_UTILS=ON \
+        -DHDF5_DIR=/usr \
+        -DSILO_DIR=/usr/local \
+        -DZLIB_DIR=/usr \
+        src \
+        && \
+    cmake --build build && \
+    cmake --install build && \
     true) && \
     rm -rf src
 
@@ -298,10 +345,10 @@ ARG real_precision=real64
 # Should we keep the AMReX source tree around for debugging?
 RUN mkdir src && \
     (cd src && \
-    wget https://github.com/AMReX-Codes/amrex/archive/24.12.tar.gz && \
-    tar xzf 24.12.tar.gz && \
+    wget https://github.com/AMReX-Codes/amrex/archive/25.11.tar.gz && \
+    tar xzf 25.11.tar.gz && \
     rm -rf /opt/intel/oneapi/mpi && \
-    cd amrex-24.12 && \
+    cd amrex-25.11 && \
     case $real_precision in \
         real32) precision=SINGLE;; \
         real64) precision=DOUBLE;; \

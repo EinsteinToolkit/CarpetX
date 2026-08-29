@@ -12,7 +12,6 @@
 #include <ostream>
 
 namespace Arith {
-using namespace std;
 
 template <typename T, typename U = T> struct dual;
 
@@ -103,28 +102,28 @@ template <typename T, typename U> struct dual {
   }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator==(const dual &x, const dual &y) {
+  operator==(const dual & x, const dual & y) {
     return x.val == y.val;
   };
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator<(const dual &x, const dual &y) {
+  operator<(const dual & x, const dual & y) {
     return x.val < y.val;
   };
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator!=(const dual &x, const dual &y) {
+  operator!=(const dual & x, const dual & y) {
     return !(x == y);
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator>(const dual &x, const dual &y) {
+  operator>(const dual & x, const dual & y) {
     return y < x;
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator<=(const dual &x, const dual &y) {
+  operator<=(const dual & x, const dual & y) {
     return !(x > y);
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST auto /*bool*/
-  operator>=(const dual &x, const dual &y) {
+  operator>=(const dual & x, const dual & y) {
     return !(x < y);
   }
 
@@ -222,7 +221,7 @@ template <typename T, typename U> struct dual {
     return {r, x.eps / (2 * r)};
   }
 
-  friend ostream &operator<<(ostream &os, const dual &x) {
+  friend std::ostream &operator<<(std::ostream &os, const dual &x) {
     return os << x.val << "+ε*" << x.eps;
   }
 };

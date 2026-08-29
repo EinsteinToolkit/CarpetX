@@ -1,6 +1,7 @@
 #ifndef CARPETX_ARITH_VEC_HXX
 #define CARPETX_ARITH_VEC_HXX
 
+#include "arr.hxx"
 #include "defs.hxx"
 #include "dual.hxx"
 #include "simd.hxx"
@@ -18,7 +19,6 @@
 #include <vector>
 
 namespace Arith {
-using namespace std;
 
 // Symmetries
 
@@ -49,7 +49,7 @@ constexpr auto if_symm(symm_t symm, const T1 &if_full, const T2 &if_symm,
   }
   abort();
 }
-inline ostream &operator<<(ostream &os, const symm_t symm) {
+inline std::ostream &operator<<(std::ostream &os, const symm_t symm) {
   return os << if_symm(symm, "", "s", "a");
 }
 
@@ -58,11 +58,11 @@ inline ostream &operator<<(ostream &os, const symm_t symm) {
 // A small vector.
 
 // There are two small vector classes, `vect` and `vec`. The former
-// (`vect`) is a drop-in replacement for `std::array` which supports
-// arithmetic operations. The latter (`vec`, defined here) is a rank-1
-// tensor compatible with `mat`, `ten3`, and `rten`. While similar,
-// these classes have different APIs because they are used
-// differently.
+// (`vect`) is a drop-in replacement for `std::array` or `Arith::arr`
+// which supports arithmetic operations. The latter (`vec`, defined
+// here) is a rank-1 tensor compatible with `mat`, `ten3`, and `rten`.
+// While similar, these classes have different APIs because they are
+// used differently.
 //
 // The rule of thumb is: If you are looking for a type similar to a
 // C++ array, use `vect`. If you are looking for a type for a physics
@@ -70,6 +70,12 @@ inline ostream &operator<<(ostream &os, const symm_t symm) {
 //
 // It might be possible to unify these two types. In practice, there
 // is little confusion, so this is not urgent.
+
+template <typename T, int D> struct vec;
+
+template <typename T> struct is_vec : std::false_type {};
+template <typename T, int D> struct is_vec<vec<T, D> > : std::true_type {};
+template <typename T> constexpr bool is_vec_v = is_vec<T>::value;
 
 template <typename T, int D> struct vec {
 
@@ -103,11 +109,14 @@ public:
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(vec<U, D> x)
       : elts(std::move(x.elts)) {}
 
-  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(initializer_list<T> x)
+  constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(std::initializer_list<T> x)
       : elts(x) {}
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(vect<T, N> elts)
       : elts(std::move(elts)) {}
-  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(array<T, N> x)
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(arr<T, N> x)
+      : elts(std::move(x)) {}
+  explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
+  vec(std::array<T, N> x)
       : elts(std::move(x)) {}
   // explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(const vector<T>
   // &x) : elts(x) {} explicit constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST
@@ -122,7 +131,7 @@ public:
   static constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST void loop(const F &f) {
     vect<T, D>::loop(f);
   }
-  template <typename F, typename = result_of_t<F(int)> >
+  template <typename F, typename = std::result_of_t<F(int)> >
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec(const F &f)
       : elts(vect<T, D>::make(f)) {}
 
@@ -138,8 +147,8 @@ public:
   }
 
   template <typename F, typename... Args,
-            typename R =
-                remove_cv_t<remove_reference_t<result_of_t<F(T, Args...)> > > >
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<F(T, Args...)> > > >
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D>
   fmap(const F &f, const vec &x, const vec<Args, D> &...args) {
     return fmap(f, x.elts, args.elts...);
@@ -150,16 +159,16 @@ public:
     fmap_(f, x.elts, args.elts...);
   }
 
-  template <
-      typename... Args,
-      typename R = remove_cv_t<remove_reference_t<result_of_t<T(Args...)> > > >
+  template <typename... Args,
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<T(Args...)> > > >
   ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D>
   operator()(const Args &...args) const {
     return fmap([&](const T &var) { return var(args...); }, *this);
   }
   template <typename Arg1, typename Arg2, typename U,
-            typename R = remove_cv_t<
-                remove_reference_t<result_of_t<T(Arg1, Arg2, U)> > > >
+            typename R = std::remove_cv_t<
+                std::remove_reference_t<std::result_of_t<T(Arg1, Arg2, U)> > > >
   ARITH_INLINE ARITH_DEVICE ARITH_HOST vec<R, D>
   operator()(const Arg1 &arg1, const Arg2 &arg2, const vec<U, D> &val) const {
     return fmap([&](const T &var, const U &x) { return var(arg1, arg2, x); },
@@ -175,8 +184,8 @@ public:
   //        val);
   // }
   template <typename Arg1, typename Arg2, typename U, typename T1 = T,
-            typename = decltype(declval<T1>().store(
-                declval<Arg1>(), declval<Arg2>(), declval<U>()))>
+            typename = decltype(std::declval<T1>().store(
+                std::declval<Arg1>(), std::declval<Arg2>(), std::declval<U>()))>
   ARITH_INLINE ARITH_DEVICE ARITH_HOST void
   store(const Arg1 &arg1, const Arg2 &arg2, const vec<U, D> &val) const {
     fmap_([&](const T &var, const U &x) { return var.store(arg1, arg2, x); },
@@ -304,7 +313,7 @@ public:
     return sumabs(x.elts);
   }
 
-  friend ostream &operator<<(ostream &os, const vec<T, D> &v) {
+  friend std::ostream &operator<<(std::ostream &os, const vec<T, D> &v) {
     os << "[";
     for (int i = 0; i < D; ++i) {
       if (i > 0)
