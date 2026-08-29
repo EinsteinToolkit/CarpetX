@@ -1,7 +1,0 @@
-# Configuration definition for thorn NoiseX
-
-REQUIRES Loop
-
-PROVIDES NoiseX
-{
-}
