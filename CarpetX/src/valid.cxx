@@ -267,7 +267,7 @@ void poison_invalid_ga(const int gi, const int vi, const int tl) {
 // Ensure grid functions are not poisoned
 void check_valid_gf(const active_levels_t &active_levels, const int gi,
                     const int vi, const int tl,
-                    const nan_handling_t nan_handling1,
+                    const nan_handling_t nan_handling,
                     const std::function<std::string()> &msg) {
   DECLARE_CCTK_PARAMETERS;
   if (!poison_undefined_values)
@@ -276,10 +276,7 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
   static Timer timer("check_valid<GF>");
   Interval interval(timer);
 
-#warning "TODO"
-  constexpr nan_handling_t nan_handling = nan_handling_t::forbid_nans;
-
-  const auto is_poison = [] CCTK_DEVICE CCTK_HOST(
+  const auto is_poison = [nan_handling] CCTK_DEVICE CCTK_HOST(
                              const CCTK_REAL val) CCTK_ATTRIBUTE_ALWAYS_INLINE {
     poison_value_t<CCTK_REAL> const poison_value;
     if (poison_value.is_poison(val))
@@ -476,7 +473,7 @@ void check_valid_gf(const active_levels_t &active_levels, const int gi,
 
 // Ensure arrays are not poisoned
 void check_valid_ga(const int gi, const int vi, const int tl,
-                    const nan_handling_t nan_handling1,
+                    const nan_handling_t nan_handling,
                     const std::function<std::string()> &msg) {
   DECLARE_CCTK_PARAMETERS;
   if (!poison_undefined_values)
@@ -498,9 +495,7 @@ void check_valid_ga(const int gi, const int vi, const int tl,
   int ierr = CCTK_GroupData(gi, &group);
   assert(!ierr);
 
-#warning "TODO"
   using std::isnan;
-  constexpr nan_handling_t nan_handling = nan_handling_t::forbid_nans;
 
   std::size_t nan_count{0};
 
