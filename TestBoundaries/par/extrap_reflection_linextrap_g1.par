@@ -1,0 +1,84 @@
+# BUGFIX_TODO.md step D1 (C12), leg C: `reflection` x `linear extrapolation` at
+# ghost_size = 1.
+#
+# NOT IN D1's TEXT, AND FOUND WHILE EXECUTING IT.  `multipatch_case.md` [BB4]
+# names `neumann` and `robin` as the branches that displace `src[d]` and so
+# pollute `sum(pow2(dst - src))`.  `reflection` does it too, and harder:
+#
+#   src[d] = reflection_offset[d] - dst[d]   =>   dst[d] - src[d] = 2*a_d
+#
+# so a reflection direction contributes 4*a_d^2 to the numerator, not a_d^2.
+# At ghost_size = 1 a lower-x-reflection x z-extrapolation edge is rescaled by
+# sqrt(4 + 1) = 2.236 instead of 1 -- the largest single-cell error of the
+# three legs, at the smallest ghost width, with every offset equal to 1.
+#
+# The mirror plane is the first interior vertex, x = xmin, so f must be even
+# about it; with affine_cx = 0 it is (and the paramcheck refuses the rig
+# otherwise).  Default parities are +1.
+#
+# Expected before the fix: 0 on the z faces, 0 on the lower-x reflection face
+# and the upper-x neumann face and the y faces, 0 on the x-y edges, NONZERO on
+# every x-z and y-z edge and on all eight corners -- with the lower-x half of
+# those the larger, by sqrt(5) - 1 against sqrt(2) - 1.
+
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    TestBoundaries
+"
+
+Cactus::presync_mode = "presync-only"
+Cactus::cctk_itlast = 0
+# tools/run_split.sh: mpiexec pty-forwards rank 0 stdout, so Cactus wraps every
+# WARNING/ERROR token on .out in ANSI escapes even though .out is a file, and an
+# anchored grep on it then matches nothing. Off, so the gate can grep either
+# stream.
+Cactus::highlight_warning_messages = no
+
+# x starts at 0 because the reflection is at the lower x face.  The kernel does
+# not require it (the mirror plane is wherever the first interior vertex is),
+# but a reflection about x = -1 would be a gratuitous thing to have to explain.
+CarpetX::xmin =  0.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+CarpetX::xmax =  2.0
+CarpetX::ymax =  1.0
+CarpetX::zmax =  1.0
+CarpetX::ncells_x = 8
+CarpetX::ncells_y = 8
+CarpetX::ncells_z = 8
+
+CarpetX::ghost_size = 1
+
+CarpetX::reflection_x     = yes
+CarpetX::boundary_upper_x = "neumann"
+CarpetX::boundary_y       = "neumann"
+CarpetX::boundary_upper_y = "neumann"
+CarpetX::boundary_z       = "linear extrapolation"
+CarpetX::boundary_upper_z = "linear extrapolation"
+
+CarpetX::refine_grid_layout = no
+CarpetX::blocking_factor_x = 1
+CarpetX::blocking_factor_y = 1
+CarpetX::blocking_factor_z = 1
+CarpetX::max_grid_size_x = 64
+CarpetX::max_grid_size_y = 64
+CarpetX::max_grid_size_z = 64
+
+CarpetX::poison_undefined_values = yes
+
+TestBoundaries::test_extrapolation = yes
+TestBoundaries::affine_c0 = 1.0
+TestBoundaries::affine_cx = 0.0
+TestBoundaries::affine_cy = 0.0
+TestBoundaries::affine_cz = 5.0
+TestBoundaries::extrapolation_tolerance = 0.0
+
+IO::out_dir = $parfile
+CarpetX::out_metadata = no
+CarpetX::out_tsv = yes
+CarpetX::out_tsv_vars = "
+    TestBoundaries::affine
+    TestBoundaries::affine_exact
+    TestBoundaries::affine_error
+"

@@ -3,3 +3,10 @@
 OPTIONAL MPI
 {
 }
+
+# `src/extrapolation.cxx` includes `loop.hxx`, which pulls in `Arith`'s
+# `simd.hxx` and through it the optional NSIMD headers.  Without these two the
+# compile stops at `nsimd/nsimd-all.hpp: No such file or directory`.  Same pair
+# as `TestNorms`, which includes the same header.
+REQUIRES Arith
+REQUIRES Loop

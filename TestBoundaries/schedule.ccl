@@ -22,3 +22,72 @@ SCHEDULE TestBoundaries_Check AT initial AFTER TestBoundaries_ReduceGlobal
   LANG: C
   OPTIONS: global
 } "Initialize"
+
+
+# BUGFIX_TODO.md step D1 (C12) -- the outer-boundary extrapolation test.
+#
+# Everything here is behind `test_extrapolation` (default `no`), so with the
+# parameter unset this thorn schedules and stores exactly what it did before.
+#
+# The shape of the test, and why each piece is where it is:
+#
+#   ParamCheck  refuses any configuration in which one of the CONFIGURED
+#               boundary conditions does not reproduce the affine test field
+#               exactly.  Without it a nonzero error means either "the kernel
+#               is wrong" or "the field was never reproducible here", and the
+#               test could not tell you which.
+#   WriteAffine writes `affine` in the INTERIOR ONLY and `affine_exact`
+#               everywhere, then syncs `affine`.  Interior-only is the point:
+#               every outer-boundary point of `affine` is then written by
+#               CarpetX's boundary kernel and by nothing else, so a point the
+#               kernel fails to write stays poison rather than keeping a value
+#               this thorn put there.
+#   Reset       clears the host-side accumulator, because Reduce runs once per
+#               tile and cannot know it is the first.
+#   Reduce      the only local routine: per point, `affine - affine_exact` into
+#               `affine_error`, and the point's per-direction boundary offsets
+#               into the accumulator.
+#   Report      prints the table and enforces the tolerance.
+#
+# `Report` is separate from `Reduce` because a per-tile routine cannot decide
+# that it has seen the whole grid.
+if (test_extrapolation)
+{
+  STORAGE: affine
+  STORAGE: affine_exact
+  STORAGE: affine_error
+
+  SCHEDULE TestBoundaries_ExtrapolationParamCheck AT paramcheck
+  {
+    LANG: C
+    OPTIONS: global
+  } "Refuse a configuration in which the affine test field is not reproduced exactly"
+
+  SCHEDULE TestBoundaries_WriteAffine AT initial AFTER TestBoundaries_Check
+  {
+    LANG: C
+    WRITES: affine(interior)
+    WRITES: affine_exact(everywhere)
+    SYNC: affine
+  } "Fill the affine test field, interior only in affine, everywhere in affine_exact"
+
+  SCHEDULE TestBoundaries_ExtrapolationReset AT initial AFTER TestBoundaries_WriteAffine
+  {
+    LANG: C
+    OPTIONS: global
+  } "Clear the per-class accumulator"
+
+  SCHEDULE TestBoundaries_ExtrapolationReduce AT initial AFTER TestBoundaries_ExtrapolationReset
+  {
+    LANG: C
+    READS: affine(everywhere)
+    READS: affine_exact(everywhere)
+    WRITES: affine_error(everywhere)
+  } "Compare every point against the analytic value, classified by boundary offset"
+
+  SCHEDULE TestBoundaries_ExtrapolationReport AT initial AFTER TestBoundaries_ExtrapolationReduce
+  {
+    LANG: C
+    OPTIONS: global
+  } "Print the per-class error table and enforce extrapolation_tolerance"
+}

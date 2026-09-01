@@ -1,3 +1,17 @@
 # Interface definition for thorn TestBoundaries
 
 IMPLEMENTS: TestBoundaries
+
+USES INCLUDE HEADER: loop.hxx
+
+# BUGFIX_TODO.md step D1 (C12) -- the outer-boundary extrapolation test.
+#
+# Three separate groups on purpose.  `SYNC: affine` must touch `affine` and
+# nothing else, so that `affine_exact` keeps the analytic value at every point
+# as an in-place ground truth (the same convention as CapyrX_TestMultiPatch's
+# `smooth_pre` / `color_pre`).
+CCTK_REAL affine TYPE=gf CENTERING={vvv} TAGS='checkpoint="no"' "Affine test field. Written in the INTERIOR only and then synced, so every outer-boundary point in it is written by CarpetX's boundary kernel"
+
+CCTK_REAL affine_exact TYPE=gf CENTERING={vvv} TAGS='checkpoint="no"' "The analytic affine field at every point, interior and boundary. Never synced"
+
+CCTK_REAL affine_error TYPE=gf CENTERING={vvv} TAGS='checkpoint="no"' "affine - affine_exact"

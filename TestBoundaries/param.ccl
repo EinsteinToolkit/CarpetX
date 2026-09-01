@@ -1,1 +1,74 @@
 # Parameter definitions for thorn TestBoundaries
+
+# BUGFIX_TODO.md step D1 (C12).  Everything below is OFF by default: with
+# `test_extrapolation = no` this thorn schedules exactly what it always
+# scheduled (the `cctk_bbox` check) and declares three grid functions nobody
+# writes.
+
+BOOLEAN test_extrapolation "Fill an affine field in the interior, sync it, and check every outer-boundary point against the analytic value" STEERABLE=never
+{
+} "no"
+
+# f(x,y,z) = affine_c0 + affine_cx*x + affine_cy*y + affine_cz*z
+#
+# Every boundary condition the run configures must reproduce this field
+# EXACTLY, or the test is measuring the field's own truncation error instead of
+# the kernel.  `TestBoundaries_ExtrapolationParamCheck` enforces that and says
+# which parameter is at fault:
+#   linear extrapolation  exact for any affine f            -- no constraint
+#   neumann               exact only if f is constant in d  -- needs c_d = 0
+#   reflection            exact only if f is even about the
+#                         mirror plane, i.e. constant in d  -- needs c_d = 0
+#   none / dirichlet / robin / periodic                     -- refused
+CCTK_REAL affine_c0 "Constant term of the affine test field" STEERABLE=never
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL affine_cx "Coefficient of x in the affine test field" STEERABLE=never
+{
+  *:* :: ""
+} 2.0
+
+CCTK_REAL affine_cy "Coefficient of y in the affine test field" STEERABLE=never
+{
+  *:* :: ""
+} 3.0
+
+CCTK_REAL affine_cz "Coefficient of z in the affine test field" STEERABLE=never
+{
+  *:* :: ""
+} 5.0
+
+# The default is ZERO, not a small number.  Pick the geometry and the
+# coefficients dyadic (xmax-xmin a power of two times ncells, small integer
+# coefficients) and every value in this test -- the field, the one-sided
+# differences, the integer multiples of them -- is exact in binary, so a
+# correct kernel reproduces the analytic field BIT FOR BIT.  Raising this
+# weakens the test; if a rig needs it raised, say so in that rig's par file.
+CCTK_REAL extrapolation_tolerance "Largest |affine - affine_exact| accepted at any point" STEERABLE=never
+{
+  0.0:* :: ""
+} 0.0
+
+BOOLEAN extrapolation_abort "CCTK_ERROR when the tolerance is exceeded, rather than only reporting" STEERABLE=never
+{
+} "yes"
+
+# The per-class table is the falsifier for [Y8]/[X3] -- it is what shows that
+# the pre-D1 error was zero at EQUAL offsets and nonzero elsewhere.  It is also
+# the one part of this instrument whose size is not bounded by the parameters,
+# so it is bounded here.
+CCTK_INT extrapolation_max_classes "Refuse rather than print more than this many distinct offset classes" STEERABLE=never
+{
+  1:* :: ""
+} 512
+
+# CarpetX's boundary, reflection, periodicity and ghost-width parameters are
+# PRIVATE, so they cannot be reached with SHARES.  They are read at run time
+# with `CCTK_ParameterGet(..., "CarpetX", ...)` instead -- the same route, and
+# for the same stated reason, that `CarpetX/TestProlongate` already uses for
+# `prolongation_order` and `prolongation_type`.  Reading the real values
+# matters here: a copy of the configuration in this thorn's own parameters
+# could disagree with what the driver is actually doing, and then the guard
+# would be validating the wrong rig.

@@ -1,0 +1,95 @@
+# BUGFIX_TODO.md step D1 (C12), leg A: pure `linear extrapolation` at
+# ghost_size = 2.
+#
+# WHAT FAILS BEFORE THE FIX, AND WHY IT CANNOT BE ANYTHING ELSE.
+# Every one of the six faces extrapolates, so the affine field
+# f = 1 + 2x + 3y + 5z is reproduced EXACTLY by the boundary condition at every
+# boundary point, and `extrapolation_tolerance = 0` is the right tolerance:
+# xmin/xmax = -1/1 over 8 cells gives dx = 1/4, so the field, its one-sided
+# differences and small integer multiples of them are all exact in binary.
+#
+# ghost_size = 2 is the point.  At ghost_size = 1 the only edge and corner
+# offsets are (1,1) and (1,1,1), the pre-D1 kernel's integer ratio
+# `sum(pow2(dst-src)) / sum(pow2(delta))` is exactly 1, and the bug is
+# invisible -- which is presumably why it has survived.  At ghost_size = 2 the
+# offsets run over {1,2} per direction, so:
+#
+#   (1,1) -> sqrt(2/2) = 1      exact
+#   (2,2) -> sqrt(8/2) = 2      exact
+#   (1,2) -> sqrt(floor(5/2))
+#          = sqrt(2) = 1.414    WRONG, and wrong twice over: the diagonal
+#                               formula itself wants sqrt(2.5) = 1.581, and
+#                               the correct answer is not a single scale
+#                               factor at all
+#
+# So the report's per-offset-class table must show max|error| = 0 in the
+# equal-offset classes and nonzero in the others.  That split is
+# `multipatch_case.md` M5(b)'s falsifier: if the equal-offset classes are NOT
+# exact before the fix, D1's reading of the kernel is wrong and everything
+# built on it goes with it.
+
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    TestBoundaries
+"
+
+Cactus::presync_mode = "presync-only"
+Cactus::cctk_itlast = 0
+# tools/run_split.sh: mpiexec pty-forwards rank 0 stdout, so Cactus wraps every
+# WARNING/ERROR token on .out in ANSI escapes even though .out is a file, and an
+# anchored grep on it then matches nothing. Off, so the gate can grep either
+# stream.
+Cactus::highlight_warning_messages = no
+
+# Geometry: dyadic, so a correct kernel is exact bit for bit.
+CarpetX::xmin = -1.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+CarpetX::xmax =  1.0
+CarpetX::ymax =  1.0
+CarpetX::zmax =  1.0
+CarpetX::ncells_x = 8
+CarpetX::ncells_y = 8
+CarpetX::ncells_z = 8
+
+CarpetX::ghost_size = 2
+
+CarpetX::boundary_x       = "linear extrapolation"
+CarpetX::boundary_y       = "linear extrapolation"
+CarpetX::boundary_z       = "linear extrapolation"
+CarpetX::boundary_upper_x = "linear extrapolation"
+CarpetX::boundary_upper_y = "linear extrapolation"
+CarpetX::boundary_upper_z = "linear extrapolation"
+
+# One AMReX box on level 0.  `refine_grid_layout = no` and not
+# `amrex_parameters`: CarpetX pp.adds `amr.refine_grid_layout` from its own
+# parameter and a par-file AMReX override cannot beat it ([P19]).  The box
+# count is still read out of the run's log, not out of this file.
+CarpetX::refine_grid_layout = no
+CarpetX::blocking_factor_x = 1
+CarpetX::blocking_factor_y = 1
+CarpetX::blocking_factor_z = 1
+CarpetX::max_grid_size_x = 64
+CarpetX::max_grid_size_y = 64
+CarpetX::max_grid_size_z = 64
+
+# `affine` is written in the interior only, so a boundary point the kernel
+# fails to write stays poison and shows up as a nan rather than as a zero.
+CarpetX::poison_undefined_values = yes
+
+TestBoundaries::test_extrapolation = yes
+TestBoundaries::affine_c0 = 1.0
+TestBoundaries::affine_cx = 2.0
+TestBoundaries::affine_cy = 3.0
+TestBoundaries::affine_cz = 5.0
+TestBoundaries::extrapolation_tolerance = 0.0
+
+IO::out_dir = $parfile
+CarpetX::out_metadata = no
+CarpetX::out_tsv = yes
+CarpetX::out_tsv_vars = "
+    TestBoundaries::affine
+    TestBoundaries::affine_exact
+    TestBoundaries::affine_error
+"
