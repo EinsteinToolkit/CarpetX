@@ -7,11 +7,11 @@ ActiveThorns = "
 
 ###### Settings ######
 $final_time = 10.0
-$out_every_time = 1.0
+$out_every_time = 2.0
 
-$ncells = 80
+$ncells = 40
 $cfl = 0.25
-$method = "HRK423"
+$method = "HRK432"
 ######################
 
 # We are using a 5 point centered stencil
@@ -75,20 +75,12 @@ ODESolvers::verbose = yes
 
 IO::out_dir = $parfile
 IO::out_every = $out_every_it
+IO::parfile_write = no
 
 CarpetX::out_metadata = no
-CarpetX::out_metadata_every = 0
-
 CarpetX::out_performance = no
-CarpetX::out_performance_every = 0
 
-CarpetX::out_norm_vars = ""
-CarpetX::out_norm_every = 0
-
-CarpetX::out_tsv = no
-CarpetX::out_tsv_vars = ""
-
-CarpetX::out_silo_vars = "
+CarpetX::out_tsv_vars = "
     TestRKAB::state
     TestRKAB::error
     TestRKAB::energy
