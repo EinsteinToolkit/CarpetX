@@ -47,7 +47,18 @@ using namespace boundaries_detail;
 // count is verified against this bound in
 // `GroupData::apply_boundary_conditions`, which is in `driver.cxx` and needs
 // the constant.  See that function for why the check is there and not here.
-constexpr int maxncomps = 16;
+//
+// TWENTY-FOUR AND NOT SIXTEEN (BUGFIX_TODO.md step D3 / C10).  Sixteen was too
+// small for a group that exists and is synced today:
+// `CapyrX_MultiPatch::vertex_dJacobians` has EIGHTEEN components (the six
+// distinct second derivatives of each of the three patch coordinates), and on
+// the regrid path it reached the boundary kernel and stopped the run.  Twenty-
+// four is the next multiple of eight above it; it is not a bound anyone derived,
+// and a group wider than this still stops the run -- but now it stops before
+// the OpenMP region, naming itself, instead of overrunning three stack arrays.
+// The cost is 3 x 8 x (24 - 16) = 192 bytes of stack per
+// `apply_on_face_symbcxyz` frame.
+constexpr int maxncomps = 24;
 
 ////////////////////////////////////////////////////////////////////////////////
 
