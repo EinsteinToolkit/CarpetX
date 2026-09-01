@@ -2146,6 +2146,86 @@ extern "C" void CarpetX_ParamCheck(CCTK_ARGUMENTS) {
         "a non-finite value in the prolongation. Set "
         "CarpetX::max_num_levels = 1, or use a single-patch grid.",
         num_patches, int(max_num_levels));
+
+  /*
+   * BUGFIX_TODO.md step D1 (C12): `robin` AND `linear_extrapolation` on two
+   * DIFFERENT directions of one face is refused.
+   *
+   * The two conditions meet in an edge or corner ghost, and there they do not
+   * compose.  `apply_on_face_symbcxyz` applies every direction's condition to
+   * the same cell in one pass: `robin` rescales the anchor value by a ratio of
+   * radii, and `linear_extrapolation` then wants a one-sided DERIVATIVE OF THE
+   * FIELD at that anchor.  A difference of robin-rescaled values is not that
+   * derivative -- the two are not even the same quantity -- so whatever the
+   * kernel returns in such a cell is arbitrary rather than merely inaccurate.
+   * There is no reading of "linear extrapolation of a 1/r-rescaled value"
+   * that makes it the right answer, so this is refused rather than defined.
+   *
+   * The kernel is written so that it does not DEPEND on this guard (it reads
+   * the raw anchor, `var(src)`, for its gradient).  The guard is here because
+   * a configuration whose answer nobody can state should not run, not because
+   * the arithmetic would otherwise be unsafe.
+   *
+   * The predicate is per GROUP and per PATCH, and it has to be: 24 per-group
+   * `{dirichlet,linear_extrapolation,neumann,robin}_{,upper_}{x,y,z}_vars`
+   * overrides can produce the pair on one group while the six global
+   * `boundary_*` keywords show nothing, and an interpatch face DISCARDS its
+   * configured condition, so the same parameters are legal on one patch and
+   * not on another.  `get_group_boundaries` is the one function that knows all
+   * of that, so it is what this asks.
+   *
+   * Same direction, both conditions, is a different thing and is already an
+   * assert inside `get_default_boundaries`: at most one condition per face.
+   *
+   * No par file in this tree configures `CarpetX::boundary_* = "robin"` at
+   * all, so this refuses nothing that runs today.
+   */
+  {
+    const char *const dirnames[dim] = {"x", "y", "z"};
+    const char *const facenames[2] = {"lower", "upper"};
+    const int numgroups = CCTK_NumGroups();
+    for (int patch = 0; patch < num_patches; ++patch) {
+      for (int gi = 0; gi < numgroups; ++gi) {
+        if (CCTK_GroupTypeI(gi) != CCTK_GF)
+          continue;
+        if (CCTK_GroupDimI(gi) != dim)
+          continue;
+        const std::array<std::array<boundary_t, dim>, 2> boundaries =
+            get_group_boundaries(gi, patch);
+        // Find one robin direction and one linear_extrapolation direction.
+        // They cannot be the same direction (see above), so any hit here is a
+        // pair that meets in an edge or corner.
+        int robin_d = -1, robin_f = -1, linex_d = -1, linex_f = -1;
+        for (int f = 0; f < 2; ++f)
+          for (int d = 0; d < dim; ++d) {
+            if (boundaries[f][d] == boundary_t::robin && robin_d < 0)
+              robin_d = d, robin_f = f;
+            if (boundaries[f][d] == boundary_t::linear_extrapolation &&
+                linex_d < 0)
+              linex_d = d, linex_f = f;
+          }
+        if (robin_d >= 0 && linex_d >= 0) {
+          assert(robin_d != linex_d);
+          const char *const groupname = CCTK_FullGroupName(gi);
+          CCTK_VERROR(
+              "CarpetX_ParamCheck: group \"%s\" is configured with "
+              "boundary_t::robin on the %s %s face and "
+              "boundary_t::linear_extrapolation on the %s %s face of patch "
+              "%d. The two meet in the edge and corner ghost zones shared by "
+              "those faces, where the boundary kernel applies both conditions "
+              "to the same cell in one pass: robin rescales the value by a "
+              "ratio of radii and linear extrapolation then differences it to "
+              "get a gradient, which is not a gradient of the field. There is "
+              "no defined answer for such a cell, so this combination is "
+              "refused rather than computed. Use the same condition in both "
+              "directions, or move one of them to a direction that does not "
+              "share a face with the other.",
+              groupname, facenames[robin_f], dirnames[robin_d],
+              facenames[linex_f], dirnames[linex_d], patch);
+        }
+      }
+    }
+  }
 }
 
 // Set up GH extension
