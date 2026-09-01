@@ -1091,6 +1091,84 @@ void GHExt::PatchData::LevelData::GroupData::apply_boundary_conditions(
   const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync();
 
   /*
+   * BUGFIX_TODO.md step D3 (C10): the component-count guard, moved here out of
+   * `apply_on_face_symbcxyz`.
+   *
+   * WHY IT IS HERE.  `apply_on_face_symbcxyz` builds three
+   * `Arith::vect<CCTK_REAL, maxncomps>` tables on the stack and captures them
+   * by value into a `CCTK_DEVICE` kernel, so the bound is structural.  But that
+   * function runs inside the `#pragma omp parallel` below, and `CCTK_VERROR`
+   * there does not unwind the region: A7.2 measured the message repeating once
+   * per face and box, then `malloc(): invalid size`, then SIGSEGV.  This is the
+   * last point on the path that is still serial, still knows the group, the
+   * patch, the level and the pass, and can therefore stop cleanly.
+   *
+   * WHEN IT FIRES.  Only when the kernel would actually build those tables:
+   *
+   *   - at least one local box needs boundary conditions at all
+   *     (`!gdomain.contains(...)`, the same test the loop below makes), and
+   *   - at least one face contributes a condition that survives the dispatch in
+   *     `boundaries_impl.hxx`, i.e. does NOT map to `symmetry_t::none` /
+   *     `boundary_t::none`.
+   *
+   * The second predicate is a transcription of the three identical `if` heads
+   * in `apply_on_face_symbc{x,y,z}` and has to be kept in step with them; the
+   * `assert(ncomps <= maxncomps)` in the generic branch there is what catches
+   * it if it ever is not.  It is deliberately CONSERVATIVE with respect to
+   * geometry: a face may contribute a condition and still be reached with an
+   * empty region on this particular MultiFab, in which case this refuses a run
+   * the kernel would have survived.  That is the right way round -- a group
+   * wider than the tables has no business carrying a boundary condition, and
+   * the alternative is a silent stack overwrite in an optimized build.
+   *
+   * Getting the interpatch case wrong in either direction is the trap.  An
+   * interpatch face DISCARDS its configured condition -- unconditionally when
+   * `boundary == none`, and in the partitioned passes always (step B2(a)) --
+   * so `boundaries[f][d] != none` alone is NOT the predicate.
+   */
+  {
+    const int ncomps = mfab.nComp();
+    if (CCTK_BUILTIN_EXPECT(ncomps > maxncomps, false)) {
+      const auto &symm = ghext->patchdata.at(patch).symmetries;
+      bool have_condition = false;
+      for (int f = 0; f < 2; ++f) {
+        for (int d = 0; d < dim; ++d) {
+          const symmetry_t sym = symm[f][d];
+          const boundary_t bnd = boundaries[f][d];
+          const bool maps_to_none =
+              (sym == symmetry_t::none && bnd == boundary_t::none) ||
+              (sym == symmetry_t::interpatch &&
+               (bnd == boundary_t::none || bc_pass != bc_pass_t::all)) ||
+              sym == symmetry_t::periodic;
+          have_condition |= !maps_to_none;
+        }
+      }
+      bool have_boundary_box = false;
+      for (amrex::MFIter mfi(mfab, mfitinfo); mfi.isValid(); ++mfi)
+        if (!gdomain.contains(mfab[mfi].box())) {
+          have_boundary_box = true;
+          break;
+        }
+      if (have_condition && have_boundary_box) {
+        std::ostringstream passbuf;
+        passbuf << bc_pass;
+        CCTK_VERROR(
+            "apply_boundary_conditions: group \"%s\" has %d components on "
+            "patch %d level %d, but the boundary kernel's per-component tables "
+            "hold at most maxncomps=%d (CarpetX/src/boundaries.hxx). This "
+            "group carries a boundary or symmetry condition on at least one "
+            "face, and pass %s reaches a box that touches the domain "
+            "boundary, so those tables would be built and overrun. Refusing "
+            "here, before the OpenMP region, rather than corrupting the heap "
+            "inside it. Raise maxncomps, or arrange for this group not to have "
+            "outer boundary conditions applied to it.",
+            groupname.c_str(), ncomps, patch, level, maxncomps,
+            passbuf.str().c_str());
+      }
+    }
+  }
+
+  /*
    * INSTRUMENT (BUGFIX_TODO.md R2 / B10), debug builds only, always on there.
    *
    * THE REPORT IS ONCE PER RUN, NOT "once per level/group" AS THIS COMMENT USED

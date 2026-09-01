@@ -28,7 +28,9 @@ namespace CarpetX {
 
 constexpr int NEG = -1, INT = 0, POS = +1;
 
-constexpr int maxncomps = 16;
+// `maxncomps` moved to `boundaries.hxx` (BUGFIX_TODO.md step D3 / C10): the
+// component count is now checked by the caller, before the `omp parallel`
+// region, and the caller cannot include this header.
 
 template <int NI, int NJ, int NK>
 void BoundaryCondition::apply_on_face() const {
@@ -396,11 +398,6 @@ void BoundaryCondition::apply_on_face_symbcxyz(
   // TODO: Move loop over components to the far outside
 
   const int ncomps = dest.nComp();
-  if (CCTK_BUILTIN_EXPECT(ncomps > maxncomps, false))
-    CCTK_VERROR("apply_on_face_symbcxyz Internal error: Found ncomps=%d, "
-                "maxncomps=%d when applying "
-                "boundary conditions",
-                ncomps, maxncomps);
   const int cmin = 0;
   const int cmax = ncomps;
 
@@ -448,6 +445,36 @@ void BoundaryCondition::apply_on_face_symbcxyz(
 
   } else {
     // This is the generic case for applying boundary conditions.
+
+    /*
+     * BUGFIX_TODO.md step D3 (C10).  The three per-component tables below are
+     * `Arith::vect<CCTK_REAL, maxncomps>`, so `ncomps` must fit in `maxncomps`
+     * -- but ONLY here, in the branch that builds them.  The check used to sit
+     * at the top of this function, above the all-`none` early-out, and it was a
+     * `CCTK_VERROR`.  Both halves of that were wrong:
+     *
+     *   - it fired for a group that was about to do nothing at all, so an
+     *     18-component group with no boundary condition anywhere aborted a run
+     *     that had no boundary work to do (`vertex_dJacobians` is exactly such
+     *     a group); and
+     *   - `CCTK_VERROR` does not unwind the enclosing `omp parallel` region
+     *     (`driver.cxx`'s `MFIter` loop), so every other thread carried on into
+     *     code the error had just declared impossible.  A7.2 measured the
+     *     result: the message repeated once per face and box, then
+     *     `malloc(): invalid size`, then SIGSEGV.  A diagnostic that corrupts
+     *     the heap on its way out is worse than no diagnostic.
+     *
+     * The loud, diagnosable refusal now lives in
+     * `GroupData::apply_boundary_conditions`, which runs BEFORE the
+     * `omp parallel` and can therefore stop cleanly and name the group.  What
+     * is left here is the invariant itself, asserted where the tables are
+     * actually sized.  `assert` and not `CCTK_VERROR`: it is live in both
+     * builds (neither config defines `NDEBUG`) and `abort()` from inside an
+     * OpenMP region ends the process instead of continuing into it.  If this
+     * ever fires, the caller's predicate has drifted from the dispatch above
+     * and that is the bug to fix -- not this line.
+     */
+    assert(ncomps <= maxncomps);
 
     /*
      * Detect the "corner cell catastrophe" scenario: a non-trivial BC is being

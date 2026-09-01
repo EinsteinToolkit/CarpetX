@@ -35,6 +35,22 @@ using namespace boundaries_detail;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// The width of the per-component tables that `apply_on_face_symbcxyz` builds on
+// the stack and captures BY VALUE into its `CCTK_DEVICE` kernel
+// (`dirichlet_values`, `robin_values`, `reflection_parities`).  It is a
+// compile-time bound because a device lambda cannot capture a `std::vector`,
+// not because sixteen is a meaningful number.
+//
+// IT LIVES HERE, AND NOT IN `boundaries_impl.hxx`, BECAUSE THE CHECK MOVED OUT
+// OF THE KERNEL (BUGFIX_TODO.md step D3 / C10).  `boundaries_impl.hxx` is
+// included only by the 26 one-line instantiation files; the group's component
+// count is verified against this bound in
+// `GroupData::apply_boundary_conditions`, which is in `driver.cxx` and needs
+// the constant.  See that function for why the check is there and not here.
+constexpr int maxncomps = 16;
+
+////////////////////////////////////////////////////////////////////////////////
+
 #ifdef CCTK_DEBUG
 
 // INSTRUMENT (BUGFIX_TODO.md R2 / B10), debug builds only and OFF unless
