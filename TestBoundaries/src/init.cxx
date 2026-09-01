@@ -28,7 +28,12 @@ extern "C" void TestBoundaries_ReduceGlobal(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_TestBoundaries_ReduceGlobal;
 
 #ifdef HAVE_CAPABILITY_MPI
-  MPI_Allreduce(MPI_IN_PLACE, bbox_any, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+  // Count 6, not 1: `bbox_any` has one entry per face, and reducing only the
+  // first left the other five rank-local. At more than one rank that made
+  // `TestBoundaries_Check` read five of its six faces off whichever rank
+  // happened to run the global routine, so it could report "bbox[d] is nowhere
+  // set" for a face another rank owns, or pass on a face nobody owns.
+  MPI_Allreduce(MPI_IN_PLACE, bbox_any, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 #endif
 }
 
