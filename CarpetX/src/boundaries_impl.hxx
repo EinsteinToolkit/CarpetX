@@ -754,10 +754,97 @@ void BoundaryCondition::apply_on_face_symbcxyz(
                   }
                   if constexpr (any(boundaries ==
                                     boundary_t::linear_extrapolation)) {
-                    // Calculate gradient
-                    const CCTK_REAL grad = val - var(src + delta);
-                    using std::sqrt;
-                    val += sqrt(sum(pow2(dst - src)) / sum(pow2(delta))) * grad;
+                    /*
+                     * BUGFIX_TODO.md step D1 (C12).  Linear extrapolation is
+                     * the first-order Taylor extrapolation off the anchor
+                     * `src`, and it is a SUM over the extrapolating directions:
+                     *
+                     *   f(dst) = f(src) + sum_d (dst[d] - src[d]) * df/dx_d
+                     *
+                     * with the one-sided derivative estimated in direction `d`
+                     * alone,
+                     *
+                     *   df/dx_d = -delta[d] * (f(src) - f(src + delta[d]*e_d))
+                     *
+                     * (`delta[d] = -inormal[d]` points inward, so `-delta[d]`
+                     * turns the inward difference into an outward derivative).
+                     * Hence the contribution
+                     *
+                     *   -delta[d] * (dst[d] - src[d]) * (f(src) - f(src+e_d))
+                     *
+                     * whose integer factor is `|dst[d] - src[d]|` -- the
+                     * assert below states exactly that.  On a FACE this is
+                     * `a * grad`, bit for bit what the previous code computed
+                     * (`sqrt` of a perfect square is exact), so nothing that
+                     * cannot see the bug moves.
+                     *
+                     * WHAT WAS WRONG.  The previous code took ONE difference
+                     * along the diagonal `delta` and rescaled it by a length
+                     * ratio `sqrt(sum(pow2(dst-src)) / sum(pow2(delta)))`:
+                     *
+                     *  (a) the difference is directional, so in a corner with
+                     *      two extrapolating directions it returned
+                     *      `f(src) + sqrt((a0^2+a1^2)/2) * (d0 f + d1 f) * h`
+                     *      where exactness wants `a0 d0 f h + a1 d1 f h` --
+                     *      equal only when `a0 == a1`;
+                     *  (b) `dst`, `src` and `delta` are `vect<int,dim>`, so
+                     *      `sum(pow2(.))` is an `int` and the ratio was
+                     *      INTEGER division: `(a0,a1) = (1,2)` gave
+                     *      `sqrt(floor(5/2)) = 1.414` where even the diagonal
+                     *      formula wants `sqrt(2.5) = 1.581`;
+                     *  (c) the numerator summed over ALL THREE directions
+                     *      while the denominator was set only by the
+                     *      `linear_extrapolation` branch -- and `neumann`,
+                     *      `robin` AND `reflection` all displace `src[d]` away
+                     *      from `dst[d]`.  So one extrapolating direction next
+                     *      to a `neumann` one rescaled a purely radial
+                     *      gradient by `sqrt(a_r^2 + a_t^2)` instead of `a_r`,
+                     *      and next to a `reflection` one by
+                     *      `sqrt(4 a_x^2 + a_r^2)`, at every `ghost_size`,
+                     *      with no offset coincidence to hide behind.
+                     *
+                     * All three are gone: the loop touches only the directions
+                     * that actually extrapolate, each with its own axis
+                     * difference, and the arithmetic is `CCTK_REAL` throughout.
+                     * Exact for affine data at every face, edge and corner.
+                     *
+                     * The extra reads are one per additional extrapolating
+                     * direction (none on a face) and every one of them is
+                     * inside the patch interior, exactly like the diagonal
+                     * point it replaces.
+                     */
+                    /*
+                     * `var(src)` and not `val`: `val` carries the `robin`
+                     * rescaling applied just above, and a difference of
+                     * rescaled values is not a derivative of the field.
+                     * `CarpetX_ParamCheck` refuses `robin` and
+                     * `linear_extrapolation` on two directions of one face, so
+                     * on any configuration that starts this is the same number
+                     * as `val`; the re-read is what makes that true BY
+                     * CONSTRUCTION and not by the guard alone.  It is a load
+                     * from the cache line the enclosing `var(src)` just
+                     * touched.
+                     */
+                    const CCTK_REAL val_src = var(src);
+                    for (int d = 0; d < dim; ++d) {
+                      if (boundaries[d] == boundary_t::linear_extrapolation) {
+                        Arith::vect<int, dim> src_d = src;
+                        src_d[d] += delta[d];
+                        const int noffset = -delta[d] * (dst[d] - src[d]);
+#ifdef CCTK_DEBUG
+                        assert(delta[d] == -inormal[d]);
+                        assert(noffset == (dst[d] > src[d] ? dst[d] - src[d]
+                                                           : src[d] - dst[d]));
+                        assert(noffset >= 1);
+                        assert(src_d[d] >= imin[d] && src_d[d] < imax[d]);
+#endif
+                        const CCTK_REAL grad = val_src - var(src_d);
+#ifdef CCTK_DEBUG
+                        assert(!isnan(grad));
+#endif
+                        val += noffset * grad;
+                      }
+                    }
                   }
 #ifdef CCTK_DEBUG
                   for (int d = 0; d < dim; ++d)
