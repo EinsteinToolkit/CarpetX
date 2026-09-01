@@ -123,6 +123,128 @@ void log_mp_interpolate_call(const char *site,
              int(has_coordinatesx));
 }
 #endif
+
+// BUGFIX_TODO.md step D3 (C10).  The regrid path's interpatch repair, in ONE
+// place instead of two byte-identical copies -- one in `Initialise`, one in
+// `Evolve`.
+//
+// WHAT THIS PASS IS FOR.  `FillPatch_NewLevel` / `FillPatch_RemakeLevel` apply
+// boundary conditions to a freshly created or remade level BEFORE
+// `MultiPatch_Interpolate` has run on it, so a ghost cell that is
+// simultaneously in an interpatch direction and on an outer-BC face -- an
+// "interpatch corner" -- was written from an interpatch ghost zone nobody had
+// filled.  This runs the interpolator and then rewrites exactly those corners,
+// mirroring what step B2 did on the sync path.
+//
+// TWO THINGS IT USED TO DO THAT IT HAD NO BUSINESS DOING, both measured on
+// `evidence/fix/d3/pars/d3_cart_edge_L2_Pyes.par`:
+//
+//  1. IT RAN `bc_pass_t::all`.  That is every face, edge and corner of every
+//     box -- a second full outer-boundary write over a level FillPatch had just
+//     written -- when the only cells with a stale source are the corners.  It is
+//     now `bc_pass_t::interpatch_corners_only`, which is what the comment above
+//     it has always claimed and what `bc_pass_t` was added for.  On a
+//     single-patch grid no cell is an interpatch corner, so the pass now writes
+//     nothing instead of rewriting the whole boundary.
+//
+//  2. IT RAN OVER EVERY `CCTK_GF` GROUP, including groups whose interior does
+//     not hold a value yet.  On a level created by this very regrid,
+//     `CapyrX_MultiPatch`'s `vertex_Jacobians` and `vertex_dJacobians` and
+//     `CoordinatesX`'s three coordinate groups are unwritten: they are written
+//     `(everywhere)` at `CCTK_BASEGRID`, which is traversed FOUR LINES BELOW
+//     this call.  Both the interpolation and the boundary pass therefore read
+//     them.  With `poison_undefined_values = yes` that read is a NaN --
+//     measured, `MULTIPATCH::VERTEX_JACOBIANS` patch 0 level 1
+//     `bc_pass = all`, `Assertion !isnan(val) failed` at
+//     `boundaries_impl.hxx:738`, backtrace in
+//     `evidence/fix/d3/report/gdb_poison_group.txt`.  With poisoning off the
+//     same read returns whatever the allocator left there.  Nothing observable
+//     came of it, because `CCTK_BASEGRID` overwrites the result immediately --
+//     but a grid function whose interior is not valid must not be a SOURCE, and
+//     `vertex_dJacobians` has 18 components, which is also how this pass reached
+//     the boundary kernel's component-count guard (C10) on a single-patch rig.
+//
+// THE PREDICATE IS VALIDITY, NOT A LIST OF GROUP NAMES.  `poison_invalid_gf`
+// poisons exactly the regions the validity flags call invalid
+// (`valid.cxx:186-207`), so "it held poison" and "its interior is not valid" are
+// the same statement, and asking the flags asks the driver's own record instead
+// of compiling another thorn's schedule into it.  A group is skipped when ANY
+// active level, time level or variable reports an invalid interior.  Excluding
+// is the safe direction: everything this pass would have done to such a group is
+// redone by the `CCTK_BASEGRID` and `CCTK_POSTREGRID` traverses that follow it.
+//
+// WHAT IS STILL NOT DISJOINT, recorded rather than fixed here.
+// `FillPatch_NewLevel`'s own final `apply_boundary_conditions` still runs
+// `bc_pass_t::all`, so on a MULTIPATCH grid the corners would still be written
+// twice -- once from an unpopulated source, then once from a populated one --
+// instead of once.  Making that pass `skip_interpatch_corners` is the exact
+// mirror of step B2 and belongs with it, not here: it has NO failing-before test
+// available on this branch, because B9's `CarpetX_ParamCheck` refuses multipatch
+// together with `max_num_levels > 1` outright, and a single patch has no
+// interpatch corner to write at all.
+void regrid_interpatch_repair(cGH *const cctkGH, const char *const site) {
+  assert(active_levels);
+  const int ngroups = CCTK_NumGroups();
+
+  // Which groups hold a value everywhere this pass would read one?
+  std::vector<char> interior_is_valid(ngroups, 1);
+  active_levels->loop_serially([&](auto &restrict leveldata) {
+    for (int gi = 0; gi < ngroups; ++gi) {
+      if (!interior_is_valid.at(gi))
+        continue;
+      if (CCTK_GroupTypeI(gi) != CCTK_GF)
+        continue;
+      const auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      const int ntls = groupdata.mfab.size();
+      const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+      for (int tl = 0; tl < sync_tl; ++tl)
+        for (int vi = 0; vi < groupdata.numvars; ++vi)
+          if (!groupdata.valid.at(tl).at(vi).get().valid_int)
+            interior_is_valid.at(gi) = 0;
+    }
+  });
+
+  std::vector<CCTK_INT> cactusvarinds;
+  for (int gi = 0; gi < ngroups; ++gi) {
+    if (CCTK_GroupTypeI(gi) != CCTK_GF)
+      continue;
+    if (!interior_is_valid.at(gi))
+      continue;
+    const auto &groupdata =
+        *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
+    for (int var = 0; var < groupdata.numvars; ++var)
+      cactusvarinds.push_back(groupdata.firstvarindex + var);
+  }
+
+#ifdef CCTK_DEBUG
+  log_mp_interpolate_call(site, cactusvarinds);
+#else
+  (void)site;
+#endif
+
+  if (cactusvarinds.empty())
+    return;
+
+  // Standalone call: no later pass in this regrid step reads its output. B8
+  // refuses the configuration that reaches this block at all; A8 measured it
+  // dead at max_num_levels = 1 ([P28]).
+  MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
+
+  active_levels->loop_serially([&](auto &restrict leveldata) {
+    for (int gi = 0; gi < ngroups; ++gi) {
+      if (CCTK_GroupTypeI(gi) != CCTK_GF)
+        continue;
+      if (!interior_is_valid.at(gi))
+        continue;
+      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      const int ntls = groupdata.mfab.size();
+      const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+      for (int tl = 0; tl < sync_tl; ++tl)
+        groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl),
+                                            bc_pass_t::interpatch_corners_only);
+    }
+  });
+}
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1392,44 +1514,8 @@ int Initialise(tFleshConfig *config) {
           // Correct them now, mirroring the fix in SyncGroupsByDirI.
           static const bool have_multipatch_boundaries =
               CCTK_IsFunctionAliased("MultiPatch_Interpolate");
-          if (have_multipatch_boundaries) {
-            const int ngroups = CCTK_NumGroups();
-            std::vector<CCTK_INT> cactusvarinds;
-            for (int gi = 0; gi < ngroups; ++gi) {
-              cGroup gdata;
-              int ierr = CCTK_GroupData(gi, &gdata);
-              assert(!ierr);
-              if (gdata.grouptype != CCTK_GF)
-                continue;
-              const auto &groupdata =
-                  *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
-              for (int var = 0; var < groupdata.numvars; ++var)
-                cactusvarinds.push_back(groupdata.firstvarindex + var);
-            }
-#ifdef CCTK_DEBUG
-            log_mp_interpolate_call("regrid (new/remade levels)",
-                                    cactusvarinds);
-#endif
-            // Standalone call: no later pass in this regrid step reads its
-            // output. B8 refuses the configuration that reaches this block at
-            // all; A8 measured it dead at max_num_levels = 1 ([P28]).
-            MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
-                                   cactusvarinds.data());
-            active_levels->loop_serially([&](auto &restrict leveldata) {
-              for (int gi = 0; gi < ngroups; ++gi) {
-                cGroup gdata;
-                int ierr = CCTK_GroupData(gi, &gdata);
-                assert(!ierr);
-                if (gdata.grouptype != CCTK_GF)
-                  continue;
-                auto &restrict groupdata = *leveldata.groupdata.at(gi);
-                const int ntls = groupdata.mfab.size();
-                const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
-                for (int tl = 0; tl < sync_tl; ++tl)
-                  groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl));
-              }
-            });
-          }
+          if (have_multipatch_boundaries)
+            regrid_interpatch_repair(cctkGH, "regrid (new/remade levels)");
 
           CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
           CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
@@ -1841,43 +1927,8 @@ int Evolve(tFleshConfig *config) {
         // Correct them now, mirroring the fix in SyncGroupsByDirI.
         static const bool have_multipatch_boundaries =
             CCTK_IsFunctionAliased("MultiPatch_Interpolate");
-        if (have_multipatch_boundaries) {
-          const int ngroups = CCTK_NumGroups();
-          std::vector<CCTK_INT> cactusvarinds;
-          for (int gi = 0; gi < ngroups; ++gi) {
-            cGroup gdata;
-            int ierr = CCTK_GroupData(gi, &gdata);
-            assert(!ierr);
-            if (gdata.grouptype != CCTK_GF)
-              continue;
-            const auto &groupdata =
-                *ghext->patchdata.at(0).leveldata.at(0).groupdata.at(gi);
-            for (int var = 0; var < groupdata.numvars; ++var)
-              cactusvarinds.push_back(groupdata.firstvarindex + var);
-          }
-#ifdef CCTK_DEBUG
-          log_mp_interpolate_call("regrid (level removal)", cactusvarinds);
-#endif
-          // Standalone call: no later pass in this regrid step reads its
-          // output. B8 refuses the configuration that reaches this block at
-          // all; A8 measured it dead at max_num_levels = 1 ([P28]).
-          MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
-                                 cactusvarinds.data());
-          active_levels->loop_serially([&](auto &restrict leveldata) {
-            for (int gi = 0; gi < ngroups; ++gi) {
-              cGroup gdata;
-              int ierr = CCTK_GroupData(gi, &gdata);
-              assert(!ierr);
-              if (gdata.grouptype != CCTK_GF)
-                continue;
-              auto &restrict groupdata = *leveldata.groupdata.at(gi);
-              const int ntls = groupdata.mfab.size();
-              const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
-              for (int tl = 0; tl < sync_tl; ++tl)
-                groupdata.apply_boundary_conditions(*groupdata.mfab.at(tl));
-            }
-          });
-        }
+        if (have_multipatch_boundaries)
+          regrid_interpatch_repair(cctkGH, "regrid (level removal)");
 
         CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
         CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
