@@ -100,9 +100,19 @@ extern "C" void BoxInBox_Setup(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_BoxInBox_Setup;
   DECLARE_CCTK_PARAMETERS;
 
-  // Refine only patch 0
-  if (cctk_patch != 0)
+  // Refine only patch 0 -- but still WRITE the other patches. schedule.ccl
+  // declares `WRITES: CarpetXRegrid::regrid_error(interior)` unconditionally,
+  // and the driver poisons that region immediately before this routine and
+  // marks it valid immediately after, so returning early claimed validity for
+  // every other patch interior while leaving it unwritten. Zero is what the
+  // early return meant: do not refine.
+  if (cctk_patch != 0) {
+    grid.loop_int_device<1, 1, 1>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const PointDesc &p)
+            CCTK_ATTRIBUTE_ALWAYS_INLINE { regrid_error(p.I) = 0; });
     return;
+  }
 
   const auto get_shape = [](const auto &shape) {
     if (CCTK_EQUALS(shape, "sphere"))
