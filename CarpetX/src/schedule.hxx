@@ -230,6 +230,14 @@ void leave_local_mode(cGH *restrict cctkGH,
                       const GHExt::PatchData::LevelData &restrict leveldata,
                       const MFPointer &mfp);
 
+// Recompute cctkGH->data[vi][tl] for one group in one component's cached cGH
+void update_group_pointers(const GHExt::PatchData::LevelData &restrict leveldata,
+                           const MFPointer &mfp, cGH *restrict cctkGH, int gi);
+// ... for one group, over every component of every active level
+void update_group_pointers(int gi);
+// ... for every group
+void update_all_group_pointers();
+
 void synchronize();
 
 // These functions are defined in valid.cxx. These prototypes should

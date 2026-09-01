@@ -1,0 +1,31 @@
+# Schedule definitions for thorn TestTimelevels
+
+STORAGE: test_gf[3]
+
+SCHEDULE TestTimelevels_Init AT initial
+{
+  LANG: C
+  WRITES: test_gf(everywhere)
+  WRITES: test_gf_p(everywhere)
+  WRITES: test_gf_p_p(everywhere)
+} "Initialize every time level to zero, so every time level is genuinely valid from the start"
+
+SCHEDULE TestTimelevels_Write AT evol
+{
+  LANG: C
+  WRITES: test_gf(everywhere)
+} "Write the current iteration number into every point of time level 0"
+
+SCHEDULE TestTimelevels_Check AT analysis
+{
+  LANG: C
+  READS: test_gf(everywhere)
+  READS: test_gf_p(everywhere)
+  READS: test_gf_p_p(everywhere)
+} "Check that time levels 1 and 2 hold the two previous iteration numbers"
+
+SCHEDULE TestTimelevels_Terminate AT terminate
+{
+  LANG: C
+  OPTIONS: meta
+} "Set exit code based on test results"
