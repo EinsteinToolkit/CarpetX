@@ -12,8 +12,12 @@ static inline int omp_get_max_threads() { return 1; }
 static inline int omp_get_thread_num() { return 0; }
 #endif
 
+#include <cctk.h>
+
+#include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <vector>
 
 namespace PDESolvers {
 
@@ -113,34 +117,6 @@ std::size_t jacobian_t::size() const { return entries.size(); }
 
 void jacobian_t::clear() { entries.clear(); }
 
-void jacobian_t::count_matrix_entries(const csr_t &Jp, int ilocal_min,
-                                      int ilocal_max, int &restrict nlocal,
-                                      int &restrict ntotal) const {
-  const auto count_point = [&](const int i, const int j) {
-    nlocal += j >= ilocal_min && j < ilocal_max;
-    ntotal += j >= 0;
-  };
-  for (const auto &e : entries) {
-    const auto i = std::get<0>(e);
-    const auto j = std::get<1>(e);
-    assert(i >= 0);
-    if (j < 0) {
-      // ignore this point
-    } else if (j >= 0 && j < prolongation_index_offset) {
-      // regular point
-      count_point(i, j);
-    } else {
-      // prolongated point
-      const int row = j - prolongation_index_offset;
-      assert(0 <= row && row < Jp.m);
-      const int rowptr0 = Jp.rowptrs.at(row);
-      const int rowptr1 = Jp.rowptrs.at(row + 1);
-      for (int colindp = 0; colindp < rowptr1 - rowptr0; ++colindp)
-        count_point(i, Jp.colvals.at(rowptr0 + colindp));
-    }
-  }
-}
-
 void jacobian_t::set_matrix_entries(const csr_t &Jp, Mat J) const {
   std::vector<CCTK_REAL> values;
   for (const auto &e : entries) {
@@ -152,7 +128,11 @@ void jacobian_t::set_matrix_entries(const csr_t &Jp, Mat J) const {
       // ignore this point
     } else if (j >= 0 && j < prolongation_index_offset) {
       // regular point
-      MatSetValue(J, i, j, v, ADD_VALUES);
+      const PetscErrorCode ierr = MatSetValue(J, i, j, v, ADD_VALUES);
+      // Do not ignore this: if the matrix is preallocated too tightly, PETSc
+      // refuses the insertion, and dropping the error silently would leave a
+      // matrix that is missing entries and merely fails to converge.
+      assert(!ierr);
     } else {
       // prolongated point
       const int row = j - prolongation_index_offset;
@@ -162,8 +142,10 @@ void jacobian_t::set_matrix_entries(const csr_t &Jp, Mat J) const {
       values.resize(rowptr1 - rowptr0);
       for (int rowptr = rowptr0; rowptr < rowptr1; ++rowptr)
         values.at(rowptr - rowptr0) = v * Jp.nzvals.at(rowptr);
-      MatSetValues(J, 1, &i, rowptr1 - rowptr0, &Jp.colvals.at(rowptr0),
-                   values.data(), ADD_VALUES);
+      const PetscErrorCode ierr =
+          MatSetValues(J, 1, &i, rowptr1 - rowptr0, &Jp.colvals.at(rowptr0),
+                       values.data(), ADD_VALUES);
+      assert(!ierr);
     }
   }
 }
@@ -225,6 +207,65 @@ void jacobians_t::clear() {
 
 void jacobians_t::define_matrix(const csr_t &Jp, Mat J) const {
   PetscErrorCode ierr;
+
+  // Preallocate from the entries that are about to be inserted.
+  //
+  // This replaces the former `dnz`/`onz` parameters. Those had to be guessed,
+  // and no value a parameter file can carry is right in general: the number of
+  // entries per row depends on the stencil, on whether the row's stencil
+  // reaches across a refinement boundary (prolongation is eliminated into the
+  // row, which widens it), and on the AMReX box decomposition. Guessing too
+  // low made PETSc refuse the insertions.
+  //
+  // The pattern is recorded by inserting it into PETSc's preallocator, which
+  // keeps the structure and discards the values. This runs the very same
+  // insertion code that writes the values below, so the pattern cannot drift
+  // from what is actually assembled, and PETSc derives the diagonal and
+  // off-diagonal counts, and any off-process rows, by itself. Counting the
+  // entries by hand instead would have to deduplicate columns: a row that
+  // straddles a refinement boundary names the same coarse column from several
+  // of its stencil points, and simply counting occurrences over-allocates by a
+  // factor of four on four levels.
+  //
+  // The pattern is the same for every evaluation within one solve, so this is
+  // done once, before the first assembly.
+  PetscBool assembled;
+  ierr = MatAssembled(J, &assembled);
+  assert(!ierr);
+  const bool preallocating = !assembled;
+  if (preallocating) {
+    MPI_Comm comm;
+    ierr = PetscObjectGetComm((PetscObject)J, &comm);
+    assert(!ierr);
+    PetscInt nlocal_rows, nlocal_cols, nglobal_rows, nglobal_cols;
+    ierr = MatGetLocalSize(J, &nlocal_rows, &nlocal_cols);
+    assert(!ierr);
+    ierr = MatGetSize(J, &nglobal_rows, &nglobal_cols);
+    assert(!ierr);
+
+    Mat P;
+    ierr = MatCreate(comm, &P);
+    assert(!ierr);
+    ierr = MatSetType(P, MATPREALLOCATOR);
+    assert(!ierr);
+    ierr = MatSetSizes(P, nlocal_rows, nlocal_cols, nglobal_rows, nglobal_cols);
+    assert(!ierr);
+    ierr = MatSetUp(P);
+    assert(!ierr);
+    for (const auto &j : jacobians)
+      j.set_matrix_entries(Jp, P);
+    ierr = MatAssemblyBegin(P, MAT_FINAL_ASSEMBLY);
+    assert(!ierr);
+    ierr = MatAssemblyEnd(P, MAT_FINAL_ASSEMBLY);
+    assert(!ierr);
+    // `PETSC_TRUE` also writes explicit zeros into J, so that the ADD_VALUES
+    // below land in positions that already exist
+    ierr = MatPreallocatorPreallocate(P, PETSC_TRUE, J);
+    assert(!ierr);
+    ierr = MatDestroy(&P);
+    assert(!ierr);
+  }
+
   ierr = MatZeroEntries(J);
   assert(!ierr);
   for (const auto &j : jacobians)
@@ -236,51 +277,39 @@ void jacobians_t::define_matrix(const csr_t &Jp, Mat J) const {
   ierr = MatSetOption(J, MAT_NEW_NONZERO_LOCATIONS, PETSC_FALSE);
   assert(!ierr);
 
-#if 0
-  PetscErrorCode ierr;
-  int ilocal_min, ilocal_max;
-  {
+  if (preallocating) {
+    // Report how well the preallocation matched: `mallocs` must be zero, and
+    // `unneeded` is what was allocated but not used. `longest row` is the
+    // number the former `dnz` parameter had to guess.
     MatInfo info;
-    PetscErrorCode ierr;
     ierr = MatGetInfo(J, MAT_GLOBAL_SUM, &info);
     assert(!ierr);
-    CCTK_VINFO("Jacobian info: nz_allocated=%g nz_used=%g nz_unneeded=%g "
-               "memory=%g",
-               double(info.nz_allocated), double(info.nz_used),
-               double(info.nz_unneeded), double(info.memory));
-  }
-  // ierr = MatSetUp(J);
-  // assert(!ierr);
-  ierr = MatGetOwnershipRange(J, &ilocal_min, &ilocal_max);
-  assert(!ierr);
-  int nlocal = 0, ntotal = 0;
-  for (const auto &j : jacobians)
-    j.count_matrix_entries(Jp, ilocal_min, ilocal_max, nlocal, ntotal);
-  const int dnz = nlocal;
-  const int onz = ntotal - nlocal;
-  ierr = MatMPIAIJSetPreallocation(J, dnz, NULL, onz, NULL);
-  assert(!ierr);
-  {
-    MatInfo info;
-    PetscErrorCode ierr;
-    ierr = MatGetInfo(J, MAT_GLOBAL_SUM, &info);
+    MPI_Comm comm;
+    ierr = PetscObjectGetComm((PetscObject)J, &comm);
     assert(!ierr);
-    CCTK_VINFO("Jacobian info: nz_allocated=%g nz_used=%g nz_unneeded=%g "
-               "memory=%g",
-               double(info.nz_allocated), double(info.nz_used),
-               double(info.nz_unneeded), double(info.memory));
+    PetscInt rstart, rend;
+    ierr = MatGetOwnershipRange(J, &rstart, &rend);
+    assert(!ierr);
+    PetscInt longest_row = 0;
+    for (PetscInt row = rstart; row < rend; ++row) {
+      PetscInt ncols;
+      ierr = MatGetRow(J, row, &ncols, NULL, NULL);
+      assert(!ierr);
+      longest_row = std::max(longest_row, ncols);
+      ierr = MatRestoreRow(J, row, &ncols, NULL, NULL);
+      assert(!ierr);
+    }
+    ierr =
+        MPI_Allreduce(MPI_IN_PLACE, &longest_row, 1, MPIU_INT, MPI_MAX, comm);
+    assert(!ierr);
+    CCTK_VINFO("Jacobian: %.0f entries used, %.0f allocated (%.1f%% unneeded), "
+               "%.0f mallocs, longest row %d",
+               double(info.nz_used), double(info.nz_allocated),
+               info.nz_allocated > 0
+                   ? 100 * double(info.nz_unneeded) / double(info.nz_allocated)
+                   : 0.0,
+               double(info.mallocs), int(longest_row));
   }
-  // ierr = MatSetOption(J, MAT_NEW_NONZERO_LOCATIONS, PETSC_FALSE);
-  // assert(!ierr);
-  ierr = MatZeroEntries(J);
-  assert(!ierr);
-  for (const auto &j : jacobians)
-    j.set_matrix_entries(Jp, J);
-  ierr = MatAssemblyBegin(J, MAT_FINAL_ASSEMBLY);
-  assert(!ierr);
-  ierr = MatAssemblyEnd(J, MAT_FINAL_ASSEMBLY);
-  assert(!ierr);
-#endif
 
 #if 0
   PetscErrorCode ierr;

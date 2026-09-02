@@ -1193,16 +1193,17 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
 
   // Matrix and Jacobian evaluation function
 
+  // The matrix is deliberately created without preallocation:
+  // `jacobians_t::define_matrix` preallocates it from the entries it is about
+  // to insert, once it knows them.
   Mat J;
-  ierr = MatCreateAIJ(PETSC_COMM_WORLD, nvars * npoints_local,
-                      nvars * npoints_local, nvars * npoints_global,
-                      nvars * npoints_global, dnz, NULL, onz, NULL, &J);
+  ierr = MatCreate(PETSC_COMM_WORLD, &J);
   assert(!ierr);
-  // ierr = MatCreate(PETSC_COMM_WORLD, &J);
-  // assert(!ierr);
-  // ierr = MatSetSizes(J, nvars * npoints_local, nvars * npoints_local,
-  //                    nvars * npoints_global, nvars * npoints_global);
-  // assert(!ierr);
+  ierr = MatSetSizes(J, nvars * npoints_local, nvars * npoints_local,
+                     nvars * npoints_global, nvars * npoints_global);
+  assert(!ierr);
+  ierr = MatSetType(J, MATAIJ);
+  assert(!ierr);
   ierr = MatSetFromOptions(J);
   assert(!ierr);
   jacobians = std::make_optional<jacobians_t>();

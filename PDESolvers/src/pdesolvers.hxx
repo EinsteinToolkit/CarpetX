@@ -67,8 +67,6 @@ public:
   //               int &restrict ntotal) const;
   void clear();
   void add_value(int i, int j, CCTK_REAL v) { entries.emplace_back(i, j, v); }
-  void count_matrix_entries(const csr_t &Jp, int ilocal_min, int ilocal_max,
-                            int &restrict nlocal, int &restrict ntotal) const;
   void set_matrix_entries(const csr_t &Jp, Mat J) const;
   void
   set_matrix_entries(const csr_t &Jp,

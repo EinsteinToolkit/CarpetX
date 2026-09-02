@@ -7,13 +7,3 @@ STRING petsc_options "PETSc options" STEERABLE=recover
 {
   ".*" :: ""
 } ""
-
-INT dnz "Maximum number of diagonal Jacobian entries" STEERABLE=always
-{
-  1:* :: ""
-} 7
-
-INT onz "Maximum number of off-diagonal Jacobian entries" STEERABLE=always
-{
-  1:* :: ""
-} 4
