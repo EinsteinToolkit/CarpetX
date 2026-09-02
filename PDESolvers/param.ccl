@@ -7,3 +7,7 @@ STRING petsc_options "PETSc options" STEERABLE=recover
 {
   ".*" :: ""
 } ""
+
+BOOLEAN row_equilibration "Scale each row of the Jacobian, and the corresponding residual entry, by 1/|diagonal|" STEERABLE=recover
+{
+} "yes"
