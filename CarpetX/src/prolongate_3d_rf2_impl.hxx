@@ -51,6 +51,28 @@ loop_region(const F &f, const Arith::vect<int, dim> &imin,
 }
 } // namespace
 
+// Map a fine index to the coinciding/parent coarse index and the
+// even/odd child offset. ratio[d]==1 means that direction is not
+// refined (cartoon thin-y): coarse index equals fine index and off=0,
+// so vertex-centered interpolators copy.
+CCTK_DEVICE CCTK_HOST inline vect<int, dim>
+coarse_index_from_fine(const vect<int, dim> &ifine, const amrex::IntVect &ratio) {
+  return vect<int, dim>{ratio[0] == 1 ? ifine[0] : (ifine[0] >> 1),
+                        ratio[1] == 1 ? ifine[1] : (ifine[1] >> 1),
+                        ratio[2] == 1 ? ifine[2] : (ifine[2] >> 1)};
+}
+CCTK_DEVICE CCTK_HOST inline vect<int, dim>
+fine_child_offset(const vect<int, dim> &ifine, const amrex::IntVect &ratio) {
+  return vect<int, dim>{ratio[0] == 1 ? 0 : (ifine[0] & 1),
+                        ratio[1] == 1 ? 0 : (ifine[1] & 1),
+                        ratio[2] == 1 ? 0 : (ifine[2] & 1)};
+}
+
+inline void assert_supported_ratio(const amrex::IntVect &ratio) {
+  for (int d = 0; d < dim; ++d)
+    assert(ratio[d] == 1 || ratio[d] == 2);
+}
+
 // 1D interpolation coefficients
 
 template <centering_t CENT, interpolation_t INTP, int ORDER, typename T>
@@ -1175,6 +1197,29 @@ template <typename T> struct test_interp1d<CC, MINMOD, 1, T> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// ratio_d==1 (unrefined axis, e.g. cartoon thin-y): copy the coinciding
+// coarse point. Vertex-centered POLY already copies on off=0; cell-centered
+// operators treat off=0 as the left child of a refined cell, which is wrong
+// when there is no refinement.
+template <centering_t CENT, interpolation_t INTP, int ORDER, typename F>
+CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__))
+auto
+interp1d_maybe_copy(const F &crse, const int shift, const int off,
+                    const int ratio_d) {
+  if (ratio_d == 1)
+    return crse(0);
+  return interp1d<CENT, INTP, ORDER>()(crse, shift, off);
+}
+
+template <centering_t CENT, interpolation_t INTP, int ORDER>
+CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__))
+std::array<int, 2>
+stencil_radius_maybe_copy(const int shift, const int off, const int ratio_d) {
+  if (ratio_d == 1)
+    return {0, 0};
+  return interp1d<CENT, INTP, ORDER>().stencil_radius(shift, off);
+}
+
 template <typename F, typename T = std::invoke_result_t<F> >
 CCTK_DEVICE CCTK_HOST inline __attribute__((__always_inline__, __flatten__)) T
 call_stencil_0d(const F &crse) {
@@ -1245,11 +1290,11 @@ prolongate_3d_rf2<CENTI, CENTJ, CENTK, INTPI, INTPJ, INTPK, ORDERI, ORDERJ,
       interp1d<CENTJ, INTPJ, ORDERJ>::required_ghosts,
       interp1d<CENTK, INTPK, ORDERK>::required_ghosts,
   };
+  assert_supported_ratio(ratio);
+  amrex::Box crse = amrex::coarsen(fine, ratio);
   for (int d = 0; d < dim; ++d)
-    assert(ratio.getVect()[d] == 2);
-  amrex::Box crse = amrex::coarsen(fine, 2);
-  for (int d = 0; d < dim; ++d)
-    crse.grow(d, required_ghosts[d]);
+    if (ratio[d] == 2)
+      crse.grow(d, required_ghosts[d]);
   return crse;
 }
 
@@ -1290,8 +1335,7 @@ void prolongate_3d_rf2<
   Timer &timer = timers.at(thread_num);
   Interval interval(timer);
 
-  for (int d = 0; d < dim; ++d)
-    assert(ratio.getVect()[d] == 2);
+  assert_supported_ratio(ratio);
   // ??? assert(gpu_or_cpu == RunOn::Cpu);
 
   assert(actual_comp == 0);  // ???
@@ -1318,7 +1362,7 @@ void prolongate_3d_rf2<
 #ifdef CCTK_DEBUG
   // The points we will access, i.e. the coarsened fine region, with ghosts
   // added
-  const amrex::Box source_region = CoarseBox(target_region, /*reffact*/ 2);
+  const amrex::Box source_region = CoarseBox(target_region, ratio);
 #endif
 
   const auto crsebox = crse.box();
@@ -1409,8 +1453,8 @@ void prolongate_3d_rf2<
               use_shift[1] ? required_ghosts[1] / 2 : 0,
               use_shift[2] ? required_ghosts[2] / 2 : 0};
 
-          const vect<int, dim> icrse = ifine >> 1;
-          const vect<int, dim> off = ifine & 0x1;
+          const vect<int, dim> icrse = coarse_index_from_fine(ifine, ratio);
+          const vect<int, dim> off = fine_child_offset(ifine, ratio);
 
           // Choose stencil shift
           vect<int, dim> shift{0, 0, 0};
@@ -1427,18 +1471,21 @@ void prolongate_3d_rf2<
                   // but only for stencils that use a shift. Undo this; we add
                   // the shift back later manually.
                   vect<std::array<int, 2>, dim> stencil_radius{
-                      STENCILI().stencil_radius(si, off[0]),
-                      STENCILJ().stencil_radius(sj, off[1]),
-                      STENCILK().stencil_radius(sk, off[2])};
-                  if (use_shift[0]) {
+                      stencil_radius_maybe_copy<CENTI, INTPI, ORDERI>(
+                          si, off[0], ratio[0]),
+                      stencil_radius_maybe_copy<CENTJ, INTPJ, ORDERJ>(
+                          sj, off[1], ratio[1]),
+                      stencil_radius_maybe_copy<CENTK, INTPK, ORDERK>(
+                          sk, off[2], ratio[2])};
+                  if (use_shift[0] && ratio[0] != 1) {
                     stencil_radius[0][0] -= si;
                     stencil_radius[0][1] -= si;
                   }
-                  if (use_shift[1]) {
+                  if (use_shift[1] && ratio[1] != 1) {
                     stencil_radius[1][0] -= sj;
                     stencil_radius[1][1] -= sj;
                   }
-                  if (use_shift[2]) {
+                  if (use_shift[2] && ratio[2] != 1) {
                     stencil_radius[2][0] -= sk;
                     stencil_radius[2][1] -= sk;
                   }
@@ -1447,7 +1494,7 @@ void prolongate_3d_rf2<
                   // looping over the y- and z-directions and finding the
                   // maximum undivided difference there
                   CCTK_REAL ddx = 0;
-                  if (use_shift[0]) {
+                  if (use_shift[0] && ratio[0] != 1) {
                     for (int dk = stencil_radius[2][0];
                          dk <= stencil_radius[2][1]; ++dk) {
                       for (int dj = stencil_radius[1][0];
@@ -1466,7 +1513,7 @@ void prolongate_3d_rf2<
 
                   // Same with y-undivided differences
                   CCTK_REAL ddy = 0;
-                  if (use_shift[1]) {
+                  if (use_shift[1] && ratio[1] != 1) {
                     for (int dk = stencil_radius[2][0];
                          dk <= stencil_radius[2][1]; ++dk) {
                       for (int di = stencil_radius[0][0];
@@ -1485,7 +1532,7 @@ void prolongate_3d_rf2<
 
                   // Same with z-undivided differences
                   CCTK_REAL ddz = 0;
-                  if (use_shift[2]) {
+                  if (use_shift[2] && ratio[2] != 1) {
                     for (int dj = stencil_radius[1][0];
                          dj <= stencil_radius[1][1]; ++dj) {
                       for (int di = stencil_radius[0][0];
@@ -1521,13 +1568,16 @@ void prolongate_3d_rf2<
                 return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
               },
               [&](const auto &crse) {
-                return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0], off[0]);
+                return interp1d_maybe_copy<CENTI, INTPI, ORDERI>(
+                    crse, shift[0], off[0], ratio[0]);
               },
               [&](const auto &crse) {
-                return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1], off[1]);
+                return interp1d_maybe_copy<CENTJ, INTPJ, ORDERJ>(
+                    crse, shift[1], off[1], ratio[1]);
               },
               [&](const auto &crse) {
-                return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2], off[2]);
+                return interp1d_maybe_copy<CENTK, INTPK, ORDERK>(
+                    crse, shift[2], off[2], ratio[2]);
               });
 
           CCTK_REAL res;
@@ -1561,30 +1611,30 @@ void prolongate_3d_rf2<
                   return crse(icrse[0] + di, icrse[1] + dj, icrse[2] + dk);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTI, LININTPI, LINORDERI>()(crse, 0,
-                                                                off[0]);
+                  return interp1d_maybe_copy<CENTI, LININTPI, LINORDERI>(
+                      crse, 0, off[0], ratio[0]);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTJ, LININTPJ, LINORDERJ>()(crse, 0,
-                                                                off[1]);
+                  return interp1d_maybe_copy<CENTJ, LININTPJ, LINORDERJ>(
+                      crse, 0, off[1], ratio[1]);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTK, LININTPK, LINORDERK>()(crse, 0,
-                                                                off[2]);
+                  return interp1d_maybe_copy<CENTK, LININTPK, LINORDERK>(
+                      crse, 0, off[2], ratio[2]);
                 });
 
             // Check whether we need to fall back
             bool need_fallback = false;
             {
               const std::array<int, 2> sradi =
-                  interp1d<CENTI, INTPI, ORDERI>().stencil_radius(shift[0],
-                                                                  off[0]);
+                  stencil_radius_maybe_copy<CENTI, INTPI, ORDERI>(
+                      shift[0], off[0], ratio[0]);
               const std::array<int, 2> sradj =
-                  interp1d<CENTJ, INTPJ, ORDERJ>().stencil_radius(shift[1],
-                                                                  off[1]);
+                  stencil_radius_maybe_copy<CENTJ, INTPJ, ORDERJ>(
+                      shift[1], off[1], ratio[1]);
               const std::array<int, 2> sradk =
-                  interp1d<CENTK, INTPK, ORDERK>().stencil_radius(shift[2],
-                                                                  off[2]);
+                  stencil_radius_maybe_copy<CENTK, INTPK, ORDERK>(
+                      shift[2], off[2], ratio[2]);
               // Fallback condition 1: The interpolated value introduces a new
               // extremum
               CCTK_REAL minval = +1 / CCTK_REAL(0), maxval = -1 / CCTK_REAL(0);
@@ -1728,8 +1778,7 @@ void prolongate_3d_rf2<
   Timer &timer = timers.at(thread_num);
   Interval interval(timer);
 
-  for (int d = 0; d < dim; ++d)
-    assert(ratio.getVect()[d] == 2);
+  assert_supported_ratio(ratio);
   // ??? assert(gpu_or_cpu == RunOn::Cpu);
 
   assert(actual_comp == 0);  // ???
@@ -1756,7 +1805,7 @@ void prolongate_3d_rf2<
 #ifdef CCTK_DEBUG
   // The points we will access, i.e. the coarsened fine region, with ghosts
   // added
-  const amrex::Box source_region = CoarseBox(target_region, /*reffact*/ 2);
+  const amrex::Box source_region = CoarseBox(target_region, ratio);
 #endif
 
   const auto crsebox = crse_box.box();
@@ -1851,8 +1900,8 @@ void prolongate_3d_rf2<
             use_shift[1] ? required_ghosts[1] / 2 : 0,
             use_shift[2] ? required_ghosts[2] / 2 : 0};
 
-        const vect<int, dim> icrse = ifine >> 1;
-        const vect<int, dim> off = ifine & 0x1;
+        const vect<int, dim> icrse = coarse_index_from_fine(ifine, ratio);
+        const vect<int, dim> off = fine_child_offset(ifine, ratio);
 
         // Choose stencil shift
         vect<int, dim> shift{0, 0, 0};
@@ -1869,18 +1918,21 @@ void prolongate_3d_rf2<
                 // but only for stencils that use a shift. Undo this; we add
                 // the shift back later manually.
                 vect<std::array<int, 2>, dim> stencil_radius{
-                    STENCILI().stencil_radius(si, off[0]),
-                    STENCILJ().stencil_radius(sj, off[1]),
-                    STENCILK().stencil_radius(sk, off[2])};
-                if (use_shift[0]) {
+                    stencil_radius_maybe_copy<CENTI, INTPI, ORDERI>(
+                        si, off[0], ratio[0]),
+                    stencil_radius_maybe_copy<CENTJ, INTPJ, ORDERJ>(
+                        sj, off[1], ratio[1]),
+                    stencil_radius_maybe_copy<CENTK, INTPK, ORDERK>(
+                        sk, off[2], ratio[2])};
+                if (use_shift[0] && ratio[0] != 1) {
                   stencil_radius[0][0] -= si;
                   stencil_radius[0][1] -= si;
                 }
-                if (use_shift[1]) {
+                if (use_shift[1] && ratio[1] != 1) {
                   stencil_radius[1][0] -= sj;
                   stencil_radius[1][1] -= sj;
                 }
-                if (use_shift[2]) {
+                if (use_shift[2] && ratio[2] != 1) {
                   stencil_radius[2][0] -= sk;
                   stencil_radius[2][1] -= sk;
                 }
@@ -1889,7 +1941,7 @@ void prolongate_3d_rf2<
                 // looping over the y- and z-directions and finding the
                 // maximum undivided difference there
                 CCTK_REAL ddx = 0;
-                if (use_shift[0]) {
+                if (use_shift[0] && ratio[0] != 1) {
                   for (int comp = 0; comp < ncomps; ++comp) {
                     for (int dk = stencil_radius[2][0];
                          dk <= stencil_radius[2][1]; ++dk) {
@@ -1910,7 +1962,7 @@ void prolongate_3d_rf2<
 
                 // Same with y-undivided differences
                 CCTK_REAL ddy = 0;
-                if (use_shift[1]) {
+                if (use_shift[1] && ratio[1] != 1) {
                   for (int comp = 0; comp < ncomps; ++comp) {
                     for (int dk = stencil_radius[2][0];
                          dk <= stencil_radius[2][1]; ++dk) {
@@ -1931,7 +1983,7 @@ void prolongate_3d_rf2<
 
                 // Same with z-undivided differences
                 CCTK_REAL ddz = 0;
-                if (use_shift[2]) {
+                if (use_shift[2] && ratio[2] != 1) {
                   for (int comp = 0; comp < ncomps; ++comp) {
                     for (int dj = stencil_radius[1][0];
                          dj <= stencil_radius[1][1]; ++dj) {
@@ -1974,15 +2026,18 @@ void prolongate_3d_rf2<
                   },
               [&](const auto &crse) __attribute__((__always_inline__,
                                                    __flatten__)) {
-                return interp1d<CENTI, INTPI, ORDERI>()(crse, shift[0], off[0]);
+                return interp1d_maybe_copy<CENTI, INTPI, ORDERI>(
+                    crse, shift[0], off[0], ratio[0]);
               },
               [&](const auto &crse) __attribute__((__always_inline__,
                                                    __flatten__)) {
-                return interp1d<CENTJ, INTPJ, ORDERJ>()(crse, shift[1], off[1]);
+                return interp1d_maybe_copy<CENTJ, INTPJ, ORDERJ>(
+                    crse, shift[1], off[1], ratio[1]);
               },
               [&](const auto &crse) __attribute__((__always_inline__,
                                                    __flatten__)) {
-                return interp1d<CENTK, INTPK, ORDERK>()(crse, shift[2], off[2]);
+                return interp1d_maybe_copy<CENTK, INTPK, ORDERK>(
+                    crse, shift[2], off[2], ratio[2]);
               });
 
         std::array<CCTK_REAL, maxncomps> ress;
@@ -1999,14 +2054,14 @@ void prolongate_3d_rf2<
           bool need_fallback = false;
           {
             const std::array<int, 2> sradi =
-                interp1d<CENTI, INTPI, ORDERI>().stencil_radius(shift[0],
-                                                                off[0]);
+                stencil_radius_maybe_copy<CENTI, INTPI, ORDERI>(
+                    shift[0], off[0], ratio[0]);
             const std::array<int, 2> sradj =
-                interp1d<CENTJ, INTPJ, ORDERJ>().stencil_radius(shift[1],
-                                                                off[1]);
+                stencil_radius_maybe_copy<CENTJ, INTPJ, ORDERJ>(
+                    shift[1], off[1], ratio[1]);
             const std::array<int, 2> sradk =
-                interp1d<CENTK, INTPK, ORDERK>().stencil_radius(shift[2],
-                                                                off[2]);
+                stencil_radius_maybe_copy<CENTK, INTPK, ORDERK>(
+                    shift[2], off[2], ratio[2]);
             CCTK_REAL minval = +1 / CCTK_REAL(0), maxval = -1 / CCTK_REAL(0);
             for (int comp = 0; comp < ncomps; ++comp) {
               for (int dk = sradk[0]; dk <= sradk[1]; ++dk) {
@@ -2127,13 +2182,16 @@ void prolongate_3d_rf2<
                               comp);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTI, INTPI, LINORDERI>()(crse, 0, off[0]);
+                  return interp1d_maybe_copy<CENTI, INTPI, LINORDERI>(
+                      crse, 0, off[0], ratio[0]);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTJ, INTPJ, LINORDERJ>()(crse, 0, off[1]);
+                  return interp1d_maybe_copy<CENTJ, INTPJ, LINORDERJ>(
+                      crse, 0, off[1], ratio[1]);
                 },
                 [&](const auto &crse) {
-                  return interp1d<CENTK, INTPK, LINORDERK>()(crse, 0, off[2]);
+                  return interp1d_maybe_copy<CENTK, INTPK, LINORDERK>(
+                      crse, 0, off[2], ratio[2]);
                 });
           }
 

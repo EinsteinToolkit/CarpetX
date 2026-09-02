@@ -14,6 +14,27 @@ using namespace amrex;
 using namespace amrex::detail;
 #endif
 
+namespace {
+// Infer the per-axis refinement ratio from the coarse/fine problem
+// domains. ratio[d]==1 means that axis is not refined (cartoon thin-y).
+IntVect refinement_ratio(const Geometry &cgeom, const Geometry &fgeom) {
+  IntVect ratio;
+  for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+    const int ncrse = cgeom.Domain().length(d);
+    const int nfine = fgeom.Domain().length(d);
+    if (ncrse <= 0 || nfine % ncrse != 0)
+      CCTK_VERROR("Cannot infer refinement ratio in dir %d: coarse ncells=%d, "
+                  "fine ncells=%d",
+                  d, ncrse, nfine);
+    ratio[d] = nfine / ncrse;
+    if (ratio[d] != 1 && ratio[d] != 2)
+      CCTK_VERROR("Unsupported refinement ratio %d in dir %d (need 1 or 2)",
+                  int(ratio[d]), d);
+  }
+  return ratio;
+}
+} // namespace
+
 // The code in this file is written in a "coroutine style"
 // <https://en.wikipedia.org/wiki/Coroutine>. That is, each function
 // returns another function that describes what to do next. This
@@ -51,7 +72,7 @@ void FillPatch_ProlongateGhosts(
     return;
 
   const int ncomps = mfab.nComp();
-  const IntVect ratio{2, 2, 2};
+  const IntVect ratio = refinement_ratio(cgeom, fgeom);
   const EB2::IndexSpace *const index_space = nullptr;
 
   const InterpolaterBoxCoarsener &coarsener = mapper->BoxCoarsener(ratio);
@@ -97,7 +118,7 @@ void FillPatch_ProlongateGhosts(
                           mfab_crse_patch_ptr]() {
     const IntVect &nghosts = mfab.nGrowVect();
     const int ncomps = mfab.nComp();
-    const IntVect ratio{2, 2, 2};
+    const IntVect ratio = refinement_ratio(cgeom, fgeom);
     MultiFab &mfab_crse_patch = *mfab_crse_patch_ptr;
 
     // Finish synchronizing
@@ -144,7 +165,7 @@ void FillPatch_NewLevel(
     const Geometry &fgeom, Interpolater *const mapper,
     const Vector<BCRec> &bcrecs) {
   const int ncomps = mfab.nComp();
-  const IntVect ratio{2, 2, 2};
+  const IntVect ratio = refinement_ratio(cgeom, fgeom);
   const IntVect &nghosts = mfab.nGrowVect();
   // const EB2::IndexSpace *const index_space = nullptr;
 
@@ -189,7 +210,7 @@ void FillPatch_RemakeLevel(
     const Geometry &cgeom, const Geometry &fgeom, Interpolater *const mapper,
     const Vector<BCRec> &bcrecs) {
   const int ncomps = mfab.nComp();
-  const IntVect ratio{2, 2, 2};
+  const IntVect ratio = refinement_ratio(cgeom, fgeom);
   const IntVect &nghosts = mfab.nGrowVect();
   const EB2::IndexSpace *const index_space = nullptr;
 

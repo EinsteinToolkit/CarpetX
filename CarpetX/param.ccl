@@ -131,6 +131,7 @@ KEYWORD boundary_x "Boundary condition at lower x boundary"
   "linear extrapolation" :: "Linear extrapolation"
   "neumann" :: "Neumann"
   "robin" :: "Robin"
+  "cartoon" :: "Cartoon2DX axisymmetric fill (rotation + interpolation)"
 } "none"
 
 KEYWORD boundary_y "Boundary condition at lower y boundary"
@@ -140,6 +141,7 @@ KEYWORD boundary_y "Boundary condition at lower y boundary"
   "linear extrapolation" :: "Linear extrapolation"
   "neumann" :: "Neumann"
   "robin" :: "Robin"
+  "cartoon" :: "Cartoon2DX axisymmetric fill (rotation + interpolation)"
 } "none"
 
 KEYWORD boundary_z "Boundary condition at lower z boundary"
@@ -149,6 +151,7 @@ KEYWORD boundary_z "Boundary condition at lower z boundary"
   "linear extrapolation" :: "Linear extrapolation"
   "neumann" :: "Neumann"
   "robin" :: "Robin"
+  "cartoon" :: "Cartoon2DX axisymmetric fill (rotation + interpolation)"
 } "none"
 
 KEYWORD boundary_upper_x "Boundary condition at upper x boundary"
@@ -158,6 +161,7 @@ KEYWORD boundary_upper_x "Boundary condition at upper x boundary"
   "linear extrapolation" :: "Linear extrapolation"
   "neumann" :: "Neumann"
   "robin" :: "Robin"
+  "cartoon" :: "Cartoon2DX axisymmetric fill (rotation + interpolation)"
 } "none"
 
 KEYWORD boundary_upper_y "Boundary condition at upper y boundary"
@@ -167,6 +171,7 @@ KEYWORD boundary_upper_y "Boundary condition at upper y boundary"
   "linear extrapolation" :: "Linear extrapolation"
   "neumann" :: "Neumann"
   "robin" :: "Robin"
+  "cartoon" :: "Cartoon2DX axisymmetric fill (rotation + interpolation)"
 } "none"
 
 KEYWORD boundary_upper_z "Boundary condition at upper z boundary"
@@ -176,6 +181,7 @@ KEYWORD boundary_upper_z "Boundary condition at upper z boundary"
   "linear extrapolation" :: "Linear extrapolation"
   "neumann" :: "Neumann"
   "robin" :: "Robin"
+  "cartoon" :: "Cartoon2DX axisymmetric fill (rotation + interpolation)"
 } "none"
 
 
@@ -388,6 +394,26 @@ CCTK_INT max_num_levels "Maximum number of refinement levels"
 {
   1:* :: ""
 } 1
+
+# Spatial refinement ratio between consecutive AMR levels, per axis.
+# 2 is the usual (and previously hardcoded) factor. 1 means that
+# direction is not refined -- needed for a cartoon/axisymmetric thin
+# slab, which must stay one cell thick in y at every level.
+CCTK_INT refinement_factor_x "Spatial refinement factor in x"
+{
+  1 :: "do not refine in x"
+  2 :: "refine by 2"
+} 2
+CCTK_INT refinement_factor_y "Spatial refinement factor in y"
+{
+  1 :: "do not refine in y"
+  2 :: "refine by 2"
+} 2
+CCTK_INT refinement_factor_z "Spatial refinement factor in z"
+{
+  1 :: "do not refine in z"
+  2 :: "refine by 2"
+} 2
 
 
 #TODO: move to CarpetRegridX

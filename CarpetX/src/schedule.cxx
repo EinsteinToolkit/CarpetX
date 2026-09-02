@@ -91,6 +91,18 @@ amrex::Orientation orient(int d, int f) {
 }
 int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
                        const int *requested_tls, int *status, const bool inc);
+
+// Spatial refinement factor of `level` over the coarsest grid, per axis.
+// refinement_factor_* == 1 leaves that axis unrefined (cartoon thin-y).
+int levfac_axis(const int level, const int d) {
+  DECLARE_CCTK_PARAMETERS;
+  const int r[dim] = {refinement_factor_x, refinement_factor_y,
+                      refinement_factor_z};
+  int levfac = 1;
+  for (int l = 0; l < level; ++l)
+    levfac *= r[d];
+  return levfac;
+}
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -160,7 +172,7 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
   const CCTK_REAL *restrict const global_x0 = geom.ProbLo();
   const CCTK_REAL *restrict const global_dx = geom.CellSize();
   for (int d = 0; d < dim; ++d) {
-    const int levfac = 1 << leveldata.level;
+    const int levfac = levfac_axis(leveldata.level, d);
     // Offset between this level's and the coarsest level's origin as
     // multiple of the grid spacing
     const int levoff = (1 - levfac) * (1 - 2 * nghostzones[d]);
@@ -268,7 +280,7 @@ GridDesc::GridDesc(const GHExt::PatchData::LevelData &leveldata,
   const CCTK_REAL *restrict const global_x0 = geom.ProbLo();
   const CCTK_REAL *restrict const global_dx = geom.CellSize();
   for (int d = 0; d < dim; ++d) {
-    const int levfac = 1 << leveldata.level;
+    const int levfac = levfac_axis(leveldata.level, d);
     // Offset between this level's and the coarsest level's origin as
     // multiple of the grid spacing
     const int levoff = (1 - levfac) * (1 - 2 * nghostzones[d]);
@@ -568,13 +580,12 @@ void leave_global_mode(cGH *restrict cctkGH) {
 
 // Set cctkGH entries for level mode
 void enter_level_mode(cGH *restrict cctkGH, const int level) {
-  DECLARE_CCTK_PARAMETERS;
   assert(in_global_mode(cctkGH));
 
   cctkGH->cctk_level = level;
   for (int d = 0; d < dim; ++d) {
     // The refinement factor over the top level (coarsest) grid
-    const int levfac = 1 << level;
+    const int levfac = levfac_axis(level, d);
     cctkGH->cctk_levfac[d] = levfac;
     // Offset between this level's and the coarsest level's origin as multiple
     // of the grid spacing
@@ -2746,7 +2757,7 @@ void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups) {
 
         auto &groupdata = *leveldata.groupdata.at(gi);
         const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
-        const amrex::IntVect reffact{2, 2, 2};
+        const amrex::IntVect reffact = patchdata.amrcore->refRatio(level);
         const nan_handling_t nan_handling = groupdata.do_checkpoint
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;

@@ -48,6 +48,14 @@ void FUNCTION MultiPatch_Interpolate( \
   CCTK_INT ARRAY IN varinds)
 USES FUNCTION MultiPatch_Interpolate
 
+# Optional extra physical BC (Cartoon2DX). Called from
+# apply_boundary_conditions for groups whose faces are boundary_t::cartoon.
+void FUNCTION ApplyCartoonBoundary( \
+  CCTK_POINTER_TO_CONST IN cctkGH, \
+  CCTK_INT IN gi, \
+  CCTK_INT IN tl)
+USES FUNCTION ApplyCartoonBoundary
+
 
 
 # The overall size of the domain

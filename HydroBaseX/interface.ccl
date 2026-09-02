@@ -8,21 +8,21 @@ USES INCLUDE HEADER: loop_device.hxx
 
 PUBLIC:
 
-CCTK_REAL rho TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "rest mass density rho"
+CCTK_REAL rho TYPE=gf CENTERING={ccc} TAGS='tensortypealias="Scalar" checkpoint="no"' "rest mass density rho"
 
-CCTK_REAL vel TYPE=gf CENTERING={ccc} TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"' { velx vely velz } "velocity v^i"
+CCTK_REAL vel TYPE=gf CENTERING={ccc} TAGS='tensortypealias="U" parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} checkpoint="no"' { velx vely velz } "velocity v^i"
 
-CCTK_REAL eps TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "specific internal energy epsilon"
+CCTK_REAL eps TYPE=gf CENTERING={ccc} TAGS='tensortypealias="Scalar" checkpoint="no"' "specific internal energy epsilon"
 
-CCTK_REAL press TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "pressure p"
+CCTK_REAL press TYPE=gf CENTERING={ccc} TAGS='tensortypealias="Scalar" checkpoint="no"' "pressure p"
 
-CCTK_REAL temperature TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "temperature T"
+CCTK_REAL temperature TYPE=gf CENTERING={ccc} TAGS='tensortypealias="Scalar" checkpoint="no"' "temperature T"
 
-CCTK_REAL entropy TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "specific entropy S"
+CCTK_REAL entropy TYPE=gf CENTERING={ccc} TAGS='tensortypealias="Scalar" checkpoint="no"' "specific entropy S"
 
-CCTK_REAL Ye TYPE=gf CENTERING={ccc} TAGS='checkpoint="no"' "electron fraction Y_e"
+CCTK_REAL Ye TYPE=gf CENTERING={ccc} TAGS='tensortypealias="Scalar" checkpoint="no"' "electron fraction Y_e"
 
-CCTK_REAL Bvec TYPE=gf CENTERING={ccc} TAGS='parities={+1 -1 -1   -1 +1 -1   -1 -1 +1} checkpoint="no"' { Bvecx Bvecy Bvecz } "Magnetic field B^i"
+CCTK_REAL Bvec TYPE=gf CENTERING={ccc} TAGS='tensortypealias="U" parities={+1 -1 -1   -1 +1 -1   -1 -1 +1} checkpoint="no"' { Bvecx Bvecy Bvecz } "Magnetic field B^i"
 
 CCTK_REAL Avecx TYPE=gf CENTERING={cvv} TAGS='parities={-1 +1 +1} checkpoint="no"' "Magnetic vector potential A^x"
 CCTK_REAL Avecy TYPE=gf CENTERING={vcv} TAGS='parities={+1 -1 +1} checkpoint="no"' "Magnetic vector potential A^y"

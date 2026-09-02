@@ -658,7 +658,7 @@ void carpetx_openpmd_t::InputOpenPMDGridStructure(cGH *cctkGH,
       // Don't set coarse level domain; this is already set by the driver
       if (level > 0) {
         amrex::Geometry geom = patchdata.amrcore->Geom(level - 1);
-        geom.refine({2, 2, 2});
+        geom.refine(patchdata.amrcore->refRatio(level - 1));
         patchdata.amrcore->SetGeometry(level, geom);
       }
 

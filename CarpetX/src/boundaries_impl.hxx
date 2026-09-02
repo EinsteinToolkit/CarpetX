@@ -28,6 +28,19 @@ constexpr int NEG = -1, INT = 0, POS = +1;
 
 constexpr int maxncomps = 16;
 
+// Cartoon faces are filled after the built-in per-face stencils, by
+// Cartoon2DX via ApplyCartoonBoundary. Treat them as "no builtin BC"
+// so the template does not error and does not write neumann/etc. there.
+inline bool builtin_skips_face(const symmetry_t symmetry,
+                               const boundary_t boundary) {
+  return (symmetry == symmetry_t::none &&
+          (boundary == boundary_t::none ||
+           boundary == boundary_t::cartoon)) ||
+         (symmetry == symmetry_t::interpatch &&
+          boundary == boundary_t::none) ||
+         symmetry == symmetry_t::periodic;
+}
+
 template <int NI, int NJ, int NK>
 void BoundaryCondition::apply_on_face() const {
   constexpr Arith::vect<int, dim> inormal{NI, NJ, NK};
@@ -70,10 +83,7 @@ void BoundaryCondition::apply_on_face() const {
     const symmetry_t symmetry_x = patchdata.symmetries[f][0];
     const boundary_t boundary_x = groupdata.boundaries[f][0];
 
-    if ((symmetry_x == symmetry_t::none && boundary_x == boundary_t::none) ||
-        (symmetry_x == symmetry_t::interpatch &&
-         boundary_x == boundary_t::none) ||
-        symmetry_x == symmetry_t::periodic)
+    if (builtin_skips_face(symmetry_x, boundary_x))
       apply_on_face_symbcx<NI, NJ, NK, symmetry_t::none, boundary_t::none>(
           bmin, bmax);
     else if (symmetry_x == symmetry_t::reflection)
@@ -113,10 +123,7 @@ void BoundaryCondition::apply_on_face_symbcx(
     const symmetry_t symmetry_y = patchdata.symmetries[f][1];
     const boundary_t boundary_y = groupdata.boundaries[f][1];
 
-    if ((symmetry_y == symmetry_t::none && boundary_y == boundary_t::none) ||
-        (symmetry_y == symmetry_t::interpatch &&
-         boundary_y == boundary_t::none) ||
-        symmetry_y == symmetry_t::periodic)
+    if (builtin_skips_face(symmetry_y, boundary_y))
       apply_on_face_symbcxy<NI, NJ, NK, SCI, BCI, symmetry_t::none,
                             boundary_t::none>(bmin, bmax);
     else if (symmetry_y == symmetry_t::reflection)
@@ -157,10 +164,7 @@ void BoundaryCondition::apply_on_face_symbcxy(
     const symmetry_t symmetry_z = patchdata.symmetries[f][2];
     const boundary_t boundary_z = groupdata.boundaries[f][2];
 
-    if ((symmetry_z == symmetry_t::none && boundary_z == boundary_t::none) ||
-        (symmetry_z == symmetry_t::interpatch &&
-         boundary_z == boundary_t::none) ||
-        symmetry_z == symmetry_t::periodic)
+    if (builtin_skips_face(symmetry_z, boundary_z))
       apply_on_face_symbcxyz<NI, NJ, NK, SCI, BCI, SCJ, BCJ, symmetry_t::none,
                              boundary_t::none>(bmin, bmax);
     else if (symmetry_z == symmetry_t::reflection)

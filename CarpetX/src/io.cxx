@@ -341,7 +341,10 @@ void OutputPlotfile(const cGH *restrict cctkGH) {
           mfabs.at(leveldata.level) = &*leveldata.groupdata.at(gi)->mfab.at(tl);
           geoms.at(leveldata.level) = patchdata.amrcore->Geom(leveldata.level);
           iters.at(leveldata.level) = cctk_iteration;
-          reffacts.at(leveldata.level) = amrex::IntVect{2, 2, 2};
+          reffacts.at(leveldata.level) =
+              patchdata.amrcore->maxLevel() >= 1
+                  ? patchdata.amrcore->refRatio(0)
+                  : amrex::IntVect{2, 2, 2};
         }
 
         // TODO: Output all groups into a single file

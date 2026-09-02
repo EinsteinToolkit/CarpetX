@@ -190,7 +190,8 @@ reduction<CCTK_REAL, dim> reduce(int gi, int vi, int tl) {
         const auto &restrict fine_groupdata = *fine_leveldata.groupdata.at(gi);
         const amrex::MultiFab &fine_mfab = *fine_groupdata.mfab.at(tl);
 
-        const amrex::IntVect reffact{2, 2, 2};
+        const amrex::IntVect reffact =
+            patchdata.amrcore->refRatio(leveldata.level);
 
         finemask_imfab = std::make_unique<amrex::iMultiFab>(makeFineMask(
             mfab, fine_mfab.boxArray(), reffact, geom.periodicity(),

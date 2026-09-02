@@ -7,7 +7,14 @@ USES INCLUDE HEADER: vect.hxx
 
 
 
-CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="energy error"'
+# public: added so another thorn can INHERITS: WaveToyX and reference
+# `state` in its own schedule.ccl (needed by CarpetX/Cartoon2DXWaveToyX,
+# a ghost-fill thorn wired up separately -- see its schedule.ccl). Group
+# visibility with no marker defaults to private, which blocked that even
+# with INHERITS: WaveToyX in place; found by an actual build attempt.
+# Purely a visibility annotation -- no behavior change for WaveToyX itself.
+public:
+CCTK_REAL state TYPE=gf TAGS='rhs="rhs" dependents="energy error" tensortypealias="scalar"'
 {
   u
   rho
