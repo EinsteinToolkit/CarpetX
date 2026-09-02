@@ -1157,8 +1157,8 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
                    component_prolongated_sizes, Jp);
 
   // TODO: fix this
-  const std::vector<int> solinds{CCTK_VarIndex("Poisson::sol")};
-  const std::vector<int> resinds{CCTK_VarIndex("Poisson::res")};
+  const std::vector<int> solinds{CCTK_VarIndex("PoissonX::sol")};
+  const std::vector<int> resinds{CCTK_VarIndex("PoissonX::res")};
   const int nvars = solinds.size();
   assert(int(resinds.size()) == nvars);
 
