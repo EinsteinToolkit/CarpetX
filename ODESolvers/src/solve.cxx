@@ -85,8 +85,29 @@ struct statecomp_t {
   statecomp_t(const statecomp_t &) = delete;
   statecomp_t &operator=(const statecomp_t &) = delete;
 
+  // One entry per component. The three vectors have the same length: `tls[n]`
+  // says which time level of `groupdatas[n]` the component `mfabs[n]` stands
+  // for, and hence which validity flags it owns.
   std::vector<CarpetX::GHExt::PatchData::LevelData::GroupData *> groupdatas;
   std::vector<amrex::MultiFab *> mfabs;
+  std::vector<int> tls;
+
+  // Number of components, checking that the vectors above agree
+  std::size_t size() const {
+    assert(mfabs.size() == groupdatas.size());
+    assert(tls.size() == groupdatas.size());
+    return groupdatas.size();
+  }
+
+  // Append the group's own time level `tl`
+  void
+  push_component(CarpetX::GHExt::PatchData::LevelData::GroupData *groupdata,
+                 int tl);
+  // Append `mfab` as a stand-in for the group's time level `tl`, e.g. a
+  // temporary allocated by `copy`
+  void
+  push_component(CarpetX::GHExt::PatchData::LevelData::GroupData *groupdata,
+                 int tl, amrex::MultiFab *mfab);
 
   static void init_tmp_mfabs();
   static void free_tmp_mfabs();
@@ -159,11 +180,48 @@ void statecomp_t::free_tmp_mfabs() {
   });
 }
 
+// Abort with a useful message if a group does not have the time level a state
+// vector component claims. Without this the `at(tl)` calls below throw
+// `std::out_of_range`, which reports nothing.
+void check_timelevel(
+    const CarpetX::GHExt::PatchData::LevelData::GroupData &groupdata,
+    const int tl) {
+  assert(groupdata.mfab.size() == groupdata.valid.size());
+  if (tl < 0 || tl >= int(groupdata.valid.size()))
+    CCTK_VERROR("ODESolvers addressed time level %d of group %s, which has %d "
+                "time level(s) allocated. The number of allocated time levels "
+                "is chosen by CarpetX::SetGroupTimelevels and is capped by the "
+                "group's TIMELEVELS declaration in its interface.ccl.",
+                tl, groupdata.groupname.c_str(), int(groupdata.valid.size()));
+}
+
+// Append a component addressing the group's own time level `tl`
+void statecomp_t::push_component(
+    CarpetX::GHExt::PatchData::LevelData::GroupData *const groupdata,
+    const int tl) {
+  assert(groupdata);
+  check_timelevel(*groupdata, tl);
+  push_component(groupdata, tl, groupdata->mfab.at(tl).get());
+}
+
+// Append a component addressing `mfab` on behalf of time level `tl`
+void statecomp_t::push_component(
+    CarpetX::GHExt::PatchData::LevelData::GroupData *const groupdata,
+    const int tl, amrex::MultiFab *const mfab) {
+  assert(groupdata);
+  assert(mfab);
+  check_timelevel(*groupdata, tl);
+  groupdatas.push_back(groupdata);
+  mfabs.push_back(mfab);
+  tls.push_back(tl);
+}
+
 // State that the state vector has valid data in the interior
 void statecomp_t::set_valid(const CarpetX::valid_t valid) const {
-  for (auto groupdata : groupdatas) {
+  for (std::size_t n = 0; n < size(); ++n) {
+    const auto groupdata = groupdatas.at(n);
+    const int tl = tls.at(n);
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
-      const int tl = 0;
       groupdata->valid.at(tl).at(vi).set_int(valid.valid_int, [=]() {
         std::ostringstream buf;
         buf << "ODESolvers after lincomb: Mark interior as "
@@ -198,9 +256,9 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
                                  const std::array<CCTK_REAL, N> &factors,
                                  const std::array<const statecomp_t *, N> &srcs,
                                  const CarpetX::valid_t where) {
-  const int ngroups = dst.groupdatas.size();
+  const int ngroups = dst.size();
   for (const auto &src : srcs)
-    assert(int(src->groupdatas.size()) == ngroups);
+    assert(int(src->size()) == ngroups);
   for (int group = 0; group < ngroups; ++group) {
     const auto &dstgroup = dst.groupdatas.at(group);
     const int nvars = dstgroup->numvars;
@@ -213,25 +271,26 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
   for (int group = 0; group < ngroups; ++group) {
     const auto &dstgroup = dst.groupdatas.at(group);
     const int nvars = dstgroup->numvars;
-    const int tl = 0;
+    const int dsttl = dst.tls.at(group);
     for (int vi = 0; vi < nvars; ++vi) {
       CarpetX::valid_t valid = where;
       bool did_set_valid = false;
       if (scale != 0) {
-        valid &= dstgroup->valid.at(tl).at(vi).get();
+        valid &= dstgroup->valid.at(dsttl).at(vi).get();
         did_set_valid = true;
       }
       for (std::size_t m = 0; m < srcs.size(); ++m) {
         if (factors.at(m) != 0) {
           const auto &src = srcs.at(m);
           const auto &srcgroup = src->groupdatas.at(group);
-          valid &= srcgroup->valid.at(tl).at(vi).get();
+          const int srctl = src->tls.at(group);
+          valid &= srcgroup->valid.at(srctl).at(vi).get();
           did_set_valid = true;
         }
       }
       if (!did_set_valid)
         valid = CarpetX::valid_t(false);
-      dstgroup->valid.at(tl).at(vi) = CarpetX::why_valid_t(
+      dstgroup->valid.at(dsttl).at(vi) = CarpetX::why_valid_t(
           valid, []() { return "Set from RHS in ODESolvers"; });
     }
   }
@@ -240,9 +299,10 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
 // Ensure a state vector has valid data in the interior
 void statecomp_t::check_valid(const CarpetX::valid_t required,
                               const std::function<std::string()> &why) const {
-  for (const auto groupdata : groupdatas) {
+  for (std::size_t n = 0; n < size(); ++n) {
+    const auto groupdata = groupdatas.at(n);
+    const int tl = tls.at(n);
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
-      const int tl = 0;
       CarpetX::error_if_invalid(*groupdata, vi, tl, required, why);
       // TODO: Parallelize over pathces, levels, group, variables, and
       // timelevels
@@ -257,10 +317,11 @@ void statecomp_t::check_valid(const CarpetX::valid_t required,
 
 // Copy state vector into newly allocated memory
 statecomp_t statecomp_t::copy(const CarpetX::valid_t where) const {
-  const std::size_t size = mfabs.size();
+  const std::size_t size = this->size();
   statecomp_t result;
   result.groupdatas.reserve(size);
   result.mfabs.reserve(size);
+  result.tls.reserve(size);
   for (std::size_t n = 0; n < size; ++n) {
     const auto groupdata = groupdatas.at(n);
     // This global nan-check doesn't work since we don't care about the
@@ -272,8 +333,10 @@ statecomp_t statecomp_t::copy(const CarpetX::valid_t where) const {
     //                   groupdata->groupname.c_str());
     // #endif
     auto y = groupdata->alloc_tmp_mfab();
-    result.groupdatas.push_back(groupdata);
-    result.mfabs.push_back(y);
+    // The copy owns the temporary `y` but keeps this group's validity flags,
+    // so it must claim the same time level as the component it copies:
+    // anything else would make `combine_valids` write another slot's flags.
+    result.push_component(groupdata, tls.at(n), y);
   }
   lincomb(result, 0, make_array(CCTK_REAL(1)), make_array(this), where);
   // This global nan-check doesn't work since we don't care about the boundaries
@@ -294,9 +357,9 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
                           const std::array<CCTK_REAL, N> &factors,
                           const std::array<const statecomp_t *, N> &srcs,
                           const CarpetX::valid_t where) {
-  const std::size_t size = dst.mfabs.size();
+  const std::size_t size = dst.size();
   for (std::size_t n = 0; n < N; ++n)
-    assert(srcs[n]->mfabs.size() == size);
+    assert(srcs[n]->size() == size);
   for (std::size_t m = 0; m < size; ++m) {
     const auto ncomp = dst.mfabs.at(m)->nComp();
     const auto ngrowvect = dst.mfabs.at(m)->nGrowVect();
@@ -787,10 +850,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         assert(rhs_gi != groupdata.groupindex);
         auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
         assert(rhs_groupdata.numvars == groupdata.numvars);
-        var.groupdatas.push_back(&groupdata);
-        var.mfabs.push_back(groupdata.mfab.at(tl).get());
-        rhs.groupdatas.push_back(&rhs_groupdata);
-        rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
+        var.push_component(&groupdata, tl);
+        rhs.push_component(&rhs_groupdata, tl);
 
         // Make sure that the correct number of pre states are available if HRK
         // methods are selected
@@ -799,8 +860,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
           if (p_rhs_gi >= 0) {
             assert(p_rhs_gi != groupdata.groupindex);
             auto &p_rhs_groupdata = *leveldata.groupdata.at(p_rhs_gi);
-            p_rhs.groupdatas.push_back(&p_rhs_groupdata);
-            p_rhs.mfabs.push_back(p_rhs_groupdata.mfab.at(tl).get());
+            p_rhs.push_component(&p_rhs_groupdata, tl);
           } else {
             CCTK_VERROR("Group %s provides no \"p_rhs\" tag for storing the "
                         "previous RHS evaluations. This is required when using "
@@ -814,8 +874,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
           if (p_rhs_gi >= 0) {
             assert(p_rhs_gi != groupdata.groupindex);
             auto &p_rhs_groupdata = *leveldata.groupdata.at(p_rhs_gi);
-            p_rhs.groupdatas.push_back(&p_rhs_groupdata);
-            p_rhs.mfabs.push_back(p_rhs_groupdata.mfab.at(tl).get());
+            p_rhs.push_component(&p_rhs_groupdata, tl);
           } else {
             CCTK_VERROR("Group %s provides no \"p_rhs\" tag for storing the "
                         "previous RHS evaluations. This is required when using "
@@ -826,8 +885,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
           if (pp_rhs_gi >= 0) {
             assert(pp_rhs_gi != groupdata.groupindex);
             auto &pp_rhs_groupdata = *leveldata.groupdata.at(pp_rhs_gi);
-            pp_rhs.groupdatas.push_back(&pp_rhs_groupdata);
-            pp_rhs.mfabs.push_back(pp_rhs_groupdata.mfab.at(tl).get());
+            pp_rhs.push_component(&pp_rhs_groupdata, tl);
           } else {
             CCTK_VERROR("Group %s provides no \"pp_rhs\" tag for storing the "
                         "previous-previous RHS evaluations. This is required "
