@@ -1,6 +1,8 @@
 # Schedule definitions for thorn TestTimelevels
 
 STORAGE: test_gf[3]
+STORAGE: resize_gf[3]
+STORAGE: swap_gf[3]
 
 SCHEDULE TestTimelevels_Init AT initial
 {
@@ -16,13 +18,76 @@ SCHEDULE TestTimelevels_Write AT evol
   WRITES: test_gf(everywhere)
 } "Write the current iteration number into every point of time level 0"
 
-SCHEDULE TestTimelevels_Check AT analysis
+if (check_rotation)
+{
+  SCHEDULE TestTimelevels_Check AT analysis
+  {
+    LANG: C
+    READS: test_gf(everywhere)
+    READS: test_gf_p(everywhere)
+    READS: test_gf_p_p(everywhere)
+  } "Check that time levels 1 and 2 hold the two previous iteration numbers"
+}
+
+SCHEDULE TestTimelevels_SetupStorage AT wragh
 {
   LANG: C
-  READS: test_gf(everywhere)
-  READS: test_gf_p(everywhere)
-  READS: test_gf_p_p(everywhere)
-} "Check that time levels 1 and 2 hold the two previous iteration numbers"
+  OPTIONS: global
+} "Allocate initial_resize_timelevels time levels for resize_gf, before any level exists"
+
+SCHEDULE TestTimelevels_ResizeWrite AT initial
+{
+  LANG: C
+  WRITES: resize_gf(everywhere)
+} "Write the current iteration number into every point of resize_gf time level 0"
+
+SCHEDULE TestTimelevels_ResizeWrite AT evol
+{
+  LANG: C
+  WRITES: resize_gf(everywhere)
+} "Write the current iteration number into every point of resize_gf time level 0"
+
+SCHEDULE TestTimelevels_Resize AT poststep
+{
+  LANG: C
+  OPTIONS: global
+} "Reallocate resize_gf to final_resize_timelevels time levels at resize_iteration"
+
+SCHEDULE TestTimelevels_ResizeCheck AT analysis
+{
+  LANG: C
+  READS: resize_gf(everywhere)
+} "Check how many time levels resize_gf has, which of them are reachable through cctkGH->data, and that reallocating left time level 0 alone"
+
+SCHEDULE TestTimelevels_SwapInit AT initial
+{
+  LANG: C
+  WRITES: swap_gf(everywhere)
+  WRITES: swap_gf_p(everywhere)
+  WRITES: swap_gf_p_p(everywhere)
+} "Mark each of swap_gf's time levels with its own slot number"
+
+SCHEDULE TestTimelevels_SwapInit AT evol
+{
+  LANG: C
+  WRITES: swap_gf(everywhere)
+  WRITES: swap_gf_p(everywhere)
+  WRITES: swap_gf_p_p(everywhere)
+} "Mark each of swap_gf's time levels with its own slot number"
+
+SCHEDULE TestTimelevels_Swap AT poststep
+{
+  LANG: C
+  OPTIONS: level
+} "Exchange swap_gf's time levels 0 and 2"
+
+SCHEDULE TestTimelevels_SwapCheck AT analysis
+{
+  LANG: C
+  READS: swap_gf(everywhere)
+  READS: swap_gf_p(everywhere)
+  READS: swap_gf_p_p(everywhere)
+} "Check that the exchange moved both the data and the validity flags, and left the marks in every other slot alone"
 
 SCHEDULE TestTimelevels_Terminate AT terminate
 {

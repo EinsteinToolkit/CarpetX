@@ -1,0 +1,61 @@
+# Grow resize_gf in mid-run while the grid hierarchy is being rebuilt every
+# iteration, so that levels built after the change pick up the new count.
+#
+# test_gf's rotation check is off here: its history is not checkpointed, so it
+# is not prolongated, and a rebuilt level comes back with invalid history.
+
+ActiveThorns = "
+    BoxInBox
+    CarpetX
+    CarpetXRegrid
+    CoordinatesX
+    IOUtil
+    MovingBoxToy
+    TestTimelevels
+"
+
+$ncells = 16
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+
+Cactus::cctk_itlast = 5
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::max_num_levels = 2
+CarpetX::regrid_every = 1
+
+# Large enough that the boxes move a noticeable distance each iteration, so
+# that AMReX really does remake the refined level
+CarpetX::dtfac = $ncells
+
+BoxInBox::num_regions = 1
+BoxInBox::num_levels_1 = 2
+BoxInBox::position_x_1 = +0.5
+BoxInBox::radius_x_1[1] = 0.25
+BoxInBox::radius_y_1[1] = 0.25
+BoxInBox::radius_z_1[1] = 0.25
+
+CarpetX::boundary_x = "dirichlet"
+CarpetX::boundary_y = "dirichlet"
+CarpetX::boundary_z = "dirichlet"
+CarpetX::boundary_upper_x = "dirichlet"
+CarpetX::boundary_upper_y = "dirichlet"
+CarpetX::boundary_upper_z = "dirichlet"
+
+Cactus::highlight_warning_messages = "no"
+
+IO::out_dir = $parfile
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+
+CarpetX::poison_undefined_values = yes
+
+TestTimelevels::check_rotation = no
+TestTimelevels::initial_resize_timelevels = 1
+TestTimelevels::final_resize_timelevels = 3
+TestTimelevels::resize_iteration = 2

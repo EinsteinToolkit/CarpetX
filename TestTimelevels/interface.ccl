@@ -5,3 +5,7 @@ IMPLEMENTS: TestTimelevels
 USES INCLUDE HEADER: loop_device.hxx
 
 CCTK_REAL test_gf TYPE=gf TIMELEVELS=3 TAGS='checkpoint="no"' "Grid function with three time levels, used to test that CarpetX keeps cctk_iteration -> data[vi][tl] pointers correct across CycleTimelevels"
+
+CCTK_REAL resize_gf TYPE=gf TIMELEVELS=3 TAGS='checkpoint="no"' "Grid function whose time levels are allocated and released at run time, used to test SetGroupTimelevels. Only time level 0 ever appears in a schedule clause, so that the group can be shrunk to a single time level without making those clauses unschedulable"
+
+CCTK_REAL swap_gf TYPE=gf TIMELEVELS=3 TAGS='checkpoint="no"' "Grid function whose time levels are exchanged in place each step, used to test SwapGroupTimelevels"

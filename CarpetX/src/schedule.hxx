@@ -233,6 +233,9 @@ void leave_local_mode(cGH *restrict cctkGH,
 // Recompute cctkGH->data[vi][tl] for one group in one component's cached cGH
 void update_group_pointers(const GHExt::PatchData::LevelData &restrict leveldata,
                            const MFPointer &mfp, cGH *restrict cctkGH, int gi);
+// ... for one group, over every component of one patch of one level
+void update_group_pointers(
+    const GHExt::PatchData::LevelData &restrict leveldata, int gi);
 // ... for one group, over every component of every active level
 void update_group_pointers(int gi);
 // ... for every group

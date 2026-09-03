@@ -1,3 +1,5 @@
 # Configuration definitions for thorn TestTimelevels
 
-REQUIRES CarpetX
+# AMReX because this thorn calls CarpetX's time level storage API, which is
+# declared in a header that includes AMReX's
+REQUIRES AMReX CarpetX
