@@ -1,6 +1,6 @@
 # Schedule definitions for thorn TestRKAB
 
-STORAGE: state rhs p_rhs pp_rhs energy error
+STORAGE: state rhs[4] p_rhs pp_rhs energy error
 
 # Init
 SCHEDULE TestRKAB_Initial AT initial

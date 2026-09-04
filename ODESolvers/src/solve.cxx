@@ -785,6 +785,68 @@ std::vector<int> get_group_dependents(const int gi) {
   return dependents;
 }
 
+// How many previous RHS evaluations a method needs to have kept, over and
+// above the one it evaluates itself. Zero for every classic Runge-Kutta
+// method; the hybrid (multistep) methods are the only ones with a history.
+int history_depth(const char *const method) {
+  if (CCTK_EQUALS(method, "HRK423"))
+    return 1; // two step method: f(y_{n-1})
+  if (CCTK_EQUALS(method, "HRK432"))
+    return 2; // three step method: f(y_{n-1}) and f(y_{n-2})
+  return 0;
+}
+
+// How many time levels of the RHS group a method needs allocated. A method
+// with no history needs only the slot its RHS routine writes. A hybrid method
+// needs its history slots plus somewhere to park the stage values that have to
+// outlive a later RHS evaluation; four covers both of the hybrid methods, and
+// four is also what the user has to declare anyway, since ODESolvers::method
+// is STEERABLE=always.
+int rhs_timelevels(const char *const method) {
+  return history_depth(method) == 0 ? 1 : 4;
+}
+
+// Ask the driver for the RHS time levels the current method needs, for every
+// group that names an RHS group.
+//
+// Called at WRAGH, which runs before any level exists, so that in the ordinary
+// case the very first allocation is already the right size. Called again at
+// the top of every step, because the method is steerable and a step may need
+// more slots than the previous one did.
+void setup_rhs_storage(const char *const method, const bool verbose) {
+  const int ntls = rhs_timelevels(method);
+  const int num_groups = CCTK_NumGroups();
+  for (int gi = 0; gi < num_groups; ++gi) {
+    // Only grid functions live on levels, and only they have time levels the
+    // driver can allocate
+    if (CCTK_GroupTypeI(gi) != CCTK_GF)
+      continue;
+    const int rhs_gi = get_group_rhs(gi);
+    if (rhs_gi < 0)
+      continue;
+
+    // cctkGH->data is sized from the declaration and cannot grow, so this is
+    // the user's to fix, and saying so at startup beats failing on the first
+    // step
+    const int declared_ntls = CCTK_DeclaredTimeLevelsGI(rhs_gi);
+    if (ntls > declared_ntls)
+      CCTK_VERROR("The ODE solver method \"%s\" keeps %d previous RHS "
+                  "evaluation(s), and needs %d time levels of the RHS "
+                  "group \"%s\", named by \"%s\", to hold them and its own "
+                  "stage values. That group declares %d. Write TIMELEVELS=%d "
+                  "in its interface.ccl.",
+                  method, history_depth(method), ntls,
+                  CCTK_FullGroupName(rhs_gi), CCTK_FullGroupName(gi),
+                  declared_ntls, ntls);
+
+    const int old_ntls = CarpetX::SetGroupTimelevels(rhs_gi, ntls);
+    if (verbose && old_ntls != ntls)
+      CCTK_VINFO("Method \"%s\": RHS group \"%s\" now has %d time level(s), "
+                 "was %d",
+                 method, CCTK_FullGroupName(rhs_gi), ntls, old_ntls);
+  }
+}
+
 // Mark groups as invalid
 void mark_invalid(const std::vector<int> &groups) {
   CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
@@ -808,6 +870,13 @@ extern "C" void ODESolvers_InitConstants(CCTK_ARGUMENTS) {
   *do_substeps = 0;
 }
 
+extern "C" void ODESolvers_SetupStorage(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ODESolvers_SetupStorage;
+  DECLARE_CCTK_PARAMETERS;
+
+  setup_rhs_storage(method, verbose);
+}
+
 extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_ODESolvers_Solve;
   DECLARE_CCTK_PARAMETERS;
@@ -829,6 +898,11 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   static CarpetX::Timer timer_setup("ODESolvers::Solve::setup");
   std::optional<CarpetX::Interval> interval_setup(timer_setup);
+
+  // The method is STEERABLE=always, so what WRAGH allocated need not be what
+  // this step needs. Re-request the storage before anything below caches a
+  // pointer into it.
+  setup_rhs_storage(method, verbose);
 
   statecomp_t var, rhs, p_rhs, pp_rhs;
   std::vector<int> var_groups, rhs_groups, dep_groups;
