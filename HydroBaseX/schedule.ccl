@@ -1,5 +1,36 @@
 # Schedule definitions for thorn HydroBaseX
 
+STORAGE: rho
+STORAGE: press
+STORAGE: eps
+STORAGE: vel
+if (!CCTK_EQUALS(initial_Y_e, "none"))
+{
+  STORAGE: Ye
+}
+if (!CCTK_EQUALS(initial_Bvec, "none"))
+{
+  STORAGE: Bvec
+}
+if (!CCTK_EQUALS(initial_Avec, "none"))
+{
+  STORAGE: Avecx
+  STORAGE: Avecy
+  STORAGE: Avecz
+}
+if (!CCTK_EQUALS(initial_Aphi, "none"))
+{
+  STORAGE: Aphi
+}
+if (!CCTK_EQUALS(initial_temperature, "none"))
+{
+  STORAGE: temperature
+}
+if (!CCTK_EQUALS(initial_entropy, "none"))
+{
+  STORAGE: entropy
+}
+
 if (CCTK_IsThornActive("ODESolvers")) {
 
   SCHEDULE GROUP HydroBaseX_InitialData IN ODESolvers_Initial
@@ -42,22 +73,70 @@ if (CCTK_IsThornActive("ODESolvers")) {
 
 }
 
-
-
-if (CCTK_EQUALS(initial_hydro, "vacuum")) {
-  SCHEDULE HydroBaseX_initial_data IN HydroBaseX_InitialData
+if (CCTK_EQUALS(initial_hydro, "vacuum"))
+{
+  SCHEDULE HydroBaseX_Zero IN HydroBaseX_InitialData
   {
     LANG: C
     WRITES: rho(everywhere)
     WRITES: vel(everywhere)
     WRITES: eps(everywhere)
     WRITES: press(everywhere)
+  } "Set up vacuum hydro initial data"
+}
+
+if (CCTK_Equals(initial_temperature, "zero"))
+{
+  SCHEDULE HydroBaseX_temperature_zero IN HydroBaseX_InitialData
+  {
+    LANG: C
     WRITES: temperature(everywhere)
+  } "Set temperature to 0"
+}
+
+if (CCTK_Equals(initial_entropy, "zero"))
+{
+  SCHEDULE HydroBaseX_entropy_zero IN HydroBaseX_InitialData
+  {
+    LANG: C
     WRITES: entropy(everywhere)
+  } "Set entropy to 0"
+}
+
+if (CCTK_Equals(initial_Y_e, "one"))
+{
+  SCHEDULE HydroBaseX_Y_e_one IN HydroBaseX_InitialData
+  {
+    LANG: C
     WRITES: Ye(everywhere)
+  } "Set electron fraction to 1"
+}
+
+if (CCTK_Equals(initial_Bvec, "zero"))
+{
+  SCHEDULE HydroBaseX_Bvec_zero IN HydroBaseX_InitialData
+  {
+    LANG: C
     WRITES: Bvec(everywhere)
+  } "Set magnetic field to 0"
+}
+
+if (CCTK_Equals(initial_Avec, "zero"))
+{
+  SCHEDULE HydroBaseX_Avec_zero IN HydroBaseX_InitialData
+  {
+    LANG: C
     WRITES: Avecx(everywhere)
     WRITES: Avecy(everywhere)
     WRITES: Avecz(everywhere)
-  } "Set up vacuum initial data"
+  } "Set vector potential to 0"
+}
+
+if (CCTK_Equals(initial_Aphi, "zero"))
+{
+  SCHEDULE HydroBaseX_Aphi_zero IN HydroBaseX_InitialData
+  {
+    LANG: C
+    WRITES: Aphi(everywhere)
+  } "Set vector potential Phi to 0"
 }
