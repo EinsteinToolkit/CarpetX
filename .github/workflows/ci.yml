@@ -43,7 +43,15 @@ jobs:
 
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    container: einsteintoolkit/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}
+    # TEMPORARY: the `-testing` tags. These are the MPI-ABI images -- MPI, HDF5
+    # and PETSc come from the ABI in /usr/local rather than from distribution
+    # packages -- built from the dockerfiles in `docker/` in this same branch.
+    # They are not yet published under the plain tags, so CI has to name the
+    # testing ones to exercise them at all.
+    # Revert this line to
+    #     container: einsteintoolkit/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}
+    # before merging, once the plain tags have been pushed.
+    container: einsteintoolkit/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}-testing
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
