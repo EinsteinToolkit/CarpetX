@@ -10,6 +10,7 @@
 
 #include <div.hxx>
 
+#include <AMReX_MFParallelFor.H>
 #include <AMReX_MultiFab.H>
 
 #if defined _OPENMP || defined __HIPCC__
@@ -297,6 +298,11 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
     for (std::size_t n = 0; n < N; ++n) {
       assert(srcs[n]->mfabs.at(m)->nComp() == ncomp);
       assert(srcs[n]->mfabs.at(m)->nGrowVect() == ngrowvect);
+      // The sources are indexed by the destination's local box index, so
+      // they must be distributed in exactly the same way
+      assert(srcs[n]->mfabs.at(m)->boxArray() == dst.mfabs.at(m)->boxArray());
+      assert(srcs[n]->mfabs.at(m)->DistributionMap() ==
+             dst.mfabs.at(m)->DistributionMap());
     }
   }
 
@@ -314,6 +320,73 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
 
   // TODO: Poison ghosts/boundaries
 
+#ifdef AMREX_USE_GPU
+  // GPU
+  //
+  // Fuse all boxes of a state component into a single kernel launch:
+  // `amrex::experimental::ParallelFor` iterates over all local boxes of a
+  // `MultiFab` in one kernel and passes the local box index as first
+  // argument. Launching one kernel per box instead leaves a large GPU idle
+  // unless the boxes are large.
+
+  for (std::size_t m = 0; m < size; ++m) {
+    amrex::MultiFab &dstmfab = *dst.mfabs.at(m);
+    const int ncomps = dstmfab.nComp();
+    const amrex::IntVect ngrowvect = dstmfab.nGrowVect();
+
+    const amrex::MultiArray4<CCTK_REAL> dstvars = dstmfab.arrays();
+    std::array<amrex::MultiArray4<const CCTK_REAL>, N> srcvars;
+    for (std::size_t n = 0; n < N; ++n)
+      srcvars[n] = srcs[n]->mfabs.at(m)->const_arrays();
+
+    const CCTK_REAL scale1 = scale;
+
+    if (!read_dst) {
+      // Write
+
+      amrex::experimental::ParallelFor(
+          dstmfab, ngrowvect, ncomps,
+          [=] CCTK_DEVICE(const int b, const int i, const int j, const int k,
+                          const int n)
+              __attribute__((__always_inline__, __flatten__)) {
+                CCTK_REAL accum = 0;
+                // The ROCM 6.2 compiler can't handle `std::array::operator[]`,
+                // so we avoid it via pointers:
+                // for (std::size_t nn = 0; nn < N; ++nn)
+                //   accum += factors[nn] * srcvars[nn][b](i, j, k, n);
+                const CCTK_REAL *restrict const factors_ptr = factors.data();
+                const amrex::MultiArray4<const CCTK_REAL>
+                    *restrict const srcvars_ptr = srcvars.data();
+                for (std::size_t nn = 0; nn < N; ++nn)
+                  accum += factors_ptr[nn] * srcvars_ptr[nn][b](i, j, k, n);
+                dstvars[b](i, j, k, n) = accum;
+              });
+
+    } else {
+      // Update
+
+      amrex::experimental::ParallelFor(
+          dstmfab, ngrowvect, ncomps,
+          [=] CCTK_DEVICE(const int b, const int i, const int j, const int k,
+                          const int n)
+              __attribute__((__always_inline__, __flatten__)) {
+                CCTK_REAL accum = scale1 * dstvars[b](i, j, k, n);
+                // The ROCM 6.2 compiler can't handle `std::array::operator[]`,
+                // so we avoid it via pointers:
+                // for (std::size_t nn = 0; nn < N; ++nn)
+                //   accum += factors[nn] * srcvars[nn][b](i, j, k, n);
+                const CCTK_REAL *restrict const factors_ptr = factors.data();
+                const amrex::MultiArray4<const CCTK_REAL>
+                    *restrict const srcvars_ptr = srcvars.data();
+                for (std::size_t nn = 0; nn < N; ++nn)
+                  accum += factors_ptr[nn] * srcvars_ptr[nn][b](i, j, k, n);
+                dstvars[b](i, j, k, n) = accum;
+              });
+    }
+  }
+
+#else
+  // CPU
   for (std::size_t m = 0; m < size; ++m) {
     const std::ptrdiff_t ncomps = dst.mfabs.at(m)->nComp();
     const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync();
@@ -334,9 +407,6 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
       std::array<const CCTK_REAL *restrict, N> srcptrs;
       for (std::size_t n = 0; n < N; ++n)
         srcptrs[n] = srcvars[n].dataPtr();
-
-#ifndef AMREX_USE_GPU
-      // CPU
 
       const std::ptrdiff_t ntiles = omp_get_max_threads();
       const std::ptrdiff_t tile_size = Arith::align_ceil(
@@ -412,63 +482,10 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
           tasks.push_back(std::move(task));
         }
       } // for imin
-
-#else
-      // GPU
-
-      const CCTK_REAL scale1 = scale;
-      assert(npoints < INT_MAX);
-      const amrex::Box box(
-          amrex::IntVect(0, 0, 0), amrex::IntVect(npoints - 1, 0, 0),
-          amrex::IntVect(amrex::IndexType::CELL, amrex::IndexType::CELL,
-                         amrex::IndexType::CELL));
-
-      if (!read_dst) {
-
-        amrex::launch(
-            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
-                     __always_inline__, __flatten__)) {
-              const int i = box.smallEnd()[0];
-              // const int j = box.smallEnd()[1];
-              // const int k = box.smallEnd()[2];
-              CCTK_REAL accum = 0;
-              // The ROCM 6.2 compiler can't handle
-              // `std::array::operator[]`, so we avoid it via pointers:
-              // for (std::size_t n = 0; n < N; ++n)
-              //   accum += factors[n] * srcptrs[n][i];
-              const CCTK_REAL *restrict const factors_ptr = factors.data();
-              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
-                  srcptrs.data();
-              for (std::size_t n = 0; n < N; ++n)
-                accum += factors_ptr[n] * srcptrs_ptr[n][i];
-              dstptr[i] = accum;
-            });
-
-      } else {
-
-        amrex::launch(
-            box, [=] CCTK_DEVICE(const amrex::Box &box) __attribute__((
-                     __always_inline__, __flatten__)) {
-              const int i = box.smallEnd()[0];
-              // const int j = box.smallEnd()[1];
-              // const int k = box.smallEnd()[2];
-              CCTK_REAL accum = scale1 * dstptr[i];
-              // The ROCM 6.2 compiler can't handle
-              // `std::array::operator[]`, so we avoid it via pointers:
-              // for (std::size_t n = 0; n < N; ++n)
-              //   accum += factors[n] * srcptrs[n][i];
-              const CCTK_REAL *restrict const factors_ptr = factors.data();
-              const CCTK_REAL *restrict const *restrict const srcptrs_ptr =
-                  srcptrs.data();
-              for (std::size_t n = 0; n < N; ++n)
-                accum += factors_ptr[n] * srcptrs_ptr[n][i];
-              dstptr[i] = accum;
-            });
-      }
-
-#endif
     }
   }
+
+#endif
 
 #ifndef AMREX_USE_GPU
   // run all tasks
