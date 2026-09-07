@@ -17,9 +17,20 @@ on:
   # Allow running this workflow manually from the Actions tab
   workflow_dispatch:
 
-# concurrency:
-#   group: carpetx
-#   cancel-in-progress: false
+# Supersede an in-flight run when a newer commit arrives for the same branch.
+# Note this is *not* the repository-wide serialisation the previous, commented
+# out version of this block described (`group: carpetx`, cancel-in-progress
+# false): the group is per branch, so unrelated branches still build in
+# parallel, and a superseded run is cancelled rather than queued behind others.
+#
+# `head_ref` is the source branch on a `pull_request` and empty otherwise, so a
+# pull request groups by its own branch name and a push groups by its ref.
+# Cancelling is restricted to pull requests: a push to `main` or to an `ET_*`
+# branch should always finish, because that result is the record of whether the
+# commit built, and there is nothing to supersede it with.
+concurrency:
+  group: ${{github.workflow}}-${{github.head_ref || github.ref}}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
