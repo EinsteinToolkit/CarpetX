@@ -83,7 +83,7 @@ template <typename I> struct rational {
   friend constexpr rational operator-(const rational &x) {
     return rational(checked_neg(x.num), x.den, no_normalize());
   }
-  constexpr rational inv() const { return rational(den, num, no_normalize()); }
+  constexpr rational inv() const { return rational(den, num); }
 
   friend constexpr rational operator+(const rational &x, const rational &y) {
     return rational(
