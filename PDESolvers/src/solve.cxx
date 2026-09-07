@@ -1157,8 +1157,8 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
                    component_prolongated_sizes, Jp);
 
   // TODO: fix this
-  const std::vector<int> solinds{CCTK_VarIndex("Poisson::sol")};
-  const std::vector<int> resinds{CCTK_VarIndex("Poisson::res")};
+  const std::vector<int> solinds{CCTK_VarIndex("PoissonX::sol")};
+  const std::vector<int> resinds{CCTK_VarIndex("PoissonX::res")};
   const int nvars = solinds.size();
   assert(int(resinds.size()) == nvars);
 
@@ -1181,11 +1181,23 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
   ierr = VecSetFromOptions(r);
   assert(!ierr);
 
+  // Row equilibration: a left scaling applied to both the residual and the
+  // Jacobian. It is the identity until it is computed below, just before the
+  // solve; the lambdas capture it by reference and apply whatever it holds at
+  // the time they run.
+  Vec rowscale;
+  ierr = VecDuplicate(r, &rowscale);
+  assert(!ierr);
+  ierr = VecSet(rowscale, 1.0);
+  assert(!ierr);
+
   std::function<PetscErrorCode(SNES snes, Vec x, Vec f)> evalf =
       [&](SNES snes, Vec x, Vec f) {
         copy_PETSc_to_Cactus(x, solinds, component_offsets, component_sizes);
         CallScheduleGroup(cctkGH, "PDESolvers_Residual");
         copy_Cactus_to_PETSc(f, resinds, component_offsets, component_sizes);
+        const PetscErrorCode ierr = VecPointwiseMult(f, rowscale, f);
+        assert(!ierr);
         return 0;
       };
   ierr = SNESSetFunction(snes, r, FormFunction, &evalf);
@@ -1193,16 +1205,17 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
 
   // Matrix and Jacobian evaluation function
 
+  // The matrix is deliberately created without preallocation:
+  // `jacobians_t::define_matrix` preallocates it from the entries it is about
+  // to insert, once it knows them.
   Mat J;
-  ierr = MatCreateAIJ(PETSC_COMM_WORLD, nvars * npoints_local,
-                      nvars * npoints_local, nvars * npoints_global,
-                      nvars * npoints_global, dnz, NULL, onz, NULL, &J);
+  ierr = MatCreate(PETSC_COMM_WORLD, &J);
   assert(!ierr);
-  // ierr = MatCreate(PETSC_COMM_WORLD, &J);
-  // assert(!ierr);
-  // ierr = MatSetSizes(J, nvars * npoints_local, nvars * npoints_local,
-  //                    nvars * npoints_global, nvars * npoints_global);
-  // assert(!ierr);
+  ierr = MatSetSizes(J, nvars * npoints_local, nvars * npoints_local,
+                     nvars * npoints_global, nvars * npoints_global);
+  assert(!ierr);
+  ierr = MatSetType(J, MATAIJ);
+  assert(!ierr);
   ierr = MatSetFromOptions(J);
   assert(!ierr);
   jacobians = std::make_optional<jacobians_t>();
@@ -1213,6 +1226,10 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
         CallScheduleGroup(cctkGH, "PDESolvers_Jacobian");
         jacobians->define_matrix(Jp, J);
         jacobians->clear();
+        {
+          const PetscErrorCode ierr = MatDiagonalScale(J, rowscale, NULL);
+          assert(!ierr);
+        }
         if (false) {
           MatInfo info;
           PetscErrorCode ierr;
@@ -1243,6 +1260,45 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
   ierr = VecDuplicate(r, &x);
   assert(!ierr);
   copy_Cactus_to_PETSc(x, solinds, component_offsets, component_sizes);
+
+  // Row equilibration
+  //
+  // The rows of the flat matrix come from several refinement levels. For a
+  // second order operator their magnitudes differ by a factor 4^level, and
+  // algebraic multigrid then loses its resolution independence: AMG relies on
+  // the near null space (the constants) leaving a small residual, which
+  // requires the rows to be scaled comparably. Left scaling by 1/|J_ii|
+  // preserves each row sum and restores this. (PETSc's -ksp_diagonal_scale
+  // scales symmetrically, which does not preserve row sums and makes AMG
+  // converge worse; do not use it here.)
+  //
+  // This is a left preconditioner: it scales the residual and the Jacobian
+  // identically, so the Newton step and the solution are unchanged. It does
+  // change the residual norms that SNES and KSP test their tolerances against.
+  //
+  // The scaling is taken from the Jacobian at the initial guess and held fixed
+  // for the whole solve, so that residual and Jacobian can never be scaled
+  // inconsistently. Evaluating the Jacobian here costs one extra assembly;
+  // `define_matrix` zeroes the matrix first, so this is idempotent.
+  if (row_equilibration) {
+    ierr = evalJ(snes, x, J, J);
+    assert(!ierr);
+    ierr = MatGetDiagonal(J, rowscale);
+    assert(!ierr);
+    ierr = VecAbs(rowscale);
+    assert(!ierr);
+    PetscInt nlocal;
+    ierr = VecGetLocalSize(rowscale, &nlocal);
+    assert(!ierr);
+    PetscScalar *rowscale_ptr;
+    ierr = VecGetArray(rowscale, &rowscale_ptr);
+    assert(!ierr);
+    for (PetscInt i = 0; i < nlocal; ++i)
+      rowscale_ptr[i] =
+          rowscale_ptr[i] > 0 ? 1.0 / rowscale_ptr[i] : CCTK_REAL(1);
+    ierr = VecRestoreArray(rowscale, &rowscale_ptr);
+    assert(!ierr);
+  }
 
   // Solve
 
@@ -1325,6 +1381,7 @@ extern "C" void PDESolvers_Solve(CCTK_ARGUMENTS) {
   jacobians.reset();
   VecDestroy(&x);
   VecDestroy(&r);
+  VecDestroy(&rowscale);
   MatDestroy(&J);
   SNESDestroy(&snes);
   CCTK_INFO("Done.");

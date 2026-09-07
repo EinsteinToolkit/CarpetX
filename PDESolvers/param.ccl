@@ -3,17 +3,46 @@
 # -snes_monitor ascii
 # -ksp_monitor
 # -ksp_type {bcgs|bcgsl|gmres|...}   <https://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/KSP/KSPType.html>
+#
+# The default requests algebraic multigrid. PETSc's own default preconditioner
+# is ILU (block Jacobi with ILU on each block in parallel), whose iteration
+# count grows like 1/h; AMG is resolution independent. `gamg` is PETSc's
+# built-in AMG, so this default needs no external package.
+#
+# `-pc_gamg_threshold 0.0` is not optional. With GAMG's default threshold the
+# aggregation copes badly with this matrix as soon as a level is split into
+# more than one AMReX box, and both the iteration count and the setup cost
+# blow up. Linear iterations for a single level, measured with PoissonX:
+#
+#   unknowns   grid        ILU   gamg(default)  gamg(thresh 0)  BoomerAMG
+#      3,375   16^3 1 box   17         6              6             4
+#     29,791   32^3 1 box   32         6              6             4
+#     29,791   32^3 8 box   33        18              6             4
+#    250,047   64^3 8 box   56        38              7             4
+#    857,375   96^3         85   out of memory        8             7
+#
+# If PETSc was built with hypre, BoomerAMG needs the fewest iterations of all,
+# but note that hypre's default strong threshold of 0.25 is tuned for two
+# dimensions -- use 0.5 in three:
+#
+#   -ksp_type bcgs -pc_type hypre -pc_hypre_type boomeramg \
+#       -pc_hypre_boomeramg_strong_threshold 0.5
+#
+# AMG wins on iteration count at every size above, but not yet on wall time:
+# its setup dominates below roughly a million unknowns, where plain ILU is as
+# fast or faster. It is the asymptotics that make it the better default.
+#
+# Do not use `-ksp_type cg`: the matrix is not symmetric once there is more
+# than one refinement level, because prolongation is eliminated into the
+# neighbouring rows while restriction aliases indices.
+#
+# This is a single string, so a parameter file that sets it replaces this
+# default entirely rather than adding to it.
 STRING petsc_options "PETSc options" STEERABLE=recover
 {
   ".*" :: ""
-} ""
+} "-ksp_type bcgs -pc_type gamg -pc_gamg_threshold 0.0"
 
-INT dnz "Maximum number of diagonal Jacobian entries" STEERABLE=always
+BOOLEAN row_equilibration "Scale each row of the Jacobian, and the corresponding residual entry, by 1/|diagonal|" STEERABLE=recover
 {
-  1:* :: ""
-} 7
-
-INT onz "Maximum number of off-diagonal Jacobian entries" STEERABLE=always
-{
-  1:* :: ""
-} 4
+} "yes"

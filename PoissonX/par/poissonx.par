@@ -40,7 +40,14 @@ CarpetX::prolongation_type = "ddf"
 CarpetX::prolongation_order = 1
 CarpetX::interpolation_order = 1
 
-PDESolvers::petsc_options = "-snes_linesearch_type basic -ksp_type bcgs -snes_monitor ascii -snes_converged_reason -ksp_monitor -ksp_converged_reason -ksp_view_eigenvalues -ksp_view_singularvalues -ksp_monitor_singular_value"
+# Algebraic multigrid: resolution independent, unlike PETSc's default ILU.
+# The explicit threshold 0.0 is required; at GAMG's default threshold the
+# iteration count and setup cost blow up once a level spans several boxes.
+# `gamg` is built into PETSc; with a hypre-enabled PETSc, replace
+# `-pc_type gamg -pc_gamg_threshold 0.0` by
+#   -pc_type hypre -pc_hypre_type boomeramg -pc_hypre_boomeramg_strong_threshold 0.5
+# Do not use -ksp_type cg: the matrix is not symmetric with refinement.
+PDESolvers::petsc_options = "-snes_linesearch_type basic -ksp_type bcgs -pc_type gamg -pc_gamg_threshold 0.0 -snes_monitor ascii -snes_converged_reason -ksp_monitor -ksp_converged_reason -ksp_view_eigenvalues -ksp_view_singularvalues -ksp_monitor_singular_value"
 
 IO::out_dir = $parfile
 IO::out_every = 1
