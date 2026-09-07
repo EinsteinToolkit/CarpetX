@@ -26,6 +26,11 @@ jobs:
   # This workflow contains a single job
   download-build-test:
     strategy:
+      # TEMPORARY, alongside the `-testing` tags below: with the default
+      # fail-fast the first failing job cancels the other seven, so a single
+      # error hides whatever the other images would have said. Remove this
+      # together with the `-testing` suffix before merging.
+      fail-fast: false
       matrix:
         accelerator: [cpu, cuda, rocm, oneapi]
         real-precision: [real32, real64]
