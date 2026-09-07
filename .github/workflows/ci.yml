@@ -28,8 +28,6 @@ on:
 # Cancelling is restricted to pull requests: a push to `main` or to an `ET_*`
 # branch should always finish, because that result is the record of whether the
 # commit built, and there is nothing to supersede it with.
-#
-# Unlike `fail-fast` and the `-testing` tags, this is meant to stay.
 concurrency:
   group: ${{github.workflow}}-${{github.head_ref || github.ref}}
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
@@ -39,11 +37,6 @@ jobs:
   # This workflow contains a single job
   download-build-test:
     strategy:
-      # TEMPORARY, alongside the `-testing` tags below: with the default
-      # fail-fast the first failing job cancels the other seven, so a single
-      # error hides whatever the other images would have said. Remove this
-      # together with the `-testing` suffix before merging.
-      fail-fast: false
       matrix:
         accelerator: [cpu, cuda, rocm, oneapi]
         real-precision: [real32, real64]
@@ -61,15 +54,7 @@ jobs:
 
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    # TEMPORARY: the `-testing` tags. These are the MPI-ABI images -- MPI, HDF5
-    # and PETSc come from the ABI in /usr/local rather than from distribution
-    # packages -- built from the dockerfiles in `docker/` in this same branch.
-    # They are not yet published under the plain tags, so CI has to name the
-    # testing ones to exercise them at all.
-    # Revert this line to
-    #     container: einsteintoolkit/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}
-    # before merging, once the plain tags have been pushed.
-    container: einsteintoolkit/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}-testing
+    container: einsteintoolkit/carpetx:${{matrix.accelerator}}-${{matrix.real-precision}}
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
