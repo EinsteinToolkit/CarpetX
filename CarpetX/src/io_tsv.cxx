@@ -735,7 +735,7 @@ void OutputTSV(const cGH *restrict cctkGH) {
     if (verbose) {
       CCTK_VINFO("TSV output for groups:");
       for (int gi = 0; gi < CCTK_NumGroups(); ++gi)
-        if (group_enabled.at(gi))
+        if (enabled.at(gi))
           CCTK_VINFO("  %s", CCTK_FullGroupName(gi));
     }
     return enabled;
