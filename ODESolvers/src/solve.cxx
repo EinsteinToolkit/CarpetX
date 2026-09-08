@@ -683,66 +683,6 @@ int get_group_rhs(const int gi) {
   return rhs;
 }
 
-int get_group_p_rhs(const int gi) {
-  assert(gi >= 0);
-  const int tags = CCTK_GroupTagsTableI(gi);
-  assert(tags >= 0);
-
-  std::array<char, 1024> table_buffer{};
-  const int iret = Util_TableGetString(tags, table_buffer.size(),
-                                       table_buffer.data(), "p_rhs");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    table_buffer[0] = '\0'; // default: empty (no P_RHS)
-  } else if (iret >= 0) {
-    // do nothing
-  } else {
-    assert(0);
-  }
-
-  const std::string str(table_buffer.data());
-  if (str.empty())
-    return -1; // No P_RHS specified
-
-  const int p_rhs = groupindex(gi, str);
-  if (p_rhs < 0)
-    CCTK_VERROR("Variable group \"%s\" declares a P_RHS group \"%s\". "
-                "That group does not exist.",
-                CCTK_FullGroupName(gi), str.c_str());
-  assert(p_rhs != gi);
-
-  return p_rhs;
-}
-
-int get_group_pp_rhs(const int gi) {
-  assert(gi >= 0);
-  const int tags = CCTK_GroupTagsTableI(gi);
-  assert(tags >= 0);
-
-  std::array<char, 1024> table_buffer{};
-  const int iret = Util_TableGetString(tags, table_buffer.size(),
-                                       table_buffer.data(), "pp_rhs");
-  if (iret == UTIL_ERROR_TABLE_NO_SUCH_KEY) {
-    table_buffer[0] = '\0'; // default: empty (no PP_RHS)
-  } else if (iret >= 0) {
-    // do nothing
-  } else {
-    assert(0);
-  }
-
-  const std::string str(table_buffer.data());
-  if (str.empty())
-    return -1; // No PP_RHS specified
-
-  const int pp_rhs = groupindex(gi, str);
-  if (pp_rhs < 0)
-    CCTK_VERROR("Variable group \"%s\" declares a PP_RHS group \"%s\". "
-                "That group does not exist.",
-                CCTK_FullGroupName(gi), str.c_str());
-  assert(pp_rhs != gi);
-
-  return pp_rhs;
-}
-
 std::vector<int> get_group_dependents(const int gi) {
   assert(gi >= 0);
   const int tags = CCTK_GroupTagsTableI(gi);
@@ -904,7 +844,11 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   // pointer into it.
   setup_rhs_storage(method, verbose);
 
-  statecomp_t var, rhs, p_rhs, pp_rhs;
+  // Must not be constructed before setup_rhs_storage, which calls
+  // CarpetX::SetGroupTimelevels and asserts !integrating.
+  const CarpetX::integrating_guard_t integrating_guard;
+
+  statecomp_t var, rhs;
   std::vector<int> var_groups, rhs_groups, dep_groups;
   int nvars = 0;
   bool do_accumulate_nvars = true;
@@ -917,8 +861,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
       auto &groupdata = *groupdataptr;
       const int rhs_gi = get_group_rhs(groupdata.groupindex);
-      const int p_rhs_gi = get_group_p_rhs(groupdata.groupindex);
-      const int pp_rhs_gi = get_group_pp_rhs(groupdata.groupindex);
 
       if (rhs_gi >= 0) {
         assert(rhs_gi != groupdata.groupindex);
@@ -926,47 +868,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         assert(rhs_groupdata.numvars == groupdata.numvars);
         var.push_component(&groupdata, tl);
         rhs.push_component(&rhs_groupdata, tl);
-
-        // Make sure that the correct number of pre states are available if HRK
-        // methods are selected
-        // Two step methods are handled here
-        if (CCTK_EQUALS(method, "HRK423")) {
-          if (p_rhs_gi >= 0) {
-            assert(p_rhs_gi != groupdata.groupindex);
-            auto &p_rhs_groupdata = *leveldata.groupdata.at(p_rhs_gi);
-            p_rhs.push_component(&p_rhs_groupdata, tl);
-          } else {
-            CCTK_VERROR("Group %s provides no \"p_rhs\" tag for storing the "
-                        "previous RHS evaluations. This is required when using "
-                        "%s for time integration",
-                        groupdata.groupname.c_str(), method);
-          }
-        }
-
-        // Three step methods are handled here
-        if (CCTK_EQUALS(method, "HRK432")) {
-          if (p_rhs_gi >= 0) {
-            assert(p_rhs_gi != groupdata.groupindex);
-            auto &p_rhs_groupdata = *leveldata.groupdata.at(p_rhs_gi);
-            p_rhs.push_component(&p_rhs_groupdata, tl);
-          } else {
-            CCTK_VERROR("Group %s provides no \"p_rhs\" tag for storing the "
-                        "previous RHS evaluations. This is required when using "
-                        "%s for time integration",
-                        groupdata.groupname.c_str(), method);
-          }
-
-          if (pp_rhs_gi >= 0) {
-            assert(pp_rhs_gi != groupdata.groupindex);
-            auto &pp_rhs_groupdata = *leveldata.groupdata.at(pp_rhs_gi);
-            pp_rhs.push_component(&pp_rhs_groupdata, tl);
-          } else {
-            CCTK_VERROR("Group %s provides no \"pp_rhs\" tag for storing the "
-                        "previous-previous RHS evaluations. This is required "
-                        "when using %s for time integration",
-                        groupdata.groupname.c_str(), method);
-          }
-        }
 
         if (do_accumulate_nvars) {
           nvars += groupdata.numvars;
@@ -1060,6 +961,121 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         CCTK_VINFO("Calculated new state #%d at t=%g", n,
                    double(cctkGH->cctk_time));
     }
+  };
+
+  // A statecomp_t addressing the RHS group's time level `slot`, over every
+  // (var group, rhs group) pair, on every active level. Mirrors the loop that
+  // built `var`/`rhs` above, so components line up positionally with them.
+  // Must be rebuilt (called again) after any CarpetX::SwapGroupTimelevels
+  // touching `slot`: a statecomp_t built before such a swap keeps addressing
+  // the physical MultiFab that used to sit at `slot`, not whatever swap moved
+  // into `slot` afterwards.
+  const auto slot_state = [&](const int slot) {
+    statecomp_t result;
+    CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
+      for (const auto &groupdataptr : leveldata.groupdata) {
+        if (groupdataptr == nullptr)
+          continue;
+        auto &groupdata = *groupdataptr;
+        const int rhs_gi = get_group_rhs(groupdata.groupindex);
+        if (rhs_gi < 0)
+          continue;
+        auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
+        result.push_component(&rhs_groupdata, slot);
+      }
+    });
+    return result;
+  };
+
+  // Exchange time levels `a` and `b` of every RHS group, on the levels
+  // currently being integrated. Moves no data.
+  const auto swap_rhs_slots = [&](const int a, const int b) {
+    for (const int rhs_gi : rhs_groups)
+      CarpetX::SwapGroupTimelevels(rhs_gi, a, b);
+  };
+
+  // Whether some active level's RHS group is missing part of the history a
+  // hybrid method with this depth needs, i.e. whether the batch must
+  // bootstrap. Evaluated fresh every step; batch-wide by construction, since
+  // it scans every currently active level.
+  const auto history_incomplete = [&](const int depth) {
+    bool incomplete = false;
+    CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
+      for (const auto &groupdataptr : leveldata.groupdata) {
+        if (groupdataptr == nullptr)
+          continue;
+        auto &groupdata = *groupdataptr;
+        const int rhs_gi = get_group_rhs(groupdata.groupindex);
+        if (rhs_gi < 0)
+          continue;
+        auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
+        for (int slot = 1; slot <= depth; ++slot)
+          for (int vi = 0; vi < rhs_groupdata.numvars; ++vi)
+            if (!rhs_groupdata.valid.at(slot).at(vi).get().valid_int)
+              incomplete = true;
+      }
+    });
+    return incomplete;
+  };
+
+  // Invalidate (and poison) every RHS slot beyond the active method's depth.
+  // A hybrid step only ever leaves slots `1..depth` holding a true history
+  // value; slots beyond that hold stage scratch that must not be mistaken for
+  // history by a different hybrid method steered to on the very next step.
+  const auto invalidate_slots_beyond = [&](const int depth) {
+    for (int slot = depth + 1; slot <= 3; ++slot)
+      slot_state(slot).set_valid(CarpetX::valid_t(false));
+  };
+
+  // The classic RK4 step, shared by both hybrid methods' bootstrap: taken
+  // whenever the history is incomplete (at t=0, after recovery, on levels
+  // rebuilt by a regrid, or right after steering into a hybrid method).
+  // Classic RK4's own last stage leaves slot 0 holding the last stage's RHS
+  // rather than f(y_n); the two swaps around it correct that, at the cost of
+  // one extra state-sized copy (`kaccum`, parked in slot 3 instead of held in
+  // a temporary), matching what the plain "RK4" branch already costs.
+  const auto hybrid_bootstrap = [&](const int depth) {
+    if (verbose)
+      CCTK_VINFO("  Taking RK4 step to fill prev. RHS");
+
+    // k1 = f(y0)
+    // k2 = f(y0 + h/2 k1)
+    // k3 = f(y0 + h/2 k2)
+    // k4 = f(y0 + h k3)
+    // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
+
+    const auto old = copy_state(var, CarpetX::make_valid_all());
+
+    calcrhs(1);
+    swap_rhs_slots(0, 3); // move f(y_n) = k1 out of slot 0, into slot 3
+    const auto kaccum = copy_state(slot_state(3), CarpetX::make_valid_int());
+    calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
+
+    calcrhs(2);
+    const auto k2 = slot_state(0);
+    {
+      CarpetX::Interval interval_lincomb(timer_lincomb);
+      statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&k2},
+                           CarpetX::make_valid_int());
+    }
+    calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &k2});
+
+    calcrhs(3);
+    const auto k3 = slot_state(0);
+    {
+      CarpetX::Interval interval_lincomb(timer_lincomb);
+      statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&k3},
+                           CarpetX::make_valid_int());
+    }
+    calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &k3});
+
+    calcrhs(4);
+    const auto k4 = slot_state(0);
+    calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
+               states<3>{&old, &kaccum, &k4});
+
+    swap_rhs_slots(0, 3); // bring f(y_n) back to slot 0, evict k4 to slot 3
+    invalidate_slots_beyond(depth);
   };
 
   *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
@@ -1274,47 +1290,12 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   } else if (CCTK_EQUALS(method, "HRK423")) {
 
-    // RK4 Bootstrapping
-    if (static_cast<CCTK_INT>(*refill_prev_rhss) != 0) {
-      if (verbose) {
-        CCTK_VINFO("  Taking RK4 step to fill prev. RHS");
-      }
+    const int depth = history_depth(method); // 1
 
-      *refill_prev_rhss -= 1;
+    if (history_incomplete(depth)) {
 
-      // k1 = f(y0)
-      // k2 = f(y0 + h/2 k1)
-      // k3 = f(y0 + h/2 k2)
-      // k4 = f(y0 + h k3)
-      // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
+      hybrid_bootstrap(depth);
 
-      const auto old = copy_state(var, CarpetX::make_valid_all());
-
-      calcrhs(1);
-      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
-                           CarpetX::make_valid_int());
-      const auto kaccum = copy_state(rhs, CarpetX::make_valid_int());
-      calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
-
-      calcrhs(2);
-      {
-        CarpetX::Interval interval_lincomb(timer_lincomb);
-        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                             CarpetX::make_valid_int());
-      }
-      calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
-
-      calcrhs(3);
-      {
-        CarpetX::Interval interval_lincomb(timer_lincomb);
-        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                             CarpetX::make_valid_int());
-      }
-      calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
-
-      calcrhs(4);
-      calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
-                 states<3>{&old, &kaccum, &rhs});
     } else {
 
       // k0 = f(y(t - h))
@@ -1360,85 +1341,41 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                    a30_pure, a31_pure, a32_pure);
       }
 
-      // y(t)
+      // Entry invariant: [ scratch, k0=f(y_{n-1}), dead, dead ]
       const auto old = copy_state(var, CarpetX::make_valid_all());
+      const auto k0 = slot_state(1); // f(y_{n-1}); read-only for the whole step
 
-      // k0
-      const auto k0 = copy_state(p_rhs, CarpetX::make_valid_int());
-
-      // k1
-      calcrhs(1);
-
-      // cycle current RHS to previous
-      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
-                           CarpetX::make_valid_int());
-
-      const auto k1 = copy_state(rhs, CarpetX::make_valid_int());
+      calcrhs(1); // slot 0 = k1 = f(y_n)
+      swap_rhs_slots(0, 3); // [ scratch, k0, dead, k1 ]
+      const auto k1 = slot_state(3);
       calcupdate(1, dt / 2, 0.0, reals<3>{1.0, a20, a21},
                  states<3>{&old, &k0, &k1});
 
-      // k2
-      calcrhs(2);
-      const auto k2 = copy_state(rhs, CarpetX::make_valid_int());
+      calcrhs(2); // slot 0 = k2
+      swap_rhs_slots(0, 2); // [ scratch, k0, k2, k1 ]
+      const auto k2 = slot_state(2);
       calcupdate(2, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
                  states<4>{&old, &k0, &k1, &k2});
 
-      // k3
-      calcrhs(3);
-      const auto k3 = copy_state(rhs, CarpetX::make_valid_int());
+      calcrhs(3); // slot 0 = k3
+      const auto k3 = slot_state(0);
       calcupdate(3, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
                  states<5>{&old, &k0, &k1, &k2, &k3});
+
+      swap_rhs_slots(0, 3); // [ f(y_n)=k1, k0, k2, k3 ]
+      invalidate_slots_beyond(depth); // k2 and k3 are stage scratch, not history
     }
 
   } else if (CCTK_EQUALS(method, "HRK432")) {
 
-    // RK4 Bootstrapping
-    if (static_cast<CCTK_INT>(*refill_prev_rhss) != 0) {
-      if (verbose) {
-        CCTK_VINFO("  Taking RK4 step to fill prev. RHS");
-      }
+    const int depth = history_depth(method); // 2
 
-      *refill_prev_rhss -= 1;
+    if (history_incomplete(depth)) {
 
-      // k1 = f(y0)
-      // k2 = f(y0 + h/2 k1)
-      // k3 = f(y0 + h/2 k2)
-      // k4 = f(y0 + h k3)
-      // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
+      hybrid_bootstrap(depth);
 
-      const auto old = copy_state(var, CarpetX::make_valid_all());
-
-      calcrhs(1);
-
-      //  Cycle RHS storage
-      statecomp_t::lincomb(pp_rhs, 0.0, reals<1>{1.0}, states<1>{&p_rhs},
-                           CarpetX::make_valid_int());
-      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&rhs},
-                           CarpetX::make_valid_int());
-
-      const auto kaccum = copy_state(rhs, CarpetX::make_valid_int());
-      calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
-
-      calcrhs(2);
-      {
-        CarpetX::Interval interval_lincomb(timer_lincomb);
-        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                             CarpetX::make_valid_int());
-      }
-      calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &rhs});
-
-      calcrhs(3);
-      {
-        CarpetX::Interval interval_lincomb(timer_lincomb);
-        statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&rhs},
-                             CarpetX::make_valid_int());
-      }
-      calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &rhs});
-
-      calcrhs(4);
-      calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
-                 states<3>{&old, &kaccum, &rhs});
     } else {
+
       // k0 = f(y(t - 2 * h))
       // k1 = f(y(t - h))
       // k2 = f(y(t))
@@ -1474,33 +1411,26 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                    a32_pure);
       }
 
-      // y(t)
+      // Entry invariant: [ scratch, k1=f(y_{n-1}), k0=f(y_{n-2}), dead ]
       const auto old = copy_state(var, CarpetX::make_valid_all());
+      const auto k0 = slot_state(2); // f(y_{n-2}); read-only for the whole step
+      const auto k1 = slot_state(1); // f(y_{n-1}); read-only for the whole step
 
-      // k0
-      const auto k0 = copy_state(pp_rhs, CarpetX::make_valid_int());
-
-      // k1
-      const auto k1 = copy_state(p_rhs, CarpetX::make_valid_int());
-
-      // k2
-      calcrhs(1);
-      const auto k2 = copy_state(rhs, CarpetX::make_valid_int());
-
-      // Cycle RHS storage
-      statecomp_t::lincomb(pp_rhs, 0.0, reals<1>{1.0}, states<1>{&p_rhs},
-                           CarpetX::make_valid_int());
-      statecomp_t::lincomb(p_rhs, 0.0, reals<1>{1.0}, states<1>{&k2},
-                           CarpetX::make_valid_int());
-
+      calcrhs(1); // slot 0 = k2 = f(y_n)
+      swap_rhs_slots(0, 3); // [ scratch, k1, k0, k2 ]
+      const auto k2 = slot_state(3);
       calcupdate(1, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
                  states<4>{&old, &k0, &k1, &k2});
 
-      // k3
-      calcrhs(2);
+      calcrhs(2); // slot 0 = k3
+      const auto k3 = slot_state(0);
       calcupdate(2, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
-                 states<5>{&old, &k0, &k1, &k2, &rhs});
+                 states<5>{&old, &k0, &k1, &k2, &k3});
+
+      swap_rhs_slots(0, 3); // [ f(y_n)=k2, k1, k0, k3 ]
+      invalidate_slots_beyond(depth); // k3 is stage scratch, not history
     }
+
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
     typedef CCTK_REAL T;
@@ -1800,19 +1730,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = saved_time;
 
   // TODO: Update time here, and not during time level cycling in the driver
-}
-
-extern "C" void ODESolvers_SetRefillPrevRHSS(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_ODESolvers_SetRefillPrevRHSS;
-  DECLARE_CCTK_PARAMETERS;
-
-  if (CCTK_EQUALS(method, "HRK423")) {
-    *refill_prev_rhss = HRK_extra_bootstrap == -1 ? 1 : HRK_extra_bootstrap;
-  } else if (CCTK_EQUALS(method, "HRK432")) {
-    *refill_prev_rhss = HRK_extra_bootstrap == -1 ? 2 : HRK_extra_bootstrap;
-  } else {
-    *refill_prev_rhss = 0;
-  }
 }
 
 } // namespace ODESolvers
