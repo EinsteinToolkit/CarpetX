@@ -25,15 +25,38 @@ KEYWORD initial_dtlapse "Initial dtlapse value"
 {
   "none" :: "Do not set up initial conditions"
   "zero" :: "Dtlapse is zero"
-} "zero"
+} "none"
 
 KEYWORD initial_dtshift "Initial dtshift value"
 {
   "none" :: "Do not set up initial conditions"
   "zero" :: "Dtshift is zero"
-} "zero"
+} "none"
 
+KEYWORD evolution_method "The metric an extrinsic curvature evolution method"
+{
+  "none" :: "The metric and extrinsic curvature are not evolved"
+} "none"
 
+KEYWORD lapse_evolution_method "The lapse evolution method"
+{
+  "none" :: "lapse is not evolved"
+} "none"
+
+KEYWORD shift_evolution_method "The shift evolution method"
+{
+  "none" :: "shift is not evolved"
+} "none"
+
+KEYWORD dtlapse_evolution_method "The dtlapse evolution method"
+{
+  "none" :: "dtlapse is not evolved"
+} "none"
+
+KEYWORD dtshift_evolution_method "The dtshift evolution method"
+{
+  "none" :: "dtshift is not evolved"
+} "none"
 
 PRIVATE:
 
