@@ -1298,10 +1298,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     } else {
 
-      // k0 = f(y(t - h))
-      // k1 = f(y(t))
-      // k2 = f(y(t) + h * (a20 * k0 + a21 * k1))
-      // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
+      // k0 = f(t - h,      y(t - h))
+      // k1 = f(t,          y(t))
+      // k2 = f(t + c2 * h, y(t) + h * (a20 * k0 + a21 * k1))
+      // k3 = f(t + c3 * h, y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
       // clang-format off
@@ -1325,6 +1325,11 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const CCTK_REAL a30{a30_pure * dt};
       const CCTK_REAL a31{a31_pure * dt};
       const CCTK_REAL a32{a32_pure * dt};
+      // Stage times, as offsets from t. Both may be negative: the c_i are
+      // chosen to maximise the stability region and are searched over
+      // [-2, 2], so a stage may well be evaluated before t.
+      const CCTK_REAL c2{HRK423_c2 * dt};
+      const CCTK_REAL c3{HRK423_c3 * dt};
 
       if (verbose) {
         CCTK_VINFO("Coefficients:\n"
@@ -1336,9 +1341,11 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                    "  a21 = %.16f\n"
                    "  a30 = %.16f\n"
                    "  a31 = %.16f\n"
-                   "  a32 = %.16f",
+                   "  a32 = %.16f\n"
+                   "  c2  = %.16f\n"
+                   "  c3  = %.16f",
                    b0_pure, b1_pure, b2_pure, b3_pure, a20_pure, a21_pure,
-                   a30_pure, a31_pure, a32_pure);
+                   a30_pure, a31_pure, a32_pure, HRK423_c2, HRK423_c3);
       }
 
       // Entry invariant: [ scratch, k0=f(y_{n-1}), dead, dead ]
@@ -1348,13 +1355,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       calcrhs(1); // slot 0 = k1 = f(y_n)
       swap_rhs_slots(0, 3); // [ scratch, k0, dead, k1 ]
       const auto k1 = slot_state(3);
-      calcupdate(1, dt / 2, 0.0, reals<3>{1.0, a20, a21},
+      calcupdate(1, c2, 0.0, reals<3>{1.0, a20, a21},
                  states<3>{&old, &k0, &k1});
 
       calcrhs(2); // slot 0 = k2
       swap_rhs_slots(0, 2); // [ scratch, k0, k2, k1 ]
       const auto k2 = slot_state(2);
-      calcupdate(2, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
+      calcupdate(2, c3, 0.0, reals<4>{1.0, a30, a31, a32},
                  states<4>{&old, &k0, &k1, &k2});
 
       calcrhs(3); // slot 0 = k3
@@ -1376,10 +1383,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     } else {
 
-      // k0 = f(y(t - 2 * h))
-      // k1 = f(y(t - h))
-      // k2 = f(y(t))
-      // k3 = f(y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
+      // k0 = f(t - 2 * h,   y(t - 2 * h))
+      // k1 = f(t - h,       y(t - h))
+      // k2 = f(t,           y(t))
+      // k3 = f(t + c3 * h,  y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
       const CCTK_REAL b0_pure{hrk432_sol_1_b0(HRK432_c3)};
@@ -1397,6 +1404,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const CCTK_REAL a30{a30_pure * dt};
       const CCTK_REAL a31{a31_pure * dt};
       const CCTK_REAL a32{a32_pure * dt};
+      // Stage time, as an offset from t; see the note in the HRK423 branch
+      const CCTK_REAL c3{HRK432_c3 * dt};
 
       if (verbose) {
         CCTK_VINFO("Coefficients:\n"
@@ -1406,9 +1415,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                    "  b3  = %.16f\n"
                    "  a30 = %.16f\n"
                    "  a31 = %.16f\n"
-                   "  a32 = %.16f",
+                   "  a32 = %.16f\n"
+                   "  c3  = %.16f",
                    b0_pure, b1_pure, b2_pure, b3_pure, a30_pure, a31_pure,
-                   a32_pure);
+                   a32_pure, HRK432_c3);
       }
 
       // Entry invariant: [ scratch, k1=f(y_{n-1}), k0=f(y_{n-2}), dead ]
@@ -1419,7 +1429,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       calcrhs(1); // slot 0 = k2 = f(y_n)
       swap_rhs_slots(0, 3); // [ scratch, k1, k0, k2 ]
       const auto k2 = slot_state(3);
-      calcupdate(1, dt / 2, 0.0, reals<4>{1.0, a30, a31, a32},
+      calcupdate(1, c3, 0.0, reals<4>{1.0, a30, a31, a32},
                  states<4>{&old, &k0, &k1, &k2});
 
       calcrhs(2); // slot 0 = k3
