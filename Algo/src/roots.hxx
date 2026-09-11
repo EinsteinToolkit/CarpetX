@@ -7,6 +7,7 @@
 
 #include <cctk.h>
 
+#include <boost/math/policies/error_handling.hpp>
 #include <boost/math/tools/roots.hpp>
 
 #ifdef __HIPCC__
@@ -35,8 +36,12 @@
 
 namespace Algo {
 
+// These helpers exist so that the `using std::...` declaration can live in a
+// function body. That matters for `clamp1`, which is called with arguments
+// named `min` and `max` that would otherwise shadow `std::min` and `std::max`.
+
 namespace {
-template <typename T> constexpr void swap1(T &x, T &y) {
+template <typename T> constexpr ALGO_HOST ALGO_DEVICE void swap1(T &x, T &y) {
   T z = std::move(x);
   x = std::move(y);
   y = std::move(z);
@@ -44,58 +49,147 @@ template <typename T> constexpr void swap1(T &x, T &y) {
 } // namespace
 
 namespace {
-template <typename T> constexpr T ldexp1(const T &x, const int n) {
+template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE T ldexp1(const T &x, const int n) {
   using std::ldexp;
   return ldexp(x, n);
 }
 } // namespace
 
+namespace {
+template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE T max1(const T &x, const T &y) {
+  using std::max;
+  return max(x, y);
+}
+} // namespace
+
+namespace {
+template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE T clamp1(const T &x, const T &lo, const T &hi) {
+  using std::max, std::min;
+  return min(max(x, lo), hi);
+}
+} // namespace
+
+namespace {
+// Whether `x` and `y` bracket a sign change. Do not test this as `x * y < 0`:
+// that product underflows to `-0` for small operands, and `-0 < 0` is false,
+// so a bracket of e.g. `+1e-200` and `-1e-200` would be misread as having no
+// sign change at all.
+template <typename T>
+constexpr ALGO_HOST ALGO_DEVICE bool opposite_signs1(const T &x, const T &y) {
+  return (x < 0 && y > 0) || (x > 0 && y < 0);
+}
+} // namespace
+
+// A relative convergence criterion, equivalent to
+// `boost::math::tools::eps_tolerance`: two values are considered equal once
+// they agree to `min_bits` binary digits.
+//
+// Note that this is a purely relative criterion, as it is in Boost. A bracket
+// that straddles zero therefore never satisfies it, because `min(|x|, |y|)`
+// tends to zero along with the bracket; such a search terminates on its
+// iteration count instead. Callers looking for a root at zero need an absolute
+// criterion, which this class deliberately does not provide.
 template <typename T> class eps_tolerance {
   T eps;
 
 public:
-  constexpr eps_tolerance() : eps(10 * std::numeric_limits<T>::epsilon()) {}
-  constexpr eps_tolerance(const int min_bits) : eps(ldexp1(T(1), -min_bits)) {}
-  constexpr bool operator()(const T &x, const T &y) const {
+  constexpr ALGO_HOST ALGO_DEVICE eps_tolerance()
+      : eps(4 * std::numeric_limits<T>::epsilon()) {}
+  // `eps` is clamped from below at `4 * epsilon`, as Boost does. Without the
+  // clamp, any `min_bits >= digits` asks for a precision that no two distinct
+  // floating-point numbers can satisfy, and the search silently runs until it
+  // exhausts its iteration count.
+  explicit constexpr ALGO_HOST ALGO_DEVICE eps_tolerance(const int min_bits)
+      : eps(max1(ldexp1(T(1), 1 - min_bits),
+                 T(4 * std::numeric_limits<T>::epsilon()))) {}
+  constexpr ALGO_HOST ALGO_DEVICE bool operator()(const T &x,
+                                                  const T &y) const {
     using std::abs, std::min;
     return abs(x - y) <= eps * min(abs(x), abs(y));
   }
 };
 
+// The wrappers below run on the host only: Boost's root finders are not
+// device code. Each reports failure through `failed` rather than by throwing.
+// Boost raises `evaluation_error` both for argument errors it can detect (a
+// reversed `[min, max]`) and for a search that genuinely fails (it decides it
+// is at a local minimum rather than a root); neither can be suppressed with a
+// policy for the derivative-based iterates, which hardcode `policy<>()`, and
+// an exception escaping into the flesh would terminate the run.
+//
+// They also refuse an empty iteration budget rather than passing it on. Boost
+// counts down in a `do ... while (count && ...)` and decrements before it
+// tests, so a budget of zero underflows to an unbounded search; a negative
+// `max_iters` would convert to an enormous unsigned budget in the first place.
+// Neither can be expressed to Boost, so an empty budget is answered here.
+
 template <typename F, typename T>
 std::pair<T, T> bisect(F &&f, T min, T max, int min_bits, int max_iters,
-                       int &iters) {
+                       int &iters, bool &failed) {
+  iters = 0;
+  failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return {min, max};
+  }
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::bisect(
-      std::forward<F>(f), min, max,
-      boost::math::tools::eps_tolerance<T>(min_bits), max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::bisect(
+        std::forward<F>(f), min, max,
+        boost::math::tools::eps_tolerance<T>(min_bits), max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return {min, max};
+  }
 }
 
 template <typename F, typename T>
 std::pair<T, T> bracket_and_solve_root(F &&f, T guess, T factor, bool rising,
-                                       int min_bits, int max_iters,
-                                       int &iters) {
+                                       int min_bits, int max_iters, int &iters,
+                                       bool &failed) {
+  iters = 0;
+  failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return {guess, guess};
+  }
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::bracket_and_solve_root(
-      std::forward<F>(f), guess, factor, rising,
-      // boost::math::tools::eps_tolerance<T>(min_bits),
-      eps_tolerance<T>(min_bits), max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::bracket_and_solve_root(
+        std::forward<F>(f), guess, factor, rising, eps_tolerance<T>(min_bits),
+        max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return {guess, guess};
+  }
 }
 
 // See <https://en.wikipedia.org/wiki/Brent%27s_method>
+//
+// Returns a bracket containing the root. `iters` is the number of iterations
+// performed. `failed` is set if no root was found, either because `[a, b]` did
+// not bracket one to begin with, or because `max_iters` was reached before the
+// bracket converged.
 template <typename F, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE ALGO_HOST ALGO_DEVICE std::pair<T, T>
-brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
+brent(F f, T a, T b, int min_bits, int max_iters, int &iters, bool &failed) {
   using std::abs, std::min, std::max;
 
-  // auto tol = boost::math::tools::eps_tolerance<T>(min_bits);
   const auto tol = eps_tolerance<T>(min_bits);
 
   iters = 0;
+  failed = false;
   auto fa = f(a);
   auto fb = f(b);
   if (abs(fa) < abs(fb)) {
@@ -104,9 +198,9 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
   }
   if (fb == 0)
     return {b, b};
-  if (fa * fb >= 0) {
+  if (!opposite_signs1(fa, fb)) {
     // Root is not bracketed
-    iters = max_iters;
+    failed = true;
     return {min(a, b), max(a, b)};
   }
   T c = a;
@@ -146,18 +240,17 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
     d = c;
     c = b;
     fc = fb;
-    if (fa * fs < 0) {
+    if (opposite_signs1(fa, fs)) {
       b = s;
       fb = fs;
     } else {
       a = s;
       fa = fs;
     }
-    // CCTK_VINFO("iters=%d mflag=%d   a=%.17g b=%.17g c=%.17g d=%.17g fa=%.17g"
-    //            "fb=%.17g fc=%.17g",
-    //            iters, int(mflag), double(a), double(b), double(c), double(d),
-    //            double(fa), double(fb), double(fc));
-    assert(fa * fb <= 0);
+    // The bracket is still valid. `fa` can be exactly zero here: if `fs` was
+    // zero we took the `else` branch above, and the swap below has not yet run
+    // to move that root into `b`.
+    assert(fa == 0 || fb == 0 || opposite_signs1(fa, fb));
     if (abs(fa) < abs(fb)) {
       swap1(a, b);
       swap1(fa, fb);
@@ -167,41 +260,88 @@ brent(F f, T a, T b, int min_bits, int max_iters, int &iters) {
 
   if (fb == 0)
     return {b, b};
+  failed = !tol(a, b);
   return {min(a, b), max(a, b)};
 }
 
 // Requires function and its derivative
 template <typename F, typename T>
-T newton_raphson(F f, T guess, T min, T max, int min_bits, int max_iters,
-                 int &iters) {
+T newton_raphson(F &&f, T guess, T min, T max, int min_bits, int max_iters,
+                 int &iters, bool &failed) {
+  iters = 0;
+  failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return guess;
+  }
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::newton_raphson_iterate(
-      std::forward<F>(f), guess, min, max, min_bits, max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::newton_raphson_iterate(
+        std::forward<F>(f), guess, min, max, min_bits, max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return guess;
+  }
 }
 
 // Requires function and first two derivatives
 template <typename F, typename T>
-T halley(F f, T guess, T min, T max, int min_bits, int max_iters, int &iters) {
+T halley(F &&f, T guess, T min, T max, int min_bits, int max_iters, int &iters,
+         bool &failed) {
+  iters = 0;
+  failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return guess;
+  }
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess, min,
-                                                max, min_bits, max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess,
+                                                  min, max, min_bits, max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return guess;
+  }
 }
 
 // Requires function and first two derivatives
 template <typename F, typename T>
-T schroder(F f, T guess, T min, T max, int min_bits, int max_iters,
-           int &iters) {
+T schroder(F &&f, T guess, T min, T max, int min_bits, int max_iters,
+           int &iters, bool &failed) {
+  iters = 0;
+  failed = false;
+  assert(max_iters >= 0);
+  if (max_iters <= 0) {
+    failed = true;
+    return guess;
+  }
   std::uintmax_t max_iter = max_iters;
-  auto res = boost::math::tools::halley_iterate(std::forward<F>(f), guess, min,
-                                                max, min_bits, max_iter);
-  iters = max_iter;
-  return res;
+  try {
+    auto res = boost::math::tools::schroder_iterate(
+        std::forward<F>(f), guess, min, max, min_bits, max_iter);
+    iters = max_iter;
+    return res;
+  } catch (const boost::math::evaluation_error &) {
+    iters = max_iter;
+    failed = true;
+    return guess;
+  }
 }
 
+// Multi-dimensional Newton-Raphson iteration. `f` returns both the residual
+// and its Jacobian. Iterates are confined to the box `[min, max]`.
+//
+// `iters` is the number of Newton steps taken, at most `max_iters`. `failed`
+// is set if no solution was found, i.e. if the Jacobian became singular, if the
+// iteration stalled on a bound, or if `max_iters` was reached.
 template <typename F, typename T, int N>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE ALGO_HOST ALGO_DEVICE Arith::vec<T, N>
 newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
@@ -209,25 +349,48 @@ newton_raphson_nd(F f, const Arith::vec<T, N> &guess,
                   int min_bits, int max_iters, int &iters, bool &failed) {
   using vec = Arith::vec<T, N>;
   using mat = Arith::mat<T, N>;
-  failed = false;
-  // auto tolfx = boost::math::tools::eps_tolerance<T>(min_bits);
+  using std::isfinite;
+
   const auto tolfx = eps_tolerance<T>(min_bits);
-  vec x = guess;
-  for (iters = 1; iters <= max_iters; ++iters) {
+
+  failed = true;
+  vec x([&](int i) { return clamp1(guess(i), min(i), max(i)); });
+
+  for (iters = 0; iters <= max_iters; ++iters) {
     const auto [fx0, jac0] = f(x);
     const vec fx = fx0;
     const mat jac = jac0;
+
+    // Comparing `1 + errfx` against `1` reduces to `errfx <= eps`, i.e. this is
+    // an absolute criterion on the residual, and hence sensitive to how `f` is
+    // scaled.
     const T errfx = sumabs(fx);
-    if (tolfx(1 + errfx, 1))
+    if (tolfx(1 + errfx, 1)) {
+      failed = false;
       return x;
+    }
+    if (iters == max_iters)
+      break;
+
     const T det_jac = calc_det(jac);
+    if (!isfinite(det_jac) || det_jac == 0)
+      // Singular Jacobian; there is no Newton step to take
+      break;
     const mat inv_jac = calc_inv(jac, det_jac);
     const vec dx([&](int i) {
-      return -Arith::sum<2>([&](int j) { return inv_jac(i, j) * fx(j); });
+      return -Arith::sum<N>([&](int j) { return inv_jac(i, j) * fx(j); });
     });
-    x += dx;
+    const vec xnew([&](int i) { return clamp1(x(i) + dx(i), min(i), max(i)); });
+
+    bool moved = false;
+    for (int i = 0; i < N; ++i)
+      moved |= xnew(i) != x(i);
+    if (!moved)
+      // The iteration is stuck, most likely against a bound
+      break;
+    x = xnew;
   }
-  failed = true;
+
   return x;
 }
 

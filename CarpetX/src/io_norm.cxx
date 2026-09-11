@@ -43,9 +43,9 @@ void OutputNorms(const cGH *restrict cctkGH) {
         }};
     CCTK_TraverseString(out_norm_vars, callback, &enabled, CCTK_GROUP_OR_VAR);
     if (verbose) {
-      CCTK_VINFO("TSV output for groups:");
+      CCTK_VINFO("Norm output for groups:");
       for (int gi = 0; gi < CCTK_NumGroups(); ++gi)
-        if (group_enabled.at(gi))
+        if (enabled.at(gi))
           CCTK_VINFO("  %s", CCTK_FullGroupName(gi));
     }
     return enabled;
