@@ -3,8 +3,8 @@
 #include "../../CarpetX/src/schedule.hxx"
 #include "../../CarpetX/src/timer.hxx"
 
-// TODO: These are temporary includes used only duringthe parameter tuning phase
-// of hybrid methods and will be removed in production
+// Frozen published coefficients for the hybrid methods, main.tex Table
+// tab:grand_coefficient_table.
 #include "rk423.hpp"
 #include "hrk432.hpp"
 
@@ -27,12 +27,8 @@ static inline int omp_get_max_threads() { return 1; }
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cctype>
-#include <cmath>
 #include <cstring>
-#include <functional>
 #include <limits>
-#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -821,8 +817,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_ODESolvers_Solve;
   DECLARE_CCTK_PARAMETERS;
 
-  // TODO: This is temporary used only duringthe parameter tuning phase
-  // of hybrid methods and will be removed in production
   using namespace HybridMethods;
 
   static bool did_output = false;
@@ -1305,15 +1299,17 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
       // clang-format off
-      const CCTK_REAL b0_pure {HRK423_sol == 1 ? rk423_sol_1_b0(HRK423_c2, HRK423_c3) : rk423_sol_2_b0(HRK423_c2, HRK423_c3)};
-      const CCTK_REAL b1_pure {HRK423_sol == 1 ? rk423_sol_1_b1(HRK423_c2, HRK423_c3) : rk423_sol_2_b1(HRK423_c2, HRK423_c3)};
-      const CCTK_REAL b2_pure {HRK423_sol == 1 ? rk423_sol_1_b2(HRK423_c2, HRK423_c3) : rk423_sol_2_b2(HRK423_c2, HRK423_c3)};
-      const CCTK_REAL a20_pure{HRK423_sol == 1 ? rk423_sol_1_a20(HRK423_c2, HRK423_c3) : rk423_sol_2_a20(HRK423_c2, HRK423_c3)};
-      const CCTK_REAL a30_pure{HRK423_sol == 1 ? rk423_sol_1_a30(HRK423_c2, HRK423_c3) : rk423_sol_2_a30(HRK423_c2, HRK423_c3)};
-      const CCTK_REAL a31_pure{HRK423_sol == 1 ? rk423_sol_1_a31(HRK423_c2, HRK423_c3) : rk423_sol_2_a31(HRK423_c2, HRK423_c3)};
+      const CCTK_REAL c2_pure {HRK423_sol == 1 ? rk423_sol_1_c2<CCTK_REAL>() : rk423_sol_2_c2<CCTK_REAL>()};
+      const CCTK_REAL c3_pure {HRK423_sol == 1 ? rk423_sol_1_c3<CCTK_REAL>() : rk423_sol_2_c3<CCTK_REAL>()};
+      const CCTK_REAL b0_pure {HRK423_sol == 1 ? rk423_sol_1_b0<CCTK_REAL>() : rk423_sol_2_b0<CCTK_REAL>()};
+      const CCTK_REAL b1_pure {HRK423_sol == 1 ? rk423_sol_1_b1<CCTK_REAL>() : rk423_sol_2_b1<CCTK_REAL>()};
+      const CCTK_REAL b2_pure {HRK423_sol == 1 ? rk423_sol_1_b2<CCTK_REAL>() : rk423_sol_2_b2<CCTK_REAL>()};
+      const CCTK_REAL a20_pure{HRK423_sol == 1 ? rk423_sol_1_a20<CCTK_REAL>() : rk423_sol_2_a20<CCTK_REAL>()};
+      const CCTK_REAL a30_pure{HRK423_sol == 1 ? rk423_sol_1_a30<CCTK_REAL>() : rk423_sol_2_a30<CCTK_REAL>()};
+      const CCTK_REAL a31_pure{HRK423_sol == 1 ? rk423_sol_1_a31<CCTK_REAL>() : rk423_sol_2_a31<CCTK_REAL>()};
       const CCTK_REAL b3_pure {1.0 - (b0_pure + b1_pure + b2_pure)};
-      const CCTK_REAL a21_pure{HRK423_c2 - a20_pure};
-      const CCTK_REAL a32_pure{HRK423_c3 - (a30_pure + a31_pure)};
+      const CCTK_REAL a21_pure{c2_pure - a20_pure};
+      const CCTK_REAL a32_pure{c3_pure - (a30_pure + a31_pure)};
       // clang-format on
 
       const CCTK_REAL b0{b0_pure * dt};
@@ -1328,8 +1324,8 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // Stage times, as offsets from t. Both may be negative: the c_i are
       // chosen to maximise the stability region and are searched over
       // [-2, 2], so a stage may well be evaluated before t.
-      const CCTK_REAL c2{HRK423_c2 * dt};
-      const CCTK_REAL c3{HRK423_c3 * dt};
+      const CCTK_REAL c2{c2_pure * dt};
+      const CCTK_REAL c3{c3_pure * dt};
 
       if (verbose) {
         CCTK_VINFO("Coefficients:\n"
@@ -1345,7 +1341,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                    "  c2  = %.16f\n"
                    "  c3  = %.16f",
                    b0_pure, b1_pure, b2_pure, b3_pure, a20_pure, a21_pure,
-                   a30_pure, a31_pure, a32_pure, HRK423_c2, HRK423_c3);
+                   a30_pure, a31_pure, a32_pure, c2_pure, c3_pure);
       }
 
       // Entry invariant: [ scratch, k0=f(y_{n-1}), dead, dead ]
@@ -1389,13 +1385,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // k3 = f(t + c3 * h,  y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const CCTK_REAL b0_pure{hrk432_sol_1_b0(HRK432_c3)};
-      const CCTK_REAL b1_pure{hrk432_sol_1_b1(HRK432_c3)};
-      const CCTK_REAL b2_pure{hrk432_sol_1_b2(HRK432_c3)};
-      const CCTK_REAL a30_pure{hrk432_sol_1_a30(HRK432_c3)};
-      const CCTK_REAL a31_pure{hrk432_sol_1_a31(HRK432_c3)};
+      const CCTK_REAL c3_pure{hrk432_sol_1_c3<CCTK_REAL>()};
+      const CCTK_REAL b0_pure{hrk432_sol_1_b0<CCTK_REAL>()};
+      const CCTK_REAL b1_pure{hrk432_sol_1_b1<CCTK_REAL>()};
+      const CCTK_REAL b2_pure{hrk432_sol_1_b2<CCTK_REAL>()};
+      const CCTK_REAL a30_pure{hrk432_sol_1_a30<CCTK_REAL>()};
+      const CCTK_REAL a31_pure{hrk432_sol_1_a31<CCTK_REAL>()};
       const CCTK_REAL b3_pure{1 - (b0_pure + b1_pure + b2_pure)};
-      const CCTK_REAL a32_pure{HRK432_c3 - (a30_pure + a31_pure)};
+      const CCTK_REAL a32_pure{c3_pure - (a30_pure + a31_pure)};
 
       const CCTK_REAL b0{b0_pure * dt};
       const CCTK_REAL b1{b1_pure * dt};
@@ -1405,7 +1402,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const CCTK_REAL a31{a31_pure * dt};
       const CCTK_REAL a32{a32_pure * dt};
       // Stage time, as an offset from t; see the note in the HRK423 branch
-      const CCTK_REAL c3{HRK432_c3 * dt};
+      const CCTK_REAL c3{c3_pure * dt};
 
       if (verbose) {
         CCTK_VINFO("Coefficients:\n"
@@ -1418,7 +1415,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                    "  a32 = %.16f\n"
                    "  c3  = %.16f",
                    b0_pure, b1_pure, b2_pure, b3_pure, a30_pure, a31_pure,
-                   a32_pure, HRK432_c3);
+                   a32_pure, c3_pure);
       }
 
       // Entry invariant: [ scratch, k1=f(y_{n-1}), k0=f(y_{n-2}), dead ]

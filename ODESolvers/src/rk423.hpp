@@ -1,77 +1,57 @@
-#include <cmath>
-
 namespace HybridMethods {
 
-template <typename T> static inline auto rk423_sol_1_b0(T c2, T c3) -> T {
-  using std::pow;
-  return (-3 + c2 * (4 - 6 * c3) + 4 * c3) / (12. * (1 + c2) * (1 + c3));
+// Frozen coefficients for the two published solutions of the 2-step, 3-stage
+// fourth order methods. b3, a21 and a32 are not listed here: solve.cxx derives
+// them as b3 = 1 - (b0+b1+b2), a21 = c2 - a20, a32 = c3 - (a30+a31)
+
+template <typename T> static inline auto rk423_sol_1_c2() -> T {
+  return T(7) / T(25);
+}
+template <typename T> static inline auto rk423_sol_1_c3() -> T {
+  return T(-13) / T(25);
+}
+template <typename T> static inline auto rk423_sol_1_b0() -> T {
+  return T(-643) / T(1536);
+}
+template <typename T> static inline auto rk423_sol_1_b1() -> T {
+  return T(-4237) / T(1092);
+}
+template <typename T> static inline auto rk423_sol_1_b2() -> T {
+  return T(38125) / T(10752);
+}
+template <typename T> static inline auto rk423_sol_1_a20() -> T {
+  return T(-49) / T(1250);
+}
+template <typename T> static inline auto rk423_sol_1_a30() -> T {
+  return T(7033) / T(960000);
+}
+template <typename T> static inline auto rk423_sol_1_a31() -> T {
+  return T(-217633) / T(210000);
 }
 
-template <typename T> static inline auto rk423_sol_1_b1(T c2, T c3) -> T {
-  using std::pow;
-  return (7 - 10 * c3 + 2 * c2 * (-5 + 9 * c3)) / (12. * c2 * c3);
+template <typename T> static inline auto rk423_sol_2_c2() -> T {
+  return T(-99) / T(50);
 }
-
-template <typename T> static inline auto rk423_sol_1_b2(T c2, T c3) -> T {
-  using std::pow;
-  return (7 - 10 * c3) / (12. * c2 * (1 + c2) * (c2 - c3));
+template <typename T> static inline auto rk423_sol_2_c3() -> T {
+  return T(101) / T(100);
 }
-
-template <typename T> static inline auto rk423_sol_1_a20(T c2, T c3) -> T {
-  using std::pow;
-  return -0.5 * pow(c2, 2);
+template <typename T> static inline auto rk423_sol_2_b0() -> T {
+  return T(-191) / T(882);
 }
-
-template <typename T> static inline auto rk423_sol_1_a30(T c2, T c3) -> T {
-  using std::pow;
-  return (c3 *
-          (7 * c2 * (3 + 2 * c2) - 3 * c2 * (-4 + 5 * c2 * (1 + 2 * c2)) * c3 -
-           2 * (7 + 12 * c2) * pow(c3, 2))) /
-         (6. * pow(1 + c2, 2) * (-7 + 10 * c2));
+template <typename T> static inline auto rk423_sol_2_b1() -> T {
+  return T(48241) / T(59994);
 }
-
-template <typename T> static inline auto rk423_sol_1_a31(T c2, T c3) -> T {
-  using std::pow;
-  return (c3 * (pow(c2, 2) * (4 - 15 * c3) + 30 * pow(c2, 3) * (2 + c3) +
-                7 * c3 * (3 + 2 * c3) + 3 * c2 * (-21 + c3 * (-7 + 8 * c3)))) /
-         (6. * c2 * (1 + c2) * (-7 + 10 * c2));
+template <typename T> static inline auto rk423_sol_2_b2() -> T {
+  return T(193750) / T(4351347);
 }
-
-template <typename T> static inline auto rk423_sol_2_b0(T c2, T c3) -> T {
-  using std::pow;
-  return (-3 + c2 * (4 - 6 * c3) + 4 * c3) / (12. * (1 + c2) * (1 + c3));
+template <typename T> static inline auto rk423_sol_2_a20() -> T {
+  return T(1309) / T(15500);
 }
-
-template <typename T> static inline auto rk423_sol_2_b1(T c2, T c3) -> T {
-  using std::pow;
-  return (7 - 10 * c3 + 2 * c2 * (-5 + 9 * c3)) / (12. * c2 * c3);
+template <typename T> static inline auto rk423_sol_2_a30() -> T {
+  return T(-241289) / T(5880000);
 }
-
-template <typename T> static inline auto rk423_sol_2_b2(T c2, T c3) -> T {
-  using std::pow;
-  return (7 - 10 * c3) / (12. * c2 * (1 + c2) * (c2 - c3));
-}
-
-template <typename T> static inline auto rk423_sol_2_a20(T c2, T c3) -> T {
-  using std::pow;
-  return (c2 * (-21 + 2 * c2 * (7 + 12 * c3) + 4 * c3 * (8 + 15 * c3))) /
-         (12. * (1 + c3) * (-7 + 10 * c3));
-}
-
-template <typename T> static inline auto rk423_sol_2_a30(T c2, T c3) -> T {
-  using std::pow;
-  return (c3 * (7 * (-3 + 8 * c2) - 2 * (5 + 6 * c2 * (1 + 5 * c2)) * c3 +
-                12 * (8 - 5 * c2) * pow(c3, 2) + 120 * pow(c3, 3))) /
-         (12. * (1 + c2) * (-7 + 10 * c2));
-}
-
-template <typename T> static inline auto rk423_sol_2_a31(T c2, T c3) -> T {
-  using std::pow;
-  return (c3 * (c2 * (-147 + 20 * c2 * (-1 + 6 * c2)) +
-                2 * (42 + c2 * (23 + 6 * c2 * (1 + 5 * c2))) * c3 +
-                12 * (1 + c2) * (-3 + 5 * c2) * pow(c3, 2) -
-                120 * (1 + c2) * pow(c3, 3))) /
-         (12. * c2 * (1 + c2) * (-7 + 10 * c2));
+template <typename T> static inline auto rk423_sol_2_a31() -> T {
+  return T(22846301) / T(16170000);
 }
 
 } // namespace HybridMethods

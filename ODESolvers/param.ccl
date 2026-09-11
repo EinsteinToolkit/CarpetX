@@ -24,24 +24,11 @@ BOOLEAN verbose "Verbose output" STEERABLE=always
 {
 } "no"
 
-# TODO: These are temporary parameters used only duringthe parameter tuning phase
-# of hybrid methods and will be removed in production
-CCTK_INT HRK423_sol "Which solution to use for HRK423"
+# HRK423 covers both published solutions of the 2-step method family
+# (main.tex, Table tab:grand_coefficient_table, columns "RK4-2(1)" and
+# "RK4-2(2)"). Their coefficients, including c2/c3, are frozen in rk423.hpp;
+# this only chooses which published solution to evaluate.
+CCTK_INT HRK423_sol "Which published RK4-2 solution HRK423 uses"
 {
-  *:* :: ""
+  1:2 :: "solution (1) or (2) of the two-step method"
 } 1
-
-CCTK_REAL HRK423_c2 "c2 coefficient for HRK423"
-{
-  *:* :: ""
-} 0.28
-
-CCTK_REAL HRK423_c3 "c3 coefficient for HRK423"
-{
-  *:* :: ""
-} -0.52
-
-CCTK_REAL HRK432_c3 "c3 coefficient for HRK432"
-{
-  *:* :: ""
-} 0.36
