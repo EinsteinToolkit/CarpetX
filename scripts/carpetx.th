@@ -63,6 +63,7 @@
 !TYPE     = git
 !URL      = https://bitbucket.org/simfactory/simfactory2.git
 !REPO_PATH = $1
+!REPO_BRANCH = master
 !NAME     = simfactory2
 !CHECKOUT = ./simfactory
 
