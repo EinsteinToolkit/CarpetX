@@ -1,0 +1,48 @@
+# Schedule definitions for thorn TestMSRK
+
+STORAGE: state rhs[4] energy error
+
+# Init
+SCHEDULE TestMSRK_Initial AT initial
+{
+  LANG: C
+  WRITES: state(everywhere) error(everywhere)
+  SYNC: state
+} "Initialize scalar wave state"
+
+
+
+# Step
+SCHEDULE TestMSRK_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: rhs(interior)
+} "Calculate scalar wave RHS"
+
+SCHEDULE TestMSRK_Sync IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Synchronize state"
+
+
+
+# Analysis
+if (CCTK_EQUALS(initial_condition, "Gaussian") || CCTK_EQUALS(initial_condition, "standing wave"))
+{
+  SCHEDULE TestMSRK_Error AT analysis
+  {
+    LANG: C
+    READS: state(interior)
+    WRITES: error(interior)
+  } "Calculate error in scalar wave state"
+}
+
+SCHEDULE TestMSRK_Energy AT analysis
+{
+  LANG: C
+  READS: state(interior)
+  WRITES: energy(interior)
+} "Calculate the scalar wave energy measure"

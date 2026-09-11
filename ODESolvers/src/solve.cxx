@@ -817,8 +817,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   static bool did_output = false;
-  if (verbose || !did_output)
-    CCTK_VINFO("ODE integrator is %s", method);
+  if (verbose || !did_output) {
+    if (CCTK_Equals(method, "RK4-2")) {
+      CCTK_VINFO("ODE integrator is RK4-2(%d)", RK4_dash_2_sol);
+    } else {
+      CCTK_VINFO("ODE integrator is %s", method);
+    }
+  }
   did_output = true;
 
   static CarpetX::Timer timer("ODESolvers::Solve");
@@ -1361,7 +1366,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
     } else {
       using namespace MultiStepRungeKutta;
-      
+
       // k0 = f(t - 2 * h,   y(t - 2 * h))
       // k1 = f(t - h,       y(t - h))
       // k2 = f(t,           y(t))

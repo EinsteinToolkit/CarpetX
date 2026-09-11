@@ -722,6 +722,7 @@ CarpetX/TestBoxInBox
 CarpetX/TestDerivs
 CarpetX/TestInterpolate
 CarpetX/TestLoopX
+CarpetX/TestMSRK
 CarpetX/TestNorms
 CarpetX/TestODESolvers
 CarpetX/TestODESolvers2

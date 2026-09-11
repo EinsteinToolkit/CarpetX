@@ -1,0 +1,83 @@
+#include <cctk.h>
+#include <cctk_Arguments.h>
+#include <cctk_Parameters.h>
+
+#include <loop_device.hxx>
+
+#include "standing_wave.hxx"
+#include "gaussian.hxx"
+
+#include <random>
+
+namespace TestMSRK {
+using namespace Arith;
+
+extern "C" void TestMSRK_Initial(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTSX_TestMSRK_Initial;
+  DECLARE_CCTK_PARAMETERS;
+
+  if (CCTK_EQUALS(initial_condition, "standing wave")) {
+    grid.loop_all_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          const auto t{cctk_time};
+
+          const auto A{amplitude};
+          const auto kx{standing_wave_kx};
+          const auto ky{standing_wave_ky};
+          const auto kz{standing_wave_kz};
+
+          phi(p.I) = sw::phi(A, kx, ky, kz, t, p.x, p.y, p.z);
+          Pi(p.I) = sw::Pi(A, kx, ky, kz, t, p.x, p.y, p.z);
+          Dx(p.I) = sw::Dx(A, kx, ky, kz, t, p.x, p.y, p.z);
+          Dy(p.I) = sw::Dy(A, kx, ky, kz, t, p.x, p.y, p.z);
+          Dz(p.I) = sw::Dz(A, kx, ky, kz, t, p.x, p.y, p.z);
+        });
+
+  } else if (CCTK_EQUALS(initial_condition, "Gaussian")) {
+    grid.loop_all_device<0, 0, 0>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          const auto t{cctk_time};
+
+          phi(p.I) = gauss::phi(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Pi(p.I) = gauss::Pi(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dx(p.I) = gauss::Dx(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dy(p.I) = gauss::Dy(amplitude, gaussian_width, t, p.x, p.y, p.z);
+          Dz(p.I) = gauss::Dz(amplitude, gaussian_width, t, p.x, p.y, p.z);
+        });
+
+  } else if (CCTK_EQUALS(initial_condition, "noise")) {
+
+    static std::mt19937_64 engine(100);
+    static std::uniform_real_distribution<CCTK_REAL> distrib(-noise_boundary,
+                                                             noise_boundary);
+
+    grid.loop_all<0, 0, 0>(grid.nghostzones,
+                           [&] CCTK_HOST(const Loop::PointDesc &p)
+                               CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                 const auto noise_value{distrib(engine)};
+
+                                 phi(p.I) = noise_value;
+                                 Pi(p.I) = noise_value;
+                                 Dx(p.I) = noise_value;
+                                 Dy(p.I) = noise_value;
+                                 Dz(p.I) = noise_value;
+                               });
+  } else {
+    CCTK_VERROR("Unknown initial condition \"%s\"", initial_condition);
+  }
+
+  // Regardless of ID choice, we initialize the error with zeros
+  grid.loop_all_device<0, 0, 0>(grid.nghostzones,
+                                [=] CCTK_DEVICE(const Loop::PointDesc &p)
+                                    CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                                      phi_err(p.I) = 0.0;
+                                      Pi_err(p.I) = 0.0;
+                                      Dx_err(p.I) = 0.0;
+                                      Dy_err(p.I) = 0.0;
+                                      Dz_err(p.I) = 0.0;
+                                    });
+}
+
+} // namespace TestMSRK
