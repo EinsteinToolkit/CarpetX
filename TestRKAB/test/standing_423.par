@@ -11,7 +11,7 @@ $out_every_time = 2.0
 
 $ncells = 40
 $cfl = 0.25
-$method = "HRK423"
+$method = "RK4-2"
 ######################
 
 # We are using a 5 point centered stencil

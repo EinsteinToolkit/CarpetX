@@ -3,10 +3,9 @@
 #include "../../CarpetX/src/schedule.hxx"
 #include "../../CarpetX/src/timer.hxx"
 
-// Frozen published coefficients for the hybrid methods, main.tex Table
-// tab:grand_coefficient_table.
-#include "rk423.hpp"
-#include "hrk432.hpp"
+// Frozen published coefficients for the multi-step runge kutta method
+#include "RK4-2_coeffs.hpp"
+#include "RK4-3_coeffs.hpp"
 
 #include <cctk.h>
 #include <cctk_Arguments.h>
@@ -725,9 +724,9 @@ std::vector<int> get_group_dependents(const int gi) {
 // above the one it evaluates itself. Zero for every classic Runge-Kutta
 // method; the hybrid (multistep) methods are the only ones with a history.
 int history_depth(const char *const method) {
-  if (CCTK_EQUALS(method, "HRK423"))
+  if (CCTK_EQUALS(method, "RK4-2"))
     return 1; // two step method: f(y_{n-1})
-  if (CCTK_EQUALS(method, "HRK432"))
+  if (CCTK_EQUALS(method, "RK4-3"))
     return 2; // three step method: f(y_{n-1}) and f(y_{n-2})
   return 0;
 }
@@ -816,8 +815,6 @@ extern "C" void ODESolvers_SetupStorage(CCTK_ARGUMENTS) {
 extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_ODESolvers_Solve;
   DECLARE_CCTK_PARAMETERS;
-
-  using namespace HybridMethods;
 
   static bool did_output = false;
   if (verbose || !did_output)
@@ -1282,7 +1279,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                  states<3>{&s_2, &s_3, &rhs});
     }
 
-  } else if (CCTK_EQUALS(method, "HRK423")) {
+  } else if (CCTK_EQUALS(method, "RK4-2")) {
 
     const int depth = history_depth(method); // 1
 
@@ -1291,6 +1288,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       hybrid_bootstrap(depth);
 
     } else {
+      using namespace MultiStepRungeKutta;
 
       // k0 = f(t - h,      y(t - h))
       // k1 = f(t,          y(t))
@@ -1299,14 +1297,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
       // clang-format off
-      const CCTK_REAL c2_pure {HRK423_sol == 1 ? rk423_sol_1_c2<CCTK_REAL>() : rk423_sol_2_c2<CCTK_REAL>()};
-      const CCTK_REAL c3_pure {HRK423_sol == 1 ? rk423_sol_1_c3<CCTK_REAL>() : rk423_sol_2_c3<CCTK_REAL>()};
-      const CCTK_REAL b0_pure {HRK423_sol == 1 ? rk423_sol_1_b0<CCTK_REAL>() : rk423_sol_2_b0<CCTK_REAL>()};
-      const CCTK_REAL b1_pure {HRK423_sol == 1 ? rk423_sol_1_b1<CCTK_REAL>() : rk423_sol_2_b1<CCTK_REAL>()};
-      const CCTK_REAL b2_pure {HRK423_sol == 1 ? rk423_sol_1_b2<CCTK_REAL>() : rk423_sol_2_b2<CCTK_REAL>()};
-      const CCTK_REAL a20_pure{HRK423_sol == 1 ? rk423_sol_1_a20<CCTK_REAL>() : rk423_sol_2_a20<CCTK_REAL>()};
-      const CCTK_REAL a30_pure{HRK423_sol == 1 ? rk423_sol_1_a30<CCTK_REAL>() : rk423_sol_2_a30<CCTK_REAL>()};
-      const CCTK_REAL a31_pure{HRK423_sol == 1 ? rk423_sol_1_a31<CCTK_REAL>() : rk423_sol_2_a31<CCTK_REAL>()};
+      const CCTK_REAL c2_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_c2<CCTK_REAL>() : rk4_dash_2_sol_2_c2<CCTK_REAL>()};
+      const CCTK_REAL c3_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_c3<CCTK_REAL>() : rk4_dash_2_sol_2_c3<CCTK_REAL>()};
+      const CCTK_REAL b0_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_b0<CCTK_REAL>() : rk4_dash_2_sol_2_b0<CCTK_REAL>()};
+      const CCTK_REAL b1_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_b1<CCTK_REAL>() : rk4_dash_2_sol_2_b1<CCTK_REAL>()};
+      const CCTK_REAL b2_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_b2<CCTK_REAL>() : rk4_dash_2_sol_2_b2<CCTK_REAL>()};
+      const CCTK_REAL a20_pure{RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_a20<CCTK_REAL>() : rk4_dash_2_sol_2_a20<CCTK_REAL>()};
+      const CCTK_REAL a30_pure{RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_a30<CCTK_REAL>() : rk4_dash_2_sol_2_a30<CCTK_REAL>()};
+      const CCTK_REAL a31_pure{RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_a31<CCTK_REAL>() : rk4_dash_2_sol_2_a31<CCTK_REAL>()};
       const CCTK_REAL b3_pure {1.0 - (b0_pure + b1_pure + b2_pure)};
       const CCTK_REAL a21_pure{c2_pure - a20_pure};
       const CCTK_REAL a32_pure{c3_pure - (a30_pure + a31_pure)};
@@ -1331,13 +1329,13 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const auto old = copy_state(var, CarpetX::make_valid_all());
       const auto k0 = slot_state(1); // f(y_{n-1}); read-only for the whole step
 
-      calcrhs(1); // slot 0 = k1 = f(y_n)
+      calcrhs(1);           // slot 0 = k1 = f(y_n)
       swap_rhs_slots(0, 3); // [ scratch, k0, dead, k1 ]
       const auto k1 = slot_state(3);
       calcupdate(1, c2, 0.0, reals<3>{1.0, a20, a21},
                  states<3>{&old, &k0, &k1});
 
-      calcrhs(2); // slot 0 = k2
+      calcrhs(2);           // slot 0 = k2
       swap_rhs_slots(0, 2); // [ scratch, k0, k2, k1 ]
       const auto k2 = slot_state(2);
       calcupdate(2, c3, 0.0, reals<4>{1.0, a30, a31, a32},
@@ -1349,10 +1347,11 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
                  states<5>{&old, &k0, &k1, &k2, &k3});
 
       swap_rhs_slots(0, 3); // [ f(y_n)=k1, k0, k2, k3 ]
-      invalidate_slots_beyond(depth); // k2 and k3 are stage scratch, not history
+      invalidate_slots_beyond(
+          depth); // k2 and k3 are stage scratch, not history
     }
 
-  } else if (CCTK_EQUALS(method, "HRK432")) {
+  } else if (CCTK_EQUALS(method, "RK4-3")) {
 
     const int depth = history_depth(method); // 2
 
@@ -1361,19 +1360,20 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       hybrid_bootstrap(depth);
 
     } else {
-
+      using namespace MultiStepRungeKutta;
+      
       // k0 = f(t - 2 * h,   y(t - 2 * h))
       // k1 = f(t - h,       y(t - h))
       // k2 = f(t,           y(t))
       // k3 = f(t + c3 * h,  y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
       // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
 
-      const CCTK_REAL c3_pure{hrk432_sol_1_c3<CCTK_REAL>()};
-      const CCTK_REAL b0_pure{hrk432_sol_1_b0<CCTK_REAL>()};
-      const CCTK_REAL b1_pure{hrk432_sol_1_b1<CCTK_REAL>()};
-      const CCTK_REAL b2_pure{hrk432_sol_1_b2<CCTK_REAL>()};
-      const CCTK_REAL a30_pure{hrk432_sol_1_a30<CCTK_REAL>()};
-      const CCTK_REAL a31_pure{hrk432_sol_1_a31<CCTK_REAL>()};
+      const CCTK_REAL c3_pure{rk4_dash_3_sol_1_c3<CCTK_REAL>()};
+      const CCTK_REAL b0_pure{rk4_dash_3_sol_1_b0<CCTK_REAL>()};
+      const CCTK_REAL b1_pure{rk4_dash_3_sol_1_b1<CCTK_REAL>()};
+      const CCTK_REAL b2_pure{rk4_dash_3_sol_1_b2<CCTK_REAL>()};
+      const CCTK_REAL a30_pure{rk4_dash_3_sol_1_a30<CCTK_REAL>()};
+      const CCTK_REAL a31_pure{rk4_dash_3_sol_1_a31<CCTK_REAL>()};
       const CCTK_REAL b3_pure{1 - (b0_pure + b1_pure + b2_pure)};
       const CCTK_REAL a32_pure{c3_pure - (a30_pure + a31_pure)};
 
@@ -1384,7 +1384,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const CCTK_REAL a30{a30_pure * dt};
       const CCTK_REAL a31{a31_pure * dt};
       const CCTK_REAL a32{a32_pure * dt};
-      // Stage time, as an offset from t; see the note in the HRK423 branch
+      // Stage time, as an offset from t; see the note in the RK4-2 branch
       const CCTK_REAL c3{c3_pure * dt};
 
       // Entry invariant: [ scratch, k1=f(y_{n-1}), k0=f(y_{n-2}), dead ]
@@ -1392,7 +1392,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const auto k0 = slot_state(2); // f(y_{n-2}); read-only for the whole step
       const auto k1 = slot_state(1); // f(y_{n-1}); read-only for the whole step
 
-      calcrhs(1); // slot 0 = k2 = f(y_n)
+      calcrhs(1);           // slot 0 = k2 = f(y_n)
       swap_rhs_slots(0, 3); // [ scratch, k1, k0, k2 ]
       const auto k2 = slot_state(3);
       calcupdate(1, c3, 0.0, reals<4>{1.0, a30, a31, a32},
@@ -1403,7 +1403,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       calcupdate(2, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
                  states<5>{&old, &k0, &k1, &k2, &k3});
 
-      swap_rhs_slots(0, 3); // [ f(y_n)=k2, k1, k0, k3 ]
+      swap_rhs_slots(0, 3);           // [ f(y_n)=k2, k1, k0, k3 ]
       invalidate_slots_beyond(depth); // k3 is stage scratch, not history
     }
 

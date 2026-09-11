@@ -9,8 +9,8 @@ KEYWORD method "ODE solver method" STEERABLE=always
   "RK3" :: "Kutta's third-order method"
   "SSPRK3" :: "third-order Strong Stability Preserving Runge-Kutta (SSPRK3)"
   "RK4" :: "classic RK4"
-  "HRK423" :: "Hybrid two step, three stage fourth order Runge-Kutta method"
-  "HRK432" :: "Hybrid three step, two stage fourth order Runge-Kutta method"
+  "RK4-2" :: "Two step, three stage fourth order Runge-Kutta method"
+  "RK4-3" :: "Three step, two stage fourth order Runge-Kutta method"
   "RK4(3)6[2S]" :: "Ketcheson low storage method"
   "RK4()9[3S*]" :: "Ketcheson optimized low storage method"
   "RKF78" :: "Runge-Kutta-Fehlberg 7(8)"
@@ -24,11 +24,10 @@ BOOLEAN verbose "Verbose output" STEERABLE=always
 {
 } "no"
 
-# HRK423 covers both published solutions of the 2-step method family
-# (main.tex, Table tab:grand_coefficient_table, columns "RK4-2(1)" and
-# "RK4-2(2)"). Their coefficients, including c2/c3, are frozen in rk423.hpp;
-# this only chooses which published solution to evaluate.
-CCTK_INT HRK423_sol "Which published RK4-2 solution HRK423 uses"
+# RK4-2 covers both published solutions of the 2-step method family
+# RK4-2(1)" and RK4-2(2)". Their coefficients, including c2/c3, are frozen in rk423.hpp;
+# This only chooses which published solution to evaluate.
+CCTK_INT RK4_dash_2_sol "Which published RK4-2 solution to use"
 {
-  1:2 :: "solution (1) or (2) of the two-step method"
+  1:2 :: "Use solution (1) or (2) of RK4-2"
 } 1
