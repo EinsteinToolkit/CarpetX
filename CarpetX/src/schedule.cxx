@@ -640,6 +640,68 @@ void leave_patch_mode(cGH *restrict cctkGH,
   assert(in_level_mode(cctkGH));
 }
 
+// Recompute cctkGH->data[vi][tl] for one group in one component's cached cGH.
+// tl >= groupdata.mfab.size() is nulled out, since enter_local_mode's caller
+// allocates cctkGH->data[vi] up to CCTK_DeclaredTimeLevelsVI(vi), which can be
+// more than the group's currently allocated number of time levels.
+void update_group_pointers(const GHExt::PatchData::LevelData &restrict leveldata,
+                           const MFPointer &mfp, cGH *restrict cctkGH,
+                           const int gi) {
+  auto &restrict groupdata = *leveldata.groupdata.at(gi);
+  const GridPtrDesc1 grid1(leveldata, groupdata, mfp);
+  const int ntls = int(groupdata.mfab.size());
+  for (int tl = 0; tl < ntls; ++tl) {
+    const amrex::Array4<CCTK_REAL> vars =
+        groupdata.mfab.at(tl)->array(mfp.index());
+    for (int vi = 0; vi < groupdata.numvars; ++vi)
+      cctkGH->data[groupdata.firstvarindex + vi][tl] = grid1.ptr(vars, vi);
+  }
+  const int declared_ntls =
+      CCTK_DeclaredTimeLevelsVI(groupdata.firstvarindex);
+  for (int tl = ntls; tl < declared_ntls; ++tl) {
+    for (int vi = 0; vi < groupdata.numvars; ++vi) {
+      cctkGH->data[groupdata.firstvarindex + vi][tl] = nullptr;
+    }
+  }
+}
+
+// ... for one group, over every component of one patch of one level
+void update_group_pointers(
+    const GHExt::PatchData::LevelData &restrict leveldata, const int gi) {
+  int component = 0;
+  const auto mfitinfo = amrex::MFItInfo().DisableDeviceSync().EnableTiling();
+  const auto &fab0 = *leveldata.fab;
+  for (amrex::MFIter mfi(fab0, mfitinfo); mfi.isValid(); ++mfi, ++component) {
+    const MFPointer mfp(mfi);
+    cGH *restrict const localGH = leveldata.get_local_cctkGH(component);
+    update_group_pointers(leveldata, mfp, localGH, gi);
+  }
+}
+
+// ... for one group, over every component of every active level
+void update_group_pointers(const int gi) {
+  assert(active_levels);
+  active_levels->loop_serially([&](const auto &restrict leveldata) {
+    update_group_pointers(leveldata, gi);
+  });
+}
+
+// ... for every group
+void update_all_group_pointers() {
+  const int num_groups = CCTK_NumGroups();
+  for (int gi = 0; gi < num_groups; ++gi) {
+    cGroup group;
+    int ierr = CCTK_GroupData(gi, &group);
+    assert(!ierr);
+
+    if (group.grouptype != CCTK_GF) {
+      continue;
+    }
+
+    update_group_pointers(gi);
+  }
+}
+
 // Set cctkGH entries for local mode
 // TODO: Have separate cctkGH for each patch, level, and local box
 void enter_local_mode(cGH *restrict cctkGH,
@@ -675,14 +737,7 @@ void enter_local_mode(cGH *restrict cctkGH,
     if (group.grouptype != CCTK_GF)
       continue;
 
-    auto &restrict groupdata = *leveldata.groupdata.at(gi);
-    const GridPtrDesc1 grid1(leveldata, groupdata, mfp);
-    for (int tl = 0; tl < int(groupdata.mfab.size()); ++tl) {
-      const amrex::Array4<CCTK_REAL> vars =
-          groupdata.mfab.at(tl)->array(mfp.index());
-      for (int vi = 0; vi < groupdata.numvars; ++vi)
-        cctkGH->data[groupdata.firstvarindex + vi][tl] = grid1.ptr(vars, vi);
-    }
+    update_group_pointers(leveldata, mfp, cctkGH, gi);
   }
 
   // Check constraints
@@ -1553,6 +1608,12 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
           }
         }
       });
+      // The rotation above only permutes GroupData::mfab; the grid function
+      // pointers cached in every level's local cGHs still point at the
+      // pre-rotation mapping. Refresh them before poison_invalid_gf and
+      // check_valid_gf below read/write through those cached pointers, or
+      // they poison and check the wrong physical buffer.
+      update_group_pointers(gi);
       for (int vi = 0; vi < groupdata0.numvars; ++vi) {
         if (ntls0 > 1)
           poison_invalid_gf(*active_levels, gi, vi, 0);
@@ -1971,6 +2032,37 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
 
   assert(active_levels);
 
+  // Check that every time level named by a schedule clause is actually
+  // allocated. The flesh builds its clause list from the time levels a group
+  // declares in its interface.ccl, but the driver allocates only as many as
+  // are currently requested (see SetGroupTimelevels), so a declared time
+  // level need not exist. Do this before anything below indexes
+  // GroupData::valid, so that the failure is a legible scheduling error
+  // rather than an out-of-range exception from `valid.at(tl)`.
+  for (int n = 0; n < attribute->n_RDWR; ++n) {
+    const RDWR_entry &restrict RDWR = attribute->RDWR[n];
+    // Ignore clauses that have no effect
+    if (!(RDWR.where_rd | RDWR.where_wr | RDWR.where_inv))
+      continue;
+    const int gi = CCTK_GroupIndexFromVarI(RDWR.varindex);
+    assert(gi >= 0);
+    if (CCTK_GroupTypeI(gi) != CCTK_GF)
+      continue;
+    // Every level has the same number of allocated time levels, so this does
+    // not need a level loop, and it is also right before any level exists
+    const int ntls = GetGroupTimelevels(gi);
+    if (RDWR.timelevel >= ntls)
+      CCTK_VERROR(
+          "CallFunction iteration %d %s: %s::%s has a schedule clause for time "
+          "level %d of group \"%s\", but only %d time level%s currently "
+          "allocated for that group (%d declared in its interface.ccl). Either "
+          "allocate at least %d time levels for the group, or drop the clause.",
+          cctkGH->cctk_iteration, attribute->where, attribute->thorn,
+          attribute->routine, RDWR.timelevel, CCTK_FullGroupName(gi), ntls,
+          ntls == 1 ? " is" : "s are", CCTK_DeclaredTimeLevelsGI(gi),
+          RDWR.timelevel + 1);
+  }
+
   if (CCTK_EQUALS(presync_mode, "presync-only")) {
     const std::vector<clause_t> &reads =
         decode_clauses(attribute, rdwr_t::read);
@@ -2080,11 +2172,6 @@ int CallFunction(void *function, cFunctionData *restrict attribute,
         active_levels->loop_serially([&](auto &restrict leveldata) {
           auto &restrict groupdata = *leveldata.groupdata.at(wr.gi);
           const valid_t &provided = wr.valid;
-          // The flesh can accidentally describe timelevels that do
-          // not exist.
-          if (wr.tl > int(groupdata.valid.size()))
-            CCTK_VERROR("Accessing non-existent timelevel %d of variable %s",
-                        wr.tl, groupdata.groupname.c_str());
           groupdata.valid.at(wr.tl).at(wr.vi).set_invalid(
               provided & ~need,
               [iteration = cctkGH->cctk_iteration, where = attribute->where,

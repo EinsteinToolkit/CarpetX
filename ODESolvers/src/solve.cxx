@@ -3,9 +3,14 @@
 #include "../../CarpetX/src/schedule.hxx"
 #include "../../CarpetX/src/timer.hxx"
 
+// Frozen published coefficients for the multi-step runge kutta method
+#include "RK4-2_coeffs.hpp"
+#include "RK4-3_coeffs.hpp"
+
 #include <cctk.h>
-#include <cctk_Parameters.h>
 #include <cctk_Arguments.h>
+#include <cctk_Parameters.h>
+#include <cstddef>
 #include <util_Table.h>
 
 #include <div.hxx>
@@ -21,12 +26,8 @@ static inline int omp_get_max_threads() { return 1; }
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cctype>
-#include <cmath>
 #include <cstring>
-#include <functional>
 #include <limits>
-#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -79,8 +80,29 @@ struct statecomp_t {
   statecomp_t(const statecomp_t &) = delete;
   statecomp_t &operator=(const statecomp_t &) = delete;
 
+  // One entry per component. The three vectors have the same length: `tls[n]`
+  // says which time level of `groupdatas[n]` the component `mfabs[n]` stands
+  // for, and hence which validity flags it owns.
   std::vector<CarpetX::GHExt::PatchData::LevelData::GroupData *> groupdatas;
   std::vector<amrex::MultiFab *> mfabs;
+  std::vector<int> tls;
+
+  // Number of components, checking that the vectors above agree
+  std::size_t size() const {
+    assert(mfabs.size() == groupdatas.size());
+    assert(tls.size() == groupdatas.size());
+    return groupdatas.size();
+  }
+
+  // Append the group's own time level `tl`
+  void
+  push_component(CarpetX::GHExt::PatchData::LevelData::GroupData *groupdata,
+                 int tl);
+  // Append `mfab` as a stand-in for the group's time level `tl`, e.g. a
+  // temporary allocated by `copy`
+  void
+  push_component(CarpetX::GHExt::PatchData::LevelData::GroupData *groupdata,
+                 int tl, amrex::MultiFab *mfab);
 
   static void init_tmp_mfabs();
   static void free_tmp_mfabs();
@@ -153,11 +175,48 @@ void statecomp_t::free_tmp_mfabs() {
   });
 }
 
+// Abort with a useful message if a group does not have the time level a state
+// vector component claims. Without this the `at(tl)` calls below throw
+// `std::out_of_range`, which reports nothing.
+void check_timelevel(
+    const CarpetX::GHExt::PatchData::LevelData::GroupData &groupdata,
+    const int tl) {
+  assert(groupdata.mfab.size() == groupdata.valid.size());
+  if (tl < 0 || tl >= int(groupdata.valid.size()))
+    CCTK_VERROR("ODESolvers addressed time level %d of group %s, which has %d "
+                "time level(s) allocated. The number of allocated time levels "
+                "is chosen by CarpetX::SetGroupTimelevels and is capped by the "
+                "group's TIMELEVELS declaration in its interface.ccl.",
+                tl, groupdata.groupname.c_str(), int(groupdata.valid.size()));
+}
+
+// Append a component addressing the group's own time level `tl`
+void statecomp_t::push_component(
+    CarpetX::GHExt::PatchData::LevelData::GroupData *const groupdata,
+    const int tl) {
+  assert(groupdata);
+  check_timelevel(*groupdata, tl);
+  push_component(groupdata, tl, groupdata->mfab.at(tl).get());
+}
+
+// Append a component addressing `mfab` on behalf of time level `tl`
+void statecomp_t::push_component(
+    CarpetX::GHExt::PatchData::LevelData::GroupData *const groupdata,
+    const int tl, amrex::MultiFab *const mfab) {
+  assert(groupdata);
+  assert(mfab);
+  check_timelevel(*groupdata, tl);
+  groupdatas.push_back(groupdata);
+  mfabs.push_back(mfab);
+  tls.push_back(tl);
+}
+
 // State that the state vector has valid data in the interior
 void statecomp_t::set_valid(const CarpetX::valid_t valid) const {
-  for (auto groupdata : groupdatas) {
+  for (std::size_t n = 0; n < size(); ++n) {
+    const auto groupdata = groupdatas.at(n);
+    const int tl = tls.at(n);
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
-      const int tl = 0;
       groupdata->valid.at(tl).at(vi).set_int(valid.valid_int, [=]() {
         std::ostringstream buf;
         buf << "ODESolvers after lincomb: Mark interior as "
@@ -192,9 +251,9 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
                                  const std::array<CCTK_REAL, N> &factors,
                                  const std::array<const statecomp_t *, N> &srcs,
                                  const CarpetX::valid_t where) {
-  const int ngroups = dst.groupdatas.size();
+  const int ngroups = dst.size();
   for (const auto &src : srcs)
-    assert(int(src->groupdatas.size()) == ngroups);
+    assert(int(src->size()) == ngroups);
   for (int group = 0; group < ngroups; ++group) {
     const auto &dstgroup = dst.groupdatas.at(group);
     const int nvars = dstgroup->numvars;
@@ -207,25 +266,26 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
   for (int group = 0; group < ngroups; ++group) {
     const auto &dstgroup = dst.groupdatas.at(group);
     const int nvars = dstgroup->numvars;
-    const int tl = 0;
+    const int dsttl = dst.tls.at(group);
     for (int vi = 0; vi < nvars; ++vi) {
       CarpetX::valid_t valid = where;
       bool did_set_valid = false;
       if (scale != 0) {
-        valid &= dstgroup->valid.at(tl).at(vi).get();
+        valid &= dstgroup->valid.at(dsttl).at(vi).get();
         did_set_valid = true;
       }
       for (std::size_t m = 0; m < srcs.size(); ++m) {
         if (factors.at(m) != 0) {
           const auto &src = srcs.at(m);
           const auto &srcgroup = src->groupdatas.at(group);
-          valid &= srcgroup->valid.at(tl).at(vi).get();
+          const int srctl = src->tls.at(group);
+          valid &= srcgroup->valid.at(srctl).at(vi).get();
           did_set_valid = true;
         }
       }
       if (!did_set_valid)
         valid = CarpetX::valid_t(false);
-      dstgroup->valid.at(tl).at(vi) = CarpetX::why_valid_t(
+      dstgroup->valid.at(dsttl).at(vi) = CarpetX::why_valid_t(
           valid, []() { return "Set from RHS in ODESolvers"; });
     }
   }
@@ -234,9 +294,10 @@ void statecomp_t::combine_valids(const statecomp_t &dst, const CCTK_REAL scale,
 // Ensure a state vector has valid data in the interior
 void statecomp_t::check_valid(const CarpetX::valid_t required,
                               const std::function<std::string()> &why) const {
-  for (const auto groupdata : groupdatas) {
+  for (std::size_t n = 0; n < size(); ++n) {
+    const auto groupdata = groupdatas.at(n);
+    const int tl = tls.at(n);
     for (int vi = 0; vi < groupdata->numvars; ++vi) {
-      const int tl = 0;
       CarpetX::error_if_invalid(*groupdata, vi, tl, required, why);
       // TODO: Parallelize over pathces, levels, group, variables, and
       // timelevels
@@ -251,10 +312,11 @@ void statecomp_t::check_valid(const CarpetX::valid_t required,
 
 // Copy state vector into newly allocated memory
 statecomp_t statecomp_t::copy(const CarpetX::valid_t where) const {
-  const std::size_t size = mfabs.size();
+  const std::size_t size = this->size();
   statecomp_t result;
   result.groupdatas.reserve(size);
   result.mfabs.reserve(size);
+  result.tls.reserve(size);
   for (std::size_t n = 0; n < size; ++n) {
     const auto groupdata = groupdatas.at(n);
     // This global nan-check doesn't work since we don't care about the
@@ -266,8 +328,10 @@ statecomp_t statecomp_t::copy(const CarpetX::valid_t where) const {
     //                   groupdata->groupname.c_str());
     // #endif
     auto y = groupdata->alloc_tmp_mfab();
-    result.groupdatas.push_back(groupdata);
-    result.mfabs.push_back(y);
+    // The copy owns the temporary `y` but keeps this group's validity flags,
+    // so it must claim the same time level as the component it copies:
+    // anything else would make `combine_valids` write another slot's flags.
+    result.push_component(groupdata, tls.at(n), y);
   }
   lincomb(result, 0, make_array(CCTK_REAL(1)), make_array(this), where);
   // This global nan-check doesn't work since we don't care about the boundaries
@@ -288,9 +352,9 @@ void statecomp_t::lincomb(const statecomp_t &dst, const CCTK_REAL scale,
                           const std::array<CCTK_REAL, N> &factors,
                           const std::array<const statecomp_t *, N> &srcs,
                           const CarpetX::valid_t where) {
-  const std::size_t size = dst.mfabs.size();
+  const std::size_t size = dst.size();
   for (std::size_t n = 0; n < N; ++n)
-    assert(srcs[n]->mfabs.size() == size);
+    assert(srcs[n]->size() == size);
   for (std::size_t m = 0; m < size; ++m) {
     const auto ncomp = dst.mfabs.at(m)->nComp();
     const auto ngrowvect = dst.mfabs.at(m)->nGrowVect();
@@ -656,6 +720,68 @@ std::vector<int> get_group_dependents(const int gi) {
   return dependents;
 }
 
+// How many previous RHS evaluations a method needs to have kept, over and
+// above the one it evaluates itself. Zero for every classic Runge-Kutta
+// method; the hybrid (multistep) methods are the only ones with a history.
+int history_depth(const char *const method) {
+  if (CCTK_EQUALS(method, "RK4-2"))
+    return 1; // two step method: f(y_{n-1})
+  if (CCTK_EQUALS(method, "RK4-3"))
+    return 2; // three step method: f(y_{n-1}) and f(y_{n-2})
+  return 0;
+}
+
+// How many time levels of the RHS group a method needs allocated. A method
+// with no history needs only the slot its RHS routine writes. A hybrid method
+// needs its history slots plus somewhere to park the stage values that have to
+// outlive a later RHS evaluation; four covers both of the hybrid methods, and
+// four is also what the user has to declare anyway, since ODESolvers::method
+// is STEERABLE=always.
+int rhs_timelevels(const char *const method) {
+  return history_depth(method) == 0 ? 1 : 4;
+}
+
+// Ask the driver for the RHS time levels the current method needs, for every
+// group that names an RHS group.
+//
+// Called at WRAGH, which runs before any level exists, so that in the ordinary
+// case the very first allocation is already the right size. Called again at
+// the top of every step, because the method is steerable and a step may need
+// more slots than the previous one did.
+void setup_rhs_storage(const char *const method, const bool verbose) {
+  const int ntls = rhs_timelevels(method);
+  const int num_groups = CCTK_NumGroups();
+  for (int gi = 0; gi < num_groups; ++gi) {
+    // Only grid functions live on levels, and only they have time levels the
+    // driver can allocate
+    if (CCTK_GroupTypeI(gi) != CCTK_GF)
+      continue;
+    const int rhs_gi = get_group_rhs(gi);
+    if (rhs_gi < 0)
+      continue;
+
+    // cctkGH->data is sized from the declaration and cannot grow, so this is
+    // the user's to fix, and saying so at startup beats failing on the first
+    // step
+    const int declared_ntls = CCTK_DeclaredTimeLevelsGI(rhs_gi);
+    if (ntls > declared_ntls)
+      CCTK_VERROR("The ODE solver method \"%s\" keeps %d previous RHS "
+                  "evaluation(s), and needs %d time levels of the RHS "
+                  "group \"%s\", named by \"%s\", to hold them and its own "
+                  "stage values. That group declares %d. Write TIMELEVELS=%d "
+                  "in its interface.ccl.",
+                  method, history_depth(method), ntls,
+                  CCTK_FullGroupName(rhs_gi), CCTK_FullGroupName(gi),
+                  declared_ntls, ntls);
+
+    const int old_ntls = CarpetX::SetGroupTimelevels(rhs_gi, ntls);
+    if (verbose && old_ntls != ntls)
+      CCTK_VINFO("Method \"%s\": RHS group \"%s\" now has %d time level(s), "
+                 "was %d",
+                 method, CCTK_FullGroupName(rhs_gi), ntls, old_ntls);
+  }
+}
+
 // Mark groups as invalid
 void mark_invalid(const std::vector<int> &groups) {
   CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
@@ -679,13 +805,25 @@ extern "C" void ODESolvers_InitConstants(CCTK_ARGUMENTS) {
   *do_substeps = 0;
 }
 
+extern "C" void ODESolvers_SetupStorage(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_ODESolvers_SetupStorage;
+  DECLARE_CCTK_PARAMETERS;
+
+  setup_rhs_storage(method, verbose);
+}
+
 extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_ODESolvers_Solve;
+  DECLARE_CCTK_ARGUMENTSX_ODESolvers_Solve;
   DECLARE_CCTK_PARAMETERS;
 
   static bool did_output = false;
-  if (verbose || !did_output)
-    CCTK_VINFO("ODE integrator is %s", method);
+  if (verbose || !did_output) {
+    if (CCTK_Equals(method, "RK4-2")) {
+      CCTK_VINFO("ODE integrator is RK4-2(%d)", RK4_dash_2_sol);
+    } else {
+      CCTK_VINFO("ODE integrator is %s", method);
+    }
+  }
   did_output = true;
 
   static CarpetX::Timer timer("ODESolvers::Solve");
@@ -696,6 +834,15 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
   static CarpetX::Timer timer_setup("ODESolvers::Solve::setup");
   std::optional<CarpetX::Interval> interval_setup(timer_setup);
+
+  // The method is STEERABLE=always, so what WRAGH allocated need not be what
+  // this step needs. Re-request the storage before anything below caches a
+  // pointer into it.
+  setup_rhs_storage(method, verbose);
+
+  // Must not be constructed before setup_rhs_storage, which calls
+  // CarpetX::SetGroupTimelevels and asserts !integrating.
+  const CarpetX::integrating_guard_t integrating_guard;
 
   statecomp_t var, rhs;
   std::vector<int> var_groups, rhs_groups, dep_groups;
@@ -710,14 +857,14 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
 
       auto &groupdata = *groupdataptr;
       const int rhs_gi = get_group_rhs(groupdata.groupindex);
+
       if (rhs_gi >= 0) {
         assert(rhs_gi != groupdata.groupindex);
         auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
         assert(rhs_groupdata.numvars == groupdata.numvars);
-        var.groupdatas.push_back(&groupdata);
-        var.mfabs.push_back(groupdata.mfab.at(tl).get());
-        rhs.groupdatas.push_back(&rhs_groupdata);
-        rhs.mfabs.push_back(rhs_groupdata.mfab.at(tl).get());
+        var.push_component(&groupdata, tl);
+        rhs.push_component(&rhs_groupdata, tl);
+
         if (do_accumulate_nvars) {
           nvars += groupdata.numvars;
           var_groups.push_back(groupdata.groupindex);
@@ -730,6 +877,7 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     }
     do_accumulate_nvars = false;
   });
+
   if (verbose)
     CCTK_VINFO("  Integrating %d variables", nvars);
   if (nvars == 0)
@@ -809,6 +957,121 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
         CCTK_VINFO("Calculated new state #%d at t=%g", n,
                    double(cctkGH->cctk_time));
     }
+  };
+
+  // A statecomp_t addressing the RHS group's time level `slot`, over every
+  // (var group, rhs group) pair, on every active level. Mirrors the loop that
+  // built `var`/`rhs` above, so components line up positionally with them.
+  // Must be rebuilt (called again) after any CarpetX::SwapGroupTimelevels
+  // touching `slot`: a statecomp_t built before such a swap keeps addressing
+  // the physical MultiFab that used to sit at `slot`, not whatever swap moved
+  // into `slot` afterwards.
+  const auto slot_state = [&](const int slot) {
+    statecomp_t result;
+    CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
+      for (const auto &groupdataptr : leveldata.groupdata) {
+        if (groupdataptr == nullptr)
+          continue;
+        auto &groupdata = *groupdataptr;
+        const int rhs_gi = get_group_rhs(groupdata.groupindex);
+        if (rhs_gi < 0)
+          continue;
+        auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
+        result.push_component(&rhs_groupdata, slot);
+      }
+    });
+    return result;
+  };
+
+  // Exchange time levels `a` and `b` of every RHS group, on the levels
+  // currently being integrated. Moves no data.
+  const auto swap_rhs_slots = [&](const int a, const int b) {
+    for (const int rhs_gi : rhs_groups)
+      CarpetX::SwapGroupTimelevels(rhs_gi, a, b);
+  };
+
+  // Whether some active level's RHS group is missing part of the history a
+  // hybrid method with this depth needs, i.e. whether the batch must
+  // bootstrap. Evaluated fresh every step; batch-wide by construction, since
+  // it scans every currently active level.
+  const auto history_incomplete = [&](const int depth) {
+    bool incomplete = false;
+    CarpetX::active_levels->loop_serially([&](const auto &leveldata) {
+      for (const auto &groupdataptr : leveldata.groupdata) {
+        if (groupdataptr == nullptr)
+          continue;
+        auto &groupdata = *groupdataptr;
+        const int rhs_gi = get_group_rhs(groupdata.groupindex);
+        if (rhs_gi < 0)
+          continue;
+        auto &rhs_groupdata = *leveldata.groupdata.at(rhs_gi);
+        for (int slot = 1; slot <= depth; ++slot)
+          for (int vi = 0; vi < rhs_groupdata.numvars; ++vi)
+            if (!rhs_groupdata.valid.at(slot).at(vi).get().valid_int)
+              incomplete = true;
+      }
+    });
+    return incomplete;
+  };
+
+  // Invalidate (and poison) every RHS slot beyond the active method's depth.
+  // A hybrid step only ever leaves slots `1..depth` holding a true history
+  // value; slots beyond that hold stage scratch that must not be mistaken for
+  // history by a different hybrid method steered to on the very next step.
+  const auto invalidate_slots_beyond = [&](const int depth) {
+    for (int slot = depth + 1; slot <= 3; ++slot)
+      slot_state(slot).set_valid(CarpetX::valid_t(false));
+  };
+
+  // The classic RK4 step, shared by both hybrid methods' bootstrap: taken
+  // whenever the history is incomplete (at t=0, after recovery, on levels
+  // rebuilt by a regrid, or right after steering into a hybrid method).
+  // Classic RK4's own last stage leaves slot 0 holding the last stage's RHS
+  // rather than f(y_n); the two swaps around it correct that, at the cost of
+  // one extra state-sized copy (`kaccum`, parked in slot 3 instead of held in
+  // a temporary), matching what the plain "RK4" branch already costs.
+  const auto hybrid_bootstrap = [&](const int depth) {
+    if (verbose)
+      CCTK_VINFO("  Taking RK4 step to fill prev. RHS");
+
+    // k1 = f(y0)
+    // k2 = f(y0 + h/2 k1)
+    // k3 = f(y0 + h/2 k2)
+    // k4 = f(y0 + h k3)
+    // y1 = y0 + h/6 k1 + h/3 k2 + h/3 k3 + h/6 k4
+
+    const auto old = copy_state(var, CarpetX::make_valid_all());
+
+    calcrhs(1);
+    swap_rhs_slots(0, 3); // move f(y_n) = k1 out of slot 0, into slot 3
+    const auto kaccum = copy_state(slot_state(3), CarpetX::make_valid_int());
+    calcupdate(1, dt / 2, 1.0, reals<1>{dt / 2}, states<1>{&kaccum});
+
+    calcrhs(2);
+    const auto k2 = slot_state(0);
+    {
+      CarpetX::Interval interval_lincomb(timer_lincomb);
+      statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&k2},
+                           CarpetX::make_valid_int());
+    }
+    calcupdate(2, dt / 2, 0.0, reals<2>{1.0, dt / 2}, states<2>{&old, &k2});
+
+    calcrhs(3);
+    const auto k3 = slot_state(0);
+    {
+      CarpetX::Interval interval_lincomb(timer_lincomb);
+      statecomp_t::lincomb(kaccum, 1.0, reals<1>{2.0}, states<1>{&k3},
+                           CarpetX::make_valid_int());
+    }
+    calcupdate(3, dt, 0.0, reals<2>{1.0, dt}, states<2>{&old, &k3});
+
+    calcrhs(4);
+    const auto k4 = slot_state(0);
+    calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
+               states<3>{&old, &kaccum, &k4});
+
+    swap_rhs_slots(0, 3); // bring f(y_n) back to slot 0, evict k4 to slot 3
+    invalidate_slots_beyond(depth);
   };
 
   *const_cast<CCTK_REAL *>(&cctkGH->cctk_time) = old_time;
@@ -918,6 +1181,236 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     calcrhs(4);
     calcupdate(4, dt, 0.0, reals<3>{1.0, dt / 6, dt / 6},
                states<3>{&old, &kaccum, &rhs});
+
+  } else if (CCTK_EQUALS(method, "RK4(3)6[2S]")) {
+
+    constexpr std::size_t m{6};
+
+    constexpr std::array<CCTK_REAL, m + 1> gamma_1{
+        0.000000000000000, 0.000000000000000,  1.587969352283926,
+        1.345849277346560, -0.088819115511932, 0.206532710491623,
+        -3.422331114067989};
+
+    constexpr std::array<CCTK_REAL, m + 1> gamma_2{
+        0.000000000000000,  1.000000000000000, 0.888063312510453,
+        -0.953407216543495, 0.798778614781935, 0.544596034836750,
+        1.402871254395165};
+
+    constexpr std::array<CCTK_REAL, m + 1> beta{
+        0.000000000000000, 0.653858677151052, 0.258675602947738,
+        0.802263873737920, 0.104618887237994, 0.199273700611894,
+        0.318145532666168};
+
+    constexpr std::array<CCTK_REAL, m + 1> delta{
+        1.000000000000000, -1.662080444041546, 1.024831293149243,
+        1.000354140638651, 0.093878239568257,  1.695359582053809,
+        0.392860285418747};
+
+    // y_1
+    const auto s_2 = copy_state(rhs, CarpetX::make_valid_int());
+    statecomp_t::lincomb(s_2, 0.0, reals<1>{0.0}, states<1>{&rhs},
+                         CarpetX::make_valid_int());
+
+    // y_i
+    for (std::size_t i = 2; i <= m + 1; i++) {
+      statecomp_t::lincomb(s_2, 1.0, reals<1>{delta[i - 2]}, states<1>{&var},
+                           CarpetX::make_valid_int());
+
+      calcrhs(i - 1);
+      calcupdate(i - 1, dt, gamma_1[i - 1],
+                 reals<2>{gamma_2[i - 1], beta[i - 1] * dt},
+                 states<2>{&s_2, &rhs});
+    }
+
+  } else if (CCTK_EQUALS(method, "RK4()9[3S*]")) {
+    constexpr std::size_t s{9};
+
+    constexpr std::array<CCTK_REAL, s> c{
+        0.0000000000000000e+00,  2.8363432481011769e-01,
+        5.4840742446661772e-01,  3.6872298094969475e-01,
+        -6.8061183026103156e-01, 3.5185265855105619e-01,
+        1.6659419385562171e+00,  9.7152778807463247e-01,
+        9.0515694340066954e-01};
+
+    constexpr std::array<CCTK_REAL, s> beta{
+        2.8363432481011769e-01,  9.7364980747486463e-01,
+        3.3823592364196498e-01,  -3.5849518935750763e-01,
+        -4.1139587569859462e-03, 1.4279689871485013e+00,
+        1.8084680519536503e-02,  1.6057708856060501e-01,
+        2.9522267863254809e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_1{
+        0.0000000000000000e+00,  -4.6556413837561301e+00,
+        -7.7202649689034453e-01, -4.0244202720632174e+00,
+        -2.1296873883702272e-02, -2.4350219407769953e+00,
+        1.9856336960249132e-02,  -2.8107894116913812e-01,
+        1.6894354373677900e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_2{
+        1.0000000000000000e+00, 2.4992627683300688e+00, 5.8668202764174726e-01,
+        1.2051419816240785e+00, 3.4747937498564541e-01, 1.3213458736302766e+00,
+        3.1196363453264964e-01, 4.3514189245414447e-01, 2.3596980658341213e-01};
+
+    constexpr std::array<CCTK_REAL, s> gamma_3{
+        0.0000000000000000e+00,  0.0000000000000000e+00,
+        0.0000000000000000e+00,  7.6209857891449362e-01,
+        -1.9811817832965520e-01, -6.2289587091629484e-01,
+        -3.7522475499063573e-01, -3.3554373281046146e-01,
+        -4.5609629702116454e-02};
+
+    constexpr std::array<CCTK_REAL, s> delta{
+        1.0000000000000000e+00,  1.2629238731608268e+00,
+        7.5749675232391733e-01,  5.1635907196195419e-01,
+        -2.7463346616574083e-02, -4.3826743572318672e-01,
+        1.2735870231839268e+00,  -6.2947382217730230e-01,
+        0.0000000000000000e+00};
+
+    // y_1
+    const auto s_3 = copy_state(var, CarpetX::make_valid_all());
+
+    const auto s_2 = copy_state(rhs, CarpetX::make_valid_int());
+    statecomp_t::lincomb(s_2, 0.0, reals<1>{0.0}, states<1>{&rhs},
+                         CarpetX::make_valid_int());
+
+    for (std::size_t i = 1; i <= s; i++) {
+      const auto ti{c[i - 1] * dt};
+
+      statecomp_t::lincomb(s_2, 1.0, reals<1>{delta[i - 1]}, states<1>{&var},
+                           CarpetX::make_valid_int());
+
+      calcrhs(i - 1);
+      calcupdate(i - 1, ti, gamma_1[i - 1],
+                 reals<3>{gamma_2[i - 1], gamma_3[i - 1], beta[i - 1] * dt},
+                 states<3>{&s_2, &s_3, &rhs});
+    }
+
+  } else if (CCTK_EQUALS(method, "RK4-2")) {
+
+    const int depth = history_depth(method); // 1
+
+    if (history_incomplete(depth)) {
+
+      hybrid_bootstrap(depth);
+
+    } else {
+      using namespace MultiStepRungeKutta;
+
+      // k0 = f(t - h,      y(t - h))
+      // k1 = f(t,          y(t))
+      // k2 = f(t + c2 * h, y(t) + h * (a20 * k0 + a21 * k1))
+      // k3 = f(t + c3 * h, y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
+      // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
+
+      // clang-format off
+      const CCTK_REAL c2_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_c2<CCTK_REAL>() : rk4_dash_2_sol_2_c2<CCTK_REAL>()};
+      const CCTK_REAL c3_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_c3<CCTK_REAL>() : rk4_dash_2_sol_2_c3<CCTK_REAL>()};
+      const CCTK_REAL b0_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_b0<CCTK_REAL>() : rk4_dash_2_sol_2_b0<CCTK_REAL>()};
+      const CCTK_REAL b1_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_b1<CCTK_REAL>() : rk4_dash_2_sol_2_b1<CCTK_REAL>()};
+      const CCTK_REAL b2_pure {RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_b2<CCTK_REAL>() : rk4_dash_2_sol_2_b2<CCTK_REAL>()};
+      const CCTK_REAL a20_pure{RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_a20<CCTK_REAL>() : rk4_dash_2_sol_2_a20<CCTK_REAL>()};
+      const CCTK_REAL a30_pure{RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_a30<CCTK_REAL>() : rk4_dash_2_sol_2_a30<CCTK_REAL>()};
+      const CCTK_REAL a31_pure{RK4_dash_2_sol == 1 ? rk4_dash_2_sol_1_a31<CCTK_REAL>() : rk4_dash_2_sol_2_a31<CCTK_REAL>()};
+      const CCTK_REAL b3_pure {1.0 - (b0_pure + b1_pure + b2_pure)};
+      const CCTK_REAL a21_pure{c2_pure - a20_pure};
+      const CCTK_REAL a32_pure{c3_pure - (a30_pure + a31_pure)};
+      // clang-format on
+
+      const CCTK_REAL b0{b0_pure * dt};
+      const CCTK_REAL b1{b1_pure * dt};
+      const CCTK_REAL b2{b2_pure * dt};
+      const CCTK_REAL b3{b3_pure * dt};
+      const CCTK_REAL a20{a20_pure * dt};
+      const CCTK_REAL a21{a21_pure * dt};
+      const CCTK_REAL a30{a30_pure * dt};
+      const CCTK_REAL a31{a31_pure * dt};
+      const CCTK_REAL a32{a32_pure * dt};
+      // Stage times, as offsets from t. Both may be negative: the c_i are
+      // chosen to maximise the stability region and are searched over
+      // [-2, 2], so a stage may well be evaluated before t.
+      const CCTK_REAL c2{c2_pure * dt};
+      const CCTK_REAL c3{c3_pure * dt};
+
+      // Entry invariant: [ scratch, k0=f(y_{n-1}), dead, dead ]
+      const auto old = copy_state(var, CarpetX::make_valid_all());
+      const auto k0 = slot_state(1); // f(y_{n-1}); read-only for the whole step
+
+      calcrhs(1);           // slot 0 = k1 = f(y_n)
+      swap_rhs_slots(0, 3); // [ scratch, k0, dead, k1 ]
+      const auto k1 = slot_state(3);
+      calcupdate(1, c2, 0.0, reals<3>{1.0, a20, a21},
+                 states<3>{&old, &k0, &k1});
+
+      calcrhs(2);           // slot 0 = k2
+      swap_rhs_slots(0, 2); // [ scratch, k0, k2, k1 ]
+      const auto k2 = slot_state(2);
+      calcupdate(2, c3, 0.0, reals<4>{1.0, a30, a31, a32},
+                 states<4>{&old, &k0, &k1, &k2});
+
+      calcrhs(3); // slot 0 = k3
+      const auto k3 = slot_state(0);
+      calcupdate(3, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
+                 states<5>{&old, &k0, &k1, &k2, &k3});
+
+      swap_rhs_slots(0, 3); // [ f(y_n)=k1, k0, k2, k3 ]
+      invalidate_slots_beyond(
+          depth); // k2 and k3 are stage scratch, not history
+    }
+
+  } else if (CCTK_EQUALS(method, "RK4-3")) {
+
+    const int depth = history_depth(method); // 2
+
+    if (history_incomplete(depth)) {
+
+      hybrid_bootstrap(depth);
+
+    } else {
+      using namespace MultiStepRungeKutta;
+
+      // k0 = f(t - 2 * h,   y(t - 2 * h))
+      // k1 = f(t - h,       y(t - h))
+      // k2 = f(t,           y(t))
+      // k3 = f(t + c3 * h,  y(t) + h * (a30 * k0 + a31 * k1 + a32 * k2))
+      // y(t + h) = y(t) + h * (b0 * k0 + b1 * k1 + b2 * k2 + b3 * k3)
+
+      const CCTK_REAL c3_pure{rk4_dash_3_sol_1_c3<CCTK_REAL>()};
+      const CCTK_REAL b0_pure{rk4_dash_3_sol_1_b0<CCTK_REAL>()};
+      const CCTK_REAL b1_pure{rk4_dash_3_sol_1_b1<CCTK_REAL>()};
+      const CCTK_REAL b2_pure{rk4_dash_3_sol_1_b2<CCTK_REAL>()};
+      const CCTK_REAL a30_pure{rk4_dash_3_sol_1_a30<CCTK_REAL>()};
+      const CCTK_REAL a31_pure{rk4_dash_3_sol_1_a31<CCTK_REAL>()};
+      const CCTK_REAL b3_pure{1 - (b0_pure + b1_pure + b2_pure)};
+      const CCTK_REAL a32_pure{c3_pure - (a30_pure + a31_pure)};
+
+      const CCTK_REAL b0{b0_pure * dt};
+      const CCTK_REAL b1{b1_pure * dt};
+      const CCTK_REAL b2{b2_pure * dt};
+      const CCTK_REAL b3{b3_pure * dt};
+      const CCTK_REAL a30{a30_pure * dt};
+      const CCTK_REAL a31{a31_pure * dt};
+      const CCTK_REAL a32{a32_pure * dt};
+      // Stage time, as an offset from t; see the note in the RK4-2 branch
+      const CCTK_REAL c3{c3_pure * dt};
+
+      // Entry invariant: [ scratch, k1=f(y_{n-1}), k0=f(y_{n-2}), dead ]
+      const auto old = copy_state(var, CarpetX::make_valid_all());
+      const auto k0 = slot_state(2); // f(y_{n-2}); read-only for the whole step
+      const auto k1 = slot_state(1); // f(y_{n-1}); read-only for the whole step
+
+      calcrhs(1);           // slot 0 = k2 = f(y_n)
+      swap_rhs_slots(0, 3); // [ scratch, k1, k0, k2 ]
+      const auto k2 = slot_state(3);
+      calcupdate(1, c3, 0.0, reals<4>{1.0, a30, a31, a32},
+                 states<4>{&old, &k0, &k1, &k2});
+
+      calcrhs(2); // slot 0 = k3
+      const auto k3 = slot_state(0);
+      calcupdate(2, dt, 0.0, reals<5>{1.0, b0, b1, b2, b3},
+                 states<5>{&old, &k0, &k1, &k2, &k3});
+
+      swap_rhs_slots(0, 3);           // [ f(y_n)=k2, k1, k0, k3 ]
+      invalidate_slots_beyond(depth); // k3 is stage scratch, not history
+    }
 
   } else if (CCTK_EQUALS(method, "RKF78")) {
 
@@ -1031,7 +1524,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       }
     }
     calcupdate(nsteps, dt, 0.0, factors, srcs);
-
   } else if (CCTK_EQUALS(method, "DP87")) {
 
     typedef CCTK_REAL T;
@@ -1205,7 +1697,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
     var.check_valid(CarpetX::make_valid_int(),
                     "ODESolvers after defining new state vector");
     mark_invalid(dep_groups);
-
   } else {
     assert(0);
   }

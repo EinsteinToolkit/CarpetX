@@ -1,0 +1,9 @@
+Cactus Code Thorn TestRKAB
+Author(s)    : Lucas T. S. <lucas.t.s.carneiro@gmail.com>
+Maintainer(s): Lucas T. S. <lucas.t.s.carneiro@gmail.com>
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Solve the scalar wave equation in first order form using multi-step Runge-Kutta methods (MSRK)
