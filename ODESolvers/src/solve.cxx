@@ -1327,23 +1327,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const CCTK_REAL c2{c2_pure * dt};
       const CCTK_REAL c3{c3_pure * dt};
 
-      if (verbose) {
-        CCTK_VINFO("Coefficients:\n"
-                   "  b0  = %.16f\n"
-                   "  b1  = %.16f\n"
-                   "  b2  = %.16f\n"
-                   "  b3  = %.16f\n"
-                   "  a20 = %.16f\n"
-                   "  a21 = %.16f\n"
-                   "  a30 = %.16f\n"
-                   "  a31 = %.16f\n"
-                   "  a32 = %.16f\n"
-                   "  c2  = %.16f\n"
-                   "  c3  = %.16f",
-                   b0_pure, b1_pure, b2_pure, b3_pure, a20_pure, a21_pure,
-                   a30_pure, a31_pure, a32_pure, c2_pure, c3_pure);
-      }
-
       // Entry invariant: [ scratch, k0=f(y_{n-1}), dead, dead ]
       const auto old = copy_state(var, CarpetX::make_valid_all());
       const auto k0 = slot_state(1); // f(y_{n-1}); read-only for the whole step
@@ -1403,20 +1386,6 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
       const CCTK_REAL a32{a32_pure * dt};
       // Stage time, as an offset from t; see the note in the HRK423 branch
       const CCTK_REAL c3{c3_pure * dt};
-
-      if (verbose) {
-        CCTK_VINFO("Coefficients:\n"
-                   "  b0  = %.16f\n"
-                   "  b1  = %.16f\n"
-                   "  b2  = %.16f\n"
-                   "  b3  = %.16f\n"
-                   "  a30 = %.16f\n"
-                   "  a31 = %.16f\n"
-                   "  a32 = %.16f\n"
-                   "  c3  = %.16f",
-                   b0_pure, b1_pure, b2_pure, b3_pure, a30_pure, a31_pure,
-                   a32_pure, c3_pure);
-      }
 
       // Entry invariant: [ scratch, k1=f(y_{n-1}), k0=f(y_{n-2}), dead ]
       const auto old = copy_state(var, CarpetX::make_valid_all());
