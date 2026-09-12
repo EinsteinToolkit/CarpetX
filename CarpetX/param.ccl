@@ -430,15 +430,19 @@ CCTK_INT ghost_size_z "Number of ghost zones"
 
 KEYWORD prolongation_type "Prolongation type"
 {
+  # Old-style operators
   "interpolate" :: "interpolate between data points"
   "conservative" :: "interpolate cell averages, ensuring conservation"
   "ddf" :: "interpolate in vertex centred and conserve (with one order lower) in cell centred directions"
-  "eno" :: "interpolate in vertex centred and minmod-conserve in cell centred directions"
-  "minmod" :: "interpolate in vertex centred and ENO-conserve in cell centred directions"
+  "eno" :: "interpolate in vertex centred and ENO-conserve in cell centred directions"
+  "minmod" :: "interpolate in vertex centred and minmod-conserve in cell centred directions"
   "hermite" :: "Hermite-interpolate in vertex centred and conserve in cell centred directions"
   "natural" :: "interpolate in vertex centred and conserve in cell centred directions, using the same order"
   "poly-cons3lfb" :: "interpolate polynomially in vertex centred directions and conserve with 3rd order accuracy and a linear fallback in cell centred directions"
   "poly-eno3lfb" :: "interpolate polynomially in vertex centred directions and use ENO stencils with 3rd order accuracy and a linear fallback in cell centred directions"
+  # New-style operators. Do not set the prolongation_order when using these.
+  "star-poly" :: "Polynomial operators for vertex-centred geometry variables"
+  "star-cons" :: "Conservative operators for cell- and face-centred hydrodynamics variables"
 } "natural"
 
 CCTK_INT prolongation_order "Prolongation order"
