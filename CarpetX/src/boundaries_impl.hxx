@@ -26,7 +26,7 @@ namespace CarpetX {
 
 constexpr int NEG = -1, INT = 0, POS = +1;
 
-constexpr int maxncomps = 16;
+constexpr int maxncomps = 30;
 
 template <int NI, int NJ, int NK>
 void BoundaryCondition::apply_on_face() const {
