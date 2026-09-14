@@ -25,7 +25,9 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <cmath>
 #include <regex>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -691,7 +693,67 @@ void Checkpoint(const cGH *const restrict cctkGH) {
   }
 }
 
-int last_checkpoint_runtime = -1; // seconds
+namespace {
+
+// Trigger state for `IO::checkpoint_every_walltime_hours`.
+//
+// Every checkpoint trigger mechanism is independent: it consults only its own
+// state, never checkpoints written by the other mechanisms.
+//
+// This is the run time (seconds since the start of this run) at which the
+// walltime trigger last fired; 0 means it has not fired yet. It is advanced
+// whenever the trigger fires, even if the resulting checkpoint is then skipped
+// because one had already been written for this iteration.
+int last_walltime_trigger_runtime = 0; // seconds
+
+// Whether the walltime criterion `IO::checkpoint_every_walltime_hours` is met
+// at run time `runtime` (seconds since the start of this run), advancing the
+// trigger's state when it is.
+//
+// The criterion is anchored to the start of the run, not to the previous
+// checkpoint: slot boundaries lie at run times N, 2N, 3N, ... for an interval
+// of N seconds, and the trigger fires at the first evaluation point that falls
+// into a later slot than the previous firing did. The long-term rate is thus
+// exactly one checkpoint per N, with no drift accumulating from the delay
+// between a boundary and the next evaluation point.
+//
+// A single time step spanning several slots fires once rather than once per
+// slot, and the state then snaps to the current slot: the skipped slots all
+// denote the same simulation state, so the additional checkpoints would hold
+// identical data.
+//
+// This must be called on every process with the same `runtime`, since it
+// mutates state and decides whether a collective operation happens.
+bool CheckWalltimeTrigger(const int runtime) {
+  DECLARE_CCTK_PARAMETERS;
+
+  if (!(checkpoint_every_walltime_hours > 0))
+    return false;
+  // Round to whole seconds, the resolution of `CCTK_RunTime`, but keep the
+  // interval positive so that the slot arithmetic below is well defined
+  const int interval =
+      std::max(int(lrint(checkpoint_every_walltime_hours * 3600)), 1);
+  if (runtime / interval <= last_walltime_trigger_runtime / interval)
+    return false;
+  last_walltime_trigger_runtime = runtime;
+  return true;
+}
+
+// Name the triggers that fired, for the log message
+std::string DescribeTriggers(const char *const name1, const bool fired1,
+                             const char *const name2, const bool fired2) {
+  std::string description;
+  if (fired1)
+    description += name1;
+  if (fired2) {
+    if (!description.empty())
+      description += ", ";
+    description += name2;
+  }
+  return description;
+}
+
+} // namespace
 
 extern "C" void CarpetX_CheckpointInitial(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS;
@@ -700,12 +762,19 @@ extern "C" void CarpetX_CheckpointInitial(CCTK_ARGUMENTS) {
   int runtime = CCTK_RunTime(); // seconds
   MPI_Bcast(&runtime, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-  if (checkpoint_ID) {
+  // Setting up initial conditions can take a long time, so the walltime
+  // criterion is evaluated here as well and not only during the evolution
+  const bool checkpoint_by_walltime = CheckWalltimeTrigger(runtime);
+
+  if (checkpoint_ID || checkpoint_by_walltime) {
     CCTK_VINFO("Checkpointing initial conditions at iteration %d, time %f, run "
-               "time %.2f h",
-               cctk_iteration, double(cctk_time), double(runtime / 3600.0));
+               "time %.2f h (triggered by %s)",
+               cctk_iteration, double(cctk_time), double(runtime / 3600.0),
+               DescribeTriggers("checkpoint_ID", checkpoint_ID,
+                                "checkpoint_every_walltime_hours",
+                                checkpoint_by_walltime)
+                   .c_str());
     Checkpoint(cctkGH);
-    last_checkpoint_runtime = runtime;
   }
 }
 
@@ -718,16 +787,17 @@ extern "C" void CarpetX_Checkpoint(CCTK_ARGUMENTS) {
 
   const bool checkpoint_by_iteration =
       checkpoint_every > 0 && cctk_iteration % checkpoint_every == 0;
-  const bool checkpoint_by_walltime =
-      checkpoint_every_walltime_hours > 0 &&
-      runtime >= last_checkpoint_runtime +
-                     lrint(checkpoint_every_walltime_hours * 3600);
+  const bool checkpoint_by_walltime = CheckWalltimeTrigger(runtime);
 
   if (checkpoint_by_iteration || checkpoint_by_walltime) {
-    CCTK_VINFO("Checkpointing at iteration %d, time %f, run time %.2f h",
-               cctk_iteration, double(cctk_time), double(runtime / 3600.0));
+    CCTK_VINFO("Checkpointing at iteration %d, time %f, run time %.2f h "
+               "(triggered by %s)",
+               cctk_iteration, double(cctk_time), double(runtime / 3600.0),
+               DescribeTriggers("checkpoint_every", checkpoint_by_iteration,
+                                "checkpoint_every_walltime_hours",
+                                checkpoint_by_walltime)
+                   .c_str());
     Checkpoint(cctkGH);
-    last_checkpoint_runtime = runtime;
   }
 }
 
