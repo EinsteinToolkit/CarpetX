@@ -717,13 +717,13 @@ int last_walltime_trigger_runtime = 0; // seconds
 // exactly one checkpoint per N, with no drift accumulating from the delay
 // between a boundary and the next evaluation point.
 //
-// A single time step spanning several slots fires once rather than once per
-// slot, and the state then snaps to the current slot: the skipped slots all
-// denote the same simulation state, so the additional checkpoints would hold
-// identical data.
+// When a single time step spans several slots, the state snaps to the current
+// slot instead of advancing one slot at a time, so that the slots skipped over
+// do not make the trigger fire again on the following time steps.
 //
-// This must be called on every process with the same `runtime`, since it
-// mutates state and decides whether a collective operation happens.
+// Both callers are scheduled with `OPTIONS: meta`, so this runs once per
+// iteration. It must be called on every process with the same `runtime`, since
+// it mutates state and decides whether a collective operation happens.
 bool CheckWalltimeTrigger(const int runtime) {
   DECLARE_CCTK_PARAMETERS;
 
