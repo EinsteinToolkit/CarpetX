@@ -1,0 +1,42 @@
+# Parameter definitions for thorn TestMSRK
+
+KEYWORD initial_condition "Initial condition"
+{
+  "standing wave" :: "Standing wave"
+  "Gaussian" :: "Gaussian"
+  "noise" :: "noise"
+} "standing wave"
+
+BOOLEAN compute_error "Turn on error computation for Gaussian and standing wave initial data"
+{
+} no
+
+CCTK_REAL amplitude "Initial amplitude"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL standing_wave_kx "kx for standing wave"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL standing_wave_ky "kz for standing wave"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL standing_wave_kz "ky for standing wave"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL gaussian_width "width of Gaussian"
+{
+  (0:* :: ""
+} 1.0
+
+CCTK_REAL noise_boundary "Noise will be generated in the [-noise_boundary, noise_boundary] range"
+{
+  *:* :: ""
+} 1.0e-10

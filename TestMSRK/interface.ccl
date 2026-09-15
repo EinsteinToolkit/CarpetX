@@ -1,0 +1,40 @@
+# Interface definition for thorn TestMSRK
+
+IMPLEMENTS: TestMSRK
+
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: vect.hxx
+
+
+
+CCTK_REAL state TYPE=gf TAGS='rhs="rhs" edependents="error"'
+{
+  phi
+  Pi
+  Dx
+  Dy
+  Dz
+} "Scalar wave equation state vector"
+
+CCTK_REAL rhs TYPE=gf TIMELEVELS=4 TAGS='checkpoint="no"'
+{
+  phi_rhs
+  Pi_rhs
+  Dx_rhs
+  Dy_rhs
+  Dz_rhs
+} "RHS of scalar wave equation"
+
+CCTK_REAL error TYPE=gf TAGS='checkpoint="no"'
+{
+  phi_err
+  Pi_err
+  Dx_err
+  Dy_err
+  Dz_err
+} "Error in scalar wave equation evolution"
+
+CCTK_REAL energy TYPE=gf TAGS='checkpoint="no"'
+{
+  energy_density
+} "Wave equation energy density"
