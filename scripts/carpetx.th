@@ -623,7 +623,7 @@ Numerical/AEILocalInterp
 # Power -- waveform extrapolation
 !TARGET    = $ROOT/utils/Analysis
 !TYPE      = git
-!URL       = https://git.ncsa.illinois.edu/elihu/Gravitational_Waveform_Extractor.git
+!URL       = https://github.com/NCSAGravity/Gravitational_Waveform_Extractor
 !REPO_PATH = $1
 !CHECKOUT  = ./POWER
 

@@ -42,6 +42,14 @@ void TestDual() {
   static_assert(eqd(DREAL(4, 5) / DREAL(2, 3), DREAL(2, -0.5)));
 
   // static_assert(eqd(sqrt(DREAL(4, 3)), DREAL(2, 0.75)));
+
+  // `min` and `max` must select one operand whole, derivative included.
+  // (`eqd` is `std::equal_to`, which compares both components; `operator==`
+  // would only compare the value.)
+  static_assert(eqd(max(DREAL(2, 10), DREAL(5, 20)), DREAL(5, 20)));
+  static_assert(eqd(max(DREAL(5, 20), DREAL(2, 10)), DREAL(5, 20)));
+  static_assert(eqd(min(DREAL(2, 10), DREAL(5, 20)), DREAL(2, 10)));
+  static_assert(eqd(min(DREAL(5, 20), DREAL(2, 10)), DREAL(2, 10)));
 #endif
 }
 

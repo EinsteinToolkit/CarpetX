@@ -584,15 +584,15 @@ template <typename T, int D> struct vect {
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<bool, D>
   operator>(const T &a, const vect &x) {
-    return a < x;
+    return x < a;
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<bool, D>
   operator<=(const T &a, const vect &x) {
-    return !(x > a);
+    return !(a > x);
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<bool, D>
   operator>=(const T &a, const vect &x) {
-    return !(x < a);
+    return !(a < x);
   }
 
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST vect<bool, D>
@@ -844,6 +844,16 @@ template <typename T, int D> struct less<Arith::vect<T, D> > {
         return false;
     }
     return false;
+  }
+};
+
+// Consistent with `equal_to` above, i.e. it hashes every component
+template <typename T, int D> struct hash<Arith::vect<T, D> > {
+  std::size_t operator()(const Arith::vect<T, D> &x) const {
+    std::size_t h = 0;
+    for (int d = 0; d < D; ++d)
+      h ^= hash<T>()(x.elts[d]) + 0x9e3779b9 + (h << 6) + (h >> 2);
+    return h;
   }
 };
 

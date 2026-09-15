@@ -20,8 +20,11 @@ template <typename T, int D> struct reduction {
   T vol, maxabs, sumabs, sum2abs;
   vect<T, D> minloc, maxloc, sumloc;
 
-  // We currently omit minloc/maxloc/sumloc (TODO: fix this)
-  using tuple_type = amrex::GpuTuple<T, T, T, T, T, T, T, T>;
+  // The eight scalar reductions, plus `sumloc`. `minloc` and `maxloc` are not
+  // expressible with AMReX's reduction operators, which only support sums and
+  // extrema of arithmetic types; reduction.cxx obtains them from a second
+  // reduction pass.
+  using tuple_type = amrex::GpuTuple<T, T, T, T, T, T, T, T, T, T, T>;
   constexpr reduction(tuple_type);
   constexpr operator tuple_type() const;
 
@@ -46,6 +49,8 @@ template <typename T, int D> struct reduction {
   constexpr T norm2() const noexcept { return sqrt(sum2abs / vol); }
   constexpr T norm_inf() const noexcept { return maxabs; }
 
+  constexpr vect<T, D> com() const noexcept { return sumloc / sum; }
+
   template <typename T1, int D1>
   friend std::ostream &operator<<(std::ostream &os,
                                   const reduction<T1, D1> &red);
@@ -56,12 +61,19 @@ constexpr reduction<T, D>::reduction(tuple_type tuple)
     : min(amrex::get<0>(tuple)), max(amrex::get<1>(tuple)),
       sum(amrex::get<2>(tuple)), sum2(amrex::get<3>(tuple)),
       vol(amrex::get<4>(tuple)), maxabs(amrex::get<5>(tuple)),
-      sumabs(amrex::get<6>(tuple)), sum2abs(amrex::get<7>(tuple)), minloc{},
-      maxloc{}, sumloc{} {}
+      sumabs(amrex::get<6>(tuple)), sum2abs(amrex::get<7>(tuple)),
+      // `minloc` and `maxloc` are unknown here; the caller fills them in
+      minloc(vect<T, D>::pure(0.0 / 0.0)), maxloc(vect<T, D>::pure(0.0 / 0.0)),
+      sumloc{amrex::get<8>(tuple), amrex::get<9>(tuple),
+             amrex::get<10>(tuple)} {
+  static_assert(D == 3, "`tuple_type` assumes that `sumloc` has 3 components");
+}
 
 template <typename T, int D>
 constexpr reduction<T, D>::operator reduction<T, D>::tuple_type() const {
-  return tuple_type{min, max, sum, sum2, vol, maxabs, sumabs, sum2abs};
+  static_assert(D == 3, "`tuple_type` assumes that `sumloc` has 3 components");
+  return tuple_type{min,    max,     sum,       sum2,      vol,      maxabs,
+                    sumabs, sum2abs, sumloc[0], sumloc[1], sumloc[2]};
 }
 
 template <typename T, int D>
@@ -76,7 +88,9 @@ constexpr reduction<T, D>::reduction(const vect<T, D> &p, const T &V,
                                      const T &x)
     : min(x), max(x), sum(V * x), sum2(V * pow2(x)), vol(V), maxabs(fabs(x)),
       sumabs(V * fabs(x)), sum2abs(V * pow2(fabs(x))), minloc(p), maxloc(p),
-      sumloc(x * p) {}
+      // `sumloc` carries the volume element, as `sum` does, so that
+      // `com() == sumloc / sum` is the volume-weighted centre of mass
+      sumloc(V * x * p) {}
 
 template <typename T, int D>
 constexpr reduction<T, D>::reduction(const reduction &x, const reduction &y)
@@ -107,6 +121,7 @@ std::ostream &operator<<(std::ostream &os, const reduction<T, D> &red) {
             << "  norm1:    " << red.norm1() << "\n"
             << "  norm2:    " << red.norm2() << "\n"
             << "  norm_inf: " << red.norm_inf() << "\n"
+            << "  com:      " << red.com() << "\n"
             << "}\n";
 }
 
