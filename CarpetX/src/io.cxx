@@ -1,6 +1,7 @@
 #include "driver.hxx"
 #include "io.hxx"
 #include "io_adios2.hxx"
+#include "io_conduit.hxx"
 #include "io_meta.hxx"
 #include "io_norm.hxx"
 #include "io_openpmd.hxx"
@@ -538,6 +539,24 @@ int OutputGH(const cGH *restrict cctkGH) {
       if (strlen(out_adios2_vars) != 0)
         CCTK_VERROR("ADIOS2 is not enabled. The parameter "
                     "CarpetX::out_adios2_vars must be empty.");
+#endif
+    }
+  }
+
+  {
+    const int every = out_conduit_every == -1 ? out_every : out_conduit_every;
+    if (every > 0 && cctk_iteration % every == 0) {
+      const std::vector<bool> group_enabled =
+          find_groups("Conduit", out_conduit_vars);
+#ifdef HAVE_CAPABILITY_Conduit
+      // TODO: Stop at paramcheck time when Conduit output parameters
+      // are set, but Conduit is not available
+      const std::string simulation_name = get_simulation_name();
+      OutputConduit(cctkGH, group_enabled, out_dir, simulation_name);
+#else
+      if (strlen(out_conduit_vars) != 0)
+        CCTK_VERROR("Conduit is not enabled. The parameter "
+                    "CarpetX::out_conduit_vars must be empty.");
 #endif
     }
   }

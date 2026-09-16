@@ -8,6 +8,10 @@ OPTIONAL ADIOS2
 {
 }
 
+OPTIONAL Conduit
+{
+}
+
 OPTIONAL CUDA
 {
 }
