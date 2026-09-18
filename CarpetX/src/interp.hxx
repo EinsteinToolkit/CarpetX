@@ -42,6 +42,8 @@ private:
   using ParticleTile = Container::ParticleTileType;
 
   const int npoints{0};
+  // C-AMR2: set by the caller when these points are interpatch ghosts.
+  const bool require_level0_donors{false};
   std::vector<bool> symmetry_reflected_z;
   std::vector<Container> containers{}; // [patch]
 
@@ -82,12 +84,21 @@ public:
    *                 frame.
    * @param globalsz z-coordinates of the interpolation points in the global
    *                 frame.
+   * @param require_level0_donors  true when these query points are the
+   *                 interpatch ghost points of a patch boundary. Such a point
+   *                 must be answered from a `level > 0` box by nobody -- see
+   *                 the C-AMR2 block in `interpolate.cxx` for what that means
+   *                 and for why the caller declares it instead of the driver
+   *                 inferring it. The default is `false` because a
+   *                 `level > 0` answer is correct, and usually the point, for
+   *                 every other caller.
    */
   InterpolationSetup(CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
                      const CCTK_INT npoints,
                      const CCTK_REAL *restrict const globalsx,
                      const CCTK_REAL *restrict const globalsy,
-                     const CCTK_REAL *restrict const globalsz);
+                     const CCTK_REAL *restrict const globalsz,
+                     const bool require_level0_donors = false);
 
   /*
    * Interpolate performs the actual grid interpolation given a
@@ -136,6 +147,16 @@ public:
                    const std::vector<Arith::vect<Arith::vect<bool, 3>, 2> >
                        &allowed_boundaries, //  [patch][face][direction]
                    const CCTK_POINTER resultptrs_) const;
+
+private:
+  /*
+   * C-AMR2. When `require_level0_donors` is set, refuse before interpolating
+   * anything if any of this process's query points has been redistributed onto
+   * a `level > 0` box. See the block above its definition in
+   * `interpolate.cxx`; it is a no-op for every other caller.
+   */
+  void RefuseAboveLevel0Donors(const CCTK_INT nvars,
+                               const CCTK_INT *restrict const varinds) const;
 };
 
 // a dummy routine for now

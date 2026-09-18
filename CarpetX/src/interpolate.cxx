@@ -486,11 +486,49 @@ extern "C" CCTK_INT CarpetX_DriverInterpolate(
   }
 
   // This verifies that the order in param_table_handle matches the order of the
-  // runtime parameter from CarpetX
+  // runtime parameter from CarpetX.
+  //
+  // amr_interlude.md AMR-D9, fixed in step AMR-B7.  These two checks used to be
+  // bare `assert`s.  `NDEBUG` is defined in NEITHER of the two configurations
+  // this branch is built in (`[P199]`), so they abort the OPTIMIZED build as
+  // well, with SIGABRT and no message -- and what they catch is a plain
+  // parameter mistake, which a caller cannot diagnose from a bare SIGABRT.
+  // `PunctureTracker::interp_order` defaults to 1 and `interpolation_order`
+  // defaults to 1, so the two agree until a parameter file sets one of them,
+  // and then every tracked run dies without saying why.
+  //
+  // The table's "order" is read here and nowhere else: the interpolation
+  // dispatches on `interpolation_order` (the two `switch (interpolation_order)`
+  // below), so a mismatch cannot be honoured, only reported.
   CCTK_INT order;
   int n_elems = Util_TableGetInt(param_table_handle, &order, "order");
-  assert(n_elems == 1);
-  assert(order == interpolation_order);
+  {
+    const cFunctionData *const caller =
+        CCTK_ScheduleQueryCurrentFunction(static_cast<const cGH *>(cctkGH));
+    const char *const thorn = caller ? caller->thorn : "<not in a schedule bin>";
+    const char *const routine =
+        caller ? caller->routine : "<not in a schedule bin>";
+    if (n_elems != 1)
+      CCTK_VERROR("DriverInterpolate: the caller (%s::%s) did not put exactly "
+                  "one integer \"order\" into its parameter table "
+                  "(Util_TableGetInt returned %d).  CarpetX requires that key, "
+                  "and requires it to equal CarpetX::interpolation_order, "
+                  "which is %d.",
+                  thorn, routine, n_elems, int(interpolation_order));
+    if (order != interpolation_order)
+      CCTK_VERROR("DriverInterpolate: interpolation order mismatch.  The "
+                  "caller (%s::%s) asked for order=%d in its parameter table, "
+                  "but CarpetX::interpolation_order is %d.  CarpetX "
+                  "interpolates at CarpetX::interpolation_order and ignores "
+                  "the parameter table's value, so it refuses here rather "
+                  "than silently interpolating at an order nobody asked for.  "
+                  "Set the calling thorn's own order parameter and "
+                  "CarpetX::interpolation_order equal.  Note that "
+                  "CarpetX::interpolation_order is STEERABLE=always while a "
+                  "caller's order parameter usually is not, so steering it "
+                  "mid-run breaks this equality too.",
+                  thorn, routine, int(order), int(interpolation_order));
+  }
 
   std::vector<CCTK_INT> varinds;
   varinds.resize(N_output_arrays);
@@ -534,8 +572,9 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
     const CCTK_INT npoints, const CCTK_REAL *restrict const globalsx,
     const CCTK_REAL *restrict const globalsy,
-    const CCTK_REAL *restrict const globalsz)
-    : npoints(npoints) {
+    const CCTK_REAL *restrict const globalsz,
+    const bool require_level0_donors)
+    : npoints(npoints), require_level0_donors(require_level0_donors) {
   DECLARE_CCTK_PARAMETERS;
   assert(in_global_mode(cctkGH));
 
@@ -650,6 +689,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   }
 
   containers.resize(ghext->num_patches());
+  int owned_patches = 0;
   for (int patch = 0; patch < ghext->num_patches(); ++patch) {
     const PinnedParticleTile &pinned_particle_tile =
         pinned_particle_tiles.at(patch);
@@ -662,8 +702,56 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     // The mfi can be invalid if the number of processes does not evenly divide
     // the number of blocks
     if (!mfi.isValid()) {
+      // This process owns no level-0 box of this patch, so it has nowhere to
+      // put the query points it collected for it.  Dropping them is harmless
+      // only if there are none: a dropped point is never inserted into any
+      // container, so nobody interpolates it, nobody answers it, and this
+      // process's receive buffer comes back short.  That is caught -- but it
+      // is caught 500 lines below, by a size comparison whose whole diagnosis
+      // is the words "Internal error", on a rank that cannot say which patch
+      // it was or how many points it lost.
+      //
+      // So refuse here, where the three numbers still exist.  The predicate is
+      // exact rather than conservative: it cannot fire on any configuration
+      // that works today, because a process with no points for this patch
+      // loses nothing by skipping it.
+      //
+      // There is deliberately NO parameter to downgrade this to a warning.  A
+      // hatch would be a lie: the run does not survive the drop either way,
+      // and a warning would only move the abort back to the site that cannot
+      // name anything.
+      //
+      // WHEN THIS FIRES.  `amr.refine_grid_layout` (CarpetX::refine_grid_layout,
+      // default yes) makes AMReX chop each patch's level-0 box array until
+      // every process has a box, so a freshly decomposed grid satisfies this
+      // by construction.  A RECOVERED grid does not go through that path at
+      // all: `RecoverGridStructure` restores the box array out of the
+      // checkpoint, so a checkpoint written at N processes carries a box array
+      // built for N and nothing rebuilds it for M.
+      const int np = int(pinned_particle_tile.numParticles());
+      if (np > 0) {
+        // CCTK_VERROR discards buffered stdout, and the box census a reader
+        // wants next to this message is on stdout.
+        std::fflush(nullptr);
+        CCTK_VERROR(
+            "This process (%d of %d) owns no level-0 box of patch %d, but it "
+            "holds %d of its own %lld interpolation query point(s) for that "
+            "patch. Those points would be dropped here and answered by "
+            "nobody. Patch %d's level-0 box array has %d box(es) for %d "
+            "process(es). CarpetX::refine_grid_layout = yes makes AMReX chop "
+            "every patch's level-0 box array until each process holds a box, "
+            "and it is what a freshly decomposed grid relies on; a RECOVERED "
+            "grid does not, because the box array is restored from the "
+            "checkpoint and is therefore the array that was built for the "
+            "process count the checkpoint was written at. Recover at that "
+            "process count, or start from initial data.",
+            proc, amrex::ParallelDescriptor::NProcs(), patch, np,
+            (long long)npoints, patch, leveldata.fab->size(),
+            amrex::ParallelDescriptor::NProcs());
+      }
       continue;
     }
+    ++owned_patches;
 
     ParticleTile &particle_tile = containers.at(patch).GetParticles(
         level)[std::make_pair(mfi.index(), mfi.LocalTileIndex())];
@@ -673,6 +761,51 @@ CarpetX::InterpolationSetup::InterpolationSetup(
     particle_tile.resize(new_np);
     amrex::copyParticles(particle_tile, pinned_particle_tile, 0, old_np,
                          pinned_particle_tile.numParticles());
+  }
+
+  // Say so when the refusal above did NOT fire, because a guard that speaks
+  // only when it refuses turns every quiet run into an unmeasured one: there
+  // is then no way to read "every process owns a box of every patch" apart
+  // from "this binary has no such check".
+  //
+  // TWO INDEPENDENT ONE-SHOTS, and that is not tidiness.  With a single flag
+  // the announcement is spent on whichever call comes first, and on a patch
+  // system the first call is routinely the EMPTY one -- so the run carries
+  // "nothing to check" from a process that holds two hundred thousand query
+  // points a few lines later, and never carries the informative line at all.
+  // That is exactly what happened to the C-AMR2 clearance line, where it went
+  // unnoticed long enough to be written into three reports before anyone
+  // measured it.  Two flags cost nothing and cannot be spent on each other.
+  //
+  // WHAT THIS CHANNEL IS AND IS NOT.  It reaches a log only from the ROOT
+  // process: the flesh `freopen`s stdout to the null device on every non-root
+  // process unless the run is given `-r`
+  // (`flesh/src/main/CommandLine.c:783`), so a `CCTK_VINFO` from process 1 is
+  // discarded before `CCTK_VInfo` is even reached.  The per-process channel is
+  // the refusal above, which is a `CCTK_VERROR` and therefore goes to stderr,
+  // which the flesh does not redirect.  So: this line witnesses that the check
+  // RUNS; what witnesses that it HELD on every process is that the run
+  // survived, because the refusal has no warn-only mode.
+  {
+    static bool announced_holds = false;
+    static bool announced_empty = false;
+    if (npoints == 0) {
+      if (!announced_empty) {
+        announced_empty = true;
+        CCTK_VINFO("Level-0 patch ownership has nothing to check on this "
+                   "process (%d of %d): it holds no interpolation query point "
+                   "at all, over %d patch(es)",
+                   proc, amrex::ParallelDescriptor::NProcs(),
+                   ghext->num_patches());
+      }
+    } else if (!announced_holds) {
+      announced_holds = true;
+      CCTK_VINFO("Level-0 patch ownership holds: this process (%d of %d) owns "
+                 "a level-0 box of %d of the %d patch(es) and none of its "
+                 "%lld query point(s) is dropped",
+                 proc, amrex::ParallelDescriptor::NProcs(), owned_patches,
+                 ghext->num_patches(), (long long)npoints);
+    }
   }
 
   // Send particles to interpolation points
@@ -741,6 +874,187 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// C-AMR2 -- NO INTERPATCH GHOST POINT MAY BE ANSWERED FROM A `level > 0` BOX.
+//
+//   C-AMR2.  No patch's interpatch ghost point may be answered from a
+//   `level > 0` box.
+//
+// This is the second half of the contract that replaces the blanket refusal of
+// mesh refinement on a multi-patch grid.  The first half (C-AMR, in
+// `fillpatch.cxx`) is about the PROLONGATION: it forbids reading coarse data
+// from outside the owning patch.  This half is about the DONOR of an
+// interpatch seam value, and the two are independent -- a configuration can
+// satisfy C-AMR with five coarse cells to spare and violate this one.
+//
+// THE MECHANISM.  `InterpolationSetup`'s constructor inserts every query
+// particle at level 0 and then calls `Redistribute()`, whose `Where()` loop
+// runs FINEST LEVEL FIRST.  A particle that lands inside a refined box is
+// therefore assigned to the refined level, and `Interpolate` answers it from
+// prolongated fine data instead of evolved coarse data.  Nothing is NaN and
+// nothing aborts: the values are finite, they are simply drawn from a
+// different level than the seam fill was designed around, and the switch
+// happens mid-run, at a moment set by wherever the refinement boxes have
+// travelled to.  That is what makes it worth a refusal rather than a warning:
+// a seam whose donor changes character during a run is not a discretisation
+// the rest of the scheme can be reasoned about.
+//
+// WHY THE CALLER DECLARES THIS AND THE DRIVER DOES NOT INFER IT.  This class
+// has two kinds of caller and only one of them is C-AMR2's subject:
+//
+//   - an interpatch seam fill, whose query points ARE the ghost points of a
+//     patch boundary.  For those, a `level > 0` answer is the violation.
+//   - `CarpetX_Interpolate` and everything that funnels into it -- puncture
+//     tracking, wave extraction, any thorn calling `CCTK_InterpGridArrays`.
+//     For those a `level > 0` answer is CORRECT and usually the point: a
+//     tracked puncture sits inside its own refinement box by construction.
+//
+// The driver cannot tell the two apart from the coordinates, so it does not
+// try.  `require_level0_donors` is passed by the caller, defaults to `false`,
+// and only a caller that knows its points are interpatch ghosts sets it.  A
+// default of `true` would have been fail-safe in the abstract and wrong here:
+// it would silently impose a contract on callers that never asked for one, and
+// refusing a configuration that works is the one thing this guard may not do.
+//
+// WHY IT RUNS AS A PRE-PASS AND NOT INSIDE THE INTERPOLATION LOOP.  Two
+// reasons, and the second is the load-bearing one.  (a) A refusal should
+// happen before the work, not after it.  (b) The interpolation kernel below
+// carries a bare `assert(all(i >= 0 && i + order < grid.lsh))` inside an
+// `omp parallel for`, live in the optimized build, and on a violating
+// multi-patch configuration that assert has been observed to fire
+// NON-DETERMINISTICALLY -- 13 of 24 attempts on one geometry, from inside the
+// cache rebuild that the regrid repair triggers during initialisation.  A
+// guard that ran after the loop would be shadowed by that abort in half the
+// runs and would report a different thing in the other half.  This pass reads
+// only particle counts, so it is deterministic and it always comes first.
+//
+// COST.  One `ParConstIter` sweep over levels `>= 1` only, per `Interpolate`
+// call, and only when a caller has asked for the check.  At
+// `max_num_levels = 1` there is no such level and the loop body never runs.
+//
+// THE COUNTS ARE RANK-LOCAL.  Which rank answers a given query point is
+// decided by `Redistribute`, so a violation may be visible to one process and
+// not to another.  Every process evaluates the predicate and any one of them
+// stops the job; the message says whose count it is.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+void CarpetX::InterpolationSetup::RefuseAboveLevel0Donors(
+    const CCTK_INT nvars, const CCTK_INT *restrict const varinds) const {
+  DECLARE_CCTK_PARAMETERS;
+
+  if (!require_level0_donors)
+    return;
+
+  long long answered_above0 = 0;
+  int maxlevel = 0, nrefined_patches = 0;
+  int first_patch = -1, first_level = -1;
+  CCTK_REAL first_x = 0, first_y = 0, first_z = 0;
+
+  for (const auto &patchdata : ghext->patchdata) {
+    const int patch = patchdata.patch;
+    const int nlevels = int(patchdata.leveldata.size());
+    if (nlevels > 1)
+      ++nrefined_patches;
+    for (int level = 1; level < nlevels; ++level) {
+      for (amrex::ParConstIter<3, 2> pti(containers.at(patch), level);
+           pti.isValid(); ++pti) {
+        const int np = pti.numParticles();
+        if (np <= 0)
+          continue;
+        answered_above0 += np;
+        if (level > maxlevel)
+          maxlevel = level;
+        if (first_patch < 0) {
+          // `rdata(0..2)` is the TRUE patch-local query coordinate;
+          // `pos(0..2)` is the clamped position `Redistribute` located the
+          // particle with, which is not the coordinate the answer is for.
+          const auto &particles = pti.GetArrayOfStructs();
+          first_patch = patch;
+          first_level = level;
+          first_x = particles[0].rdata(0);
+          first_y = particles[0].rdata(1);
+          first_z = particles[0].rdata(2);
+        }
+      }
+    }
+  }
+
+  // Nothing above level 0.  Report it once per process, but only once a
+  // refined level exists at all -- otherwise the line would say nothing,
+  // every run would carry it, and it would stop being evidence.
+  //
+  // A ZERO POINT COUNT GETS ITS OWN SENTENCE, and that is not fussiness: a
+  // `patch_system = "Cartesian"` run reaches here with `npoints == 0`, and a
+  // line reading "C-AMR2 holds" over an empty set is a check that passed on
+  // nothing.  Say which of the two happened.
+  static bool announced_holds = false;
+  if (answered_above0 == 0) {
+    if (nrefined_patches > 0 && !announced_holds) {
+      announced_holds = true;
+      if (npoints == 0)
+        CCTK_VINFO("C-AMR2 has nothing to check on this process: it holds no "
+                   "interpatch query point at all, while %d patch(es) carry a "
+                   "refined level. This is what a single-patch grid looks "
+                   "like here",
+                   nrefined_patches);
+      else
+        CCTK_VINFO("C-AMR2 holds: all %lld of this process's interpatch query "
+                   "points are answered from level 0, with %d patch(es) "
+                   "carrying a refined level",
+                   (long long)npoints, nrefined_patches);
+    }
+    return;
+  }
+
+  const char *const var0 = nvars > 0 ? CCTK_FullVarName(int(varinds[0])) : NULL;
+  const bool warn_only = CCTK_EQUALS(multipatch_amr_contract, "warn");
+
+  // `CCTK_VERROR` discards buffered stdout, and the level and box census a
+  // reader wants next to this message is on stdout.
+  std::fflush(nullptr);
+
+  static bool announced_violated = false;
+  if (warn_only && announced_violated)
+    return;
+  announced_violated = true;
+
+  char msg[2400];
+  std::snprintf(
+      msg, sizeof msg,
+      "C-AMR2 is VIOLATED. %lld of this process's %lld interpatch query "
+      "points (filling %s%s) are answered from a level > 0 box; the deepest "
+      "is level %d, and the first of them is ANSWERED ON patch %d at level "
+      "%d, at that patch's local coordinate (%.17g, %.17g, %.17g) -- which is "
+      "the patch that OWNS the point and carries the refined level, not the "
+      "patch whose ghost zone asked for it. Those values are finite and "
+      "nothing "
+      "will abort: they are prolongated fine data where the seam fill expects "
+      "evolved coarse data, and which of the two a given seam point gets "
+      "changes during the run as the refinement boxes move. A refined region "
+      "has reached the zone from which another patch's interpatch ghost "
+      "points are drawn -- that zone extends inward of the patch interface by "
+      "the patch overlap plus the ghost width, so it can be met without any "
+      "refinement box being near the interface itself. Either keep the "
+      "refined region out of it (BoxInBox::radius_*, BoxInBox::position_*), "
+      "or move the zone by raising the patch system's resolution or its inner "
+      "boundary -- a resolution change must keep every patch's cell count a "
+      "multiple of CarpetX::blocking_factor_{x,y,z} in every direction, so "
+      "the reachable values are quantised and the first arithmetically "
+      "sufficient one is usually not reachable. "
+      "CarpetX::multipatch_amr_contract = \"warn\" downgrades this to a "
+      "warning, for diagnosis only.",
+      answered_above0, (long long)npoints, var0 ? var0 : "unknown variable",
+      nvars > 1 ? " and others" : "", maxlevel, first_patch, first_level,
+      double(first_x), double(first_y), double(first_z));
+
+  if (warn_only)
+    CCTK_VWARN(CCTK_WARN_ALERT, "%s", msg);
+  else
+    CCTK_VERROR("%s", msg);
+}
+
 void CarpetX::InterpolationSetup::Interpolate(
     CCTK_ATTRIBUTE_UNUSED const cGH *restrict const cctkGH,
     const CCTK_INT nvars, const CCTK_INT *restrict const varinds,
@@ -749,6 +1063,10 @@ void CarpetX::InterpolationSetup::Interpolate(
         &allowed_boundaries, //  [patch][face][direction]
     const CCTK_POINTER resultptrs_) const {
   DECLARE_CCTK_PARAMETERS;
+
+  // C-AMR2, before any work: a caller whose query points are interpatch ghosts
+  // gets them answered from level 0 or not at all.
+  RefuseAboveLevel0Donors(nvars, varinds);
 
   // Define result variables
   const int nprocs = amrex::ParallelDescriptor::NProcs();

@@ -511,6 +511,14 @@ extern std::atomic<CCTK_INT> carpetx_epoch;
 
 extern "C" CCTK_INT CarpetX_GetEpoch(void);
 
+// The `fluxes` group TAG, read exactly the way the driver itself reads it when
+// it decides whether to build a flux register (`driver.cxx`, called from
+// `GroupData::GroupData` at `level > 0`).  Returns `{-1, -1, -1}` when the
+// group declares no fluxes.  Declared here so that the schedule-order
+// instrument can take the flux census from the driver's OWN reader rather than
+// from a grep over `interface.ccl` (AMR-C7, `[P186]`).
+std::array<int, dim> get_group_fluxes(int gi);
+
 } // namespace CarpetX
 
 #endif // #ifndef CARPETX_CARPETX_DRIVER_HXX

@@ -33,12 +33,16 @@ static inline int omp_in_parallel() { return 0; }
 #include <sys/time.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
+#include <sstream>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -81,9 +85,127 @@ double gettime() {
 // Used to pass active levels from AMReX's regridding functions
 std::optional<active_levels_t> active_levels;
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// AMR-C7.  THE SCHEDULE-ORDER INSTRUMENT (`CARPETX_LOG_SCHED`).
+//
+// WHAT IT IS FOR.  Two sentences this project has been making from a code
+// reading and wants to make from a measurement instead: that `Restrict` runs
+// BEFORE the interpatch fill inside a sync, and that `Reflux` moves nothing.
+// `[P186]`: a deadness claim backed by one grep is one typo away from being
+// wrong, and an ordering claim read off the source is one refactor away from
+// it.
+//
+// WHY A SEQUENCE NUMBER AND NOT THE ITERATION.  `[P422]`: an instrument that
+// delimits its stream by `cctk_iteration` MERGES the two traversals that both
+// live inside `ScheduleTraverseGH iteration 0`, which is exactly where the
+// initial restriction and the initial interpatch fills are.  So the clock here
+// is a single monotonic counter shared by every site below, and the iteration
+// is printed as CONTEXT beside it, never as a delimiter.  Two events are
+// ordered iff their `seq` values are.
+//
+// WHY STDERR.  `[P417]`: the flesh `freopen`s stdout to the null device on
+// every non-root process (`flesh/src/main/CommandLine.c:783`) unless the run is
+// given `-r`, so no `CCTK_VINFO` is a per-process channel and an ordering claim
+// read off INFO lines is a claim about rank 0 and nothing else.  stderr the
+// flesh leaves alone.  This is the same reasoning, and the same mechanism, as
+// `CapyrX_MultiPatch`'s `CAPYRX_LOG_LEVELS` instrument, whose `MPLEVELS` line
+// marks the interpatch fill from the OTHER repo and is the independent second
+// reading of the same ordering.
+//
+// COST WHEN OFF.  One `std::getenv` per process and one predictable branch per
+// site.  No line, no string, no allocation.  It is ALWAYS COMPILED rather than
+// `CCTK_DEBUG`-gated for AMR-A4's reason: the numbers have to be readable in
+// the optimized build, which is the only build in which the production geometry
+// runs in minutes.
+//
+// CONCURRENCY.  Every site below is reached in global mode -- `SyncGroupsByDirI`
+// asserts `in_global_mode`, and `Restrict`/`Reflux` are called only from the
+// driver's own serial points -- so the counter is not shared between threads.
+// Per B10's rule the static is written only on the path that also reads it,
+// i.e. only when the instrument is on, so a run without it is untouched.
+//
+// THE LINE IS ASSEMBLED AND EMITTED WITH ONE `<<`, so that a rank's own stream
+// carries whole lines in program order.  That order IS the measurement.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
+bool log_sched_on() {
+  static const bool on = std::getenv("CARPETX_LOG_SCHED") != nullptr;
+  return on;
+}
+
+void log_sched(const cGH *const cctkGH, const std::string &fields) {
+  // `proc` is on every line because at more than one rank the launcher MERGES
+  // the per-process stderr streams into one file, and an ordering claim read
+  // off an interleaved stream is not a claim about any process.  With it, the
+  // reader splits exactly; without it, it would have to guess from the `seq`
+  // values, and a single dropped line would make the guess wrong silently.
+  static const int myproc = CCTK_MyProc(cctkGH);
+  static long seq = 0;
+  std::ostringstream line;
+  line << "SCHED seq=" << ++seq
+       << " it=" << (cctkGH ? cctkGH->cctk_iteration : -1)
+       << " proc=" << myproc << " " << fields << "\n";
+  std::cerr << line.str();
+}
+
+// THE FLUX CENSUS, and it is the driver's own reader rather than a grep.
+//
+// A group gets a flux register -- and is therefore the only kind of group
+// `Reflux` can move -- iff its TAGS carry `fluxes="<gx> <gy> <gz>"`
+// (`driver.cxx`, `GroupData::GroupData`, `level > 0`).  This walks every group
+// the run actually declared and asks `get_group_fluxes` about each one, so the
+// answer covers thorns that are active, thorns that are compiled in, tags
+// spelled with the wrong case and tags this file has never heard of.  `[P186]`.
+//
+// It is ONE SHOT and it prints the EXAMINED count as well as the hit count,
+// because `[P135]`/`[P184]`: a zero is only a zero if the instrument spoke.
+//
+// NOTE that `get_group_fluxes` asserts on a malformed `fluxes` tag.  On a run
+// with a refined level the driver calls it anyway and the assert is already
+// reachable; on a single-level run this instrument would be the first caller,
+// which is one more reason it is off unless asked for.
+void log_sched_flux_census(const cGH *const cctkGH) {
+  static bool done = false;
+  if (done)
+    return;
+  done = true;
+
+  const int ngroups = CCTK_NumGroups();
+  int gf_groups = 0, with_tag = 0;
+  std::ostringstream tagged;
+  bool first = true;
+  for (int gi = 0; gi < ngroups; ++gi) {
+    if (CCTK_GroupTypeI(gi) != CCTK_GF)
+      continue;
+    ++gf_groups;
+    const std::array<int, dim> fluxes = get_group_fluxes(gi);
+    if (fluxes[0] < 0)
+      continue;
+    ++with_tag;
+    if (!first)
+      tagged << ",";
+    first = false;
+    const char *const name = CCTK_FullGroupName(gi);
+    tagged << (name ? name : "?");
+  }
+
+  std::ostringstream fields;
+  fields << "site=fluxcensus ngroups=" << ngroups << " gf_groups=" << gf_groups
+         << " with_fluxes_tag=" << with_tag
+         << " tagged=" << (with_tag == 0 ? std::string("-") : tagged.str());
+  log_sched(cctkGH, fields.str());
+}
+
+} // namespace
+
 void Reflux(const cGH *cctkGH, int level);
-void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups);
-void Restrict(const cGH *cctkGH, int level);
+void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups,
+              const char *site);
+void Restrict(const cGH *cctkGH, int level, const char *site);
 
 namespace {
 // Convert a (direction, face) pair to an AMReX Orientation
@@ -123,6 +245,374 @@ void log_mp_interpolate_call(const char *site,
              int(has_coordinatesx));
 }
 #endif
+
+// AMR-B4a (`[P123]`, `[P127]`).  THE INTER-BOX CONSISTENCY CHECK.
+//
+// THE INVARIANT.  A global grid point that several AMReX boxes of the same
+// patch and level hold is stored several times, and the copies must agree.
+// Nothing in this driver checked that, and `[P127]` is the finding that no
+// shipped checker could: every one of them judges an output row on its own and
+// never compares two rows for the same cell, so `[P123]` -- a slaved interior
+// cell whose inter-box ghost copies hold the patch's own PRE-slave value --
+// sat inside a green battery from before Phase B until C1 ran `rowdiff.py` by
+// hand.
+//
+// "THE BOX THAT OWNS A NODE" IS NOT A THING, AND ASSUMING IT IS OVERCOUNTS.
+// A vertex-centred group is stored on a NODAL `BoxArray` (`driver.cxx:1008`,
+// `convert(..., IndexType::NODE)`), and adjacent nodal boxes SHARE the plane
+// of nodes between them: both hold it, and both hold it as VALID data, not as
+// a ghost.  Measured on `color_ghost.par` at one rank: 3103 of 23491 nodes lie
+// in more than one box's valid region.  A first version of this check assumed
+// a unique owner, compared each ghost copy once per covering box and folded
+// the flags onto "the" owner; it reported 1936 disagreeing cells on that rig
+// where `rowdiff.py`, on the same run's own output, reported 1624.  So:
+//
+//   * a copy is compared ONCE per box that holds it, not once per
+//     (holder, coverer) pair -- component 1 of `flag` is the visited marker
+//     that enforces it;
+//   * a node's valid copies are compared against each other too, because on a
+//     shared plane there is no ghost involved and the old formulation was
+//     blind to it;
+//   * and a node is COUNTED at the lowest-indexed box whose valid region holds
+//     it, so `bad_cells` is a count of distinct global nodes.
+//
+// WHAT IT COUNTS.  Three numbers, because they are three different questions:
+//
+//   checked      copies (cell x component) that at least one OTHER box also
+//                holds in its valid region -- the redundant copies, the only
+//                ones this invariant is about.  It is the instrument's own
+//                "did it speak" column: at ONE AMReX box per patch nothing is
+//                redundant and every count below is vacuously zero (`[P35]`,
+//                `[N13]`, `[P177]`).  A gate that reads `bad_values = 0`
+//                without also reading `checked > 0` has measured nothing.
+//   bad_values   of those, how many differ from the reference copy.  IT IS
+//                REFERENCE-DEPENDENT and deliberately not pinned: for a node
+//                holding {a, a, b} it is 1 or 2 depending on which copy
+//                `ParallelCopy` happened to deliver.  Zero is
+//                reference-INdependent, which is the only thing gated.
+//   bad_cells    distinct global NODES not all of whose copies agree.  That is
+//                exactly the quantity `rowdiff.py` calls a multi-valued cell,
+//                so it is the one comparable with C1 gate 5b's pinned
+//                400 / 1624 / 5040.
+//
+// HOW THE REFERENCE COPY IS OBTAINED, AND WHY IT IS NOT `FillBoundary`.
+// `FillBoundary` is exactly the operation AMR-B4b adds as the FIX, and a
+// detector built out of the fix's own call would be checking its own
+// arithmetic.  `ParallelCopy` from the source's VALID region into the
+// destination's valid+ghost region states the invariant through AMReX's other
+// communication path (a `CPC` plan instead of an `FB` plan).  Cells that no
+// box's valid region covers -- the interpatch ghosts `I` and the outer ghosts
+// `O`, which lie outside the patch domain -- are not reached by it, keep the
+// value `MultiFab::Copy` put there, and are neither checked nor counted.  That
+// is deliberate: they have exactly one writer each and this invariant does not
+// apply to them.
+//
+// THE DEDUPLICATION IS AN `ADD` PARALLELCOPY, NOT A GATHER.  A disagreeing
+// copy writes a 1 into `flag`; `flag` is then `ParallelCopy`-ed into VALID
+// regions with `FabArrayBase::ADD`, which lands every copy of a node on every
+// box whose valid region holds it, and the count is taken at the lowest-indexed
+// of those.  No index gather and no hash table.
+//
+// PERIODICITY.  The comparison follows `geom.periodicity()`, so a ghost filled
+// across a periodic face is checked.  The DEDUPLICATION does not: a periodic
+// image carries a different index, and `bad_cells` counts distinct indices.
+// On a periodic geometry `bad_values` can therefore exceed what `bad_cells`
+// accounts for, which is why both are gated at zero and neither alone.
+//
+// COMPARISON IS EXACT, NOT TOLERANT.  Two copies of the same number produced
+// by the same write are bit-identical, so any difference at all is the defect
+// and a tolerance would only hide the small ones.  Two NaNs are treated as
+// agreeing (`NaN == NaN` is false, and a poisoned cell copied to a ghost is
+// consistent, not broken); a NaN against a number is a disagreement that
+// cannot contribute to `max_absdiff`, so it is counted separately.
+struct interbox_report_t {
+  long checked = 0;
+  long bad_values = 0;
+  long bad_cells = 0;
+  long nan_mismatch = 0;
+  long boxes = 0;
+  double max_absdiff = 0.0;
+
+  void operator+=(const interbox_report_t &o) {
+    checked += o.checked;
+    bad_values += o.bad_values;
+    bad_cells += o.bad_cells;
+    nan_mismatch += o.nan_mismatch;
+    boxes += o.boxes;
+    using std::max;
+    max_absdiff = max(max_absdiff, o.max_absdiff);
+  }
+};
+
+interbox_report_t interbox_check_one(const amrex::MultiFab &mfab,
+                                     const amrex::Geometry &geom) {
+  interbox_report_t rep;
+  const amrex::IntVect ng = mfab.nGrowVect();
+  if (ng.max() <= 0)
+    return rep;
+
+  const int ncomp = mfab.nComp();
+  const amrex::BoxArray &ba = mfab.boxArray();
+  const amrex::DistributionMapping &dm = mfab.DistributionMap();
+  const amrex::Periodicity period = geom.periodicity();
+
+  // The reference copy, delivered into every cell some valid region covers.
+  // The `Copy` first, so that cells NO valid region covers compare equal and
+  // cannot be mistaken for a disagreement; the `ParallelCopy` then overwrites
+  // exactly the covered ones.
+  amrex::MultiFab ref(ba, dm, ncomp, ng, amrex::MFInfo(), mfab.Factory());
+  amrex::MultiFab::Copy(ref, mfab, 0, 0, ncomp, ng);
+  ref.ParallelCopy(mfab, 0, 0, ncomp, amrex::IntVect(0), ng, period);
+
+  // component 0: this copy disagrees with the reference.
+  // component 1: this copy has already been visited.  A cell can be covered by
+  // several other boxes at once (nodal shared planes, and ordinary corners),
+  // and must be compared once per HOLDER, not once per (holder, coverer) pair.
+  amrex::MultiFab flag(ba, dm, 2, ng, amrex::MFInfo(), mfab.Factory());
+  flag.setVal(0.0, 0, 2, ng);
+
+  std::vector<std::pair<int, amrex::Box> > isects;
+  for (amrex::MFIter mfi(mfab); mfi.isValid(); ++mfi) {
+    const int me = mfi.index();
+    const amrex::Box &vbx = mfi.validbox();
+    const amrex::Box gbx = amrex::grow(vbx, ng);
+    const amrex::Array4<const CCTK_REAL> have = mfab.const_array(mfi);
+    const amrex::Array4<const CCTK_REAL> want = ref.const_array(mfi);
+    const amrex::Array4<CCTK_REAL> flg = flag.array(mfi);
+    ++rep.boxes;
+
+    // `shiftIntVect()` is `{(0,0,0)}` on a non-periodic geometry, so this loop
+    // degenerates to one pass there.  It is written out because the ghost fill
+    // this check is a postcondition for uses `geom.periodicity()` too, and a
+    // check that ignored a periodic direction would report a clean patch that
+    // the fill had left stale.
+    for (const amrex::IntVect &shift : period.shiftIntVect()) {
+      amrex::Box sbx(gbx);
+      sbx.shift(-shift);
+      ba.intersections(sbx, isects);
+      for (const auto &is : isects) {
+        if (shift == amrex::IntVect(0) && is.first == me)
+          continue; // a box does not make its own copy redundant
+        amrex::Box ibx(is.second);
+        ibx.shift(shift);
+        ibx &= gbx;
+        const auto lo = amrex::lbound(ibx);
+        const auto hi = amrex::ubound(ibx);
+        for (int k = lo.z; k <= hi.z; ++k) {
+          for (int j = lo.y; j <= hi.y; ++j) {
+            for (int i = lo.x; i <= hi.x; ++i) {
+              if (flg(i, j, k, 1) > 0.5)
+                continue; // already compared, through another coverer
+              flg(i, j, k, 1) = 1.0;
+              bool any = false;
+              for (int c = 0; c < ncomp; ++c) {
+                ++rep.checked;
+                const CCTK_REAL a = have(i, j, k, c);
+                const CCTK_REAL b = want(i, j, k, c);
+                if (a == b)
+                  continue;
+                using std::isnan;
+                const bool na = isnan(a), nb = isnan(b);
+                if (na && nb)
+                  continue;
+                ++rep.bad_values;
+                any = true;
+                if (na || nb) {
+                  ++rep.nan_mismatch;
+                } else {
+                  using std::fabs;
+                  using std::max;
+                  rep.max_absdiff =
+                      max(rep.max_absdiff, double(fabs(double(a) - double(b))));
+                }
+              }
+              if (any)
+                flg(i, j, k, 0) = 1.0;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Fold every disagreeing copy of a node onto every box whose valid region
+  // holds that node, then count it at the lowest-indexed of them.  The `ADD`
+  // is what carries a ghost copy's verdict back to the node; the lowest-index
+  // rule is what makes the count one per NODE rather than one per valid box
+  // that happens to share the plane it sits on.
+  amrex::MultiFab own(ba, dm, 1, 0, amrex::MFInfo(), mfab.Factory());
+  own.setVal(0.0, 0, 1, 0);
+  own.ParallelCopy(flag, 0, 0, 1, ng, amrex::IntVect(0),
+                   amrex::Periodicity::NonPeriodic(),
+                   amrex::FabArrayBase::ADD);
+  std::vector<std::pair<int, amrex::Box> > isects2;
+  std::vector<amrex::Box> claimed;
+  for (amrex::MFIter mfi(own); mfi.isValid(); ++mfi) {
+    const int me = mfi.index();
+    const amrex::Box &vbx = mfi.validbox();
+    const amrex::Array4<const CCTK_REAL> m = own.const_array(mfi);
+    claimed.clear();
+    ba.intersections(vbx, isects2);
+    for (const auto &is : isects2)
+      if (is.first < me)
+        claimed.push_back(is.second);
+    const auto lo = amrex::lbound(vbx);
+    const auto hi = amrex::ubound(vbx);
+    for (int k = lo.z; k <= hi.z; ++k) {
+      for (int j = lo.y; j <= hi.y; ++j) {
+        for (int i = lo.x; i <= hi.x; ++i) {
+          if (m(i, j, k, 0) <= 0.5)
+            continue;
+          const amrex::IntVect iv(i, j, k);
+          bool taken = false;
+          for (const amrex::Box &b : claimed)
+            if (b.contains(iv)) {
+              taken = true;
+              break;
+            }
+          if (!taken)
+            ++rep.bad_cells;
+        }
+      }
+    }
+  }
+
+  return rep;
+}
+
+// One line per (site, group), on the I/O process, AFTER a global reduction --
+// which is why `CCTK_VINFO` is safe here and was not in A5's census: the
+// numbers printed are already the whole grid's (`[P223]`, `[P242]`).
+void interbox_check(const char *const site, const std::vector<int> &groups) {
+  DECLARE_CCTK_PARAMETERS;
+  if (!check_interbox_consistency)
+    return;
+  if (!active_levels)
+    return;
+
+  static Timer timer("CarpetX::interbox_check");
+  Interval interval(timer);
+
+  for (const int gi : groups) {
+    interbox_report_t tot;
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      const auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      const int ntls = groupdata.mfab.size();
+      const int sync_tl = ntls > 1 ? ntls - 1 : ntls;
+      const amrex::Geometry &geom =
+          ghext->patchdata.at(leveldata.patch).amrcore->Geom(leveldata.level);
+      for (int tl = 0; tl < sync_tl; ++tl)
+        tot += interbox_check_one(*groupdata.mfab.at(tl), geom);
+    });
+
+    amrex::ParallelDescriptor::ReduceLongSum(tot.checked);
+    amrex::ParallelDescriptor::ReduceLongSum(tot.bad_values);
+    amrex::ParallelDescriptor::ReduceLongSum(tot.bad_cells);
+    amrex::ParallelDescriptor::ReduceLongSum(tot.nan_mismatch);
+    amrex::ParallelDescriptor::ReduceLongSum(tot.boxes);
+    amrex::ParallelDescriptor::ReduceRealMax(tot.max_absdiff);
+
+    if (amrex::ParallelDescriptor::IOProcessor())
+      CCTK_VINFO("INTERBOX site=\"%s\" group=%s boxes=%ld checked=%ld "
+                 "bad_values=%ld bad_cells=%ld nan_mismatch=%ld "
+                 "max_absdiff=%.17g%s",
+                 site,
+                 ghext->patchdata.at(0)
+                     .leveldata.at(0)
+                     .groupdata.at(gi)
+                     ->groupname.c_str(),
+                 tot.boxes, tot.checked,
+                 tot.bad_values, tot.bad_cells, tot.nan_mismatch,
+                 tot.max_absdiff,
+                 tot.checked == 0 ? " VACUOUS(nothing-is-redundant)" : "");
+  }
+}
+
+// AMR-B4b (`[P123]`).  RE-SHARE THE INTERPOLATOR'S INTERIOR WRITES.
+//
+// THE DEFECT.  Within one sync the order is: AMReX fills the inter-box ghosts
+// (`tasks1/2/3`), BC pass 1, `MultiPatch_Interpolate`, BC pass 2.  With
+// `CapyrX_MultiPatch::slave_overlap = yes` the interpolator does not only fill
+// interpatch ghosts, it OVERWRITES interior cells -- the overlap-band cells a
+// patch holds but does not own.  Nothing re-fills the inter-box ghosts after
+// that write, so for the rest of the sync every ghost copy of a slaved cell
+// holds the patch's own pre-slave value and any stencil in the neighbouring
+// box reads it.  Measured cell by cell in `[P123]`: 400 / 1624 / 5040
+// disagreeing cells on `color` / `color_ghost` / `color_ghost_overlap`, zero
+// with slaving off, at ONE rank as well as two -- it is a multi-BOX defect,
+// not a multi-rank one -- and `[P157]` found the same signature on the BBH
+// (10.8 % of shared nodes, 97 % of them in the overlap band).
+//
+// THE FIX IS THE FILL THAT IS MISSING, WITH THE ARGUMENTS THE SYNC'S OWN FILL
+// USED.  `FillBoundary` writes exactly the ghost cells another box's valid
+// region covers within this patch and level.  Interpatch ghosts and outer
+// ghosts lie outside the patch domain, are covered by no box, and are
+// therefore untouched -- so the pass the interpolator has just made is not
+// clobbered, and neither is BC pass 1's outer-ghost write.  The strongest form
+// of that argument is not about box coverage at all: this is the same call
+// with the same arguments as `FillPatch_Sync`'s own `FillBoundary_nowait`, so
+// it writes the same cell set, no more and no less.
+//
+// WHY BEFORE THE CORNERS-ONLY SECOND BC PASS AND NOT AFTER.  The corner cells
+// that pass writes are computed from cells inside the box; running the
+// re-share first means they are computed from settled data.  It also has to be
+// before the validity marks, which follow that pass.
+//
+// WHY IT IS GATED AND NOT UNCONDITIONAL.  With no interior write between the
+// two fills the second one is a bit-for-bit re-copy, so it is inert -- but it
+// is a collective, and paying it on every synced group of every multipatch run
+// that does not use `slave_overlap` is a real cost for nothing.  The gate is
+// the multipatch thorn's own answer, so a `slave_overlap = no` run is
+// bit-identical to what it was, which is also what keeps `[P142]`'s column
+// alive.
+//
+// IF THE QUERY IS NOT ALIASED, RE-SHARE ANYWAY.  A multipatch thorn that does
+// not answer has not said "no".  The failure mode of re-sharing when it was
+// unnecessary is one redundant copy; the failure mode of not re-sharing when
+// it was necessary is `[P123]`, silently.
+bool multipatch_interpolate_writes_interior() {
+  static const bool answer = []() -> bool {
+    if (!CCTK_IsFunctionAliased("MultiPatch_Interpolate"))
+      return false;
+    if (!CCTK_IsFunctionAliased("MultiPatch_InterpolateWritesInterior")) {
+      CCTK_VWARN(CCTK_WARN_ALERT,
+                 "The multipatch thorn provides MultiPatch_Interpolate but not "
+                 "MultiPatch_InterpolateWritesInterior, so this driver cannot "
+                 "tell whether the interpatch fill also writes interior cells. "
+                 "Assuming it does, and re-sharing the inter-box ghost zones "
+                 "after every interpatch fill. This is correct but not free; "
+                 "provide the function to switch it off.");
+      return true;
+    }
+    return MultiPatch_InterpolateWritesInterior() != 0;
+  }();
+  return answer;
+}
+
+void reshare_interior_writes(const std::vector<int> &groups) {
+  if (!multipatch_interpolate_writes_interior())
+    return;
+  assert(active_levels);
+
+  static Timer timer("CarpetX::reshare_interior_writes");
+  Interval interval(timer);
+
+  // Serial over groups and then over (level, patch), for the reason stated at
+  // the sync's own fill loop: every one of these is collective, and the ranks
+  // have to enter them in the same order.
+  //
+  // `tl = 0` only, because that is the time level `MultiPatch_Interpolate`
+  // writes. A re-share at `tl >= 1` would copy cells nothing had changed.
+  for (const int gi : groups) {
+    active_levels->loop_serially([&](auto &restrict leveldata) {
+      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      amrex::MultiFab &mfab = *groupdata.mfab.at(0);
+      const amrex::Geometry &geom =
+          ghext->patchdata.at(leveldata.patch).amrcore->Geom(leveldata.level);
+      mfab.FillBoundary(0, mfab.nComp(), mfab.nGrowVect(), geom.periodicity());
+    });
+  }
+}
 
 // BUGFIX_TODO.md step D3 (C10).  The regrid path's interpatch repair, in ONE
 // place instead of two byte-identical copies -- one in `Initialise`, one in
@@ -173,16 +663,116 @@ void log_mp_interpolate_call(const char *site,
 // is the safe direction: everything this pass would have done to such a group is
 // redone by the `CCTK_BASEGRID` and `CCTK_POSTREGRID` traverses that follow it.
 //
-// WHAT IS STILL NOT DISJOINT, recorded rather than fixed here.
-// `FillPatch_NewLevel`'s own final `apply_boundary_conditions` still runs
-// `bc_pass_t::all`, so on a MULTIPATCH grid the corners would still be written
-// twice -- once from an unpopulated source, then once from a populated one --
-// instead of once.  Making that pass `skip_interpatch_corners` is the exact
-// mirror of step B2 and belongs with it, not here: it has NO failing-before test
-// available on this branch, because B9's `CarpetX_ParamCheck` refuses multipatch
-// together with `max_num_levels > 1` outright, and a single patch has no
-// interpatch corner to write at all.
-void regrid_interpatch_repair(cGH *const cctkGH, const char *const site) {
+// WHAT IS NOT DISJOINT HERE, AND WHY C-AMR IS WHY IT DOES NOT MATTER.
+//
+// The paragraph this replaces said that the interpatch corners of a freshly
+// created level "would still be written twice", and excused the absence of a
+// failing-before test by citing a PARAMCHECK refusal of multipatch together
+// with `max_num_levels > 1`.  The excuse is gone -- that refusal was deleted
+// and replaced by the C-AMR contract in `fillpatch.cxx`.  The claim itself is
+// TRUE, and it is measured: on `patch_system = "Thornburg06"`, whose every
+// patch carries interpatch angular faces AND a physical radial boundary, a
+// level-1 fill of the whole of patch 0 writes 2304 interpatch-corner cells at
+// `FillPatch_NewLevel` before `MultiPatch_Interpolate` has run on that level,
+// and the corners-only pass below then writes them again.
+//
+// `FillPatch_NewLevel` and `FillPatch_RemakeLevel` nevertheless still run
+// `bc_pass_t::all` over the real `mfab`, and making them
+// `skip_interpatch_corners` -- the exact mirror of what this pass does -- is
+// deliberately NOT done.  Three reasons, in the order of how much they carry:
+//
+//  1. C-AMR ALREADY EMPTIES THE SET, AND IT IS ENFORCED AT THOSE VERY SITES.
+//     A region is an interpatch corner only if the fine FAB box -- the valid
+//     box grown by `nghostzones` -- extends OUTSIDE the patch domain in an
+//     interpatch direction.  C-AMR forbids exactly that: it requires the
+//     coarse temporary, which is `CoarseBox(coarsen(grow(box, ng) & domain))`,
+//     to stay inside the coarse domain across every interpatch face, and
+//     since `CoarseBox` grows by the prolongation stencil, a non-negative
+//     clearance means the grow was never clipped in the first place.  So
+//     under the contract there is no such region to write, on ANY patch
+//     system.  Measured on the one patch system where the corner set is
+//     non-empty when the contract is broken, one knob apart: contract
+//     violated (whole patch refined, `multipatch_amr_contract = "warn"`) ->
+//     40 boxes reached, 2304 corner cells; contract held (the refined region
+//     moved off the angular faces and left spanning both radial ones,
+//     clearance +7) -> 2 boxes reached, 4356 cells written on the physical
+//     radial faces, and ZERO interpatch corners.  `has_interpatch = 1` and
+//     `has_outerbc = 1` in both columns, so nothing about the geometry
+//     changed except the contract.
+//
+//  2. AND ON THE CUBED SPHERE THE SET IS EMPTY A SECOND WAY, independently of
+//     the contract.  `BoxInBox_Setup` returns early for `cctk_patch != 0`
+//     (`BoxInBox/src/boxinbox.cxx`), so the only patch that can carry a
+//     refined level is patch 0, and patch 0 of a cubed sphere has all six
+//     faces `symmetry_t::interpatch` -- which, since step B7 stopped storing
+//     the configured outer BC there, means `boundary_t::none` on all six.
+//     Measured: `has_outerbc = 0` at both sites on every cubed-sphere rig,
+//     including one that violates C-AMR and refines the whole of patch 0.
+//     This leg is narrower than reason 1 and is second for that reason.
+//
+//  3. AND THE CHANGE WOULD NOT BE FREE.  `MakeNewLevelFromCoarse` marks
+//     `valid_int | valid_ghosts | outer_valid` and calls `check_valid_gf`
+//     with `forbid_nans` ten lines after `FillPatch_NewLevel` returns
+//     (`driver.cxx`), while this corners-only pass does not run until after
+//     `CCTK_Traverse("CCTK_BASEGRID")`.  That ordering is measured, not read:
+//     a poisoned Thornburg06 leg stops at `valid.cxx`, "MakeNewLevelFromCoarse
+//     after prolongation", before this function is ever reached.  The sync
+//     path is disjoint only because step B2 also DEFERRED its validity marks
+//     past its second pass; the regrid path never got that half.  So on a
+//     patch that did refine while carrying an outer BC, skipping the corner
+//     would leave it poisoned under a validity claim -- and for
+//     `boundary_t::dirichlet`, which reads no ghost at all and would
+//     otherwise have written the corner correctly, that is an abort where
+//     today there is none.
+//
+// WHAT WOULD HAVE TO CHANGE THIS.  Admitting a level > 0 fill whose fine box
+// leaves the patch domain across an interpatch face -- i.e. relaxing C-AMR,
+// or the `warn` hatch used as a mode of operation rather than for diagnosis.
+// On that day this pass and the validity marking in `driver.cxx` have to move
+// together, and moving only this one would be worse than leaving both alone.
+// AMR-B3.  THE REPAIR IS IN TWO HALVES, AND THE SPLIT *IS* THE FIX.
+//
+// THE DEFECT (AMR-D5).  This pass ran BEFORE `CCTK_Traverse("CCTK_BASEGRID")`
+// four lines below, and `MultiPatch_Interpolate` interpolates AT vertex
+// coordinates that `CoordinatesX_Setup` writes IN that traverse.  On a level
+// this regrid just created or remade those coordinates hold poison
+// (`poison_undefined_values = yes`) or allocator residue, and CapyrX read them
+// as physical coordinates: `[P212]` exit 1 at `cubed_sphere.cxx:177`, `[P246]`
+// 9126 interpatch queries at (0,0,0) answered from the cube's centre with no
+// message at all, `[P257]` exit 134 at `interpolate.cxx:293` on the production
+// geometry in 13 of 24 attempts with poisoning OFF.
+//
+// WHY NOT SIMPLY MOVE THE CALL AFTER THE TRAVERSE.  Because the variable list
+// and the coordinates become available at DIFFERENT points of the regrid step,
+// and the list is the half that must be chosen early:
+//
+//   * `CoordinatesX_Setup` declares `WRITES: cell_coords(everywhere)` and
+//     `cell_volume(everywhere)`, and `CallFunction` marks every written
+//     variable valid on every active level (`:2363-2387`).  A call placed
+//     after the traverse therefore passes the `interior_is_valid` filter below
+//     for two `CENTERING={ccc}` groups, and CapyrX's own B6 refusal
+//     `CCTK_VERROR`s the moment `npoints > 0`
+//     (`CapyrX_MultiPatch/src/interpolate.cxx:880-897`).  EVERY two-level
+//     multipatch run would abort at startup.
+//   * It would also admit `CoordinatesX::vertex_coords`,
+//     `CapyrX::vertex_Jacobians` and `vertex_dJacobians` -- all `{vvv}`, all
+//     written `(everywhere)` at BASEGRID -- and replace their analytically
+//     exact ghost values with order-4 interpolated ones.
+//
+// The list as chosen HERE is the prolongated, checkpointed groups: the ones
+// that hold a value on a level this regrid made, and the only ones that need
+// this repair at all.  The groups BASEGRID writes are written EVERYWHERE,
+// ghost zones included, and never needed it.  So the two halves:
+// `_select` runs where the old call did and answers "which variables?";
+// `_apply` runs after the traverse and answers "with which coordinates?".
+//
+// WHAT IS STILL NOT TESTED, said here rather than found upstream.  The
+// `Evolve` twin at `:1931` is not exercised by any rig in this tree:
+// `[P211]`/`[P270]` measured `RemakeLevel` called ZERO times across A3's, A6's
+// and B1's whole matrices, because the AMR rigs that move boxes declare no
+// checkpointed group and so never reach a fill site.  Half of this change
+// ships on a code reading.
+std::vector<CCTK_INT> regrid_interpatch_repair_select(const char *const site) {
   assert(active_levels);
   const int ngroups = CCTK_NumGroups();
 
@@ -222,19 +812,81 @@ void regrid_interpatch_repair(cGH *const cctkGH, const char *const site) {
   (void)site;
 #endif
 
+  return cactusvarinds;
+}
+
+// AMR-B3, the second half: run what `regrid_interpatch_repair_select` chose,
+// after `CCTK_Traverse("CCTK_BASEGRID")` has written the coordinates
+// `MultiPatch_Interpolate` interpolates at.  `active_levels` is still the
+// regrid's own range -- the caller sets it once and clears it after
+// `CCTK_POSTREGRID` -- so this half covers exactly the levels `_select` asked
+// about.
+void regrid_interpatch_repair_apply(
+    cGH *const cctkGH, const std::vector<CCTK_INT> &cactusvarinds) {
+  assert(active_levels);
+
   if (cactusvarinds.empty())
     return;
 
-  // Standalone call: no later pass in this regrid step reads its output. B8
-  // refuses the configuration that reaches this block at all; A8 measured it
-  // dead at max_num_levels = 1 ([P28]).
+  const int ngroups = CCTK_NumGroups();
+
+  // The group set is RECOVERED FROM THE VARIABLE LIST rather than recomputed.
+  // Recomputing `interior_is_valid` here would re-ask the validity question at
+  // the new position and get a DIFFERENT, larger answer -- which is the whole
+  // hazard this split exists to avoid. `_select` pushes every variable of
+  // every admitted group, so this reconstruction is exact rather than
+  // conservative.
+  std::vector<char> in_list(ngroups, 0);
+  for (const CCTK_INT varind : cactusvarinds) {
+    const int gi = CCTK_GroupIndexFromVarI(varind);
+    assert(gi >= 0 && gi < ngroups);
+    in_list.at(gi) = 1;
+  }
+
+  // Standalone call: no later pass in this regrid step reads its output.
+  //
+  // Two of this comment's clauses had gone stale and are replaced rather than
+  // patched.  "B8 refuses the configuration that reaches this block at all"
+  // is no longer true: that PARAMCHECK was deleted and replaced by the C-AMR
+  // contract at the top of `fillpatch.cxx` and the C-AMR2 pre-pass in
+  // `CapyrX_MultiPatch`, which ADMIT the configuration where the contracts
+  // hold and refuse it by name where they do not.  And this call no longer
+  // covers every level: `active_levels` is the regrid's own
+  // `(first_modified, last_modified + 1)` range, and on a contract-holding
+  // geometry it writes nothing at all.  What survives unchanged is A8's
+  // measurement that it is dead at `max_num_levels = 1` ([P28]).
+  if (log_sched_on()) {
+    std::ostringstream fields;
+    fields << "site=regrid/mpinterp-pre nvars=" << cactusvarinds.size();
+    log_sched(cctkGH, fields.str());
+  }
   MultiPatch_Interpolate(cctkGH, cactusvarinds.size(), cactusvarinds.data());
+  if (log_sched_on()) {
+    std::ostringstream fields;
+    fields << "site=regrid/mpinterp-post nvars=" << cactusvarinds.size();
+    log_sched(cctkGH, fields.str());
+  }
+
+  // AMR-B4b, the second site.  `[P276]` measured this call writing no slaved
+  // cell on today's geometry (`nslaved = 0`, `[P217]`), so this is predicted
+  // inert here -- and it ships anyway, because that zero is a property of a
+  // geometry and of correct coordinates, not of this code: a refinement box in
+  // the overlap band would give level 1 slaved cells and this site would then
+  // leave them stale exactly as the sync did.  AMR-B4a's own check runs at the
+  // end of this function and measures whether it was inert.
+  {
+    std::vector<int> repaired;
+    for (int gi = 0; gi < ngroups; ++gi)
+      if (in_list.at(gi))
+        repaired.push_back(gi);
+    reshare_interior_writes(repaired);
+  }
 
   active_levels->loop_serially([&](auto &restrict leveldata) {
     for (int gi = 0; gi < ngroups; ++gi) {
       if (CCTK_GroupTypeI(gi) != CCTK_GF)
         continue;
-      if (!interior_is_valid.at(gi))
+      if (!in_list.at(gi))
         continue;
       auto &restrict groupdata = *leveldata.groupdata.at(gi);
       const int ntls = groupdata.mfab.size();
@@ -244,6 +896,20 @@ void regrid_interpatch_repair(cGH *const cctkGH, const char *const site) {
                                             bc_pass_t::interpatch_corners_only);
     }
   });
+
+  // AMR-B4a: the same postcondition the sync path checks, at the OTHER site
+  // that runs `MultiPatch_Interpolate`.  `[P276]` measured this call writing
+  // no slaved cell at all on today's geometry (`nslaved = 0`, because
+  // `[P217]`'s level-1 candidate set is empty), so this is expected to read
+  // zero -- and a zero that is measured is worth more than a zero that is
+  // inferred from a level count.
+  {
+    std::vector<int> repaired;
+    for (int gi = 0; gi < ngroups; ++gi)
+      if (in_list.at(gi))
+        repaired.push_back(gi);
+    interbox_check("regrid_interpatch_repair", repaired);
+  }
 }
 } // namespace
 
@@ -1511,13 +2177,24 @@ int Initialise(tFleshConfig *config) {
           // MultiPatch_Interpolate has run. Corner ghost cells at
           // outer+interpatch face intersections are therefore left with
           // stale values sourced from not-yet-filled interpatch ghosts.
-          // Correct them now, mirroring the fix in SyncGroupsByDirI.
+          // Correct them below, mirroring the fix in SyncGroupsByDirI -- but
+          // in TWO halves, and see `regrid_interpatch_repair_select` for why.
+          // The variable list has to be chosen here, before CCTK_BASEGRID
+          // makes six more groups valid; the interpolation has to run after
+          // it, because CCTK_BASEGRID is what writes the coordinates it
+          // interpolates at (AMR-B3 / AMR-D5).
           static const bool have_multipatch_boundaries =
               CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+          std::vector<CCTK_INT> repair_varinds;
           if (have_multipatch_boundaries)
-            regrid_interpatch_repair(cctkGH, "regrid (new/remade levels)");
+            repair_varinds =
+                regrid_interpatch_repair_select("regrid (new/remade levels)");
 
           CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
+
+          if (have_multipatch_boundaries)
+            regrid_interpatch_repair_apply(cctkGH, repair_varinds);
+
           CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
           active_levels = std::optional<active_levels_t>();
         }
@@ -1538,7 +2215,7 @@ int Initialise(tFleshConfig *config) {
     assert(active_levels);
     active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
       if (leveldata.level != ghext->num_levels() - 1)
-        Restrict(cctkGH, leveldata.level);
+        Restrict(cctkGH, leveldata.level, "init");
     });
     CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
   }
@@ -1924,13 +2601,28 @@ int Evolve(tFleshConfig *config) {
         // MultiPatch_Interpolate has run. Corner ghost cells at
         // outer+interpatch face intersections are therefore left with
         // stale values sourced from not-yet-filled interpatch ghosts.
-        // Correct them now, mirroring the fix in SyncGroupsByDirI.
+        // Correct them below, mirroring the fix in SyncGroupsByDirI -- but in
+        // TWO halves, and see `regrid_interpatch_repair_select` for why. The
+        // variable list has to be chosen here, before CCTK_BASEGRID makes six
+        // more groups valid; the interpolation has to run after it, because
+        // CCTK_BASEGRID is what writes the coordinates it interpolates at
+        // (AMR-B3 / AMR-D5).
+        //
+        // THIS TWIN IS NOT EXERCISED BY ANY RIG IN THIS TREE: `[P211]` and
+        // `[P270]` measured `RemakeLevel` called zero times, so the code below
+        // ships on a code reading and not on a measurement.
         static const bool have_multipatch_boundaries =
             CCTK_IsFunctionAliased("MultiPatch_Interpolate");
+        std::vector<CCTK_INT> repair_varinds;
         if (have_multipatch_boundaries)
-          regrid_interpatch_repair(cctkGH, "regrid (level removal)");
+          repair_varinds =
+              regrid_interpatch_repair_select("regrid (level removal)");
 
         CCTK_Traverse(cctkGH, "CCTK_BASEGRID");
+
+        if (have_multipatch_boundaries)
+          regrid_interpatch_repair_apply(cctkGH, repair_varinds);
+
         CCTK_Traverse(cctkGH, "CCTK_POSTREGRID");
         active_levels = std::optional<active_levels_t>();
       }
@@ -1997,9 +2689,16 @@ int Evolve(tFleshConfig *config) {
 
       if (!restrict_during_sync) {
         // Restrict
+        //
+        // AMR-C7: this is the OTHER schedule position, and on a patch system it
+        // is not equivalent to the one inside the sync.  It runs after
+        // `CCTK_EVOL` -- i.e. after every interpatch fill of the step -- and it
+        // restricts a DIFFERENT set of groups (every `do_checkpoint` group,
+        // rather than the groups the sync was asked for).  Both differences are
+        // measured in `evidence/amr/c7/`.
         // TODO: These loop bounds are wrong for subcycling
         for (int level = ghext->num_levels() - 2; level >= 0; --level)
-          Restrict(cctkGH, level);
+          Restrict(cctkGH, level, "evol");
         CCTK_Traverse(cctkGH, "CCTK_POSTRESTRICT");
       }
 
@@ -2549,7 +3248,25 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     groups.push_back(gi);
   }
 
+  // AMR-C7.  The sync is the scope the ordering claim is about, so it is marked
+  // at entry and at exit and everything between the two markers belongs to it.
+  if (log_sched_on()) {
+    log_sched_flux_census(cctkGH);
+    std::ostringstream fields;
+    fields << "site=sync/enter numgroups=" << numgroups
+           << " gf_groups=" << groups.size() << " nlevels="
+           << ghext->num_levels() << " npatches=" << ghext->num_patches()
+           << " restrict_during_sync=" << int(bool(restrict_during_sync))
+           << " presync_mode=" << presync_mode << " levels=L["
+           << (active_levels ? active_levels->min_level : -1) << ","
+           << (active_levels ? active_levels->max_level : -1) << ")P["
+           << (active_levels ? active_levels->min_patch : -1) << ","
+           << (active_levels ? active_levels->max_patch : -1) << ")";
+    log_sched(cctkGH, fields.str());
+  }
+
   // Skip groups that have valid ghosts and boundaries
+  const int n_groups_before_presync = groups.size();
   if (CCTK_EQUALS(presync_mode, "presync-only")) {
     active_levels->loop_serially([&](auto &restrict leveldata) {
       std::vector<int> new_groups;
@@ -2575,16 +3292,59 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
       }
       groups = new_groups;
     });
+    // AMR-C7.  THIS FILTER SITS ABOVE THE RESTRICTION, AND THAT IS NOT
+    // OBVIOUSLY RIGHT.  It drops a group whose ghosts and outer boundaries are
+    // already valid -- a question about the GHOST zones -- and what it drops it
+    // drops from the `Restrict` call below as well, which is a question about
+    // the coarse INTERIOR under a refined level.  When it empties the list the
+    // whole sync returns here and no level is restricted at all.  Every
+    // parameter file in this project sets `presync-only`, so this is the live
+    // path; the counts are measured in `evidence/amr/c7/`.  This step reports
+    // it and does not change it (R1).
+    if (log_sched_on() && groups.size() != size_t(n_groups_before_presync)) {
+      std::ostringstream fields;
+      fields << "site=sync/presync-filter groups_before="
+             << n_groups_before_presync << " groups_after=" << groups.size()
+             << " empties_the_sync=" << int(groups.size() == 0);
+      log_sched(cctkGH, fields.str());
+    }
     if (groups.size() == 0) {
+      if (log_sched_on()) {
+        std::ostringstream fields;
+        fields << "site=sync/presync-skip groups_before="
+               << n_groups_before_presync
+               << " restricted_levels=0 mpinterp_calls=0";
+        log_sched(cctkGH, fields.str());
+        // AND THE BRACKET CLOSES HERE TOO.  An `enter` that is not always
+        // matched by an `exit` makes a reader pair this sync's `enter` with the
+        // NEXT sync's `exit` and reason about a window that is two syncs wide.
+        // That is `[P422]`'s defect one level over -- a scope that merges two
+        // traversals -- and it is the defect this whole instrument exists to
+        // avoid, so every return path from here on emits the closing line.
+        std::ostringstream ex;
+        ex << "site=sync/exit gf_groups=0 via=presync-skip";
+        log_sched(cctkGH, ex.str());
+      }
       return 0;
     }
   }
 
   if (restrict_during_sync) {
+    long n_restrict_calls = 0;
     active_levels->loop_fine_to_coarse([&](const auto &leveldata) {
-      if (leveldata.level < ghext->num_levels() - 1)
-        Restrict(cctkGH, leveldata.level, groups);
+      if (leveldata.level < ghext->num_levels() - 1) {
+        ++n_restrict_calls;
+        Restrict(cctkGH, leveldata.level, groups, "sync");
+      }
     });
+    // `[P135]`: a run in which nothing was restricted has to SAY so, or it
+    // cannot be told from a run in which the instrument was not compiled in.
+    if (log_sched_on()) {
+      std::ostringstream fields;
+      fields << "site=sync/restrict-loop calls=" << n_restrict_calls
+             << " nlevels=" << ghext->num_levels();
+      log_sched(cctkGH, fields.str());
+    }
     // FIXME: cannot call POSTRESTRICT since this could contain a SYNC leading
     // to an infinite loop. This means that outer boundaries will be left
     // invalid after an implicit restrict
@@ -2823,8 +3583,10 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
           //
           // After B7 that `all` no longer covers the temporary's INTERPATCH
           // faces -- nothing does -- so the prolongation reads what
-          // `mf_set_domain_bndry` left there ([P22]). B8 refuses multipatch +
-          // AMR for exactly this reason; see the dispatch comment in
+          // `mf_set_domain_bndry` left there ([P22]). That is now refused at
+          // the fill by `check_camr_contract`, under the C-AMR contract stated
+          // at the top of `fillpatch.cxx`, rather than by refusing multipatch
+          // + AMR outright; see also the dispatch comment in
           // `boundaries_impl.hxx`.
           const bc_pass_t bc_pass = (have_multipatch_boundaries && tl == 0)
                                         ? bc_pass_t::skip_interpatch_corners
@@ -2920,12 +3682,32 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 #ifdef CCTK_DEBUG
     log_mp_interpolate_call("SyncGroupsByDirI main", cactusvarinds);
 #endif
+    // AMR-C7.  THE INTERPATCH FILL, bracketed.  `CapyrX_MultiPatch`'s own
+    // `MPLEVELS` line (`CAPYRX_LOG_LEVELS`) lands between these two markers and
+    // is the independent, second-repo reading of the same ordering.
+    if (log_sched_on()) {
+      std::ostringstream fields;
+      fields << "site=sync/mpinterp-pre nvars=" << cactusvarinds.size()
+             << " ngroups=" << groups.size();
+      log_sched(cctkGH, fields.str());
+    }
     // The sync's only interpolation pass (BUGFIX_TODO.md step B3 deleted the
     // bootstrap one above), so slave_overlap's write-back is unconditional
     // again: nothing later in this sync reads these interior cells as a donor,
     // and no earlier call in it can have read them either.
     MultiPatch_Interpolate(cctkGH, cactusvarinds.size(),
                            cactusvarinds.data());
+    if (log_sched_on()) {
+      std::ostringstream fields;
+      fields << "site=sync/mpinterp-post nvars=" << cactusvarinds.size();
+      log_sched(cctkGH, fields.str());
+    }
+
+    // AMR-B4b (`[P123]`): the interpolator has just overwritten interior
+    // cells; their inter-box ghost copies are one write stale until this runs.
+    // See `reshare_interior_writes` above for why this is safe against `I` and
+    // `O`, and why it is here rather than after the second BC pass.
+    reshare_interior_writes(groups);
 
     // Second BC pass: correct corner ghost cells at the outer+interpatch face
     // intersection.
@@ -3133,6 +3915,23 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
     assert(ghext->num_patches() == 1);
   }
 
+  // AMR-B4a: the sync's postcondition that nobody was checking.  It runs after
+  // the second BC pass and after the validity marks, i.e. on exactly the state
+  // the next reader -- and the TSV/Silo writer -- will see, which is what makes
+  // its `bad_cells` column comparable with `rowdiff.py`'s multi-valued cell
+  // count on the same run's output.  It is placed outside the multipatch
+  // branch on purpose: the invariant is about AMReX boxes, not about patches,
+  // and a single-patch AMR rig is a legitimate subject for it.
+  interbox_check("SyncGroupsByDirI", groups);
+
+  // AMR-C7: closes the scope opened by `site=sync/enter`.  Everything between
+  // the two markers happened inside this sync.
+  if (log_sched_on()) {
+    std::ostringstream fields;
+    fields << "site=sync/exit gf_groups=" << groups.size() << " via=full";
+    log_sched(cctkGH, fields.str());
+  }
+
   assert(sync_active);
 
   return numgroups; // number of groups synchronized
@@ -3141,14 +3940,35 @@ int SyncGroupsByDirI(const cGH *restrict cctkGH, int numgroups,
 void Reflux(const cGH *cctkGH, int level) {
   DECLARE_CCTK_PARAMETERS;
 
-  if (!do_reflux)
+  // AMR-C7.  The census runs on the first logged event of the run, whichever
+  // it is; putting the call here as well as in `SyncGroupsByDirI` means a run
+  // that never syncs still reports it.
+  if (log_sched_on())
+    log_sched_flux_census(cctkGH);
+
+  if (!do_reflux) {
+    // `[N13]`: "nothing was refluxed" has two causes and they are not the same
+    // measurement.  Say which one this is.
+    if (log_sched_on()) {
+      std::ostringstream fields;
+      fields << "site=evol/reflux-off level=" << level << " do_reflux=0";
+      log_sched(cctkGH, fields.str());
+    }
     return;
+  }
 
   static Timer timer("Reflux");
   Interval interval(timer);
 
+  // AMR-C7's counters.  `examined` is the (patch, GF group) pairs this call
+  // walked and `with_freg` the ones that carry a flux register, which is the
+  // only kind this function can move.  Both are printed, so a zero is a
+  // measured zero and not a silence (`[P135]`, `[P184]`).
+  long n_patches = 0, n_examined = 0, n_with_freg = 0;
+
   for (const auto &patchdata : ghext->patchdata) {
     if (level + 1 < int(patchdata.leveldata.size())) {
+      ++n_patches;
       auto &leveldata = patchdata.leveldata.at(level);
       const auto &fineleveldata = patchdata.leveldata.at(level + 1);
       for (int gi = 0; gi < int(leveldata.groupdata.size()); ++gi) {
@@ -3159,6 +3979,7 @@ void Reflux(const cGH *cctkGH, int level) {
 
         if (group.grouptype != CCTK_GF)
           continue;
+        ++n_examined;
 
         auto &groupdata = *leveldata.groupdata.at(gi);
         const auto &finegroupdata = *fineleveldata.groupdata.at(gi);
@@ -3168,6 +3989,7 @@ void Reflux(const cGH *cctkGH, int level) {
 
         // If the group has associated fluxes
         if (finegroupdata.freg) {
+          ++n_with_freg;
 
           // Check coarse and fine data and fluxes are valid
           for (int vi = 0; vi < finegroupdata.numvars; ++vi) {
@@ -3221,10 +4043,33 @@ void Reflux(const cGH *cctkGH, int level) {
       } // for gi
     } // if level exists
   } // for patchdata
+
+  if (log_sched_on()) {
+    std::ostringstream fields;
+    fields << "site=evol/reflux level=" << level << " do_reflux=1"
+           << " patches=" << n_patches << " examined=" << n_examined
+           << " with_freg=" << n_with_freg;
+    log_sched(cctkGH, fields.str());
+  }
 }
 
-void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups) {
+void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups,
+              const char *const site) {
   DECLARE_CCTK_PARAMETERS;
+
+  // AMR-C7.  Emitted BEFORE the assert below, deliberately: `do_restrict = no`
+  // is a shipped parameter and this assert is live in both configurations
+  // (`[P199]`: `NDEBUG` is defined in neither), so the run aborts here with no
+  // Cactus-level message at all.  With the instrument on, the last line before
+  // the abort names the site, the level and the parameter value.  This step
+  // does not change that behaviour -- one mechanism per commit (R1).
+  if (log_sched_on()) {
+    std::ostringstream fields;
+    fields << "site=" << site << "/restrict-enter level=" << level
+           << " do_restrict=" << int(bool(do_restrict))
+           << " ngroups=" << groups.size();
+    log_sched(cctkGH, fields.str());
+  }
 
 #warning "TODO"
   assert(do_restrict);
@@ -3237,9 +4082,17 @@ void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups) {
   const int gi_regrid_error = CCTK_GroupIndex("CarpetXRegrid::regrid_error");
   assert(gi_regrid_error >= 0);
 
+  // AMR-C7's counters.  `examined` is (patch, group) pairs this call looked at,
+  // `restricted` is the ones on which an `average_down*` actually ran, and the
+  // two skip counters say WHY the difference, so that a zero has one cause and
+  // not three (`[N13]`).
+  long n_patches = 0, n_examined = 0, n_restricted = 0;
+  long n_skip_regrid_error = 0, n_skip_no_do_restrict = 0;
+
   for (const auto &patchdata : ghext->patchdata) {
     const int patch = patchdata.patch;
     if (level + 1 < int(patchdata.leveldata.size())) {
+      ++n_patches;
       auto &leveldata = patchdata.leveldata.at(level);
       const auto &fineleveldata = patchdata.leveldata.at(level + 1);
       const active_levels_t active_levels(level, level + 1, patch, patch + 1);
@@ -3260,12 +4113,19 @@ void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups) {
                                                 ? nan_handling_t::forbid_nans
                                                 : nan_handling_t::allow_nans;
 
+        ++n_examined;
+
         // Don't restrict the regridding error
-        if (gi == gi_regrid_error)
+        if (gi == gi_regrid_error) {
+          ++n_skip_regrid_error;
           continue;
+        }
         // Don't restrict groups that have restriction disabled
-        if (!groupdata.do_restrict)
+        if (!groupdata.do_restrict) {
+          ++n_skip_no_do_restrict;
           continue;
+        }
+        ++n_restricted;
 
         // If there is more than one time level, then we don't restrict the
         // oldest.
@@ -3343,9 +4203,19 @@ void Restrict(const cGH *cctkGH, int level, const std::vector<int> &groups) {
       } // for gi
     } // if level exists
   } // for patchdata
+
+  if (log_sched_on()) {
+    std::ostringstream fields;
+    fields << "site=" << site << "/restrict-exit level=" << level
+           << " patches=" << n_patches << " examined=" << n_examined
+           << " restricted=" << n_restricted
+           << " skip_regrid_error=" << n_skip_regrid_error
+           << " skip_no_do_restrict=" << n_skip_no_do_restrict;
+    log_sched(cctkGH, fields.str());
+  }
 }
 
-void Restrict(const cGH *cctkGH, int level) {
+void Restrict(const cGH *cctkGH, int level, const char *const site) {
   const int numgroups = CCTK_NumGroups();
   std::vector<int> groups;
   groups.reserve(numgroups);
@@ -3360,7 +4230,7 @@ void Restrict(const cGH *cctkGH, int level) {
         groups.push_back(groupdata.groupindex);
     }
   }
-  Restrict(cctkGH, level, groups);
+  Restrict(cctkGH, level, groups, site);
 }
 
 // storage handling

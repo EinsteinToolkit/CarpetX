@@ -2160,70 +2160,57 @@ extern "C" int CarpetX_Startup() {
 
 // Refuse parameter combinations this driver cannot honour.
 //
-// BUGFIX_TODO.md step B8a: A PATCH SYSTEM WITH MORE THAN ONE PATCH AND MESH
-// REFINEMENT IS REFUSED, HERE, AT PARAMCHECK.
+// MESH REFINEMENT ON A PATCH SYSTEM WITH MORE THAN ONE PATCH IS NO LONGER
+// REFUSED HERE.  It used to be: `num_patches() > 1 && max_num_levels > 1` was
+// declined at PARAMCHECK, with no escape hatch, because the regrid path was
+// only partially implemented for a patch system and no rig had exercised it.
+// That refusal is gone, and two named contracts stand in its place:
 //
-// It is refused rather than fixed because the regrid path is only partially
-// implemented for a patch system and no rig in this tree has ever exercised
-// it.  Three things are wrong with it at once, and each is recorded at the
-// line it belongs to:
+//   C-AMR   (`src/fillpatch.cxx`)   every box of a coarse temporary must lie
+//                                   inside the coarse patch domain in every
+//                                   direction whose face is interpatch,
+//                                   because nothing writes an interpatch face
+//                                   of a coarse temporary and the
+//                                   prolongation reads it.
+//   C-AMR2  (`src/interpolate.cxx`) no interpatch ghost point may be answered
+//                                   from a `level > 0` box, because that
+//                                   makes a seam value change donor mid-run.
 //
-//   - `FillPatch_NewLevel` / `FillPatch_ProlongateGhosts` build a COARSE
-//     TEMPORARY whose interpatch faces `mf_set_domain_bndry` NaN-fills and
-//     which nothing then writes, because an interpatch face no longer carries
-//     a stored outer boundary condition; `FillPatchInterp` prolongates from
-//     it.  See the pass selection in `schedule.cxx` and the dispatch note in
-//     `boundaries_impl.hxx`.
-//   - the two standalone regrid blocks in `schedule.cxx` build their variable
-//     list from EVERY `CCTK_GF` group rather than from the synced set, and
-//     then apply the `all` boundary pass to every one of them on every level.
-//     That is a wider version of the double write the surrounding commits
-//     exist to remove, and it is still there.
-//   - `CapyrX_MultiPatch`'s interpolator refuses non-vertex-centred groups,
-//     and the two blocks above hand it `CarpetXRegrid::regrid_error`, which is
-//     cell centred.
+// WHY THE CHECKS ARE NOT HERE.  Neither predicate exists at PARAMCHECK.  C-AMR
+// needs the box array of a coarse temporary, which is built per fill from the
+// tag set, the blocking factor and AMReX's clustering; C-AMR2 needs the
+// particle distribution after `Redistribute`.  Both are therefore evaluated at
+// the site that would violate them, before it does, and both name the
+// violation and the parameter that moves it.  `multipatch_amr_contract`
+// downgrades either one to a warning, for diagnosing a violation rather than
+// running with one.
 //
-// WHY THE PREDICATE IS THE PATCH COUNT AND NOT THE ALIAS.  Asking
-// `CCTK_IsFunctionAliased("MultiPatch_Interpolate")` -- the obvious reading of
-// "a multipatch system is active" -- would ALSO refuse a `patch_system =
-// "Cartesian"` run, which is a SINGLE patch with six physical outer faces and
-// no interpatch face anywhere.  Those runs work today, mesh refinement
-// included, and two of them are the only positive controls this project has
-// for the regrid-path code above.  Refusing a configuration that works is the
-// one thing this commit may not do, so the predicate is `num_patches() > 1`.
+// WHAT THAT DOES AND DOES NOT BUY.  The narrow claim is exactly the two
+// contracts and nothing else: multipatch mesh refinement is not "supported",
+// it is admitted where the contracts hold and refused BY NAME where they do
+// not.  The hole itself -- that nobody writes the interpatch faces of a coarse
+// temporary -- is not fixed, only made unreachable.  What the guards do buy
+// over the old refusal is the thing that refusal could not: a C-AMR violation
+// is otherwise SILENT in the optimized build, because the only detector on
+// that path is an `isfinite` assert compiled out unless `CCTK_DEBUG` is set.
 //
-// WHAT THIS DOES AND DOES NOT BUY, stated here because a one-line commit
-// message cannot hold it.  The configuration ALREADY fails today, in both
-// builds: the optimized build stops in the interpolator's centering guard with
-// a message about `[1,1,1]` grid functions, and the debug build stops on a
-// non-finite value inside the prolongation.  Neither says what is actually
-// unsupported, and both happen after the grid has been built and initial data
-// laid down.  What changes here is WHEN the run stops and WHAT IT SAYS -- not
-// whether an unvalidated result could previously escape.  Do not describe this
-// as closing a hole through which wrong answers were leaving.
+// The two remaining single-patch notes below are unchanged.  A
+// `patch_system = "Cartesian"` run is ONE patch with six physical outer faces
+// and no interpatch face anywhere; it runs mesh refinement today, it is a
+// positive control for the regrid path, and neither contract can fire on it --
+// which is why both predicates are the patch's own symmetry table and never
+// `CCTK_IsFunctionAliased("MultiPatch_Interpolate")`, which such a run also
+// satisfies.
 extern "C" void CarpetX_ParamCheck(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
   // `ghext->patchdata` is populated by `InitGH`, which runs from
   // `CCTKi_InitGHExtensions` -- before the PARAMCHECK traverse and before any
-  // level exists.  So the patch count is available here and the grid is not,
-  // which is exactly the pair this check needs.
+  // level exists.  So the patch count is available here and the grid is not.
+  // The grid is exactly what both contracts above need, which is why neither
+  // of them is checked in this function.
   const int num_patches = ghext->num_patches();
-
-  if (num_patches > 1 && max_num_levels > 1)
-    CCTK_VERROR(
-        "CarpetX_ParamCheck: a multi-patch system (%d patches) is active "
-        "together with CarpetX::max_num_levels = %d. Mesh refinement on a "
-        "patch system is only partially implemented in this driver and is "
-        "untested: nothing writes the interpatch faces of the coarse "
-        "temporaries that the prolongation reads, and the regrid-path "
-        "boundary passes are applied to every CCTK_GF group on every level "
-        "rather than to the synced set. Refusing at startup rather than "
-        "failing later with a message about grid-function centering or about "
-        "a non-finite value in the prolongation. Set "
-        "CarpetX::max_num_levels = 1, or use a single-patch grid.",
-        num_patches, int(max_num_levels));
 
   /*
    * BUGFIX_TODO.md step D1 (C12): `robin` AND `linear_extrapolation` on two

@@ -44,8 +44,16 @@ void FillPatch_ProlongateGhosts(
 //
 // No `bc_pass` parameter, deliberately: both boundary-condition calls in this
 // function and in `FillPatch_RemakeLevel` take the default `all`. The coarse
-// temporaries need a complete fill for the same reason as above, and the two
-// real-`mfab` calls sit on the regrid path, which is out of scope here.
+// temporaries need a complete fill for the same reason as above.  Of the two
+// real-`mfab` calls this used to say "the regrid path, which is out of scope
+// here"; that question has since been asked and answered, and the answer is
+// that they stay `all`.  A region is an interpatch corner only if the fine
+// FAB box leaves the patch domain across an interpatch face, and that is
+// exactly what the C-AMR contract enforced a few lines above these calls
+// forbids -- measured on `Thornburg06`, where the corner set is 2304 cells
+// with the contract broken and zero with it held.  The full argument, the
+// numbers, and what would have to move with this if C-AMR were ever relaxed,
+// are in the paragraph headed "WHAT IS NOT DISJOINT HERE" in `schedule.cxx`.
 void FillPatch_NewLevel(
     const GHExt::PatchData::LevelData::GroupData &groupdata,
     const GHExt::PatchData::LevelData::GroupData &coarsegroupdata,

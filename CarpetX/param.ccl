@@ -10,6 +10,17 @@ BOOLEAN poison_undefined_values "Set undefined grid point values to nan" STEERAB
 {
 } yes
 
+# AMR-B4a. A global grid point held by more than one AMReX box of the same
+# patch and level is stored more than once, and the copies must agree. Nothing
+# checked that. It is a parameter and not `#ifdef CCTK_DEBUG` because the
+# defect it was built for was measured on an OPTIMIZED binary and because
+# `#ifdef CCTK_DEBUG` is what hid the C-AMR violation in `fillpatch.cxx`.
+# Costs three scratch MultiFabs and two ParallelCopies per synced group per
+# sync, so it is off by default. See `interbox_check` in `src/schedule.cxx`.
+BOOLEAN check_interbox_consistency "After each sync, check that the copies of a grid point held by different AMReX boxes of one patch agree" STEERABLE=always
+{
+} no
+
 
 
 STRING amrex_parameters[100] "Additional AMReX parameters"
@@ -388,6 +399,18 @@ CCTK_INT max_num_levels "Maximum number of refinement levels"
 {
   1:* :: ""
 } 1
+
+# Mesh refinement on a patch system with more than one patch is supported only
+# under the two contracts stated in `src/fillpatch.cxx` (C-AMR, the coarse
+# temporary) and `src/interpolate.cxx` (C-AMR2, the seam donor level). Both are
+# evaluated at the site that would violate them, because neither predicate
+# exists at PARAMCHECK: one needs the box array, the other needs the particle
+# distribution. "warn" is for diagnosing a violation, not for running with one.
+CCTK_KEYWORD multipatch_amr_contract "What to do when mesh refinement on a multi-patch grid violates the C-AMR or C-AMR2 contract" STEERABLE=always
+{
+  "error" :: "stop at the first violation, naming it"
+  "warn"  :: "report the first violation at each site and continue; for diagnosis only"
+} "error"
 
 
 #TODO: move to CarpetRegridX

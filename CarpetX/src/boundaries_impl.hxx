@@ -230,9 +230,12 @@ void BoundaryCondition::apply_on_face() const {
      *     watched 189 `all`-pass interpatch writes on `a7_level_L2_Pno`
      *     disappear.
      *
-     * Step B8 is what refuses both configurations -- multipatch with more than
-     * one time level, and multipatch with AMR. Neither is fixed here, and
-     * neither is a reason to put the stored BC back: that is the defect.
+     * The first is still refused, in `SyncGroupsByDirI`: a multi-patch group
+     * with more than one synchronised time level. The second is no longer
+     * refused as a configuration class -- it is admitted where the C-AMR
+     * contract at the top of `fillpatch.cxx` holds and refused, by name, at
+     * the fill where it does not. Neither is FIXED here, and neither is a
+     * reason to put the stored BC back: that is the defect.
      *
      * The `|| bc_pass != bc_pass_t::all` disjunct is therefore redundant today
      * and is kept: it is what makes the partitioned passes' behaviour explicit

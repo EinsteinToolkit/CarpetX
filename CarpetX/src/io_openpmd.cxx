@@ -363,13 +363,30 @@ struct carpetx_openpmd_t {
 
   ////////////////////////////////////////////////////////////////////////////////
 
+  // openPMD record and record-component names allow only [A-Za-z0-9_], but
+  // Cactus names do not obey that restriction: a member of an unnamed vector
+  // group is called e.g. `BoxInBox::active[0]`.  ADIOS2's BP5 attribute
+  // deserializer reads a `[...]` inside a record-component path as an
+  // array-dimension spec, so such a name makes the written file unreadable --
+  // it aborts in `FFSconvert_record` while installing the attribute metadata,
+  // which is why checkpoint recovery has never worked for a run that
+  // activates BoxInBox.  Map every character that is not allowed onto `_`,
+  // exactly as the Silo backend already does through `DB::legalize_name`.
+  static std::string legalize_name(std::string name) {
+    for (auto &ch : name) {
+      ch = std::tolower(ch);
+      if (!std::isalnum(static_cast<unsigned char>(ch)) && ch != '_')
+        ch = '_';
+    }
+    return name;
+  }
+
   // Allowed characters are only [A-Za-z_]
   static std::string make_meshname(const int gi, const int patch,
                                    const int level) {
     std::string groupname = CCTK_FullGroupName(gi);
     groupname = std::regex_replace(groupname, std::regex("::"), "_");
-    for (auto &ch : groupname)
-      ch = std::tolower(ch);
+    groupname = legalize_name(groupname);
     std::ostringstream buf;
     buf << groupname;
     if (patch != -1)
@@ -402,9 +419,7 @@ struct carpetx_openpmd_t {
     const int v0 = CCTK_FirstVarIndexI(gi);
     std::string varname = CCTK_FullVarName(v0 + vi);
     varname = std::regex_replace(varname, std::regex("::"), "_");
-    for (auto &ch : varname)
-      ch = std::tolower(ch);
-    return varname;
+    return legalize_name(varname);
   }
 
   ////////////////////////////////////////////////////////////////////////////////

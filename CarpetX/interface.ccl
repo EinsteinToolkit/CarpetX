@@ -53,6 +53,13 @@ void FUNCTION MultiPatch_Interpolate( \
   CCTK_INT ARRAY IN varinds)
 USES FUNCTION MultiPatch_Interpolate
 
+# AMR-B4b: does MultiPatch_Interpolate write cells inside a patch's valid
+# region, and therefore leave their inter-box ghost copies stale?  See
+# `reshare_interior_writes` in src/schedule.cxx.  Optional: a multipatch thorn
+# that does not provide it is assumed to write interior cells.
+CCTK_INT FUNCTION MultiPatch_InterpolateWritesInterior()
+USES FUNCTION MultiPatch_InterpolateWritesInterior
+
 
 
 # The overall size of the domain
