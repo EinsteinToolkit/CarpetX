@@ -1,0 +1,40 @@
+# Schedule definitions for thorn SBPWaveToy
+
+STORAGE: state
+STORAGE: rhs
+STORAGE: energy
+STORAGE: error
+
+SCHEDULE SBPWaveToy_Initial IN ODESolvers_Initial
+{
+  LANG: C
+  WRITES: state(everywhere)
+} "Initialize scalar wave state"
+
+SCHEDULE SBPWaveToy_RHS IN ODESolvers_RHS
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: rhs(interior)
+} "Calculate scalar wave RHS"
+
+SCHEDULE SBPWaveToy_calc_energy_density AT analysis
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: energy(everywhere)
+} "Calculate scalar wave energy density"
+
+SCHEDULE SBPWaveToy_calc_evo_error AT analysis
+{
+  LANG: C
+  READS: state(everywhere)
+  WRITES: error(everywhere)
+} "Calculate scalar wave evolution error"
+
+SCHEDULE SBPWaveToy_Sync IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Sync scalar wave state vector"
