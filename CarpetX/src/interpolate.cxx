@@ -75,8 +75,8 @@ template <typename T, int order, int centering> struct interpolator {
   template <int dir>
   std::enable_if_t<(dir == -1), T>
   interpolate(const vect<int, dim> &i, const vect<CCTK_REAL, dim> &di) const {
-    const amrex::IntVect j(i[0] + vars.begin.x, i[1] + vars.begin.y,
-                           i[2] + vars.begin.z);
+    const amrex::Dim3 vlo = amrex::lbound(vars);
+    const amrex::IntVect j(i[0] + vlo.x, i[1] + vlo.y, i[2] + vlo.z);
 #ifdef CCTK_DEBUG
     assert(vars.contains(j[0], j[1], j[2]));
 #endif
@@ -244,9 +244,12 @@ template <typename T, int order, int centering> struct interpolator {
     // const auto x1 = x0 + (grid.lsh - 1 - indextype) * grid.dx;
     const auto dx = grid.dx;
 
-    assert(vars.end.x - vars.begin.x == grid.lsh[0] - indextype[0]);
-    assert(vars.end.y - vars.begin.y == grid.lsh[1] - indextype[1]);
-    assert(vars.end.z - vars.begin.z == grid.lsh[2] - indextype[2]);
+    assert(amrex::ubound(vars).x - amrex::lbound(vars).x + 1 ==
+           grid.lsh[0] - indextype[0]);
+    assert(amrex::ubound(vars).y - amrex::lbound(vars).y + 1 ==
+           grid.lsh[1] - indextype[1]);
+    assert(amrex::ubound(vars).z - amrex::lbound(vars).z + 1 ==
+           grid.lsh[2] - indextype[2]);
 
     // We assume that the input is synchronized, i.e. that all ghost
     // zones are valid, but all outer boundaries are invalid.

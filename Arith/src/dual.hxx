@@ -186,7 +186,7 @@ template <typename T, typename U> struct dual {
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST dual
   min(const dual &x, const dual &y) {
-    return if_else(x >= y, x, y);
+    return if_else(x <= y, x, y);
   }
   friend constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST dual
   min(std::initializer_list<dual> xs) {
@@ -261,6 +261,14 @@ template <typename T, typename U> struct nan<dual<T, U> > {
 
 } // namespace Arith
 namespace std {
+// These are the comparisons the standard containers use: `equal_to` and `hash`
+// consider both the value and the derivative, `less` orders lexicographically.
+// Note that `dual::operator==` and `dual::operator<` compare only the value,
+// ignoring the derivative, so that a `dual` can be branched on like a number.
+// The function objects here are therefore deliberately *not* the same relations
+// as the operators; use them, not the operators, whenever a comparison has to
+// tell duals apart structurally (`std::map`, `std::unordered_map`) or has to be
+// a strict weak ordering (`std::sort`).
 template <typename T, typename U> struct equal_to<Arith::dual<T, U> > {
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST bool
   operator()(const Arith::dual<T, U> &x, const Arith::dual<T, U> &y) const {
@@ -271,15 +279,23 @@ template <typename T, typename U> struct equal_to<Arith::dual<T, U> > {
 template <typename T, typename U> struct less<Arith::dual<T, U> > {
   constexpr ARITH_INLINE ARITH_DEVICE ARITH_HOST bool
   operator()(const Arith::dual<T, U> &x, const Arith::dual<T, U> &y) const {
-    if (less<T>(x.val, y.val))
+    if (less<T>()(x.val, y.val))
       return true;
-    if (less<T>(y.val, x.val))
+    if (less<T>()(y.val, x.val))
       return false;
-    if (less<U>(x.eps, y.eps))
+    if (less<U>()(x.eps, y.eps))
       return true;
-    if (less<U>(y.eps, x.eps))
+    if (less<U>()(y.eps, x.eps))
       return false;
     return false;
+  }
+};
+
+// Consistent with `equal_to` above, i.e. it hashes both components
+template <typename T, typename U> struct hash<Arith::dual<T, U> > {
+  std::size_t operator()(const Arith::dual<T, U> &x) const {
+    const std::size_t h = hash<T>()(x.val);
+    return h ^ (hash<U>()(x.eps) + 0x9e3779b9 + (h << 6) + (h >> 2));
   }
 };
 } // namespace std
