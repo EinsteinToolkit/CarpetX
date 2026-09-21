@@ -163,11 +163,31 @@ public:
   }
 };
 
+/// Builds an `SBPOperator` with its template arguments deduced from the
+/// arguments. This is what class template argument deduction would give us for
+/// free, but nvcc's frontend (`cudafe++`) asserts when CTAD is used inside a
+/// `constexpr __device__` function, so we deduce through a function template
+/// instead.
+template <std::size_t int_size, typename LTuple, typename RTuple>
+constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE
+    SBPOperator<int_size, LTuple, RTuple>
+    make_sbp_operator(LTuple l, RTuple r, Stencil<int_size> i,
+                      NormWeights<std::tuple_size_v<LTuple> > nw) {
+  return SBPOperator<int_size, LTuple, RTuple>(std::move(l), std::move(r),
+                                               std::move(i), std::move(nw));
+}
+
 /// Diener, Dorband, Schnetter and Tiglio, 2007
 /// https://arxiv.org/abs/gr-qc/0512001
 namespace ddst2007 {
 
-constexpr inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE auto get_op_42() {
+/// Boundary closure rows of the 4-2 operator: four rows, widths 4, 3, 5 and 6.
+using op_42_closures =
+    std::tuple<Stencil<4>, Stencil<3>, Stencil<5>, Stencil<6> >;
+
+using op_42_t = SBPOperator<5, op_42_closures, op_42_closures>;
+
+constexpr inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE op_42_t get_op_42() {
   // Left closures
   constexpr Stencil<4> lb_0{{0, 1, 2, 3},
                             {Rational(-24, 17), Rational(59, 34),
@@ -213,7 +233,7 @@ constexpr inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE auto get_op_42() {
   constexpr NormWeights<4> nw{
       {Rational(17, 48), Rational(59, 48), Rational(43, 48), Rational(49, 48)}};
 
-  return SBPOperator(lb, rb, interior, nw);
+  return make_sbp_operator(lb, rb, interior, nw);
 }
 
 } // namespace ddst2007
