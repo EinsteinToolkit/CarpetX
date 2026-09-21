@@ -20,13 +20,32 @@ using Rational = Arith::rational<CCTK_INT>;
 
 /// Represents a derivative stencil: a fixed set of grid-point offsets,
 /// relative to the point being evaluated, and their matching coefficients.
-template <std::size_t size> struct Stencil {
+///
+/// `C` is the coefficient type. Operator tables are written as `Stencil<N,
+/// Rational>` so the published coefficients can be transcribed exactly, but the
+/// stencils that reach a kernel must hold plain `CCTK_REAL`: `Arith::rational`
+/// arithmetic is built on `Arith::checked_*`, which throws on overflow, and a
+/// SYCL kernel cannot call into the exception machinery even along a branch
+/// that is never taken. `to_real` does the conversion, at compile time.
+template <std::size_t size, typename C = CCTK_REAL> struct Stencil {
   /// Operator grid point offsets, relative to the point being evaluated.
   std::array<std::ptrdiff_t, size> offsets{};
 
   /// Operator coefficients
-  std::array<Rational, size> coefficients{};
+  std::array<C, size> coefficients{};
 };
+
+/// Converts an exact rational stencil into the `CCTK_REAL` stencil a kernel can
+/// use. Host-only, and meant to be evaluated at compile time.
+template <std::size_t size>
+constexpr Stencil<size> to_real(const Stencil<size, Rational> &s) {
+  Stencil<size> r{};
+  r.offsets = s.offsets;
+  for (std::size_t i = 0; i < size; ++i) {
+    r.coefficients[i] = static_cast<CCTK_REAL>(s.coefficients[i]);
+  }
+  return r;
+}
 
 /// Applies a single stencil (the interior stencil, or one boundary-closure row)
 /// at point `p` along direction `dir`. Skips zero coefficients, so we don't
@@ -40,7 +59,9 @@ apply_stencil(const Stencil<size> &s, const Loop::PointDesc &p, const int dir,
   const auto inv_DX = T{1} / p.DX[dir];
 
   for (std::size_t i = 0; i < size; ++i) {
-    if (s.coefficients[i] == Rational{0}) {
+    // The tables spell structural zeros as exact rationals, so they convert to
+    // exactly 0 and this comparison is safe.
+    if (s.coefficients[i] == 0) {
       continue;
     }
     const auto I = p.I + s.offsets[i] * p.DI[dir];
@@ -81,13 +102,28 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE T apply_boundary_tuple(
 /// Entry i is H_{ii}/h (dimensionless), where H is the SBP norm matrix and
 /// h = dx.  The interior norm weight is always 1 and is not stored here.
 /// These are needed to compute SAT penalty magnitudes: sigma = 1/(H_{ii} * h).
-template <std::size_t P> struct NormWeights {
-  std::array<Rational, P> weights{};
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE Rational
+///
+/// As with `Stencil`, `C` is the coefficient type: the tables are written as
+/// exact rationals and converted to `CCTK_REAL` by `to_real` before they reach
+/// an operator.
+template <std::size_t P, typename C = CCTK_REAL> struct NormWeights {
+  std::array<C, P> weights{};
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE C
   operator[](std::size_t i) const {
     return weights[i];
   }
 };
+
+/// Converts exact rational norm weights into `CCTK_REAL` ones. Host-only, and
+/// meant to be evaluated at compile time.
+template <std::size_t P>
+constexpr NormWeights<P> to_real(const NormWeights<P, Rational> &nw) {
+  NormWeights<P> r{};
+  for (std::size_t i = 0; i < P; ++i) {
+    r.weights[i] = static_cast<CCTK_REAL>(nw.weights[i]);
+  }
+  return r;
+}
 
 /// An SBP operator on a finite 1D direction: a single interior stencil, plus
 /// one-sided boundary-closure rows for each of the lower and upper edges,
@@ -124,7 +160,7 @@ public:
         interior_stencil(std::move(i)), norm_weights_(std::move(nw)) {}
 
   /// H_{ii}/h for boundary row i (0 = outermost).  Interior rows have weight 1.
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE Rational
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_REAL
   boundary_h(std::size_t row) const {
     return norm_weights_[row];
   }
@@ -189,51 +225,61 @@ using op_42_t = SBPOperator<5, op_42_closures, op_42_closures>;
 
 constexpr inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE op_42_t get_op_42() {
   // Left closures
-  constexpr Stencil<4> lb_0{{0, 1, 2, 3},
-                            {Rational(-24, 17), Rational(59, 34),
-                             Rational(-4, 17), Rational(-3, 34)}};
+  constexpr Stencil<4, Rational> lb_0{{0, 1, 2, 3},
+                                      {Rational(-24, 17), Rational(59, 34),
+                                       Rational(-4, 17), Rational(-3, 34)}};
 
-  constexpr Stencil<3> lb_1{{-1, 0, 1},
-                            {Rational(-1, 2), Rational(0), Rational(1, 2)}};
+  constexpr Stencil<3, Rational> lb_1{
+      {-1, 0, 1}, {Rational(-1, 2), Rational(0), Rational(1, 2)}};
 
-  constexpr Stencil<5> lb_2{{-2, -1, 0, 1, 2},
-                            {Rational(4, 43), Rational(-59, 86), Rational(0),
-                             Rational(59, 86), Rational(-4, 43)}};
+  constexpr Stencil<5, Rational> lb_2{{-2, -1, 0, 1, 2},
+                                      {Rational(4, 43), Rational(-59, 86),
+                                       Rational(0), Rational(59, 86),
+                                       Rational(-4, 43)}};
 
-  constexpr Stencil<6> lb_3{{-3, -2, -1, 0, 1, 2},
-                            {Rational(3, 98), Rational(0), Rational(-59, 98),
-                             Rational(0), Rational(32, 49), Rational(-4, 49)}};
+  constexpr Stencil<6, Rational> lb_3{
+      {-3, -2, -1, 0, 1, 2},
+      {Rational(3, 98), Rational(0), Rational(-59, 98), Rational(0),
+       Rational(32, 49), Rational(-4, 49)}};
 
   // Right closures
-  constexpr Stencil<4> rb_0{
+  constexpr Stencil<4, Rational> rb_0{
       {0, -1, -2, -3},
       {Rational(24, 17), Rational(-59, 34), Rational(4, 17), Rational(3, 34)}};
 
-  constexpr Stencil<3> rb_1{{1, 0, -1},
-                            {Rational(1, 2), Rational(0), Rational(-1, 2)}};
+  constexpr Stencil<3, Rational> rb_1{
+      {1, 0, -1}, {Rational(1, 2), Rational(0), Rational(-1, 2)}};
 
-  constexpr Stencil<5> rb_2{{2, 1, 0, -1, -2},
-                            {Rational(-4, 43), Rational(59, 86), Rational(0),
-                             Rational(-59, 86), Rational(4, 43)}};
+  constexpr Stencil<5, Rational> rb_2{{2, 1, 0, -1, -2},
+                                      {Rational(-4, 43), Rational(59, 86),
+                                       Rational(0), Rational(-59, 86),
+                                       Rational(4, 43)}};
 
-  constexpr Stencil<6> rb_3{{3, 2, 1, 0, -1, -2},
-                            {Rational(-3, 98), Rational(0), Rational(59, 98),
-                             Rational(0), Rational(-32, 49), Rational(4, 49)}};
+  constexpr Stencil<6, Rational> rb_3{
+      {3, 2, 1, 0, -1, -2},
+      {Rational(-3, 98), Rational(0), Rational(59, 98), Rational(0),
+       Rational(-32, 49), Rational(4, 49)}};
 
   // Interior
-  constexpr Stencil<5> interior{{-2, -1, 0, 1, 2},
-                                {Rational(1, 12), Rational(-2, 3), Rational(0),
-                                 Rational(2, 3), Rational(-1, 12)}};
-
-  // Operator
-  constexpr auto lb = std::make_tuple(lb_0, lb_1, lb_2, lb_3);
-  constexpr auto rb = std::make_tuple(rb_0, rb_1, rb_2, rb_3);
+  constexpr Stencil<5, Rational> interior{{-2, -1, 0, 1, 2},
+                                          {Rational(1, 12), Rational(-2, 3),
+                                           Rational(0), Rational(2, 3),
+                                           Rational(-1, 12)}};
 
   // Diagonal boundary-block norm weights H_{ii}/h from DDST07 Table 1
-  constexpr NormWeights<4> nw{
+  constexpr NormWeights<4, Rational> nw{
       {Rational(17, 48), Rational(59, 48), Rational(43, 48), Rational(49, 48)}};
 
-  return make_sbp_operator(lb, rb, interior, nw);
+  // Operator. Everything below this line is in CCTK_REAL: the exact rationals
+  // above exist only to make the tables checkable against the paper.
+  constexpr auto lb =
+      std::make_tuple(to_real(lb_0), to_real(lb_1), to_real(lb_2),
+                      to_real(lb_3));
+  constexpr auto rb =
+      std::make_tuple(to_real(rb_0), to_real(rb_1), to_real(rb_2),
+                      to_real(rb_3));
+
+  return make_sbp_operator(lb, rb, to_real(interior), to_real(nw));
 }
 
 } // namespace ddst2007
