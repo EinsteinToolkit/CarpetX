@@ -38,7 +38,7 @@ template <std::size_t size, typename C = CCTK_REAL> struct Stencil {
 /// Converts an exact rational stencil into the `CCTK_REAL` stencil a kernel can
 /// use. Host-only, and meant to be evaluated at compile time.
 template <std::size_t size>
-constexpr Stencil<size> to_real(const Stencil<size, Rational> &s) {
+constexpr CCTK_HOST Stencil<size> to_real(const Stencil<size, Rational> &s) {
   Stencil<size> r{};
   r.offsets = s.offsets;
   for (std::size_t i = 0; i < size; ++i) {
@@ -108,7 +108,7 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE T apply_boundary_tuple(
 /// an operator.
 template <std::size_t P, typename C = CCTK_REAL> struct NormWeights {
   std::array<C, P> weights{};
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE C
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST CCTK_DEVICE C
   operator[](std::size_t i) const {
     return weights[i];
   }
@@ -117,7 +117,7 @@ template <std::size_t P, typename C = CCTK_REAL> struct NormWeights {
 /// Converts exact rational norm weights into `CCTK_REAL` ones. Host-only, and
 /// meant to be evaluated at compile time.
 template <std::size_t P>
-constexpr NormWeights<P> to_real(const NormWeights<P, Rational> &nw) {
+constexpr CCTK_HOST NormWeights<P> to_real(const NormWeights<P, Rational> &nw) {
   NormWeights<P> r{};
   for (std::size_t i = 0; i < P; ++i) {
     r.weights[i] = static_cast<CCTK_REAL>(nw.weights[i]);
@@ -153,14 +153,16 @@ private:
   NormWeights<num_boundary_rows> norm_weights_{};
 
 public:
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE
+  /// Host-only: an operator is built once, at compile time, from the tables.
+  /// Kernels receive a finished operator by value, so they never run this.
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST
   SBPOperator(LTuple l, RTuple r, Stencil<int_size> i,
               NormWeights<num_boundary_rows> nw)
       : l_boundary_closures(std::move(l)), r_boundary_closures(std::move(r)),
         interior_stencil(std::move(i)), norm_weights_(std::move(nw)) {}
 
   /// H_{ii}/h for boundary row i (0 = outermost).  Interior rows have weight 1.
-  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_REAL
+  constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST CCTK_DEVICE CCTK_REAL
   boundary_h(std::size_t row) const {
     return norm_weights_[row];
   }
@@ -202,10 +204,10 @@ public:
 /// Builds an `SBPOperator` with its template arguments deduced from the
 /// arguments. This is what class template argument deduction would give us for
 /// free, but nvcc's frontend (`cudafe++`) asserts when CTAD is used inside a
-/// `constexpr __device__` function, so we deduce through a function template
-/// instead.
+/// `constexpr` function it also has to compile for the device, so we deduce
+/// through a function template instead.
 template <std::size_t int_size, typename LTuple, typename RTuple>
-constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE
+constexpr CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST
     SBPOperator<int_size, LTuple, RTuple>
     make_sbp_operator(LTuple l, RTuple r, Stencil<int_size> i,
                       NormWeights<std::tuple_size_v<LTuple> > nw) {
@@ -223,7 +225,10 @@ using op_42_closures =
 
 using op_42_t = SBPOperator<5, op_42_closures, op_42_closures>;
 
-constexpr inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE op_42_t get_op_42() {
+/// Host-only: this assembles the operator from its tables, which is a
+/// compile-time job. Call it on the host and capture the result by value into a
+/// kernel; `SBPOperator::apply` is the part that runs on the device.
+constexpr inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_HOST op_42_t get_op_42() {
   // Left closures
   constexpr Stencil<4, Rational> lb_0{{0, 1, 2, 3},
                                       {Rational(-24, 17), Rational(59, 34),
