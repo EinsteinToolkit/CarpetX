@@ -3,6 +3,7 @@
 #include "mpi_types.hxx"
 #include "reduction.hxx"
 #include "schedule.hxx"
+#include "timer.hxx"
 
 #include <defs.hxx>
 
@@ -20,9 +21,12 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <limits>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -420,6 +424,316 @@ template <typename T, int order, int centering> struct interpolator {
   }
 };
 
+// The fused kernel (interp_speed_cpu.md C1-1): vertex centring, no
+// derivatives, one pass per point over all variables.  The legacy kernel above
+// recomputes the anchor for every variable and the 1D weights for every
+// variable and every 1D sub-line (1 + (order+1) + (order+1)^2 sets per point
+// and variable); this one computes both once per point.
+//
+// BITWISE IDENTITY WITH `interpolator` IS THE CONTRACT, and it rests on doing
+// the same floating-point operations in the same order:
+//   - the anchor block is `interpolator::interpolate3d`'s, copied verbatim;
+//   - each weight is the `derivs == 0` expression of `interpolator::interpolate`
+//     for that order, copied verbatim and evaluated with the same `x`;
+//   - the sums are nested the way the recursion nests them (x innermost, then
+//     y, then z), each one left to right, `w0*y0 + w1*y1 + ...`;
+//   - order 0 returns the grid value itself, as the recursion does, without a
+//     multiplication by 1.
+// That holds as long as the compiler neither contracts nor reassociates, which
+// is the case for the `sim` configuration (`-O2`, baseline x86-64: no FMA, no
+// `-ffast-math`).  `CarpetX::interpolation_kernel = "check"` verifies it on
+// every value instead of assuming it.
+//
+// The failure behaviour is the legacy kernel's: the same live `assert` on the
+// anchor range, the same `CCTK_VERROR` on `!is_allowed`, and in `CCTK_DEBUG`
+// builds the same `contains`/`isfinite` checks on every stencil read and one
+// `DONOR` line per point and variable with the same fields.  Only the ORDER of
+// the `DONOR` lines differs (point-major instead of variable-major).
+template <typename T, int order> struct fused_weights;
+template <typename T> struct fused_weights<T, 0> {
+  static void get(const T, T *restrict const) {}
+};
+template <typename T> struct fused_weights<T, 1> {
+  static void get(const T x, T *restrict const w) {
+    w[0] = (1 / T(2) - x);
+    w[1] = (1 / T(2) + x);
+  }
+};
+template <typename T> struct fused_weights<T, 2> {
+  static void get(const T x, T *restrict const w) {
+    w[0] = (-1 / T(2) * x + 1 / T(2) * pown(x, 2));
+    w[1] = (1 - pown(x, 2));
+    w[2] = (1 / T(2) * x + 1 / T(2) * pown(x, 2));
+  }
+};
+template <typename T> struct fused_weights<T, 3> {
+  static void get(const T x, T *restrict const w) {
+    w[0] = (-1 / T(16) + 1 / T(24) * x + 1 / T(4) * pown(x, 2) -
+            1 / T(6) * pown(x, 3));
+    w[1] = (9 / T(16) - 9 / T(8) * x - 1 / T(4) * pown(x, 2) +
+            1 / T(2) * pown(x, 3));
+    w[2] = (9 / T(16) + 9 / T(8) * x - 1 / T(4) * pown(x, 2) -
+            1 / T(2) * pown(x, 3));
+    w[3] = (-1 / T(16) - 1 / T(24) * x + 1 / T(4) * pown(x, 2) +
+            1 / T(6) * pown(x, 3));
+  }
+};
+template <typename T> struct fused_weights<T, 4> {
+  static void get(const T x, T *restrict const w) {
+    w[0] = (1 / T(12) * x - 1 / T(24) * pown(x, 2) - 1 / T(12) * pown(x, 3) +
+            1 / T(24) * pown(x, 4));
+    w[1] = (-2 / T(3) * x + 2 / T(3) * pown(x, 2) + 1 / T(6) * pown(x, 3) -
+            1 / T(6) * pown(x, 4));
+    w[2] = (1 - 5 / T(4) * pown(x, 2) + 1 / T(4) * pown(x, 4));
+    w[3] = (2 / T(3) * x + 2 / T(3) * pown(x, 2) - 1 / T(6) * pown(x, 3) -
+            1 / T(6) * pown(x, 4));
+    w[4] = (-1 / T(12) * x - 1 / T(24) * pown(x, 2) + 1 / T(12) * pown(x, 3) +
+            1 / T(24) * pown(x, 4));
+  }
+};
+
+// `w[0] * y[0] + w[1] * y[1] + ...`, left to right; order 0 is `y[0]`.
+template <typename T, int order>
+inline T fused_combine(const T *restrict const w, const T *restrict const y) {
+  if constexpr (order == 0) {
+    return y[0];
+  } else {
+    T s = w[0] * y[0];
+    for (int m = 1; m <= order; ++m)
+      s += w[m] * y[m];
+    return s;
+  }
+}
+
+template <typename T, int order> struct fused_interpolator {
+  static constexpr vect<bool, dim> indextype{false, false, false};
+
+  const GridDescBase &grid;
+  const int patch;
+  const int level;
+  // One entry per variable of the call: its group and index within the group
+  // (for the diagnostics) and this tile's array of its group.
+  const std::vector<int> &gis;
+  const std::vector<int> &vis;
+  const std::vector<amrex::Array4<const T> > &arrays;
+  const vect<vect<bool, dim>, 2> allowed_boundaries;
+
+  static constexpr T eps() {
+    using std::pow;
+    return pow(std::numeric_limits<T>::epsilon(), T(3) / 4);
+  }
+
+#ifdef CCTK_DEBUG
+  // One stencil read, with the legacy base case's debug checks.  (The
+  // optimised build reads `base[off]` directly.)
+  static T read(const T *restrict const base, const std::ptrdiff_t off,
+                const amrex::Array4<const T> &vars, const int gi, const int vi,
+                const vect<int, dim> &i, const vect<CCTK_REAL, dim> &di) {
+    const amrex::IntVect j(i[0] + vars.begin.x, i[1] + vars.begin.y,
+                           i[2] + vars.begin.z);
+    assert(vars.contains(j[0], j[1], j[2]));
+    const T val = base[off];
+    using std::isfinite;
+    if (!(isfinite(val))) {
+      std::cerr << "!isfinite gi=" << gi
+                << " groupname=" << CCTK_FullGroupName(gi) << " vi=" << vi
+                << " i=" << i << " di=" << di << " val=" << val << "\n";
+      for (int c = -1; c <= +1; ++c)
+        for (int b = -1; b <= +1; ++b)
+          for (int a = -1; a <= +1; ++a)
+            if (vars.contains(j[0] + a, j[1] + b, j[2] + c))
+              std::cerr << "  val[" << a << "," << b << "," << c
+                        << "]=" << vars(j[0] + a, j[1] + b, j[2] + c, vi)
+                        << "\n";
+    }
+    assert(isfinite(val));
+    return val;
+  }
+#endif
+
+  template <typename Particles>
+  void interpolate3d(const Particles &particles,
+                     std::vector<std::vector<T> > &varresults) const {
+    const auto x0 = grid.x0 + (2 * grid.lbnd - !indextype) * grid.dx / 2;
+    const auto dx = grid.dx;
+
+    const int nvars = int(arrays.size());
+    assert(int(varresults.size()) == nvars);
+
+    // Every variable of a tile lives in an allocation of the same shape
+    // (same box, same ghosts, vertex centring), so one linear stencil offset
+    // serves all of them.  Asserted rather than assumed: it is what makes the
+    // offset below valid.
+    std::vector<const T *> bases(nvars);
+    const std::ptrdiff_t jstride = nvars > 0 ? arrays[0].jstride : 0;
+    const std::ptrdiff_t kstride = nvars > 0 ? arrays[0].kstride : 0;
+    for (int v = 0; v < nvars; ++v) {
+      const amrex::Array4<const T> &vars = arrays[v];
+      assert(vars.end.x - vars.begin.x == grid.lsh[0] - indextype[0]);
+      assert(vars.end.y - vars.begin.y == grid.lsh[1] - indextype[1]);
+      assert(vars.end.z - vars.begin.z == grid.lsh[2] - indextype[2]);
+      assert(std::ptrdiff_t(vars.jstride) == jstride);
+      assert(std::ptrdiff_t(vars.kstride) == kstride);
+      // The address the legacy base case reads as `vars(begin + i, vi)` for
+      // `i = 0`; the stencil offset is added to it.
+      bases[v] = &vars(vars.begin.x, vars.begin.y, vars.begin.z, vis[v]);
+    }
+
+    // The allowed index range is [i0, i1)
+    const auto i0_allowed = !allowed_boundaries[0] * grid.nghostzones;
+    const auto i1_allowed =
+        grid.lsh - (!allowed_boundaries[1] * grid.nghostzones + order);
+
+    const int np = int(particles.size());
+    for (int v = 0; v < nvars; ++v)
+      assert(int(varresults[v].size()) == np);
+
+#pragma omp parallel for
+    for (int n = 0; n < np; ++n) {
+      // BEGIN copied verbatim from interpolator::interpolate3d
+      const vect<T, dim> x{particles[n].rdata(0), particles[n].rdata(1),
+                           particles[n].rdata(2)};
+
+      // Find stencil anchor (i.e. the leftmost stencil point)
+      const auto qi = (x - x0) / dx;
+      const auto lrint1 = [](auto a) {
+        using std::lrint;
+        return int(lrint(a));
+      };
+      auto i = fmap(lrint1, qi - order / T(2));
+      auto di = qi - i;
+      // Consistency check
+      assert(all(i >= 0 && i + order < grid.lsh));
+
+      // Push point away from boundaries if they are just a little outside
+      for (int d = 0; d < dim; ++d) {
+        if (i[d] + order / 2 < i0_allowed[d] &&
+            di[d] - order / T(2) >= +T(0.5) - eps()) {
+          i[d] += 1;
+          di[d] -= 1;
+        }
+        if (i[d] >= i1_allowed[d] && di[d] - order / T(2) <= -T(0.5) + eps()) {
+          i[d] -= 1;
+          di[d] += 1;
+        }
+      }
+
+      // Avoid points on boundaries
+      const bool is_allowed = all(i >= i0_allowed && i < i1_allowed);
+      // END copied verbatim
+
+#ifdef CCTK_DEBUG
+      // The legacy kernel's `DONOR` line (see there for what each field means
+      // and how to read the stream), one per variable, same fields.
+      {
+        static const bool log_donors = std::getenv("CAPYRX_LOG_DONORS") != nullptr;
+        if (log_donors) {
+          for (int v = 0; v < nvars; ++v) {
+            const int gi = gis[v];
+            const int vi = vis[v];
+            std::cerr << "DONOR patch=" << patch << " level=" << level
+                      << " gi=" << gi << " groupname=" << CCTK_FullGroupName(gi)
+                      << " vi=" << vi << " n=" << particles[n].idata(1)
+                      << " i=(" << i[0] << "," << i[1] << "," << i[2] << ")"
+                      << " nghostzones=(" << grid.nghostzones[0] << ","
+                      << grid.nghostzones[1] << "," << grid.nghostzones[2]
+                      << ")"
+                      << " is_allowed=" << is_allowed
+                      << " index=" << grid.component
+                      << " lsh=(" << grid.lsh[0] << "," << grid.lsh[1] << ","
+                      << grid.lsh[2] << ")"
+                      << " bbox_lo=(" << grid.bbox[0][0] << ","
+                      << grid.bbox[0][1] << "," << grid.bbox[0][2] << ")"
+                      << " bbox_hi=(" << grid.bbox[1][0] << ","
+                      << grid.bbox[1][1] << "," << grid.bbox[1][2] << ")"
+                      << " allowed_lo=(" << allowed_boundaries[0][0] << ","
+                      << allowed_boundaries[0][1] << ","
+                      << allowed_boundaries[0][2] << ")"
+                      << " allowed_hi=(" << allowed_boundaries[1][0] << ","
+                      << allowed_boundaries[1][1] << ","
+                      << allowed_boundaries[1][2] << ")"
+                      << "\n";
+          }
+        }
+      }
+#endif
+
+      if (!is_allowed) {
+        CCTK_VERROR("Interpolation anchor is not allowed, as it lies outside "
+                    "of the interior region: "
+                    "patch = %d "
+                    "n = %d "
+                    "i = (%d, %d, %d) "
+                    "i0_allowed = (%d, %d, %d) "
+                    "i1_allowed = (%d, %d, %d) "
+                    "x = (%f, %f, %f).",
+                    grid.patch, n, i[0], i[1], i[2], i0_allowed[0],
+                    i0_allowed[1], i0_allowed[2], i1_allowed[0], i1_allowed[1],
+                    i1_allowed[2], x[0], x[1], x[2]);
+      }
+
+      assert(is_allowed);
+
+      // The recursion's `x = di[dir] - order / T(2)`, once per direction.
+      T wx[order + 1], wy[order + 1], wz[order + 1];
+      fused_weights<T, order>::get(di[0] - order / T(2), wx);
+      fused_weights<T, order>::get(di[1] - order / T(2), wy);
+      fused_weights<T, order>::get(di[2] - order / T(2), wz);
+
+      const std::ptrdiff_t off0 = i[0] + i[1] * jstride + i[2] * kstride;
+
+      for (int v = 0; v < nvars; ++v) {
+        const T *restrict const base = bases[v];
+        T zs[order + 1];
+        for (int c = 0; c <= order; ++c) {
+          T ys[order + 1];
+          for (int b = 0; b <= order; ++b) {
+            T xs[order + 1];
+            const std::ptrdiff_t off = off0 + b * jstride + c * kstride;
+            for (int a = 0; a <= order; ++a)
+#ifdef CCTK_DEBUG
+              xs[a] = read(base, off + a, arrays[v], gis[v], vis[v],
+                           i + vect<int, dim>{a, b, c}, di);
+#else
+              xs[a] = base[off + a];
+#endif
+            ys[b] = fused_combine<T, order>(wx, xs);
+          }
+          zs[c] = fused_combine<T, order>(wy, ys);
+        }
+        varresults[v][n] = fused_combine<T, order>(wz, zs);
+      }
+    }
+  }
+};
+
+// C0-1 (interp_speed_cpu.md): where `InterpolationSetup` spends its time.
+// Two sets, because the interpatch fill (`require_level0_donors`) and the
+// one-shot `CarpetX_Interpolate` callers (AHF, Multipole, PunctureTracker)
+// share this code, and a timer that mixes them measures neither.
+struct InterpTimers {
+  Timer setup_global_to_local, setup_particles, setup_redistribute;
+  Timer kernel_legacy, kernel_fused, pack, alltoall, buffers, alltoallv,
+      unpack;
+  explicit InterpTimers(const std::string &tag)
+      : setup_global_to_local("CarpetX::InterpolationSetup.GlobalToLocal " +
+                              tag),
+        setup_particles("CarpetX::InterpolationSetup.particles " + tag),
+        setup_redistribute("CarpetX::InterpolationSetup.Redistribute " + tag),
+        kernel_legacy("CarpetX::Interpolate.kernel_legacy " + tag),
+        kernel_fused("CarpetX::Interpolate.kernel_fused " + tag),
+        pack("CarpetX::Interpolate.pack " + tag),
+        alltoall("CarpetX::Interpolate.Alltoall " + tag),
+        buffers("CarpetX::Interpolate.buffers " + tag),
+        alltoallv("CarpetX::Interpolate.Alltoallv " + tag),
+        unpack("CarpetX::Interpolate.unpack " + tag) {}
+};
+InterpTimers &interp_timers(const bool interpatch) {
+  static InterpTimers timers_interpatch("[interpatch]");
+  static InterpTimers timers_oneshot("[oneshot]");
+  return interpatch ? timers_interpatch : timers_oneshot;
+}
+
 } // namespace
 
 int InterpLocalUniform(int /*N_dims*/, int /*param_table_handle*/,
@@ -578,6 +892,9 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   DECLARE_CCTK_PARAMETERS;
   assert(in_global_mode(cctkGH));
 
+  InterpTimers &timers = interp_timers(require_level0_donors);
+  timers.setup_global_to_local.start();
+
   static const bool have_MultiPatch_GlobalToLocal2 =
       CCTK_IsFunctionAliased("MultiPatch_GlobalToLocal2");
 
@@ -634,6 +951,9 @@ CarpetX::InterpolationSetup::InterpolationSetup(
       }
     }
   }
+
+  timers.setup_global_to_local.stop();
+  timers.setup_particles.start();
 
   // Project particles into the domain for AMReX's distribution
   // AMReX silently drops particles that are outside the domain. We
@@ -807,6 +1127,9 @@ CarpetX::InterpolationSetup::InterpolationSetup(
                  ghext->num_patches(), (long long)npoints);
     }
   }
+
+  timers.setup_particles.stop();
+  const Interval interval_redistribute(timers.setup_redistribute);
 
   // Send particles to interpolation points
   for (auto &container : containers) {
@@ -1072,6 +1395,17 @@ void CarpetX::InterpolationSetup::Interpolate(
   const int nprocs = amrex::ParallelDescriptor::NProcs();
   std::vector<std::vector<CCTK_REAL> > results(nprocs); // [nprocs]
 
+  InterpTimers &timers = interp_timers(require_level0_donors);
+
+  enum class kernel_t { legacy, fused, check };
+  const kernel_t kernel = CCTK_EQUALS(interpolation_kernel, "fused")
+                              ? kernel_t::fused
+                          : CCTK_EQUALS(interpolation_kernel, "check")
+                              ? kernel_t::check
+                              : kernel_t::legacy;
+  const bool fused_order = interpolation_order >= 0 && interpolation_order <= 4;
+  long long ntiles_fused = 0, ntiles_legacy = 0, nchecked = 0;
+
   // Interpolate
   constexpr int tl = 0;
   struct givi_t {
@@ -1119,135 +1453,256 @@ void CarpetX::InterpolationSetup::Interpolate(
 
         std::vector<std::vector<CCTK_REAL> > varresults(nvars);
 
-        // TODO: Don't re-calculate interpolation coefficients for each
-        // variable
-        for (int v = 0; v < nvars; ++v) {
-          const int gi = givis.at(v).gi;
-          const int vi = givis.at(v).vi;
-          const auto &restrict groupdata = *leveldata.groupdata.at(gi);
-          const int centering = groupdata.indextype[0] * 0b100 +
-                                groupdata.indextype[1] * 0b010 +
-                                groupdata.indextype[2] * 0b001;
-          assert(all(groupdata.nghostzones == grid.nghostzones));
-          const amrex::Array4<const CCTK_REAL> &vars =
-              groupdata.mfab.at(tl)->array(pti);
-          vect<int, dim> derivs;
-          int op = operations[v];
-          while (op > 0) {
-            const int dir = op % 10 - 1;
-            if (dir >= 0) {
-              assert(dir >= 0 && dir < dim);
-              ++derivs[dir];
+        // C1-1: the fused kernel takes the tile when every variable of the
+        // call is vertex-centred and underived and the order is 0-4.  The
+        // decision is per tile only because the centring is read per level;
+        // it cannot differ between the tiles of one call.  A call with no
+        // variable stays with the legacy kernel, which then evaluates no
+        // anchor and so cannot refuse one.
+        bool fused_tile =
+            kernel != kernel_t::legacy && fused_order && nvars > 0;
+        std::vector<int> gis, vis;
+        std::vector<amrex::Array4<const CCTK_REAL> > arrays;
+        if (fused_tile) {
+          gis.reserve(nvars);
+          vis.reserve(nvars);
+          arrays.reserve(nvars);
+          for (int v = 0; v < nvars; ++v) {
+            const int gi = givis.at(v).gi;
+            const auto &restrict groupdata = *leveldata.groupdata.at(gi);
+            bool underived = true;
+            for (int op = operations[v]; op > 0; op /= 10)
+              if (op % 10 - 1 >= 0)
+                underived = false;
+            if (!underived || groupdata.indextype[0] ||
+                groupdata.indextype[1] || groupdata.indextype[2]) {
+              fused_tile = false;
+              break;
             }
-            op /= 10;
+            assert(all(groupdata.nghostzones == grid.nghostzones));
+            gis.push_back(gi);
+            vis.push_back(givis.at(v).vi);
+            arrays.push_back(groupdata.mfab.at(tl)->array(pti));
           }
-          auto &varresult = varresults.at(v);
-          varresult.resize(np);
+        }
+        ++(fused_tile ? ntiles_fused : ntiles_legacy);
 
-          switch (centering) {
-          case 0b000: {
-            // Vertex centering
+        if (!fused_tile || kernel == kernel_t::check) {
+          const Interval interval_kernel(timers.kernel_legacy);
+          // TODO: Don't re-calculate interpolation coefficients for each
+          // variable
+          for (int v = 0; v < nvars; ++v) {
+            const int gi = givis.at(v).gi;
+            const int vi = givis.at(v).vi;
+            const auto &restrict groupdata = *leveldata.groupdata.at(gi);
+            const int centering = groupdata.indextype[0] * 0b100 +
+                                  groupdata.indextype[1] * 0b010 +
+                                  groupdata.indextype[2] * 0b001;
+            assert(all(groupdata.nghostzones == grid.nghostzones));
+            const amrex::Array4<const CCTK_REAL> &vars =
+                groupdata.mfab.at(tl)->array(pti);
+            vect<int, dim> derivs;
+            int op = operations[v];
+            while (op > 0) {
+              const int dir = op % 10 - 1;
+              if (dir >= 0) {
+                assert(dir >= 0 && dir < dim);
+                ++derivs[dir];
+              }
+              op /= 10;
+            }
+            auto &varresult = varresults.at(v);
+            varresult.resize(np);
 
+            switch (centering) {
+            case 0b000: {
+              // Vertex centering
+
+              switch (interpolation_order) {
+              case 0: {
+                const interpolator<CCTK_REAL, 0, 0b000> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              case 1: {
+                const interpolator<CCTK_REAL, 1, 0b000> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              case 2: {
+                const interpolator<CCTK_REAL, 2, 0b000> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              case 3: {
+                const interpolator<CCTK_REAL, 3, 0b000> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              case 4: {
+                const interpolator<CCTK_REAL, 4, 0b000> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              default:
+                CCTK_VERROR("Interpolation order %d for centering [%d,%d,%d] not "
+                            "yet supported",
+                            int(interpolation_order), groupdata.indextype[0],
+                            groupdata.indextype[1], groupdata.indextype[2]);
+              } // switch interpolation_order
+              break;
+            } // case 0b000
+
+            case 0b111: {
+              // Cell centering
+
+              switch (interpolation_order) {
+              case 0: {
+                const interpolator<CCTK_REAL, 0, 0b111> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              case 1: {
+                const interpolator<CCTK_REAL, 1, 0b111> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              case 2: {
+                const interpolator<CCTK_REAL, 2, 0b111> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              case 3: {
+                const interpolator<CCTK_REAL, 3, 0b111> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              case 4: {
+                const interpolator<CCTK_REAL, 4, 0b111> interp{
+                    grid,  gi,   vi,     patch,
+                    level, vars, derivs, patch_allowed_boundaries};
+                interp.interpolate3d(particles, varresult);
+                break;
+              }
+              default:
+                CCTK_VERROR("Interpolation order %d for centering [%d,%d,%d] not "
+                            "yet supported",
+                            int(interpolation_order), groupdata.indextype[0],
+                            groupdata.indextype[1], groupdata.indextype[2]);
+              } // switch interpolation_order
+              break;
+            } // case 0b111
+
+            default:
+              CCTK_VERROR("Centering [%d,%d,%d] not yet supported",
+                          groupdata.indextype[0], groupdata.indextype[1],
+                          groupdata.indextype[2]);
+            } // switch centering
+
+          } // for var
+        }
+
+        if (fused_tile) {
+          // In `check` mode the legacy kernel has already filled `varresults`,
+          // and the fused kernel fills a second set to be compared with it.
+          std::vector<std::vector<CCTK_REAL> > checkresults;
+          std::vector<std::vector<CCTK_REAL> > &fusedresults =
+              kernel == kernel_t::check ? checkresults : varresults;
+          fusedresults.resize(nvars);
+          for (int v = 0; v < nvars; ++v)
+            fusedresults.at(v).resize(np);
+          {
+            const Interval interval_kernel(timers.kernel_fused);
             switch (interpolation_order) {
             case 0: {
-              const interpolator<CCTK_REAL, 0, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
+              const fused_interpolator<CCTK_REAL, 0> interp{
+                  grid, patch, level, gis, vis, arrays,
+                  patch_allowed_boundaries};
+              interp.interpolate3d(particles, fusedresults);
               break;
             }
             case 1: {
-              const interpolator<CCTK_REAL, 1, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
+              const fused_interpolator<CCTK_REAL, 1> interp{
+                  grid, patch, level, gis, vis, arrays,
+                  patch_allowed_boundaries};
+              interp.interpolate3d(particles, fusedresults);
               break;
             }
             case 2: {
-              const interpolator<CCTK_REAL, 2, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
+              const fused_interpolator<CCTK_REAL, 2> interp{
+                  grid, patch, level, gis, vis, arrays,
+                  patch_allowed_boundaries};
+              interp.interpolate3d(particles, fusedresults);
               break;
             }
             case 3: {
-              const interpolator<CCTK_REAL, 3, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
+              const fused_interpolator<CCTK_REAL, 3> interp{
+                  grid, patch, level, gis, vis, arrays,
+                  patch_allowed_boundaries};
+              interp.interpolate3d(particles, fusedresults);
               break;
             }
             case 4: {
-              const interpolator<CCTK_REAL, 4, 0b000> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
+              const fused_interpolator<CCTK_REAL, 4> interp{
+                  grid, patch, level, gis, vis, arrays,
+                  patch_allowed_boundaries};
+              interp.interpolate3d(particles, fusedresults);
               break;
             }
             default:
-              CCTK_VERROR("Interpolation order %d for centering [%d,%d,%d] not "
-                          "yet supported",
-                          int(interpolation_order), groupdata.indextype[0],
-                          groupdata.indextype[1], groupdata.indextype[2]);
-            } // switch interpolation_order
-            break;
-          } // case 0b000
+              assert(0); // excluded by `fused_order`
+            }
+          }
 
-          case 0b111: {
-            // Cell centering
+          if (kernel == kernel_t::check) {
+            for (int v = 0; v < nvars; ++v) {
+              for (int n = 0; n < np; ++n) {
+                const CCTK_REAL legacy = varresults.at(v).at(n);
+                const CCTK_REAL fused = checkresults.at(v).at(n);
+                std::uint64_t legacy_bits, fused_bits;
+                static_assert(sizeof legacy_bits == sizeof legacy);
+                std::memcpy(&legacy_bits, &legacy, sizeof legacy_bits);
+                std::memcpy(&fused_bits, &fused, sizeof fused_bits);
+                if (legacy_bits != fused_bits) {
+                  std::fflush(nullptr);
+                  CCTK_VERROR(
+                      "CarpetX::interpolation_kernel = \"check\": the fused "
+                      "and legacy interpolation kernels disagree. Patch %d, "
+                      "level %d, box %d, particle %d of %d in this tile "
+                      "(source process %d, source index %d), variable %s: "
+                      "legacy %.17g (%a), fused %.17g (%a). %lld values of "
+                      "this call compared equal before this one",
+                      patch, level, mfp.index(), n, np,
+                      int(particles[n].idata(0)), int(particles[n].idata(1)),
+                      CCTK_FullVarName(int(varinds[v])), double(legacy),
+                      double(legacy), double(fused), double(fused),
+                      nchecked + (long long)v * np + n);
+                }
+              }
+            }
+            nchecked += (long long)nvars * np;
+          }
+        }
 
-            switch (interpolation_order) {
-            case 0: {
-              const interpolator<CCTK_REAL, 0, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
-              break;
-            }
-            case 1: {
-              const interpolator<CCTK_REAL, 1, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
-              break;
-            }
-            case 2: {
-              const interpolator<CCTK_REAL, 2, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
-              break;
-            }
-            case 3: {
-              const interpolator<CCTK_REAL, 3, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
-              break;
-            }
-            case 4: {
-              const interpolator<CCTK_REAL, 4, 0b111> interp{
-                  grid,  gi,   vi,     patch,
-                  level, vars, derivs, patch_allowed_boundaries};
-              interp.interpolate3d(particles, varresult);
-              break;
-            }
-            default:
-              CCTK_VERROR("Interpolation order %d for centering [%d,%d,%d] not "
-                          "yet supported",
-                          int(interpolation_order), groupdata.indextype[0],
-                          groupdata.indextype[1], groupdata.indextype[2]);
-            } // switch interpolation_order
-            break;
-          } // case 0b111
-
-          default:
-            CCTK_VERROR("Centering [%d,%d,%d] not yet supported",
-                        groupdata.indextype[0], groupdata.indextype[1],
-                        groupdata.indextype[2]);
-          } // switch centering
-
-        } // for var
+        const Interval interval_pack(timers.pack);
 
         for (int n = 0; n < np; ++n) {
           const int proc = particles[n].idata(0);
@@ -1259,6 +1714,25 @@ void CarpetX::InterpolationSetup::Interpolate(
         }
       }
     }
+  }
+
+  // Say which kernel ran, when it is not the default.  The call count is per
+  // timer set, so the interpatch fill and the one-shot callers each get their
+  // own first line; `check` reports every call, because its count of values
+  // compared is the measurement.
+  if (kernel != kernel_t::legacy) {
+    static long long ncalls[2] = {0, 0};
+    const long long ncall = ncalls[require_level0_donors]++;
+    const char *const caller = require_level0_donors ? "interpatch" : "one-shot";
+    if (kernel == kernel_t::check)
+      CCTK_VINFO("CarpetX::interpolation_kernel = \"check\" (%s call %lld): "
+                 "%lld tile(s) run by both kernels, %lld by the legacy kernel "
+                 "only; %lld value(s) compared bitwise, all equal",
+                 caller, ncall, ntiles_fused, ntiles_legacy, nchecked);
+    else if (ncall == 0)
+      CCTK_VINFO("CarpetX::interpolation_kernel = \"fused\" (%s call %lld): "
+                 "%lld tile(s) fused, %lld legacy",
+                 caller, ncall, ntiles_fused, ntiles_legacy);
   }
 
   // Collect particles back
@@ -1275,8 +1749,10 @@ void CarpetX::InterpolationSetup::Interpolate(
     total_sendcount += sendcounts.at(p);
   }
   std::vector<int> recvcounts(nprocs);
+  timers.alltoall.start();
   MPI_Alltoall(sendcounts.data(), 1, MPI_INT, recvcounts.data(), 1, MPI_INT,
                comm);
+  timers.alltoall.stop();
   std::vector<int> recvdispls(nprocs);
   int total_recvcount = 0;
   for (int p = 0; p < nprocs; ++p) {
@@ -1284,6 +1760,7 @@ void CarpetX::InterpolationSetup::Interpolate(
     total_recvcount += recvcounts.at(p);
   }
 
+  timers.buffers.start();
   std::vector<CCTK_REAL> sendbuf(total_sendcount);
   for (int p = 0; p < nprocs; ++p) {
     // TODO: Don't copy, store data here right away
@@ -1298,9 +1775,13 @@ void CarpetX::InterpolationSetup::Interpolate(
     std::copy(result.begin(), result.end(), sendbuf.data() + senddispls.at(p));
   }
   std::vector<CCTK_REAL> recvbuf(total_recvcount);
+  timers.buffers.stop();
+  timers.alltoallv.start();
   MPI_Alltoallv(sendbuf.data(), sendcounts.data(), senddispls.data(), datatype,
                 recvbuf.data(), recvcounts.data(), recvdispls.data(), datatype,
                 comm);
+  timers.alltoallv.stop();
+  const Interval interval_unpack(timers.unpack);
 #ifdef CCTK_DEBUG
   // Check consistency of received ids
   std::vector<bool> idxs(npoints, false);
