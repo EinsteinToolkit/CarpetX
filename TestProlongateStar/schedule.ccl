@@ -1,0 +1,45 @@
+# Schedule definitions for thorn TestProlongateStar
+
+SCHEDULE TestProlongateStar_Set AT initial
+{
+  LANG: C
+  READS: CoordinatesX::vertex_coords(interior)
+  READS: CoordinatesX::cell_coords(interior)
+  WRITES: alp(interior)
+  WRITES: dens(interior)
+  WRITES: flux_x(interior) flux_y(interior) flux_z(interior)
+  SYNC: alp dens flux_x flux_y flux_z
+} "Set grid functions"
+
+SCHEDULE TestProlongateStar_Set AT evol
+{
+  LANG: C
+  READS: CoordinatesX::vertex_coords(interior)
+  READS: CoordinatesX::cell_coords(interior)
+  WRITES: alp(interior)
+  WRITES: dens(interior)
+  WRITES: flux_x(interior) flux_y(interior) flux_z(interior)
+  SYNC: alp dens flux_x flux_y flux_z
+} "Set grid functions"
+
+SCHEDULE TestProlongateStar_CheckBegin AT poststep BEFORE TestProlongateStar_Check
+{
+  LANG: C
+  OPTIONS: global
+} "Check grid functions [begin]"
+
+SCHEDULE TestProlongateStar_Check AT poststep
+{
+  LANG: C
+  READS: CoordinatesX::vertex_coords(everywhere)
+  READS: CoordinatesX::cell_coords(interior)
+  READS: alp(everywhere)
+  READS: dens(everywhere)
+  READS: flux_x(everywhere) flux_y(everywhere) flux_z(everywhere)
+} "Check grid functions"
+
+SCHEDULE TestProlongateStar_CheckEnd AT poststep AFTER TestProlongateStar_Check
+{
+  LANG: C
+  OPTIONS: global
+} "Check grid functions [end]"

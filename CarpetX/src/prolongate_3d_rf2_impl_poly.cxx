@@ -72,7 +72,7 @@ static prolongate_3d_rf2<CC, CC, VC, POLY, POLY, POLY, 7, 7, 7, FB_NONE>
 static prolongate_3d_rf2<CC, CC, CC, POLY, POLY, POLY, 7, 7, 7, FB_NONE>
     prolongate_poly_3d_rf2_c111_o7;
 
-extern const std::map<int, std::array<amrex::Interpolater *, 8> >
+const std::map<int, std::array<amrex::Interpolater *, 8> >
     prolongate_poly_3d_rf2{
         {1,
          {

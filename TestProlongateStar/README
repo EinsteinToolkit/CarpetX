@@ -1,0 +1,9 @@
+Cactus Code Thorn TestProlongateStar
+Author(s)    : Erik Schnetter <schnetter@gmail.com>
+Maintainer(s): Erik Schnetter <schnetter@gmail.com>
+Licence      : LGPL
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Test CarpetX star prolongation operators
