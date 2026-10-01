@@ -505,6 +505,19 @@ inline T fused_combine(const T *restrict const w, const T *restrict const y) {
   }
 }
 
+// Term `m` of `fused_combine(w, y)`, added as soon as `y[m]` is known: the
+// same operations in the same order, without the array.
+template <typename T, int order>
+inline void fused_accumulate(T &s, const int m, const T *restrict const w,
+                             const T y) {
+  if constexpr (order == 0)
+    s = y;
+  else if (m == 0)
+    s = w[0] * y;
+  else
+    s += w[m] * y;
+}
+
 template <typename T, int order> struct fused_interpolator {
   static constexpr vect<bool, dim> indextype{false, false, false};
 
@@ -684,24 +697,32 @@ template <typename T, int order> struct fused_interpolator {
 
       for (int v = 0; v < nvars; ++v) {
         const T *restrict const base = bases[v];
-        T zs[order + 1];
+        // No intermediate lives in an array on the stack.  GCC stores such an
+        // array element by element and reloads it as unaligned 16-byte pairs,
+        // each spanning two stores: that defeats store forwarding in every
+        // thread, and at 1 of the 4 possible stack alignments the pair also
+        // splits a cache line, which made whichever thread's stack sat there
+        // ~1.2x slower (interp_speed_cpu.md step 12a).  So the x sums read
+        // the grid directly, and the y and z sums take each term as it comes.
+        T zsum = 0;
         for (int c = 0; c <= order; ++c) {
-          T ys[order + 1];
+          T ysum = 0;
           for (int b = 0; b <= order; ++b) {
-            T xs[order + 1];
             const std::ptrdiff_t off = off0 + b * jstride + c * kstride;
-            for (int a = 0; a <= order; ++a)
 #ifdef CCTK_DEBUG
+            T xs[order + 1];
+            for (int a = 0; a <= order; ++a)
               xs[a] = read(base, off + a, arrays[v], gis[v], vis[v],
                            i + vect<int, dim>{a, b, c}, di);
+            const T xsum = fused_combine<T, order>(wx, xs);
 #else
-              xs[a] = base[off + a];
+            const T xsum = fused_combine<T, order>(wx, base + off);
 #endif
-            ys[b] = fused_combine<T, order>(wx, xs);
+            fused_accumulate<T, order>(ysum, b, wy, xsum);
           }
-          zs[c] = fused_combine<T, order>(wy, ys);
+          fused_accumulate<T, order>(zsum, c, wz, ysum);
         }
-        varresults[v][n] = fused_combine<T, order>(wz, zs);
+        varresults[v][n] = zsum;
       }
     }
   }
