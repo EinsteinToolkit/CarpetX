@@ -1737,23 +1737,29 @@ void CarpetX::InterpolationSetup::Interpolate(
     }
   }
 
-  // Say which kernel ran, when it is not the default.  The call count is per
-  // timer set, so the interpatch fill and the one-shot callers each get their
-  // own first line; `check` reports every call, because its count of values
-  // compared is the measurement.
-  if (kernel != kernel_t::legacy) {
+  // Say which kernel ran, whichever it is: this line is the only record of
+  // how many tiles fell back to the legacy kernel.  The call count is per timer
+  // set, so the interpatch fill and the one-shot callers each get their own
+  // lines.  `legacy` and `fused` report the first call each one runs (the
+  // parameter is steerable); `check` reports every call, because its count of
+  // values compared is the measurement.
+  {
     static long long ncalls[2] = {0, 0};
+    static bool announced[3][2] = {};
     const long long ncall = ncalls[require_level0_donors]++;
     const char *const caller = require_level0_donors ? "interpatch" : "one-shot";
+    bool &said = announced[int(kernel)][require_level0_donors];
     if (kernel == kernel_t::check)
       CCTK_VINFO("CarpetX::interpolation_kernel = \"check\" (%s call %lld): "
                  "%lld tile(s) run by both kernels, %lld by the legacy kernel "
                  "only; %lld value(s) compared bitwise, all equal",
                  caller, ncall, ntiles_fused, ntiles_legacy, nchecked);
-    else if (ncall == 0)
-      CCTK_VINFO("CarpetX::interpolation_kernel = \"fused\" (%s call %lld): "
+    else if (!said)
+      CCTK_VINFO("CarpetX::interpolation_kernel = \"%s\" (%s call %lld): "
                  "%lld tile(s) fused, %lld legacy",
-                 caller, ncall, ntiles_fused, ntiles_legacy);
+                 kernel == kernel_t::fused ? "fused" : "legacy", caller, ncall,
+                 ntiles_fused, ntiles_legacy);
+    said = true;
   }
 
   // Collect particles back

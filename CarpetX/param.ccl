@@ -481,16 +481,20 @@ CCTK_INT interpolation_order "Interpolation order" STEERABLE=always
 # Which kernel InterpolationSetup::Interpolate uses for a donor tile.  "fused"
 # computes the stencil anchor and the 1D weights once per point for all
 # variables; it performs the same floating-point operations in the same order
-# as "legacy", so the two give bitwise identical values.  It covers vertex
-# centring, no derivatives and interpolation_order 0-4; any other call uses
-# the legacy kernel whatever this says.  "check" runs both on every tile and
-# stops at the first value whose bits differ.
+# as "legacy", so the two give bitwise identical values as long as the compiler
+# neither contracts nor reassociates.  That is verified only for an x86-64
+# build at -O2 without FMA; a build that lets the compiler contract to FMA (a
+# -march with FMA, or aarch64) may make them differ in the last bits, and
+# "check" is how to find out.  "fused" covers vertex centring, no derivatives
+# and interpolation_order 0-4; any other call uses the legacy kernel whatever
+# this says.  "check" runs both on every tile and stops at the first value
+# whose bits differ.
 CCTK_KEYWORD interpolation_kernel "Interpolation kernel for vertex-centred values without derivatives" STEERABLE=always
 {
   "legacy" :: "one pass per variable, recursive stencil evaluation"
   "fused"  :: "one pass per point over all variables, weights computed once per point"
   "check"  :: "run both, compare every value bit for bit, stop at the first mismatch"
-} "legacy"
+} "fused"
 
 
 
