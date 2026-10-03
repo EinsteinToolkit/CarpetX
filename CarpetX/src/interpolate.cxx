@@ -733,7 +733,8 @@ template <typename T, int order> struct fused_interpolator {
 // one-shot `CarpetX_Interpolate` callers (AHF, Multipole, PunctureTracker)
 // share this code, and a timer that mixes them measures neither.
 struct InterpTimers {
-  Timer setup_global_to_local, setup_particles, setup_redistribute;
+  Timer setup_global_to_local, setup_particles, setup_redistribute,
+      setup_layout;
   Timer kernel_legacy, kernel_fused, pack, alltoall, buffers, alltoallv,
       unpack;
   explicit InterpTimers(const std::string &tag)
@@ -741,6 +742,7 @@ struct InterpTimers {
                               tag),
         setup_particles("CarpetX::InterpolationSetup.particles " + tag),
         setup_redistribute("CarpetX::InterpolationSetup.Redistribute " + tag),
+        setup_layout("CarpetX::InterpolationSetup.layout " + tag),
         kernel_legacy("CarpetX::Interpolate.kernel_legacy " + tag),
         kernel_fused("CarpetX::Interpolate.kernel_fused " + tag),
         pack("CarpetX::Interpolate.pack " + tag),
@@ -1150,7 +1152,7 @@ CarpetX::InterpolationSetup::InterpolationSetup(
   }
 
   timers.setup_particles.stop();
-  const Interval interval_redistribute(timers.setup_redistribute);
+  timers.setup_redistribute.start();
 
   // Send particles to interpolation points
   for (auto &container : containers) {
@@ -1215,6 +1217,166 @@ CarpetX::InterpolationSetup::InterpolationSetup(
           patch, old_nparticles, new_nparticles);
     }
 #endif
+  }
+
+  timers.setup_redistribute.stop();
+  const Interval interval_layout(timers.setup_layout);
+  BuildLayout();
+}
+
+void CarpetX::InterpolationSetup::BuildLayout() {
+  const int nprocs = amrex::ParallelDescriptor::NProcs();
+  const int npatches = ghext->num_patches();
+  constexpr long long int_max = std::numeric_limits<int>::max();
+
+  // Walk the tiles exactly as `Interpolate` does: patches, then levels, then
+  // `ParConstIter`, outside any parallel region.  `ParConstIter` walks the
+  // container's own copy of the box layout and skips empty tiles.
+  layout_boxarrays.assign(npatches, {});
+  layout_dmaps.assign(npatches, {});
+  std::vector<long long> counts(nprocs, 0);
+  std::vector<int> procs, ids; // [particle, in visit order]
+  for (const auto &patchdata : ghext->patchdata) {
+    const int patch = patchdata.patch;
+    assert(patch >= 0 && patch < npatches);
+    for (const auto &leveldata : patchdata.leveldata) {
+      const int level = leveldata.level;
+      const amrex::BoxArray &ba = leveldata.fab->boxArray();
+      const amrex::DistributionMapping &dm = leveldata.fab->DistributionMap();
+      // The tiles are paired with the grid's fabs by local index, so the
+      // container must walk the grid's own layout.
+      const Container &container = containers.at(patch);
+      if (!(container.ParticleBoxArray(level) == ba) ||
+          !(container.ParticleDistributionMap(level) == dm))
+        CCTK_VERROR("Interpolation send layout: patch %d level %d: the "
+                    "particle container's box layout differs from the grid's, "
+                    "so its tiles cannot be paired with the grid's boxes",
+                    patch, level);
+      layout_boxarrays.at(patch).push_back(ba);
+      layout_dmaps.at(patch).push_back(dm);
+
+      for (amrex::ParConstIter<3, 2> pti(container, level); pti.isValid();
+           ++pti) {
+        const int np = pti.numParticles();
+        layout_tiles.push_back(
+            {patch, level, pti.index(), pti.LocalTileIndex(), np});
+        const auto &particles = pti.GetArrayOfStructs();
+        for (int n = 0; n < np; ++n) {
+          const int proc = particles[n].idata(0);
+          if (proc < 0 || proc >= nprocs)
+            CCTK_VERROR("Interpolation send layout: patch %d level %d box %d: "
+                        "a particle names source process %d of %d",
+                        patch, level, pti.index(), proc, nprocs);
+          ++counts.at(proc);
+          procs.push_back(proc);
+          ids.push_back(particles[n].idata(1));
+        }
+      }
+    }
+  }
+
+  // Records per destination, in 64 bits first: MPI takes `int`.
+  long long total_send = 0;
+  send_counts.resize(nprocs);
+  send_displs.resize(nprocs);
+  for (int p = 0; p < nprocs; ++p) {
+    send_displs.at(p) = int(total_send);
+    send_counts.at(p) = int(counts.at(p));
+    total_send += counts.at(p);
+    if (total_send > int_max)
+      CCTK_VERROR("Interpolation send layout: this process answers %lld or "
+                  "more query points, more than an int can count",
+                  total_send);
+  }
+
+  // A particle's record goes to its source process, in visit order: the
+  // order in which `Interpolate` packs it.
+  send_slots.resize(procs.size());
+  std::vector<int> next = send_displs;
+  std::vector<int> send_ids(total_send);
+  for (std::size_t k = 0; k < procs.size(); ++k) {
+    const int slot = next.at(procs[k])++;
+    send_slots[k] = slot;
+    send_ids.at(slot) = ids[k];
+  }
+
+  const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
+  recv_counts.resize(nprocs);
+  MPI_Alltoall(send_counts.data(), 1, MPI_INT, recv_counts.data(), 1, MPI_INT,
+               comm);
+  long long total_recv = 0;
+  recv_displs.resize(nprocs);
+  for (int p = 0; p < nprocs; ++p) {
+    recv_displs.at(p) = int(std::min(total_recv, int_max));
+    total_recv += recv_counts.at(p);
+  }
+  // Every query point is answered exactly once.  This used to be found only
+  // at the first `Interpolate`, as "Internal error".
+  if (total_recv != npoints)
+    CCTK_VERROR("Interpolation send layout: this process asked for %lld "
+                "point(s) and will be answered %lld; every query point must be "
+                "answered exactly once",
+                (long long)npoints, total_recv);
+
+  arrival_ids.resize(npoints);
+  MPI_Alltoallv(send_ids.data(), send_counts.data(), send_displs.data(),
+                MPI_INT, arrival_ids.data(), recv_counts.data(),
+                recv_displs.data(), MPI_INT, comm);
+
+  // The arrival order is a permutation of the query points.  Equal counts and
+  // no repeat make it one.
+  std::vector<char> seen(npoints, 0);
+  for (int n = 0; n < npoints; ++n) {
+    const int id = arrival_ids[n];
+    if (id < 0 || id >= npoints || seen[id])
+      CCTK_VERROR("Interpolation send layout: arrival slot %d of %d carries "
+                  "source index %d, which is %s",
+                  n, int(npoints), id,
+                  id < 0 || id >= npoints ? "out of range" : "a repeat");
+    seen[id] = 1;
+  }
+
+  // Say once per caller that the layout was built and checked; the per-call
+  // checks in `Interpolate` speak only when they refuse.
+  static bool announced[2] = {false, false};
+  if (npoints > 0 && !announced[require_level0_donors]) {
+    announced[require_level0_donors] = true;
+    std::size_t npairs = 0;
+    for (const auto &bas : layout_boxarrays)
+      npairs += bas.size();
+    CCTK_VINFO("Interpolation send layout (%s): this process sends %lld "
+               "record(s) from %zu tile(s) on %zu (patch, level) pair(s), and "
+               "receives %lld, a permutation of its query points",
+               require_level0_donors ? "interpatch" : "one-shot", total_send,
+               layout_tiles.size(), npairs, total_recv);
+  }
+}
+
+void CarpetX::InterpolationSetup::RefuseChangedGrid() const {
+  const auto refuse = [](const int patch, const int level, const char *what) {
+    std::fflush(nullptr);
+    CCTK_VERROR("Interpolation send layout: patch %d level %d: the grid's %s "
+                "differs from the one this InterpolationSetup was built on. "
+                "Its particle tiles would be paired with the wrong boxes "
+                "without an error, so it refuses; a setup must be rebuilt "
+                "after every change of the grid",
+                patch, level, what);
+  };
+  if (ghext->num_patches() != int(layout_boxarrays.size()))
+    refuse(-1, -1, "number of patches");
+  for (const auto &patchdata : ghext->patchdata) {
+    const int patch = patchdata.patch;
+    const auto &bas = layout_boxarrays.at(patch);
+    const auto &dms = layout_dmaps.at(patch);
+    if (patchdata.leveldata.size() != bas.size())
+      refuse(patch, -1, "number of levels");
+    for (std::size_t l = 0; l < bas.size(); ++l) {
+      const auto &leveldata = patchdata.leveldata.at(l);
+      if (!(leveldata.fab->boxArray() == bas[l]))
+        refuse(patch, leveldata.level, "BoxArray");
+      if (!(leveldata.fab->DistributionMap() == dms[l]))
+        refuse(patch, leveldata.level, "DistributionMapping");
+    }
   }
 }
 
@@ -1408,6 +1570,10 @@ void CarpetX::InterpolationSetup::Interpolate(
     const CCTK_POINTER resultptrs_) const {
   DECLARE_CCTK_PARAMETERS;
 
+  // C2-1, before anything reads a tile: the grid must be the one the send
+  // layout was built on.
+  RefuseChangedGrid();
+
   // C-AMR2, before any work: a caller whose query points are interpatch ghosts
   // gets them answered from level 0 or not at all.
   RefuseAboveLevel0Donors(nvars, varinds);
@@ -1426,6 +1592,27 @@ void CarpetX::InterpolationSetup::Interpolate(
                               : kernel_t::legacy;
   const bool fused_order = interpolation_order >= 0 && interpolation_order <= 4;
   long long ntiles_fused = 0, ntiles_legacy = 0, nchecked = 0;
+
+  // C2-1: the layout is not used yet.  `check` mode and CCTK_DEBUG builds
+  // verify it value by value against what this call actually sends and
+  // receives; every call verifies the counts.
+#ifdef CCTK_DEBUG
+  const bool verify_layout = true;
+#else
+  const bool verify_layout = kernel == kernel_t::check;
+#endif
+  const long long record_size = (long long)nvars + 1; // the id, then the values
+  {
+    long long total_send = 0;
+    for (const int count : send_counts)
+      total_send += count;
+    const long long most = std::max(total_send, (long long)npoints);
+    if (record_size * most > std::numeric_limits<int>::max())
+      CCTK_VERROR("Interpolation send layout: %lld record(s) of %lld doubles "
+                  "are more than an int can count",
+                  most, record_size);
+  }
+  std::size_t itile = 0, iparticle = 0;
 
   // Interpolate
   constexpr int tl = 0;
@@ -1471,6 +1658,29 @@ void CarpetX::InterpolationSetup::Interpolate(
 
         const int np = pti.numParticles();
         const auto &particles = pti.GetArrayOfStructs();
+
+        // C2-1: this call visits the tiles the layout was built from, in the
+        // same order.
+        {
+          const bool same =
+              itile < layout_tiles.size() &&
+              layout_tiles[itile].patch == patch &&
+              layout_tiles[itile].level == level &&
+              layout_tiles[itile].index == pti.index() &&
+              layout_tiles[itile].local_tile == pti.LocalTileIndex() &&
+              layout_tiles[itile].np == np;
+          if (!same) {
+            std::fflush(nullptr);
+            CCTK_VERROR("Interpolation send layout: tile %zu of this call "
+                        "(patch %d, level %d, box %d, tile %d, %d particle(s)) "
+                        "is not tile %zu of the %zu the layout was built from",
+                        itile, patch, level, pti.index(), pti.LocalTileIndex(),
+                        np, itile, layout_tiles.size());
+          }
+        }
+        ++itile;
+        const std::size_t particle0 = iparticle;
+        iparticle += np;
 
         std::vector<std::vector<CCTK_REAL> > varresults(nvars);
 
@@ -1729,6 +1939,19 @@ void CarpetX::InterpolationSetup::Interpolate(
           const int proc = particles[n].idata(0);
           const int id = particles[n].idata(1);
           auto &result = results.at(proc);
+          if (verify_layout) {
+            const long long slot =
+                send_displs.at(proc) + (long long)result.size() / record_size;
+            if (slot != send_slots.at(particle0 + n)) {
+              std::fflush(nullptr);
+              CCTK_VERROR("Interpolation send layout: patch %d level %d box "
+                          "%d particle %d of %d (source process %d, source "
+                          "index %d) is packed as record %lld, but the layout "
+                          "says %d",
+                          patch, level, pti.index(), n, np, proc, id, slot,
+                          send_slots.at(particle0 + n));
+            }
+          }
           result.push_back(id);
           for (int v = 0; v < nvars; ++v)
             result.push_back(varresults.at(v).at(n));
@@ -1737,17 +1960,24 @@ void CarpetX::InterpolationSetup::Interpolate(
     }
   }
 
+  if (itile != layout_tiles.size()) {
+    std::fflush(nullptr);
+    CCTK_VERROR("Interpolation send layout: this call visited %zu tile(s), but "
+                "the layout was built from %zu",
+                itile, layout_tiles.size());
+  }
+
   // Say which kernel ran, whichever it is: this line is the only record of
   // how many tiles fell back to the legacy kernel.  The call count is per timer
   // set, so the interpatch fill and the one-shot callers each get their own
   // lines.  `legacy` and `fused` report the first call each one runs (the
   // parameter is steerable); `check` reports every call, because its count of
   // values compared is the measurement.
+  static long long ncalls[2] = {0, 0};
+  const long long ncall = ncalls[require_level0_donors]++;
+  const char *const caller = require_level0_donors ? "interpatch" : "one-shot";
   {
-    static long long ncalls[2] = {0, 0};
     static bool announced[3][2] = {};
-    const long long ncall = ncalls[require_level0_donors]++;
-    const char *const caller = require_level0_donors ? "interpatch" : "one-shot";
     bool &said = announced[int(kernel)][require_level0_donors];
     if (kernel == kernel_t::check)
       CCTK_VINFO("CarpetX::interpolation_kernel = \"check\" (%s call %lld): "
@@ -1775,11 +2005,21 @@ void CarpetX::InterpolationSetup::Interpolate(
     senddispls.at(p) = total_sendcount;
     total_sendcount += sendcounts.at(p);
   }
+  for (int p = 0; p < nprocs; ++p)
+    if (sendcounts.at(p) != record_size * send_counts.at(p))
+      CCTK_VERROR("Interpolation send layout: this call sends %d double(s) to "
+                  "process %d, but the layout says %d record(s) of %lld",
+                  sendcounts.at(p), p, send_counts.at(p), record_size);
   std::vector<int> recvcounts(nprocs);
   timers.alltoall.start();
   MPI_Alltoall(sendcounts.data(), 1, MPI_INT, recvcounts.data(), 1, MPI_INT,
                comm);
   timers.alltoall.stop();
+  for (int p = 0; p < nprocs; ++p)
+    if (recvcounts.at(p) != record_size * recv_counts.at(p))
+      CCTK_VERROR("Interpolation send layout: this call receives %d double(s) "
+                  "from process %d, but the layout says %d record(s) of %lld",
+                  recvcounts.at(p), p, recv_counts.at(p), record_size);
   std::vector<int> recvdispls(nprocs);
   int total_recvcount = 0;
   for (int p = 0; p < nprocs; ++p) {
@@ -1809,18 +2049,28 @@ void CarpetX::InterpolationSetup::Interpolate(
                 comm);
   timers.alltoallv.stop();
   const Interval interval_unpack(timers.unpack);
-#ifdef CCTK_DEBUG
-  // Check consistency of received ids
-  std::vector<bool> idxs(npoints, false);
-  for (int n = 0; n < npoints; ++n) {
-    const int offset = (nvars + 1) * n;
-    const int idx = int(recvbuf.at(offset));
-    assert(!idxs.at(idx));
-    idxs.at(idx) = true;
+  // C2-1: the records arrive in the order the layout says.  The constructor
+  // has checked that this order is a permutation of the query points.
+  if (verify_layout) {
+    for (int n = 0; n < npoints; ++n) {
+      const int idx = int(recvbuf.at(record_size * n));
+      if (idx != arrival_ids.at(n)) {
+        std::fflush(nullptr);
+        CCTK_VERROR("Interpolation send layout: arrival slot %d of %d carries "
+                    "source index %d, but the layout says %d",
+                    n, int(npoints), idx, arrival_ids.at(n));
+      }
+    }
+    // Like the kernel line: `check` says so on every call, a CCTK_DEBUG build
+    // on its first call per caller.
+    static bool announced[2] = {false, false};
+    if (kernel == kernel_t::check || !announced[require_level0_donors])
+      CCTK_VINFO("Interpolation send layout (%s call %lld): verified value by "
+                 "value: %zu send slot(s) and %d arrival id(s) equal the "
+                 "layout's",
+                 caller, ncall, iparticle, int(npoints));
+    announced[require_level0_donors] = true;
   }
-  for (int n = 0; n < npoints; ++n)
-    assert(idxs.at(n));
-#endif
 
   // Set result
   CCTK_REAL *const restrict *const restrict resultptrs =

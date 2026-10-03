@@ -47,6 +47,29 @@ private:
   std::vector<bool> symmetry_reflected_z;
   std::vector<Container> containers{}; // [patch]
 
+  // C2-1 (interp_speed_cpu.md step 14): the send layout, built once by the
+  // constructor.  It depends on the grid and the query points only, never on
+  // `interpolation_order` or `interpolation_kernel` (both steerable), and it
+  // holds indices, never pointers: CycleTimelevels rotates the fabs every step.
+  // The unit is a record (one query point), not a double, because `nvars`
+  // varies from call to call.
+  struct LayoutTile {
+    int patch, level, index, local_tile, np;
+  };
+  // The grid the layout was built on, compared by content on every call
+  std::vector<std::vector<amrex::BoxArray> > layout_boxarrays; // [patch][level]
+  std::vector<std::vector<amrex::DistributionMapping> >
+      layout_dmaps; // [patch][level]
+  // The non-empty tiles, in the order `Interpolate` visits them
+  std::vector<LayoutTile> layout_tiles;
+  // The record each particle is sent as, counted from the start of the send
+  // buffer: [particle, in visit order]
+  std::vector<int> send_slots;
+  // Records sent to and received from each process: [proc]
+  std::vector<int> send_counts, send_displs, recv_counts, recv_displs;
+  // The source index of each record received, in arrival order: [npoints]
+  std::vector<int> arrival_ids;
+
 public:
 
   /*
@@ -157,6 +180,22 @@ private:
    */
   void RefuseAboveLevel0Donors(const CCTK_INT nvars,
                                const CCTK_INT *restrict const varinds) const;
+
+  /*
+   * C2-1.  Walk the tiles exactly as `Interpolate` does, record them and the
+   * grid they belong to, give each particle its record in the send buffer, and
+   * exchange the source ids once, so that every receiver knows the order in
+   * which its records arrive.  Collective.
+   */
+  void BuildLayout();
+
+  /*
+   * C2-1.  Refuse unless the grid is, by content, the one the layout was built
+   * on.  `Interpolate` pairs each particle tile with `mfab->array(pti)`, which
+   * selects a fab by local index only, so on any other grid it would read the
+   * wrong box without an error.
+   */
+  void RefuseChangedGrid() const;
 };
 
 // a dummy routine for now
