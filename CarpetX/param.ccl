@@ -709,7 +709,7 @@ BOOLEAN out_tsv "3d Output in TSV (tab-separated values) format?" STEERABLE=alwa
 
 
 
-STRING out_tsv_vars "Variables to output in 1d TSV format" STEERABLE=always
+STRING out_tsv_vars "Groups/variables to output in TSV format (both the 1d lines and, when non-empty, the 3d dump; an empty list dumps every group in 3d)" STEERABLE=always
 {
   ".*" :: ""
 } ""

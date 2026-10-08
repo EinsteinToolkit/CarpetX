@@ -193,6 +193,25 @@ void OutputTSVold(const cGH *restrict cctkGH) {
   const out_fileinfo_t out_fileinfo_val = get_out_fileinfo();
   const out_header_t out_header = get_out_header();
 
+  // out_tsv_vars (shared with the 1d line output) also selects which groups the
+  // 3d dump writes. An empty list keeps the historical "dump every group with
+  // storage" behaviour, so existing out_tsv=yes parameter files are unchanged.
+  const bool filter_groups = out_tsv_vars[0] != '\0';
+  const std::vector<bool> group_enabled = [&] {
+    std::vector<bool> enabled(CCTK_NumGroups(), false);
+    if (filter_groups) {
+      const auto callback{
+          [](const int index, const char *const /*optstring*/,
+             void *const arg) {
+            std::vector<bool> &enabled =
+                *static_cast<std::vector<bool> *>(arg);
+            enabled.at(CCTK_GroupIndexFromVarI(index)) = true;
+          }};
+      CCTK_TraverseString(out_tsv_vars, callback, &enabled, CCTK_GROUP_OR_VAR);
+    }
+    return enabled;
+  }();
+
   const int numgroups = CCTK_NumGroups();
   for (int gi = 0; gi < numgroups; ++gi) {
     cGroup group;
@@ -200,6 +219,9 @@ void OutputTSVold(const cGH *restrict cctkGH) {
     assert(!ierr);
 
     if (group.grouptype != CCTK_GF)
+      continue;
+
+    if (filter_groups && !group_enabled.at(gi))
       continue;
 
     auto &restrict groupdata0 =
