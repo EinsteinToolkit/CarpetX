@@ -582,12 +582,12 @@ int OutputGH(const cGH *restrict cctkGH) {
     }
   }
 
-  OutputTSVold(cctkGH);
-
   {
     const int every = out_tsv_every == -1 ? out_every : out_tsv_every;
-    if (every > 0 && cctk_iteration % every == 0)
+    if (every > 0 && cctk_iteration % every == 0) {
+      OutputTSVold(cctkGH);
       OutputTSV(cctkGH);
+    }
   }
 
   // Describe all output files
