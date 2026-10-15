@@ -35,6 +35,19 @@ using Arith::pown;
 
 namespace {
 
+// Share kernel arithmetic between the slotted send buffer and check-mode
+// scratch storage; distinct particles write distinct slots in parallel.
+template <typename T> struct result_sink {
+  T *base;
+  const int *slots;
+  std::ptrdiff_t point_stride, var_stride;
+
+  T *point(const int n) const {
+    return base + std::ptrdiff_t(slots ? slots[n] : n) * point_stride;
+  }
+  T &at(const int n, const int v) const { return point(n)[v * var_stride]; }
+};
+
 // Interpolate a grid function at one point, dimensionally recursive
 template <typename T, int order, int centering> struct interpolator {
   static constexpr vect<bool, dim> indextype{(centering & 0b100) != 0,
@@ -244,8 +257,8 @@ template <typename T, int order, int centering> struct interpolator {
   }
 
   template <typename Particles>
-  void interpolate3d(const Particles &particles,
-                     std::vector<T> &varresult) const {
+  void interpolate3d(const Particles &particles, const result_sink<T> &out,
+                     const int v) const {
     const auto x0 = grid.x0 + (2 * grid.lbnd - !indextype) * grid.dx / 2;
     // const auto x1 = x0 + (grid.lsh - 1 - indextype) * grid.dx;
     const auto dx = grid.dx;
@@ -276,7 +289,7 @@ template <typename T, int order, int centering> struct interpolator {
     const auto i1_allowed =
         grid.lsh - (!allowed_boundaries[1] * grid.nghostzones + order);
 
-    const int np = int(varresult.size());
+    const int np = int(particles.size());
 
 #pragma omp parallel for simd
     for (int n = 0; n < np; ++n) {
@@ -419,7 +432,7 @@ template <typename T, int order, int centering> struct interpolator {
 
       const T res = !is_allowed ? -2 : interpolate<dim - 1>(i, di);
 
-      varresult[n] = res;
+      out.at(n, v) = res;
     }
   }
 };
@@ -566,12 +579,11 @@ template <typename T, int order> struct fused_interpolator {
 
   template <typename Particles>
   void interpolate3d(const Particles &particles,
-                     std::vector<std::vector<T> > &varresults) const {
+                     const result_sink<T> &out) const {
     const auto x0 = grid.x0 + (2 * grid.lbnd - !indextype) * grid.dx / 2;
     const auto dx = grid.dx;
 
     const int nvars = int(arrays.size());
-    assert(int(varresults.size()) == nvars);
 
     // Every variable of a tile lives in an allocation of the same shape
     // (same box, same ghosts, vertex centring), so one linear stencil offset
@@ -598,8 +610,7 @@ template <typename T, int order> struct fused_interpolator {
         grid.lsh - (!allowed_boundaries[1] * grid.nghostzones + order);
 
     const int np = int(particles.size());
-    for (int v = 0; v < nvars; ++v)
-      assert(int(varresults[v].size()) == np);
+    const std::ptrdiff_t var_stride = out.var_stride;
 
 #pragma omp parallel for
     for (int n = 0; n < np; ++n) {
@@ -694,6 +705,7 @@ template <typename T, int order> struct fused_interpolator {
       fused_weights<T, order>::get(di[2] - order / T(2), wz);
 
       const std::ptrdiff_t off0 = i[0] + i[1] * jstride + i[2] * kstride;
+      T *const res = out.point(n);
 
       for (int v = 0; v < nvars; ++v) {
         const T *restrict const base = bases[v];
@@ -722,7 +734,7 @@ template <typename T, int order> struct fused_interpolator {
           }
           fused_accumulate<T, order>(zsum, c, wz, ysum);
         }
-        varresults[v][n] = zsum;
+        res[v * var_stride] = zsum;
       }
     }
   }
@@ -1578,9 +1590,7 @@ void CarpetX::InterpolationSetup::Interpolate(
   // gets them answered from level 0 or not at all.
   RefuseAboveLevel0Donors(nvars, varinds);
 
-  // Define result variables
   const int nprocs = amrex::ParallelDescriptor::NProcs();
-  std::vector<std::vector<CCTK_REAL> > results(nprocs); // [nprocs]
 
   InterpTimers &timers = interp_timers(require_level0_donors);
 
@@ -1593,19 +1603,18 @@ void CarpetX::InterpolationSetup::Interpolate(
   const bool fused_order = interpolation_order >= 0 && interpolation_order <= 4;
   long long ntiles_fused = 0, ntiles_legacy = 0, nchecked = 0;
 
-  // C2-1: the layout is not used yet.  `check` mode and CCTK_DEBUG builds
-  // verify it value by value against what this call actually sends and
-  // receives; every call verifies the counts.
 #ifdef CCTK_DEBUG
   const bool verify_layout = true;
 #else
   const bool verify_layout = kernel == kernel_t::check;
 #endif
-  const long long record_size = (long long)nvars + 1; // the id, then the values
+  // A record is the nvars values only.  The receiver already knows each
+  // record's query point from the layout, so no id travels with it.
+  const long long record_size = (long long)nvars;
+  long long total_send = 0;
+  for (const int count : send_counts)
+    total_send += count;
   {
-    long long total_send = 0;
-    for (const int count : send_counts)
-      total_send += count;
     const long long most = std::max(total_send, (long long)npoints);
     if (record_size * most > std::numeric_limits<int>::max())
       CCTK_VERROR("Interpolation send layout: %lld record(s) of %lld doubles "
@@ -1613,6 +1622,24 @@ void CarpetX::InterpolationSetup::Interpolate(
                   most, record_size);
   }
   std::size_t itile = 0, iparticle = 0;
+
+  // Release first so a smaller call does not retain a larger allocation.
+  timers.buffers.start();
+  if (sendbuf.size() != std::size_t(record_size * total_send)) {
+    std::vector<CCTK_REAL>().swap(sendbuf);
+    sendbuf.resize(record_size * total_send);
+  }
+  timers.buffers.stop();
+  // Detect unwritten slots before stale values can be sent as plausible data.
+  // Arithmetic cannot produce the signalling NaN used as the sentinel.
+  constexpr std::uint64_t stale_bits = 0x7ff4'0053'5441'4c45ULL; // sNaN "STALE"
+  if (verify_layout) {
+    CCTK_REAL stale;
+    static_assert(sizeof stale == sizeof stale_bits);
+    std::memcpy(&stale, &stale_bits, sizeof stale);
+    std::fill(sendbuf.begin(), sendbuf.end(), stale);
+  }
+  CCTK_REAL *const send_values = sendbuf.empty() ? nullptr : sendbuf.data();
 
   // Interpolate
   constexpr int tl = 0;
@@ -1682,8 +1709,6 @@ void CarpetX::InterpolationSetup::Interpolate(
         const std::size_t particle0 = iparticle;
         iparticle += np;
 
-        std::vector<std::vector<CCTK_REAL> > varresults(nvars);
-
         // C1-1: the fused kernel takes the tile when every variable of the
         // call is vertex-centred and underived and the order is 0-4.  The
         // decision is per tile only because the centring is read per level;
@@ -1718,6 +1743,19 @@ void CarpetX::InterpolationSetup::Interpolate(
         }
         ++(fused_tile ? ntiles_fused : ntiles_legacy);
 
+        // Check against independent scratch storage to verify slot addressing
+        // as well as the fused kernel's arithmetic.
+        const result_sink<CCTK_REAL> send_sink{
+            send_values, send_slots.data() + particle0,
+            std::ptrdiff_t(record_size), 1};
+        const bool legacy_to_scratch = fused_tile && kernel == kernel_t::check;
+        std::vector<CCTK_REAL> scratch(legacy_to_scratch ? std::size_t(nvars) * np
+                                                         : 0);
+        const result_sink<CCTK_REAL> legacy_sink =
+            legacy_to_scratch
+                ? result_sink<CCTK_REAL>{scratch.data(), nullptr, 1, np}
+                : send_sink;
+
         if (!fused_tile || kernel == kernel_t::check) {
           const Interval interval_kernel(timers.kernel_legacy);
           // TODO: Don't re-calculate interpolation coefficients for each
@@ -1742,8 +1780,6 @@ void CarpetX::InterpolationSetup::Interpolate(
               }
               op /= 10;
             }
-            auto &varresult = varresults.at(v);
-            varresult.resize(np);
 
             switch (centering) {
             case 0b000: {
@@ -1754,35 +1790,35 @@ void CarpetX::InterpolationSetup::Interpolate(
                 const interpolator<CCTK_REAL, 0, 0b000> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               case 1: {
                 const interpolator<CCTK_REAL, 1, 0b000> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               case 2: {
                 const interpolator<CCTK_REAL, 2, 0b000> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               case 3: {
                 const interpolator<CCTK_REAL, 3, 0b000> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               case 4: {
                 const interpolator<CCTK_REAL, 4, 0b000> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               default:
@@ -1802,35 +1838,35 @@ void CarpetX::InterpolationSetup::Interpolate(
                 const interpolator<CCTK_REAL, 0, 0b111> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               case 1: {
                 const interpolator<CCTK_REAL, 1, 0b111> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               case 2: {
                 const interpolator<CCTK_REAL, 2, 0b111> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               case 3: {
                 const interpolator<CCTK_REAL, 3, 0b111> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               case 4: {
                 const interpolator<CCTK_REAL, 4, 0b111> interp{
                     grid,  gi,   vi,     patch,
                     level, vars, derivs, patch_allowed_boundaries};
-                interp.interpolate3d(particles, varresult);
+                interp.interpolate3d(particles, legacy_sink, v);
                 break;
               }
               default:
@@ -1852,14 +1888,6 @@ void CarpetX::InterpolationSetup::Interpolate(
         }
 
         if (fused_tile) {
-          // In `check` mode the legacy kernel has already filled `varresults`,
-          // and the fused kernel fills a second set to be compared with it.
-          std::vector<std::vector<CCTK_REAL> > checkresults;
-          std::vector<std::vector<CCTK_REAL> > &fusedresults =
-              kernel == kernel_t::check ? checkresults : varresults;
-          fusedresults.resize(nvars);
-          for (int v = 0; v < nvars; ++v)
-            fusedresults.at(v).resize(np);
           {
             const Interval interval_kernel(timers.kernel_fused);
             switch (interpolation_order) {
@@ -1867,35 +1895,35 @@ void CarpetX::InterpolationSetup::Interpolate(
               const fused_interpolator<CCTK_REAL, 0> interp{
                   grid, patch, level, gis, vis, arrays,
                   patch_allowed_boundaries};
-              interp.interpolate3d(particles, fusedresults);
+              interp.interpolate3d(particles, send_sink);
               break;
             }
             case 1: {
               const fused_interpolator<CCTK_REAL, 1> interp{
                   grid, patch, level, gis, vis, arrays,
                   patch_allowed_boundaries};
-              interp.interpolate3d(particles, fusedresults);
+              interp.interpolate3d(particles, send_sink);
               break;
             }
             case 2: {
               const fused_interpolator<CCTK_REAL, 2> interp{
                   grid, patch, level, gis, vis, arrays,
                   patch_allowed_boundaries};
-              interp.interpolate3d(particles, fusedresults);
+              interp.interpolate3d(particles, send_sink);
               break;
             }
             case 3: {
               const fused_interpolator<CCTK_REAL, 3> interp{
                   grid, patch, level, gis, vis, arrays,
                   patch_allowed_boundaries};
-              interp.interpolate3d(particles, fusedresults);
+              interp.interpolate3d(particles, send_sink);
               break;
             }
             case 4: {
               const fused_interpolator<CCTK_REAL, 4> interp{
                   grid, patch, level, gis, vis, arrays,
                   patch_allowed_boundaries};
-              interp.interpolate3d(particles, fusedresults);
+              interp.interpolate3d(particles, send_sink);
               break;
             }
             default:
@@ -1906,8 +1934,8 @@ void CarpetX::InterpolationSetup::Interpolate(
           if (kernel == kernel_t::check) {
             for (int v = 0; v < nvars; ++v) {
               for (int n = 0; n < np; ++n) {
-                const CCTK_REAL legacy = varresults.at(v).at(n);
-                const CCTK_REAL fused = checkresults.at(v).at(n);
+                const CCTK_REAL legacy = legacy_sink.at(n, v);
+                const CCTK_REAL fused = send_sink.at(n, v);
                 std::uint64_t legacy_bits, fused_bits;
                 static_assert(sizeof legacy_bits == sizeof legacy);
                 std::memcpy(&legacy_bits, &legacy, sizeof legacy_bits);
@@ -1933,28 +1961,28 @@ void CarpetX::InterpolationSetup::Interpolate(
           }
         }
 
-        const Interval interval_pack(timers.pack);
-
-        for (int n = 0; n < np; ++n) {
-          const int proc = particles[n].idata(0);
-          const int id = particles[n].idata(1);
-          auto &result = results.at(proc);
-          if (verify_layout) {
-            const long long slot =
-                send_displs.at(proc) + (long long)result.size() / record_size;
-            if (slot != send_slots.at(particle0 + n)) {
+        // The kernels have written every value in place; nothing is packed.
+        // Only the layout check remains, and only when verifying.
+        if (verify_layout) {
+          const Interval interval_pack(timers.pack);
+          for (int n = 0; n < np; ++n) {
+            // The record must lie in the part of the buffer that goes to the
+            // particle's source process.
+            const int slot = send_sink.slots[n];
+            const int proc = particles[n].idata(0);
+            if (!(slot >= send_displs.at(proc) &&
+                  slot < send_displs.at(proc) + send_counts.at(proc))) {
               std::fflush(nullptr);
               CCTK_VERROR("Interpolation send layout: patch %d level %d box "
                           "%d particle %d of %d (source process %d, source "
-                          "index %d) is packed as record %lld, but the layout "
-                          "says %d",
-                          patch, level, pti.index(), n, np, proc, id, slot,
-                          send_slots.at(particle0 + n));
+                          "index %d) has record %d, outside process %d's "
+                          "records [%d, %d)",
+                          patch, level, pti.index(), n, np, proc,
+                          int(particles[n].idata(1)), slot, proc,
+                          send_displs.at(proc),
+                          send_displs.at(proc) + send_counts.at(proc));
             }
           }
-          result.push_back(id);
-          for (int v = 0; v < nvars; ++v)
-            result.push_back(varresults.at(v).at(n));
         }
       }
     }
@@ -1965,6 +1993,28 @@ void CarpetX::InterpolationSetup::Interpolate(
     CCTK_VERROR("Interpolation send layout: this call visited %zu tile(s), but "
                 "the layout was built from %zu",
                 itile, layout_tiles.size());
+  }
+
+  if (verify_layout) {
+    long long nstale = 0, first = -1;
+    for (std::size_t k = 0; k < sendbuf.size(); ++k) {
+      std::uint64_t bits;
+      std::memcpy(&bits, &sendbuf[k], sizeof bits);
+      if (bits == stale_bits) {
+        if (first < 0)
+          first = k;
+        ++nstale;
+      }
+    }
+    if (nstale > 0) {
+      std::fflush(nullptr);
+      CCTK_VERROR("Interpolation send layout: this call left %lld of the %zu "
+                  "value(s) of its send buffer unwritten; the first is value "
+                  "%lld of record %lld, so that record would have been sent "
+                  "with what the previous call left there",
+                  nstale, sendbuf.size(), first % record_size,
+                  first / record_size);
+    }
   }
 
   // Say which kernel ran, whichever it is: this line is the only record of
@@ -1996,51 +2046,39 @@ void CarpetX::InterpolationSetup::Interpolate(
   const MPI_Comm comm = amrex::ParallelDescriptor::Communicator();
   const MPI_Datatype datatype = mpi_datatype<CCTK_REAL>::value;
 
+  // The send counts are the layout's, in doubles; the sum fits in an int
+  // (checked above).
   std::vector<int> sendcounts(nprocs);
   std::vector<int> senddispls(nprocs);
-  int total_sendcount = 0;
   for (int p = 0; p < nprocs; ++p) {
-    const auto &result = results.at(p);
-    sendcounts.at(p) = result.size();
-    senddispls.at(p) = total_sendcount;
-    total_sendcount += sendcounts.at(p);
+    sendcounts.at(p) = int(record_size * send_counts.at(p));
+    senddispls.at(p) = int(record_size * send_displs.at(p));
   }
-  for (int p = 0; p < nprocs; ++p)
-    if (sendcounts.at(p) != record_size * send_counts.at(p))
-      CCTK_VERROR("Interpolation send layout: this call sends %d double(s) to "
-                  "process %d, but the layout says %d record(s) of %lld",
-                  sendcounts.at(p), p, send_counts.at(p), record_size);
+  // The layout already fixes how many records arrive from each process, so no
+  // counts are exchanged; a verifying build re-exchanges them as a cross-check.
   std::vector<int> recvcounts(nprocs);
-  timers.alltoall.start();
-  MPI_Alltoall(sendcounts.data(), 1, MPI_INT, recvcounts.data(), 1, MPI_INT,
-               comm);
-  timers.alltoall.stop();
-  for (int p = 0; p < nprocs; ++p)
-    if (recvcounts.at(p) != record_size * recv_counts.at(p))
-      CCTK_VERROR("Interpolation send layout: this call receives %d double(s) "
-                  "from process %d, but the layout says %d record(s) of %lld",
-                  recvcounts.at(p), p, recv_counts.at(p), record_size);
   std::vector<int> recvdispls(nprocs);
   int total_recvcount = 0;
   for (int p = 0; p < nprocs; ++p) {
+    recvcounts.at(p) = int(record_size * recv_counts.at(p));
     recvdispls.at(p) = total_recvcount;
     total_recvcount += recvcounts.at(p);
   }
-
-  timers.buffers.start();
-  std::vector<CCTK_REAL> sendbuf(total_sendcount);
-  for (int p = 0; p < nprocs; ++p) {
-    // TODO: Don't copy, store data here right away
-    assert(p >= 0);
-    assert(p < int(results.size()));
-    const auto &result = results.at(p);
-    assert(sendcounts.at(p) == int(result.size()));
-    assert(p >= 0);
-    assert(p < int(senddispls.size()));
-    assert(senddispls.at(p) >= 0);
-    assert(senddispls.at(p) + sendcounts.at(p) <= int(sendbuf.size()));
-    std::copy(result.begin(), result.end(), sendbuf.data() + senddispls.at(p));
+  if (verify_layout) {
+    std::vector<int> exchanged(nprocs);
+    timers.alltoall.start();
+    MPI_Alltoall(sendcounts.data(), 1, MPI_INT, exchanged.data(), 1, MPI_INT,
+                 comm);
+    timers.alltoall.stop();
+    for (int p = 0; p < nprocs; ++p)
+      if (exchanged.at(p) != recvcounts.at(p))
+        CCTK_VERROR("Interpolation send layout: this call receives %d double(s) "
+                    "from process %d, but the layout says %d record(s) of %lld",
+                    exchanged.at(p), p, recv_counts.at(p), record_size);
   }
+
+  // Allocate per call so idle setups retain only the send buffer.
+  timers.buffers.start();
   std::vector<CCTK_REAL> recvbuf(total_recvcount);
   timers.buffers.stop();
   timers.alltoallv.start();
@@ -2049,39 +2087,43 @@ void CarpetX::InterpolationSetup::Interpolate(
                 comm);
   timers.alltoallv.stop();
   const Interval interval_unpack(timers.unpack);
-  // C2-1: the records arrive in the order the layout says.  The constructor
-  // has checked that this order is a permutation of the query points.
   if (verify_layout) {
+    // The record destinations must still be the permutation of query points
+    // that the constructor proved, since the parallel scatter relies on it.
+    std::vector<char> seen(npoints, 0);
     for (int n = 0; n < npoints; ++n) {
-      const int idx = int(recvbuf.at(record_size * n));
-      if (idx != arrival_ids.at(n)) {
+      const int idx = arrival_ids.at(n);
+      if (idx < 0 || idx >= npoints || seen[idx]) {
         std::fflush(nullptr);
-        CCTK_VERROR("Interpolation send layout: arrival slot %d of %d carries "
-                    "source index %d, but the layout says %d",
-                    n, int(npoints), idx, arrival_ids.at(n));
+        CCTK_VERROR("Interpolation send layout: arrival slot %d of %d maps to "
+                    "destination %d, which is %s",
+                    n, int(npoints), idx,
+                    idx < 0 || idx >= npoints ? "out of range" : "a repeat");
       }
+      seen[idx] = 1;
     }
-    // Like the kernel line: `check` says so on every call, a CCTK_DEBUG build
-    // on its first call per caller.
     static bool announced[2] = {false, false};
     if (kernel == kernel_t::check || !announced[require_level0_donors])
-      CCTK_VINFO("Interpolation send layout (%s call %lld): verified value by "
-                 "value: %zu send slot(s) and %d arrival id(s) equal the "
-                 "layout's",
+      CCTK_VINFO("Interpolation send layout (%s call %lld): %zu send record(s) "
+                 "all written and %d destination(s) form the layout's "
+                 "permutation",
                  caller, ncall, iparticle, int(npoints));
     announced[require_level0_donors] = true;
   }
 
-  // Set result
+  // Each record goes to the query point the layout assigns it, and those
+  // destinations are distinct, so the scatter runs in parallel.
   CCTK_REAL *const restrict *const restrict resultptrs =
       static_cast<CCTK_REAL *const *>(resultptrs_);
-  if (int(recvbuf.size()) != (nvars + 1) * npoints)
+  if (int(recvbuf.size()) != nvars * npoints)
     CCTK_ERROR("Internal error");
+#pragma omp parallel for
   for (int n = 0; n < npoints; ++n) {
-    const int offset = (nvars + 1) * n;
-    const int idx = int(recvbuf.at(offset));
+    const int idx = arrival_ids[n];
+    const CCTK_REAL *restrict const rec =
+        recvbuf.data() + std::ptrdiff_t(n) * nvars;
     for (int v = 0; v < nvars; ++v)
-      resultptrs[v][idx] = recvbuf.at(offset + 1 + v);
+      resultptrs[v][idx] = rec[v];
   }
 
   // Apply symmetries to interpolated values

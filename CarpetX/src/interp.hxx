@@ -70,6 +70,10 @@ private:
   // The source index of each record received, in arrival order: [npoints]
   std::vector<int> arrival_ids;
 
+  // Reuse storage across calls with the same record size.
+  // Mutable because Interpolate is const; callers must use a setup serially.
+  mutable std::vector<CCTK_REAL> sendbuf;
+
 public:
 
   /*
