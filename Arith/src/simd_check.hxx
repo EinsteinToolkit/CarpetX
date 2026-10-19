@@ -480,15 +480,43 @@ inline checked_pack<T, N> if_else1(const checked_packl<N> &cond,
 //
 // `mask.valid_extent` only proves a mask is internally self-consistent: a
 // mask computed correctly for one position, then reused unchanged at a
-// different (pointer, loop-index) position, still passes that check. Where
-// the true bounds of what is being accessed are independently known --
-// `GF3D2`/`GF3D5` in `loop.hxx` know their own array's real extent, from
-// their `layout`, at every access -- callers should use this instead: it
-// takes that ground truth (`i0`, the grid x-index this access starts at,
-// and `imax0`, the layout's real upper bound) fresh from the caller on
-// every call, so a stale mask/pointer is caught even though the mask
-// itself is not stale. This needs no shared state either: `i0`/`imax0` are
-// ordinary values passed in by the caller, not anything ambient.
+// different (pointer, loop-index) position, still passes that check. A
+// stencil load that keeps the mask and shifts the pointer (`&ptr[di]`) is
+// exactly that case, so `valid_extent` cannot see it.
+//
+// Where the allocated range is known, pass it in. `i0` is the grid x index
+// of lane 0 at the pointer actually being loaded (the base index plus any
+// x stencil offset). `[imin0, imax0)` is the grid function's allocated x
+// range, including ghosts (`GF3D2layout::imin/imax`), not the loop bound
+// stored on the mask. An active lane outside that range is a read past the
+// grid function.
+[[noreturn]] inline void checked_region_error(const char *kind,
+                                              std::size_t width,
+                                              std::size_t lane, int idx,
+                                              int imin0, int imax0) {
+  char buf[512];
+  std::snprintf(buf, sizeof buf,
+                "SIMD_CHECK: %s of width %zu has active lane %zu at x index "
+                "%d, outside the allocated range [%d, %d).",
+                kind, width, lane, idx, imin0, imax0);
+  CCTK_ERROR(buf);
+}
+
+template <std::size_t N>
+inline void checked_verify_mask_region(const checked_packl<N> &mask, int i0,
+                                       int imin0, int imax0, const char *kind) {
+  for (std::size_t n = 0; n < N; ++n) {
+    if (!mask[n])
+      continue;
+    const int idx = i0 + static_cast<int>(n);
+    if (idx < imin0 || idx >= imax0)
+      checked_region_error(kind, N, n, idx, imin0, imax0);
+  }
+}
+
+// Upper bound only, measured from the unshifted base index. `GF3D2`/`GF3D5`
+// use this. It does not see a stencil shift; those callers use
+// `checked_verify_mask_region`.
 template <std::size_t N>
 inline void checked_verify_mask_bounds(const checked_packl<N> &mask, int i0,
                                        int imax0, const char *kind) {
@@ -513,11 +541,11 @@ inline void checked_storea(T *ptr, const checked_pack<T, N> &x) {
     ptr[n] = x[n];
 }
 
-// Masked load/store: never dereferences ptr[n] for an inactive lane (so
-// this is unconditionally safe), but still errors out if an *active* lane
-// lies beyond `mask.valid_extent` -- which means `mask` is stale, or was
-// computed for a different pointer/loop position than the one it is being
-// used with here.
+// Masked load/store: never dereferences ptr[n] for an inactive lane.
+// An active lane at or past `mask.valid_extent` is reported. That extent
+// was recorded when the mask was built, so a pointer shifted after that
+// still passes here. Callers that shift the pointer check the allocated
+// range with `checked_verify_mask_region` before calling these.
 template <typename T, std::size_t N>
 inline checked_pack<T, N> checked_maskz_loadu(const checked_packl<N> &mask,
                                               const T *ptr) {

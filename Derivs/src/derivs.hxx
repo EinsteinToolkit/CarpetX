@@ -21,7 +21,10 @@
 // derivative packs x-offsets a vector at a time. At vsize 8, with
 // CarpetX::poison_undefined_values = "yes", that path puts NaNs into
 // TestDerivs orders 4, 6, and 8. The simd-check build leaves the macro
-// undefined so that failure still happens.
+// undefined so that failure still happens. Stencil loads go through
+// maskz_loadu_x, which tells SIMD_CHECK the shifted x index and the
+// allocated range. The extended mask plus a positive x offset steps past
+// that range, and SIMD_CHECK then calls CCTK_ERROR.
 
 namespace Derivs {
 
@@ -505,6 +508,18 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
 
 // Pointwise multi-dimensional derivative operators
 
+// Lane n of the load at `ptr` has x index `x0 + n`. x is contiguous
+// (`GF3D2layout::di == 1`). The allowed range is the grid function's
+// allocated x box, ghosts included. The mask's loop bound is a different
+// number, and a stencil offset does not update it.
+template <typename T>
+inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST Arith::simd<T>
+maskz_loadu_x(const Arith::simdl<T> &mask, const T *ptr, int x0,
+              const Loop::GF3D2<const T> &gf) {
+  return Arith::maskz_loadu_checked(mask, ptr, x0, gf.layout.imin[0],
+                                    gf.layout.imax[0]);
+}
+
 template <int deriv_order, typename T>
 inline CCTK_ATTRIBUTE_ALWAYS_INLINE CCTK_DEVICE CCTK_HOST Arith::simd<T>
 calc_deriv_upwind(const Loop::GF3D2<const T> &gf, const Arith::simdl<T> &mask,
@@ -523,17 +538,17 @@ calc_deriv_upwind(const Loop::GF3D2<const T> &gf, const Arith::simdl<T> &mask,
   };
   return detail::deriv1d_upwind<deriv_order>(
              [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-               return maskz_loadu(mask, &ptr[di * offsets[0]]);
+               return maskz_loadu_x(mask, &ptr[di * offsets[0]], I[0] + di, gf);
              },
              dx[0], vel(0)) +
          detail::deriv1d_upwind<deriv_order>(
              [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-               return maskz_loadu(mask, &ptr[di * offsets[1]]);
+               return maskz_loadu_x(mask, &ptr[di * offsets[1]], I[0], gf);
              },
              dx[1], vel(1)) +
          detail::deriv1d_upwind<deriv_order>(
              [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-               return maskz_loadu(mask, &ptr[di * offsets[2]]);
+               return maskz_loadu_x(mask, &ptr[di * offsets[2]], I[0], gf);
              },
              dx[2], vel(2));
 }
@@ -586,17 +601,18 @@ calc_diss(const Loop::GF3D2<const T> &gf, const Arith::simdl<T> &mask,
   return sign / T(pown(2, deriv_order + 2)) *
          (detail::diss1d<deriv_order>(
               [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                return maskz_loadu(mask, &ptr[di * offsets[0]]);
+                return maskz_loadu_x(mask, &ptr[di * offsets[0]], I[0] + di,
+                                     gf);
               },
               dx[0]) +
           detail::diss1d<deriv_order>(
               [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                return maskz_loadu(mask, &ptr[di * offsets[1]]);
+                return maskz_loadu_x(mask, &ptr[di * offsets[1]], I[0], gf);
               },
               dx[1]) +
           detail::diss1d<deriv_order>(
               [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                return maskz_loadu(mask, &ptr[di * offsets[2]]);
+                return maskz_loadu_x(mask, &ptr[di * offsets[2]], I[0], gf);
               },
               dx[2]));
 }
@@ -651,17 +667,17 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   return {
       detail::deriv1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[0]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[0]], I[0] + di, gf);
           },
           dx[0]),
       detail::deriv1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[1]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[1]], I[0], gf);
           },
           dx[1]),
       detail::deriv1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[2]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[2]], I[0], gf);
           },
           dx[2]),
   };
@@ -718,32 +734,35 @@ inline CCTK_ATTRIBUTE_ALWAYS_INLINE
   return {
       detail::deriv2_1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[0]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[0]], I[0] + di, gf);
           },
           dx[0]),
       detail::deriv2_2d<deriv_order, true>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[0] + dj * offsets[1]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[0] + dj * offsets[1]],
+                                 I[0] + di, gf);
           },
           dx[0], dx[1]),
       detail::deriv2_2d<deriv_order, true>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[0] + dj * offsets[2]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[0] + dj * offsets[2]],
+                                 I[0] + di, gf);
           },
           dx[0], dx[2]),
       detail::deriv2_1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[1]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[1]], I[0], gf);
           },
           dx[1]),
       detail::deriv2_2d<deriv_order, false>(
           [&](int di, int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[1] + dj * offsets[2]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[1] + dj * offsets[2]],
+                                 I[0], gf);
           },
           dx[1], dx[2]),
       detail::deriv2_1d<deriv_order>(
           [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            return maskz_loadu(mask, &ptr[di * offsets[2]]);
+            return maskz_loadu_x(mask, &ptr[di * offsets[2]], I[0], gf);
           },
           dx[2]),
   };

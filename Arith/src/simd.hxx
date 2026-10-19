@@ -18,18 +18,15 @@
 #endif
 
 // `SIMD_CHECK=<N>` (e.g. `-DSIMD_CHECK=8` for a 512-bit `CCTK_REAL` vector)
-// replaces the hardware NSIMD backend with a software-emulated, bounds-safe
-// `N`-wide vector (see `simd_check.hxx`). Its masked loads/stores never
-// touch memory for a lane whose mask is false, so a `loop_int` tail vector
-// can no longer index outside of the interior, and a `loop_all` tail vector
-// can no longer read or write past the allocated grid function array; see
-// `simd_check.hxx` for the details, and `Loop::PointDesc::mask` /
-// `Loop::GridDescBase::box_int`/`box_all` (`loop.hxx`) for how the mask
-// bound is derived from the interior/all box. Like `SIMD_CPU`, this implies
-// `SIMD_DISABLE`: every `#ifndef SIMD_DISABLE` branch below (the NSIMD
-// hardware path) is skipped, and the handful of places that need to build
-// an `N`-wide `checked_pack` instead of a plain scalar `T` say so
-// explicitly via `#elif defined(SIMD_CHECK)`.
+// replaces the hardware NSIMD backend with a software-emulated `N`-wide
+// vector (see `simd_check.hxx`). Masked loads/stores never touch memory for
+// a lane whose mask is false. The mask's own bound does not describe a
+// pointer that was shifted after the mask was built. `maskz_loadu_checked`
+// takes the shifted x index and the allocated range for that case. Like
+// `SIMD_CPU`, this implies `SIMD_DISABLE`: every `#ifndef SIMD_DISABLE`
+// branch below (the NSIMD hardware path) is skipped, and the handful of
+// places that need to build an `N`-wide `checked_pack` instead of a plain
+// scalar `T` say so explicitly via `#elif defined(SIMD_CHECK)`.
 #ifdef SIMD_CHECK
 #ifndef SIMD_DISABLE
 #define SIMD_DISABLE
@@ -1289,6 +1286,27 @@ ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loadu(const simdl<T> &mask,
 #else
   return mask.elts ? *ptr : 0;
 #endif
+}
+
+// `x0` is the grid x index of lane 0 at `ptr`. `[imin0, imax0)` is the
+// allocated x range of the grid function being read. Under `SIMD_CHECK`,
+// an active lane outside that range calls `CCTK_ERROR`. Other builds
+// ignore the indices and load exactly as `maskz_loadu` does. The indices
+// are not the mask's own loop bound: a legal stencil reads ghosts past
+// that bound, and a shifted pointer is invisible to it.
+template <typename T>
+ARITH_DEVICE ARITH_HOST inline simd<T>
+maskz_loadu_checked(const simdl<T> &mask, const T *ptr, int x0, int imin0,
+                    int imax0) {
+#ifdef SIMD_CHECK
+  detail::checked_verify_mask_region(mask.elts, x0, imin0, imax0,
+                                     "masked load");
+#else
+  (void)x0;
+  (void)imin0;
+  (void)imax0;
+#endif
+  return maskz_loadu(mask, ptr);
 }
 
 template <typename T>
