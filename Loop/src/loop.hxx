@@ -1012,6 +1012,10 @@ struct GF3D2layout {
 
 struct GF3D2index {
   GF3D2layout layout;
+#ifdef SIMD_CHECK
+  // Grid x-index of this access. simd-check compares the mask against it.
+  int i0;
+#endif
   int m_linear;
   GF3D2index() = delete;
   GF3D2index(const GF3D2index &) = default;
@@ -1022,6 +1026,9 @@ struct GF3D2index {
                                    const vect<int, dim> &I, int n = 0)
       :
         layout(layout),
+#ifdef SIMD_CHECK
+        i0(I[0]),
+#endif
         m_linear(layout.linear(I, n)) {
   }
   CCTK_DEVICE CCTK_HOST int linear() const { return m_linear; }
@@ -1159,6 +1166,11 @@ template <typename T> struct GF3D2 {
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D2index &index) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, index.i0,
+                                              layout.imax[0],
+                                              "GF3D2::operator()");
+#endif
     return Arith::maskz_loadu(mask, &(*this)(index));
   }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
@@ -1170,6 +1182,11 @@ template <typename T> struct GF3D2 {
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D2index &index,
              const Arith::simd<std::remove_cv_t<T> > &other) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, index.i0,
+                                              layout.imax[0],
+                                              "GF3D2::operator()");
+#endif
     return Arith::masko_loadu(mask, &(*this)(index), other);
   }
   template <typename U,
@@ -1177,18 +1194,31 @@ template <typename T> struct GF3D2 {
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D2index &index, const U &other) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, index.i0,
+                                              layout.imax[0],
+                                              "GF3D2::operator()");
+#endif
     return Arith::masko_loadu(mask, &(*this)(index), other);
   }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const vect<int, dim> &I,
              const Arith::simd<std::remove_cv_t<T> > &other) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, I[0], layout.imax[0],
+                                              "GF3D2::operator()");
+#endif
     return Arith::masko_loadu(mask, &(*this)(I), other);
   }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const vect<int, dim> &I, int n,
              const Arith::simd<std::remove_cv_t<T> > &other) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, I[0], layout.imax[0],
+                                              "GF3D2::operator()");
+#endif
     return Arith::masko_loadu(mask, &(*this)(I, n), other);
   }
   template <typename U,
@@ -1196,6 +1226,10 @@ template <typename T> struct GF3D2 {
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const vect<int, dim> &I, const U &other) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, I[0], layout.imax[0],
+                                              "GF3D2::operator()");
+#endif
     return Arith::masko_loadu(mask, &(*this)(I), other);
   }
   template <typename U,
@@ -1203,21 +1237,37 @@ template <typename T> struct GF3D2 {
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const vect<int, dim> &I, int n, const U &other) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, I[0], layout.imax[0],
+                                              "GF3D2::operator()");
+#endif
     return Arith::masko_loadu(mask, &(*this)(I, n), other);
   }
   CCTK_DEVICE CCTK_HOST void store(const Arith::simdl<T> &mask,
                                    const vect<int, dim> &I,
                                    const Arith::simd<T> &value) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, I[0], layout.imax[0],
+                                              "GF3D2::store");
+#endif
     mask_storeu(mask, &ptr[linear(I)], value);
   }
   CCTK_DEVICE CCTK_HOST void store(const Arith::simdl<T> &mask,
                                    const vect<int, dim> &I, int n,
                                    const Arith::simd<T> &value) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, I[0], layout.imax[0],
+                                              "GF3D2::store");
+#endif
     mask_storeu(mask, &ptr[linear(I, n)], value);
   }
   CCTK_DEVICE CCTK_HOST void store(const Arith::simdl<T> &mask,
                                    const GF3D2index &index,
                                    const Arith::simd<T> &value) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, index.i0,
+                                              layout.imax[0], "GF3D2::store");
+#endif
     mask_storeu(mask, &ptr[index.linear()], value);
   }
 };
@@ -1396,6 +1446,10 @@ struct GF3D5layout {
 
 struct GF3D5index {
   GF3D5layout layout;
+#ifdef SIMD_CHECK
+  // See GF3D2index::i0.
+  int i0;
+#endif
   int m_linear;
   GF3D5index() = delete;
   GF3D5index(const GF3D5index &) = default;
@@ -1406,6 +1460,9 @@ struct GF3D5index {
                                    const vect<int, dim> &I)
       :
         layout(layout),
+#ifdef SIMD_CHECK
+        i0(I[0]),
+#endif
         m_linear(layout.linear(I)) {
   }
   CCTK_DEVICE CCTK_HOST int linear() const { return m_linear; }
@@ -1455,6 +1512,11 @@ template <typename T> struct GF3D5 {
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D5index &index) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, index.i0,
+                                              layout.imax[0],
+                                              "GF3D5::operator()");
+#endif
     return Arith::maskz_loadu(mask, &(*this)(index));
   }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
@@ -1511,6 +1573,11 @@ template <typename T> struct GF3D5 {
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D5index &index,
              const Arith::simd<std::remove_cv_t<T> > &other) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, index.i0,
+                                              layout.imax[0],
+                                              "GF3D5::operator()");
+#endif
     return Arith::masko_loadu(mask, &(*this)(index), other);
   }
   template <typename U,
@@ -1518,6 +1585,11 @@ template <typename T> struct GF3D5 {
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D5index &index, const U &other) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, index.i0,
+                                              layout.imax[0],
+                                              "GF3D5::operator()");
+#endif
     return Arith::masko_loadu(mask, &(*this)(index), other);
   }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
@@ -1537,6 +1609,10 @@ template <typename T> struct GF3D5 {
   CCTK_DEVICE CCTK_HOST void store(const Arith::simdl<T> &mask,
                                    const GF3D5index &index,
                                    const Arith::simd<T> &value) const {
+#ifdef SIMD_CHECK
+    Arith::detail::checked_verify_mask_bounds(mask.elts, index.i0,
+                                              layout.imax[0], "GF3D5::store");
+#endif
     mask_storeu(mask, &(*this)(index), value);
   }
   CCTK_DEVICE CCTK_HOST void store(const Arith::simdl<T> &mask,

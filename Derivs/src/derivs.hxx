@@ -15,6 +15,14 @@
 #include <tuple>
 #include <type_traits>
 
+// Ticket 2964. Define CARPETX_DERIVS_VEC_FIX to compile the vectorized
+// finite-difference fix. Leave it undefined to keep the historical path:
+// stencil loads use a mask extended by order/2, and the vectorized mixed
+// derivative packs x-offsets a vector at a time. At vsize 8, with
+// CarpetX::poison_undefined_values = "yes", that path puts NaNs into
+// TestDerivs orders 4, 6, and 8. The simd-check build leaves the macro
+// undefined so that failure still happens.
+
 namespace Derivs {
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -311,17 +319,10 @@ deriv2_2d(const TS var, const T dx, const T dy) {
   // SIMD-vectorized.
 
   if constexpr (vectorize_di) {
+#ifdef CARPETX_DERIVS_VEC_FIX
     // Vectorized layout: R is a SIMD pack whose lanes are consecutive
     // x-points. For each x-stencil offset di in [-R, R], compute a full
     // SIMD y-derivative at base_i+di. Then differentiate that in x.
-    //
-    // An older packed formulation stepped di by vsize and type-punned the
-    // SIMD array to scalars so a single loadu could gather a sliding
-    // window. That called var(di, dj) with |di| >> deriv_order/2 while
-    // still applying the *base-point* SIMD mask, which under wide SIMD
-    // (e.g. AVX-512, vsize=8) reads past valid ghost zones and yields
-    // NaNs that then contaminate mixed second derivatives (and, via
-    // large stack aggregates / UB from the type pun, related outputs).
     static_assert(sizeof(R) % sizeof(T) == 0);
     static_assert(sizeof(R) / sizeof(T) > 0);
 
@@ -357,6 +358,49 @@ deriv2_2d(const TS var, const T dx, const T dy) {
           return dyvar[Rhalf + di];
         },
         dx);
+#else
+    // Historical packed path. di steps by vsize, so |di| can exceed
+    // deriv_order/2, and the base-point mask is still applied there.
+    static_assert(sizeof(R) % sizeof(T) == 0);
+    static_assert(sizeof(R) / sizeof(T) > 0);
+    constexpr std::ptrdiff_t vsize = sizeof(R) / sizeof(T);
+
+    constexpr std::ptrdiff_t maxnpoints = deriv_order + 1 + vsize - 1;
+    constexpr std::ptrdiff_t ndyvars = div_ceil(maxnpoints, vsize);
+    std::array<R, ndyvars> dyvar;
+
+    for (std::ptrdiff_t n = 0; n < maxnpoints; n += vsize) {
+      const std::ptrdiff_t di = n - deriv_order / 2;
+      if (vsize == 1 && di == 0)
+        continue;
+      dyvar[div_floor(n, vsize)] = deriv1d<deriv_order>(
+          [&](int dj) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+            assert(di >= -deriv_order / 2);
+            assert(di <= +deriv_order / 2);
+            assert(dj >= -deriv_order / 2);
+            assert(dj <= +deriv_order / 2);
+#endif
+            return var(di, dj);
+          },
+          dy);
+    }
+
+    const T *const scalar_dyvar = (const T *)dyvar.data();
+    return deriv1d<deriv_order>(
+        [&](int di) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+#ifdef CCTK_DEBUG
+          assert(di >= -deriv_order / 2);
+          assert(di <= +deriv_order / 2);
+#endif
+          constexpr std::ptrdiff_t vsize = sizeof(R) / sizeof(T);
+          if constexpr (vsize == 1)
+            return scalar_dyvar[deriv_order / 2 + di];
+          else
+            return loadu<R>(&scalar_dyvar[deriv_order / 2 + di]);
+        },
+        dx);
+#endif
 
   } else {
     // Calculate y-derivative first

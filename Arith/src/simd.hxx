@@ -17,6 +17,26 @@
 #define SIMD_DISABLE
 #endif
 
+// `SIMD_CHECK=<N>` (e.g. `-DSIMD_CHECK=8` for a 512-bit `CCTK_REAL` vector)
+// replaces the hardware NSIMD backend with a software-emulated, bounds-safe
+// `N`-wide vector (see `simd_check.hxx`). Its masked loads/stores never
+// touch memory for a lane whose mask is false, so a `loop_int` tail vector
+// can no longer index outside of the interior, and a `loop_all` tail vector
+// can no longer read or write past the allocated grid function array; see
+// `simd_check.hxx` for the details, and `Loop::PointDesc::mask` /
+// `Loop::GridDescBase::box_int`/`box_all` (`loop.hxx`) for how the mask
+// bound is derived from the interior/all box. Like `SIMD_CPU`, this implies
+// `SIMD_DISABLE`: every `#ifndef SIMD_DISABLE` branch below (the NSIMD
+// hardware path) is skipped, and the handful of places that need to build
+// an `N`-wide `checked_pack` instead of a plain scalar `T` say so
+// explicitly via `#elif defined(SIMD_CHECK)`.
+#ifdef SIMD_CHECK
+#ifndef SIMD_DISABLE
+#define SIMD_DISABLE
+#endif
+#include "simd_check.hxx"
+#endif
+
 #include "defs.hxx"
 
 #ifndef SIMD_DISABLE
@@ -92,6 +112,8 @@ template <typename T> struct simd {
   using value_type = T;
 #ifndef SIMD_DISABLE
   using storage_type = nsimd::pack<T>;
+#elif defined(SIMD_CHECK)
+  using storage_type = Arith::detail::checked_pack<T, SIMD_CHECK>;
 #else
   using storage_type = T;
 #endif
@@ -109,6 +131,11 @@ template <typename T> struct simd {
   template <typename U = T,
             std::enable_if_t<!std::is_same_v<nsimd::pack<T>, T> > * = nullptr>
   constexpr ARITH_DEVICE ARITH_HOST simd(const nsimd::pack<T> &elts)
+      : elts(elts) {}
+#elif defined(SIMD_CHECK)
+  template <typename U = T,
+            std::enable_if_t<!std::is_same_v<storage_type, T> > * = nullptr>
+  constexpr ARITH_DEVICE ARITH_HOST simd(const storage_type &elts)
       : elts(elts) {}
 #endif
 
@@ -128,6 +155,8 @@ template <typename T> struct simd {
   constexpr ARITH_DEVICE ARITH_HOST std::size_t size() const {
 #ifndef SIMD_DISABLE
     return sizeof(nsimd::pack<T>) / sizeof(T);
+#elif defined(SIMD_CHECK)
+    return SIMD_CHECK;
 #else
     return 1;
 #endif
@@ -141,6 +170,8 @@ template <typename T> struct simd {
     T xarr[storage_size];
     storeu(xarr, *this);
     return xarr[n];
+#elif defined(SIMD_CHECK)
+    return elts[n];
 #else
     return elts;
 #endif
@@ -518,6 +549,11 @@ template <typename T> struct simd {
     count_flop(10);
 #ifndef SIMD_DISABLE
     return atan2_u10(x.elts, y.elts);
+#elif defined(SIMD_CHECK)
+    simd r;
+    for (std::size_t n = 0; n < SIMD_CHECK; ++n)
+      r.elts[n] = std::atan2(x.elts[n], y.elts[n]);
+    return r;
 #else
     using std::atan2;
     return atan2(x.elts, y.elts);
@@ -1058,6 +1094,8 @@ template <typename T> struct simd {
     count_memop();
 #ifndef SIMD_DISABLE
     storea(ptr, x.elts);
+#elif defined(SIMD_CHECK)
+    Arith::detail::checked_storea(ptr, x.elts);
 #else
     *ptr = x.elts;
 #endif
@@ -1066,6 +1104,9 @@ template <typename T> struct simd {
     count_memop();
 #ifndef SIMD_DISABLE
     storeu(ptr, x.elts);
+#elif defined(SIMD_CHECK)
+    // Full, unmasked store: every lane is written.
+    Arith::detail::checked_storea(ptr, x.elts);
 #else
     *ptr = x.elts;
 #endif
@@ -1075,6 +1116,11 @@ template <typename T> struct simd {
     count_memop();
 #ifndef SIMD_DISABLE
     mask_storea(mask.elts, ptr, x.elts);
+#elif defined(SIMD_CHECK)
+    // Only writes ptr[n] for lanes where mask[n] is true: a masked store
+    // driven by `loop_int`/`loop_all`'s tail mask can never write outside
+    // of the interior/allocated-array bound the mask encodes.
+    Arith::detail::checked_mask_storeu(mask.elts, ptr, x.elts);
 #else
     if (mask.elts)
       *ptr = x.elts;
@@ -1085,6 +1131,10 @@ template <typename T> struct simd {
     count_memop();
 #ifndef SIMD_DISABLE
     mask_storeu(mask.elts, ptr, x.elts);
+#elif defined(SIMD_CHECK)
+    // Only writes ptr[n] for lanes where mask[n] is true; see mask_storea
+    // above.
+    Arith::detail::checked_mask_storeu(mask.elts, ptr, x.elts);
 #else
     if (mask.elts) {
 #if 0 && defined __CUDACC__
@@ -1164,17 +1214,26 @@ template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simd<T> iota() {
 #ifndef SIMD_DISABLE
   return nsimd::iota<nsimd::pack<T> >();
+#elif defined(SIMD_CHECK)
+  return Arith::detail::checked_iota<T, SIMD_CHECK>();
 #else
   return 0;
 #endif
 }
 
+// Returns a mask that is true for lane `k` iff `i+k < n`. `loop_box`
+// (`loop.hxx`) calls this with `n` set to the interior bound (`loop_int`)
+// or the "all"/allocated-array bound (`loop_all`); the masked loads/stores
+// below only ever touch memory for lanes where this mask is true, so a
+// tail vector can never index past whichever of those two bounds `n` is.
 template <typename VT, typename T = typename VT::value_type>
 ARITH_DEVICE ARITH_HOST inline simdl<T> mask_for_loop_tail(const int i,
                                                            const int n) {
   simd<T>::count_flop();
 #ifndef SIMD_DISABLE
   return nsimd::mask_for_loop_tail<nsimd::packl<T> >(i, n);
+#elif defined(SIMD_CHECK)
+  return Arith::detail::checked_mask_for_loop_tail<SIMD_CHECK>(i, n);
 #else
   return i < n;
 #endif
@@ -1185,6 +1244,8 @@ ARITH_DEVICE ARITH_HOST inline simd<T> loada(const T *ptr) {
   simd<T>::count_memop();
 #ifndef SIMD_DISABLE
   return nsimd::loada<nsimd::pack<T> >(ptr);
+#elif defined(SIMD_CHECK)
+  return Arith::detail::checked_loada<T, SIMD_CHECK>(ptr);
 #else
   return *ptr;
 #endif
@@ -1195,6 +1256,8 @@ ARITH_DEVICE ARITH_HOST inline simd<T> loadu(const T *ptr) {
   simd<T>::count_memop();
 #ifndef SIMD_DISABLE
   return nsimd::loadu<nsimd::pack<T> >(ptr);
+#elif defined(SIMD_CHECK)
+  return Arith::detail::checked_loada<T, SIMD_CHECK>(ptr);
 #else
   return *ptr;
 #endif
@@ -1206,6 +1269,9 @@ ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loada(const simdl<T> &mask,
   simd<T>::count_memop();
 #ifndef SIMD_DISABLE
   return nsimd::maskz_loada(mask.elts, ptr);
+#elif defined(SIMD_CHECK)
+  // Never reads ptr[n] for a lane where mask[n] is false.
+  return Arith::detail::checked_maskz_loadu(mask.elts, ptr);
 #else
   return mask.elts ? *ptr : 0;
 #endif
@@ -1217,6 +1283,9 @@ ARITH_DEVICE ARITH_HOST inline simd<T> maskz_loadu(const simdl<T> &mask,
   simd<T>::count_memop();
 #ifndef SIMD_DISABLE
   return nsimd::maskz_loadu(mask.elts, ptr);
+#elif defined(SIMD_CHECK)
+  // Never reads ptr[n] for a lane where mask[n] is false.
+  return Arith::detail::checked_maskz_loadu(mask.elts, ptr);
 #else
   return mask.elts ? *ptr : 0;
 #endif
@@ -1228,6 +1297,9 @@ masko_loada(const simdl<T> &mask, const T *ptr, const simd<T> &other) {
   simd<T>::count_memop();
 #ifndef SIMD_DISABLE
   return masko_loada(mask.elts, ptr, other.elts);
+#elif defined(SIMD_CHECK)
+  // Never reads ptr[n] for a lane where mask[n] is false.
+  return Arith::detail::checked_masko_loadu(mask.elts, ptr, other.elts);
 #else
   return mask.elts ? *ptr : other.elts;
 #endif
@@ -1239,6 +1311,9 @@ masko_loadu(const simdl<T> &mask, const T *ptr, const simd<T> &other) {
   simd<T>::count_memop();
 #ifndef SIMD_DISABLE
   return masko_loadu(mask.elts, ptr, other.elts);
+#elif defined(SIMD_CHECK)
+  // Never reads ptr[n] for a lane where mask[n] is false.
+  return Arith::detail::checked_masko_loadu(mask.elts, ptr, other.elts);
 #else
   return mask.elts ? *ptr : other.elts;
 #endif
@@ -1251,6 +1326,8 @@ masko_loada(const simdl<T> &mask, const T *ptr, const U &other) {
   simd<T>::count_memop();
 #ifndef SIMD_DISABLE
   return masko_loada(mask, ptr, simd<T>(other));
+#elif defined(SIMD_CHECK)
+  return masko_loada(mask, ptr, simd<T>(other));
 #else
   return mask.elts ? *ptr : other;
 #endif
@@ -1262,6 +1339,8 @@ ARITH_DEVICE ARITH_HOST inline simd<T>
 masko_loadu(const simdl<T> &mask, const T *ptr, const U &other) {
   simd<T>::count_memop();
 #ifndef SIMD_DISABLE
+  return masko_loadu(mask, ptr, simd<T>(other));
+#elif defined(SIMD_CHECK)
   return masko_loadu(mask, ptr, simd<T>(other));
 #else
   return mask.elts ? *ptr : other;
@@ -1285,6 +1364,8 @@ template <typename T> struct simdl {
   typedef T value_type;
 #ifndef SIMD_DISABLE
   using storage_type = nsimd::packl<T>;
+#elif defined(SIMD_CHECK)
+  using storage_type = Arith::detail::checked_packl<SIMD_CHECK>;
 #else
   using storage_type = bool;
 #endif
@@ -1301,11 +1382,16 @@ template <typename T> struct simdl {
 #ifndef SIMD_DISABLE
   constexpr ARITH_DEVICE ARITH_HOST simdl(const nsimd::packl<T> &elts)
       : elts(elts) {}
+#elif defined(SIMD_CHECK)
+  constexpr ARITH_DEVICE ARITH_HOST simdl(const storage_type &elts)
+      : elts(elts) {}
 #endif
 
   constexpr ARITH_DEVICE ARITH_HOST std::size_t size() const {
 #ifndef SIMD_DISABLE
     return sizeof(nsimd::packl<T>) / sizeof(T);
+#elif defined(SIMD_CHECK)
+    return SIMD_CHECK;
 #else
     return 1;
 #endif
@@ -1316,6 +1402,8 @@ template <typename T> struct simdl {
 #ifndef SIMD_DISABLE
     // TOOD: Introduce `to_mask` for simd/simdl
     return simd<T>(nsimd::to_mask(elts))[n];
+#elif defined(SIMD_CHECK)
+    return elts[n];
 #else
     return elts;
 #endif
@@ -1472,6 +1560,8 @@ template <typename T> struct simdl {
   friend ARITH_DEVICE ARITH_HOST bool all(const simdl &x) {
 #ifndef SIMD_DISABLE
     return all(x.elts);
+#elif defined(SIMD_CHECK)
+    return Arith::detail::all(x.elts);
 #else
     return x.elts;
 #endif
@@ -1488,6 +1578,8 @@ template <typename T> struct simdl {
   friend ARITH_DEVICE ARITH_HOST bool any(const simdl &x) {
 #ifndef SIMD_DISABLE
     return any(x.elts);
+#elif defined(SIMD_CHECK)
+    return Arith::detail::any(x.elts);
 #else
     return x.elts;
 #endif
@@ -1497,6 +1589,8 @@ template <typename T> struct simdl {
   if_else(const simdl &cond, const simd<T> &x, const simd<T> &y) {
 #ifndef SIMD_DISABLE
     return if_else1(cond.elts, x.elts, y.elts);
+#elif defined(SIMD_CHECK)
+    return Arith::detail::if_else1(cond.elts, x.elts, y.elts);
 #else
     return cond.elts ? x.elts : y.elts;
 #endif
@@ -1518,6 +1612,8 @@ template <typename T> struct simdl {
   if_else(const simdl &cond, const simdl<T> &x, const simdl<T> &y) {
 #ifndef SIMD_DISABLE
     return if_else1(cond.elts, x.elts, y.elts);
+#elif defined(SIMD_CHECK)
+    return Arith::detail::if_else1(cond.elts, x.elts, y.elts);
 #else
     return cond.elts ? x.elts : y.elts;
 #endif
@@ -1538,6 +1634,9 @@ template <typename T> struct simdl {
   friend ARITH_DEVICE ARITH_HOST void storela(T *ptr, const simdl &x) {
 #ifndef SIMD_DISABLE
     storela(ptr, x.elts);
+#elif defined(SIMD_CHECK)
+    for (std::size_t n = 0; n < storage_size; ++n)
+      ptr[n] = T(x.elts[n]);
 #else
     *ptr = x.elts;
 #endif
@@ -1545,6 +1644,9 @@ template <typename T> struct simdl {
   friend ARITH_DEVICE ARITH_HOST void storelu(T *ptr, const simdl &x) {
 #ifndef SIMD_DISABLE
     storelu(ptr, x.elts);
+#elif defined(SIMD_CHECK)
+    for (std::size_t n = 0; n < storage_size; ++n)
+      ptr[n] = T(x.elts[n]);
 #else
     *ptr = x.elts;
 #endif

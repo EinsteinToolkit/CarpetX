@@ -1,5 +1,13 @@
 #include "derivs.hxx"
 
+// Expanded in the loop lambdas below, where p and vbool are in scope.
+#ifdef CARPETX_DERIVS_VEC_FIX
+#define CARPETX_DERIVS_LOAD_MASK(mask, order) (mask)
+#else
+#define CARPETX_DERIVS_LOAD_MASK(mask, order)                                  \
+  mask_for_loop_tail<vbool>(p.i, p.imax + (order) / 2)
+#endif
+
 namespace Derivs {
 using namespace Arith;
 using namespace Loop;
@@ -61,14 +69,10 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // Use the same mask for stencil loads as for stores. Extending the
-          // load mask past imax (the old mask1) marks lanes active whose
-          // offset addresses can lie outside the allocated FAB under wide
-          // SIMD (AVX-512), producing NaNs in the active lanes' stencils.
-          // Active lanes only need I±order/2, which are covered by ghosts.
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<2>(gf0, mask, p.I, dx);
+          const auto dval =
+              calc_deriv<2>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 2), p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -81,7 +85,8 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<4>(gf0, mask, p.I, dx);
+          const auto dval =
+              calc_deriv<4>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 4), p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -94,7 +99,8 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<6>(gf0, mask, p.I, dx);
+          const auto dval =
+              calc_deriv<6>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 6), p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -107,7 +113,8 @@ calc_derivs(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<8>(gf0, mask, p.I, dx);
+          const auto dval =
+              calc_deriv<8>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 8), p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
         });
@@ -159,11 +166,12 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
-          // See calc_derivs: do not extend the load mask past imax.
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<2>(gf0, mask, p.I, dx);
-          const auto ddval = calc_deriv2<2>(gf0, mask, p.I, dx);
+          const auto dval =
+              calc_deriv<2>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 2), p.I, dx);
+          const auto ddval =
+              calc_deriv2<2>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 2), p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
@@ -177,8 +185,10 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<4>(gf0, mask, p.I, dx);
-          const auto ddval = calc_deriv2<4>(gf0, mask, p.I, dx);
+          const auto dval =
+              calc_deriv<4>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 4), p.I, dx);
+          const auto ddval =
+              calc_deriv2<4>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 4), p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
@@ -192,8 +202,10 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<6>(gf0, mask, p.I, dx);
-          const auto ddval = calc_deriv2<6>(gf0, mask, p.I, dx);
+          const auto dval =
+              calc_deriv<6>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 6), p.I, dx);
+          const auto ddval =
+              calc_deriv2<6>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 6), p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
@@ -207,8 +219,10 @@ calc_derivs2(const GF3D5<T> &gf, const vec<GF3D5<T>, dim> &dgf,
           const vbool mask = mask_for_loop_tail<vbool>(p.i, p.imax);
           const GF3D5index index(layout, p.I);
           const auto val = gf0(mask, p.I);
-          const auto dval = calc_deriv<8>(gf0, mask, p.I, dx);
-          const auto ddval = calc_deriv2<8>(gf0, mask, p.I, dx);
+          const auto dval =
+              calc_deriv<8>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 8), p.I, dx);
+          const auto ddval =
+              calc_deriv2<8>(gf0, CARPETX_DERIVS_LOAD_MASK(mask, 8), p.I, dx);
           gf.store(mask, index, val);
           dgf.store(mask, index, dval);
           ddgf.store(mask, index, ddval);
@@ -303,3 +317,5 @@ template void calc_derivs2<0, 0, 0>(
     const vect<T, dim> dx, const int deriv_order);
 
 } // namespace Derivs
+
+#undef CARPETX_DERIVS_LOAD_MASK
