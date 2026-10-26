@@ -1133,9 +1133,7 @@ CactusAmrCore::CactusAmrCore(const int patch, const amrex::RealBox *rb,
                              amrex::Vector<amrex::IntVect> ref_ratios,
                              const int *is_per)
     : amrex::AmrCore(rb, max_level_in, n_cell_in, coord, ref_ratios, is_per),
-      patch(patch) {
-  SetupGlobals();
-}
+      patch(patch) {}
 
 CactusAmrCore::CactusAmrCore(const int patch, const amrex::RealBox &rb,
                              int max_level_in,
@@ -1143,9 +1141,7 @@ CactusAmrCore::CactusAmrCore(const int patch, const amrex::RealBox &rb,
                              amrex::Vector<amrex::IntVect> const &ref_ratios,
                              amrex::Array<int, AMREX_SPACEDIM> const &is_per)
     : amrex::AmrCore(rb, max_level_in, n_cell_in, coord, ref_ratios, is_per),
-      patch(patch) {
-  SetupGlobals();
-}
+      patch(patch) {}
 
 CactusAmrCore::~CactusAmrCore() {}
 
@@ -2114,6 +2110,11 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
   for (int gi = 0; gi < numgroups; ++gi)
     if (CCTK_GroupTypeI(gi) == CCTK_GF)
       ghext->group_timelevels.at(gi) = CCTK_DeclaredTimeLevelsGI(gi);
+
+  // Grid arrays and grid scalars do not live on levels, so they do not need
+  // the patches. They are set up here because the flesh activates storage for
+  // them before the patches exist.
+  SetupGlobals();
 
   return ghext.get();
 }
