@@ -1259,7 +1259,6 @@ void SetupGlobals() {
 
     // Set up dynamic data
     arraygroupdata.dimension = group.dim;
-    arraygroupdata.activetimelevels = 1;
     for (int d = 0; d < group.dim; ++d) {
       arraygroupdata.lsh[d] = *sz[d];
       arraygroupdata.ash[d] = *sz[d];
@@ -2376,7 +2375,7 @@ int GroupDynamicData(const cGH *cctkGH, int gi, cGroupDynamicData *data) {
     data->tile_max = cctkGH->cctk_tile_max;
     data->bbox = cctkGH->cctk_bbox;
     data->nghostzones = cctkGH->cctk_nghostzones;
-    data->activetimelevels = CCTK_ActiveTimeLevelsGI(cctkGH, gi);
+    data->activetimelevels = GetGroupTimelevels(gi);
   } else if (group.grouptype == CCTK_SCALAR or group.grouptype == CCTK_ARRAY) {
     GHExt::GlobalData &globaldata = ghext->globaldata;
     GHExt::GlobalData::ArrayGroupData &arraygroupdata =
@@ -2389,7 +2388,7 @@ int GroupDynamicData(const cGH *cctkGH, int gi, cGroupDynamicData *data) {
     data->ubnd = arraygroupdata.ubnd;
     data->bbox = arraygroupdata.bbox;
     data->nghostzones = arraygroupdata.nghostzones;
-    data->activetimelevels = arraygroupdata.activetimelevels;
+    data->activetimelevels = int(arraygroupdata.data.size());
   } else {
     CCTK_VERROR("Internal error: unexpected group type %d for group '%s'",
                 (int)group.grouptype, CCTK_FullGroupName(gi));

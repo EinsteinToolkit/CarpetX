@@ -296,7 +296,6 @@ struct GHExt {
           data; // [time level][var index + grid point index]
       int array_size;
       int dimension;
-      int activetimelevels;
       int lsh[dim];
       int ash[dim];
       int gsh[dim];
@@ -308,7 +307,6 @@ struct GHExt {
       ArrayGroupData() {
         array_size = -1;
         dimension = -1;
-        activetimelevels = -1;
         for (int d = 0; d < dim; d++) {
           lsh[d] = -1;
           ash[d] = -1;
