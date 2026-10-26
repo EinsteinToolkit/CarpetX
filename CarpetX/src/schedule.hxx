@@ -33,6 +33,9 @@ int GroupStorageDecrease(const cGH *cctkGH, int n_groups, const int *groups,
                          const int *tls, int *status);
 int EnableGroupStorage(const cGH *cctkGH, const char *groupname);
 int DisableGroupStorage(const cGH *cctkGH, const char *groupname);
+int QueryGroupStorageB(const cGH *cctkGH, int group, const char *groupname);
+int QueryMaxTimeLevels(const cGH *cctkGH, int n_groups, const int *groups,
+                       int *status);
 
 ////////////////////////////////////////////////////////////////////////////////
 

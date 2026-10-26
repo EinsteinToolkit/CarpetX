@@ -1991,6 +1991,8 @@ extern "C" int CarpetX_Startup() {
   CCTK_OverloadDisableGroupStorage(DisableGroupStorage);
   CCTK_OverloadGroupStorageIncrease(GroupStorageIncrease);
   CCTK_OverloadGroupStorageDecrease(GroupStorageDecrease);
+  CCTK_OverloadQueryGroupStorageB(QueryGroupStorageB);
+  CCTK_OverloadQueryMaxTimeLevels(QueryMaxTimeLevels);
 
   CCTK_OverloadSyncGroupsByDirI(SyncGroupsByDirI);
 

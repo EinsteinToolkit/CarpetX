@@ -3007,6 +3007,27 @@ int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
 }
 } // namespace
 
+int QueryMaxTimeLevels(const cGH *cctkGH, int n_groups, const int *groups,
+                       int *status) {
+  assert(cctkGH);
+  assert(n_groups >= 0);
+  assert(groups or n_groups == 0);
+  assert(status or n_groups == 0);
+
+  for (int n = 0; n < n_groups; ++n) {
+    if (groups[n] < 0 or groups[n] >= CCTK_NumGroups()) {
+      CCTK_VWARN(CCTK_WARN_ALERT, "Group index %d is illegal", groups[n]);
+      status[n] = -1;
+      continue;
+    }
+    // The declared count is also the maximum: cctkGH->data is sized from the
+    // declaration and cannot grow at run time.
+    status[n] = CCTK_DeclaredTimeLevelsGI(groups[n]);
+  }
+
+  return 0;
+}
+
 int GroupStorageIncrease(const cGH *cctkGH, int n_groups, const int *groups,
                          const int *tls, int *status) {
   DECLARE_CCTK_PARAMETERS;
@@ -3040,6 +3061,29 @@ int DisableGroupStorage(const cGH *cctkGH, const char *groupname) {
   GroupStorageDecrease(cctkGH, 1, &group, &tls, &status);
   // Return whether storage was allocated previously
   return status;
+}
+
+int QueryGroupStorageB(const cGH *cctkGH, int group, const char *groupname) {
+  assert(cctkGH);
+  assert(ghext);
+  if (groupname) {
+    group = CCTK_GroupIndex(groupname);
+  }
+  if (group < 0 or group >= CCTK_NumGroups()) {
+    CCTK_VWARN(CCTK_WARN_ALERT, "Group index %d is illegal", group);
+    return -1;
+  }
+
+  const int grouptype = CCTK_GroupTypeI(group);
+  int active;
+  if (grouptype == CCTK_GF) {
+    active = GetGroupTimelevels(group);
+  } else {
+    assert(grouptype == CCTK_SCALAR or grouptype == CCTK_ARRAY);
+    active = int(ghext->globaldata.arraygroupdata.at(group)->data.size());
+  }
+
+  return active >= 1;
 }
 
 } // namespace CarpetX
