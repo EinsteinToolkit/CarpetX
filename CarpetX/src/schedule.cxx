@@ -500,10 +500,63 @@ void update_cctkGH(cGH *const cctkGH, const cGH *const sourceGH) {
   //   cctkGH->cctk_delta_space[d] = sourceGH->cctk_delta_space[d];
 }
 
+namespace {
+// The cGH the flesh traverses with. Global, level and meta mode routines are
+// called with this cGH instead of one of ghext's copies, so it has to be
+// re-pointed too when grid array or grid scalar storage changes.
+cGH *main_cctkGH = nullptr;
+
+// Recompute cctkGH->data[vi][tl] for one grid array or grid scalar group in one
+// cGH. tl >= data.size() is nulled out, since the flesh sizes cctkGH->data[vi]
+// for CCTK_DeclaredTimeLevelsVI(vi), which can be more than the group's
+// currently allocated number of time levels.
+void update_array_group_pointers(cGH *restrict const cctkGH, const int gi) {
+  auto &restrict arraygroupdata = *ghext->globaldata.arraygroupdata.at(gi);
+  const int ntls = int(arraygroupdata.data.size());
+  for (int tl = 0; tl < ntls; ++tl) {
+    auto &restrict vars = arraygroupdata.data.at(tl);
+    for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
+      cctkGH->data[arraygroupdata.firstvarindex + vi][tl] =
+          vars.data_at(vi * arraygroupdata.array_size);
+    }
+  }
+  const int declared_ntls =
+      CCTK_DeclaredTimeLevelsVI(arraygroupdata.firstvarindex);
+  for (int tl = ntls; tl < declared_ntls; ++tl) {
+    for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
+      cctkGH->data[arraygroupdata.firstvarindex + vi][tl] = nullptr;
+    }
+  }
+}
+
+// ... for one group, in every cGH that caches the group's pointers
+void update_array_group_pointers(const int gi) {
+  if (main_cctkGH) {
+    update_array_group_pointers(main_cctkGH, gi);
+  }
+  if (ghext->global_cctkGH) {
+    update_array_group_pointers(ghext->global_cctkGH.get(), gi);
+  }
+  for (auto &restrict level_cctkGH : ghext->level_cctkGHs) {
+    update_array_group_pointers(level_cctkGH.get(), gi);
+  }
+  for (auto &patchdata : ghext->patchdata) {
+    for (auto &restrict leveldata : patchdata.leveldata) {
+      update_array_group_pointers(leveldata.patch_cctkGH.get(), gi);
+      for (auto &restrict local_cctkGH : leveldata.local_cctkGHs) {
+        update_array_group_pointers(local_cctkGH.get(), gi);
+      }
+    }
+  }
+}
+} // namespace
+
 // Set cctkGH entries for global mode
 void enter_global_mode(cGH *restrict cctkGH) {
   DECLARE_CCTK_PARAMETERS;
   assert(in_meta_mode(cctkGH));
+
+  main_cctkGH = cctkGH;
 
   // The number of ghostzones in each direction
   // TODO: Get this from mfab (mfab.fb_ghosts)
@@ -513,7 +566,6 @@ void enter_global_mode(cGH *restrict cctkGH) {
 
   // Grid scalar pointers
   {
-    auto &restrict globaldata = ghext->globaldata;
     const int num_groups = CCTK_NumGroups();
     for (int gi = 0; gi < num_groups; ++gi) {
       cGroup group;
@@ -523,14 +575,7 @@ void enter_global_mode(cGH *restrict cctkGH) {
       if (group.grouptype != CCTK_SCALAR && group.grouptype != CCTK_ARRAY) {
         continue;
       } else { // CCTK_ARRAY or CCTK_SCALAR
-        auto &restrict arraygroupdata = *globaldata.arraygroupdata.at(gi);
-        for (int tl = 0; tl < int(arraygroupdata.data.size()); ++tl) {
-          const auto &restrict vars = arraygroupdata.data.at(tl);
-          for (int vi = 0; vi < arraygroupdata.numvars; ++vi)
-            cctkGH->data[arraygroupdata.firstvarindex + vi][tl] =
-                const_cast<void *>(
-                    vars.data_at(vi * arraygroupdata.array_size));
-        }
+        update_array_group_pointers(cctkGH, gi);
       }
     }
   }
@@ -2943,11 +2988,83 @@ void Restrict(const cGH *cctkGH, int level) {
 
 // storage handling
 namespace {
+// Grow or shrink the time levels of a grid array or grid scalar group. The grid
+// function counterpart is the driver's SetGroupTimelevels; arrays and scalars
+// are a single global allocation and have no equivalent internal API.
+int set_array_group_timelevels(const int gid, const int ntls) {
+  assert(ghext);
+  cGroup group;
+  const int ierr = CCTK_GroupData(gid, &group);
+  assert(not ierr);
+  assert(group.grouptype == CCTK_ARRAY or group.grouptype == CCTK_SCALAR);
+
+  auto &restrict arraygroupdata = *ghext->globaldata.arraygroupdata.at(gid);
+  const char *const groupname = arraygroupdata.groupname.c_str();
+
+  const int declared_ntls = CCTK_DeclaredTimeLevelsGI(gid);
+  if (ntls < 1 or ntls > declared_ntls) {
+    CCTK_VERROR("set_array_group_timelevels: cannot allocate %d time levels "
+                "for group \"%s\", which declares %d. cctkGH->data is sized "
+                "from the declaration and cannot grow; write TIMELEVELS=%d in "
+                "the group's interface.ccl.",
+                ntls, groupname, declared_ntls, ntls);
+  }
+  if (integrating) {
+    CCTK_VERROR("set_array_group_timelevels: cannot change the number of time "
+                "levels of group \"%s\" while a state vector is being "
+                "integrated; the integrator caches pointers to the time levels "
+                "for the duration of a step",
+                groupname);
+  }
+
+  const int old_ntls = int(arraygroupdata.data.size());
+  if (ntls == old_ntls) {
+    return old_ntls;
+  }
+
+  const std::string why_str = [&]() {
+    std::ostringstream buf;
+    buf << "set_array_group_timelevels " << groupname << " from " << old_ntls
+        << " to " << ntls << " time levels";
+    return buf.str();
+  }();
+  const std::function<std::string()> why = [why_str]() { return why_str; };
+
+  const nan_handling_t nan_handling = arraygroupdata.do_checkpoint
+                                          ? nan_handling_t::forbid_nans
+                                          : nan_handling_t::allow_nans;
+
+  // Shrinking trims from the back, so time level 0 is always preserved
+  arraygroupdata.data.resize(ntls);
+  arraygroupdata.valid.resize(ntls);
+  for (int tl = old_ntls; tl < ntls; ++tl) {
+    arraygroupdata.data.at(tl).alloc(
+        group.vartype, arraygroupdata.numvars * arraygroupdata.array_size);
+    arraygroupdata.valid.at(tl).resize(arraygroupdata.numvars,
+                                       why_valid_t(why));
+    for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
+      // Arrays have no boundary, so the outer and ghost zones count as valid
+      valid_t valid;
+      valid.valid_int = false;
+      valid.valid_outer = true;
+      valid.valid_ghosts = true;
+      arraygroupdata.valid.at(tl).at(vi).set_all(valid, why);
+      poison_invalid_ga(gid, vi, tl);
+      check_valid_ga(gid, vi, tl, nan_handling, why);
+    }
+  }
+
+  // The resize released the dropped levels' buffers and allocated fresh ones
+  // for the grown slots; the pointers cached in every cGH name neither
+  update_array_group_pointers(gid);
+
+  return old_ntls;
+}
+
 int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
                        const int *requested_tls, int *status, const bool inc) {
-  DECLARE_CCTK_PARAMETERS;
-
   assert(cctkGH);
+  assert(ghext);
   assert(n_groups >= 0);
   assert(groups);
   assert(requested_tls);
@@ -2956,48 +3073,56 @@ int GroupStorageCrease(const cGH *cctkGH, int n_groups, const int *groups,
       CCTK_VWARN(CCTK_WARN_ALERT, "Group index %d is illegal", groups[n]);
       return -1;
     }
-    assert(groups[n] >= 0 and groups[n] < CCTK_NumGroups());
     assert(requested_tls[n] >= 0 or requested_tls[n] == -1);
   }
 
-  // sanitize list of requested timelevels
-  std::vector<int> tls(n_groups);
-  for (int n = 0; n < n_groups; ++n) {
-    int ntls = requested_tls[n];
-    int const declared_tls = CCTK_DeclaredTimeLevelsGI(groups[n]);
-    if (inc and declared_tls < 2 and ntls > declared_tls) {
-      CCTK_VWARN(CCTK_WARN_ALERT,
-                 "Attempting to activate %d timelevels for group '%s' which "
-                 "only has a single timelevel declared in interface.ccl. "
-                 "Please declared at least 2 timelevels in interface.ccl to "
-                 "allow more timelevels to be created at runtime.",
-                 ntls, CCTK_FullGroupName(groups[n]));
-      ntls = declared_tls;
-    }
-    if (ntls == -1) {
-      ntls = declared_tls;
-    }
-    tls.at(n) = ntls;
-  }
-
-  // TODO: actually do something
   int min_num_timelevels = INT_MAX;
   for (int n = 0; n < n_groups; ++n) {
-    int const gid = groups[n];
+    const int gid = groups[n];
+    const int grouptype = CCTK_GroupTypeI(gid);
 
-    cGroup group;
-    int ierr = CCTK_GroupData(gid, &group);
-    assert(not ierr);
+    int ntls = requested_tls[n];
+    if (ntls == -1) {
+      ntls = CCTK_DeclaredTimeLevelsGI(gid);
+    }
+    // Time level 0 holds live data, so CarpetX never releases a group
+    // completely; DisableGroupStorage arrives here as a decrease to zero.
+    if (not inc and ntls < 1) {
+      ntls = 1;
+    }
+
+    // Read the active count from the source of truth. Going through
+    // CCTK_ActiveTimeLevelsGI would recurse, since the flesh implements it as a
+    // zero increase into this function.
+    int active;
+    if (grouptype == CCTK_GF) {
+      active = GetGroupTimelevels(gid);
+    } else {
+      assert(grouptype == CCTK_SCALAR or grouptype == CCTK_ARRAY);
+      active = int(ghext->globaldata.arraygroupdata.at(gid)->data.size());
+    }
 
     // Record previous number of allocated time levels
     if (status) {
       // Note: This remembers only the last level
-      status[n] = group.numtimelevels;
+      status[n] = active;
+    }
+
+    // An increase never shrinks and a decrease never grows, so a zero increase
+    // is a pure query
+    const bool do_update = inc ? active < ntls : active > ntls;
+    if (do_update) {
+      if (grouptype == CCTK_GF) {
+        SetGroupTimelevels(gid, ntls);
+      } else {
+        set_array_group_timelevels(gid, ntls);
+      }
+      active = ntls;
     }
 
     // Record (minimum of) current number of time levels
     using std::min;
-    min_num_timelevels = min(min_num_timelevels, group.numtimelevels);
+    min_num_timelevels = min(min_num_timelevels, active);
   } // for n
   if (min_num_timelevels == INT_MAX) {
     min_num_timelevels = 0;

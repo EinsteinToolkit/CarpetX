@@ -506,9 +506,10 @@ extern "C" CCTK_INT CarpetX_GetEpoch(void);
 // applied by the GroupData constructor, so that a group can declare the slots
 // a method might need without every run paying for them.
 //
-// This is deliberately not the Cactus storage API (CCTK_GroupStorageIncrease
-// and friends, which CarpetX does not implement): it is a CarpetX internal
-// interface, used by ODESolvers for the RHS history of the hybrid methods.
+// This is a CarpetX internal interface, used by ODESolvers for the RHS history
+// of the hybrid methods. The Cactus storage API (CCTK_GroupStorageIncrease and
+// friends) is layered on top of it for grid functions, and on a parallel
+// resize of the global allocation for grid arrays and grid scalars.
 
 // Number of time levels currently allocated for a grid function group
 int GetGroupTimelevels(int gi);
