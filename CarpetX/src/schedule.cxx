@@ -1680,6 +1680,9 @@ void CycleTimelevels(cGH *restrict const cctkGH) {
                arraygroupdata.data.end());
         rotate(arraygroupdata.valid.begin(), arraygroupdata.valid.end() - 1,
                arraygroupdata.valid.end());
+        // The rotation only permutes ArrayGroupData::data; the pointers cached
+        // in every cGH still name the pre-rotation buffers.
+        update_array_group_pointers(gi);
         for (int vi = 0; vi < arraygroupdata.numvars; ++vi) {
           arraygroupdata.valid.at(0).at(vi).set_int(false, []() {
             return "CycletimeLevels (invalidate current time level)";
