@@ -1603,11 +1603,11 @@ public:
     assert(n >= 0 && n < int(size()));
     return GF3D5<T>(layout, (T *)fab.dataPtr(n));
   }
-  // A grid function covering all components; the component is
-  // selected via the `n` argument of the GF3D5 accessors. Device
-  // kernels cannot call `operator()` because it accesses the
-  // host-only `amrex::FArrayBox`; they can capture this object
-  // instead and loop over the components.
+  // A `GF3D5` covering all components; the component is selected via
+  // the `n` argument of the `GF3D5` accessors. Device kernels cannot
+  // call `operator()` because it accesses the host-only
+  // `amrex::FArrayBox`; they can capture this object instead and loop
+  // over the components.
   GF3D5<T> all_components() const {
     assert(size() > 0);
     // The GF3D5 accessors assume that consecutive components are
