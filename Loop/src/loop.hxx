@@ -1373,24 +1373,25 @@ struct GF3D5layout {
     iseq &= off == other.off;
     return iseq;
   }
-  CCTK_DEVICE CCTK_HOST int linear(int i, int j, int k) const {
+  CCTK_DEVICE CCTK_HOST int linear(int i, int j, int k, int n = 0) const {
     // These index checks prevent vectorization. We thus only enable
     // them in debug mode.
 #ifdef CCTK_DEBUG
     assert(i >= imin[0] && i < imax[0]);
     assert(j >= imin[1] && j < imax[1]);
     assert(k >= imin[2] && k < imax[2]);
+    assert(n >= 0);
 #endif
-    return i * di + j * dj + k * dk - off;
+    return i * di + j * dj + k * dk + n * np - off;
   }
-  CCTK_DEVICE CCTK_HOST int linear(const vect<int, dim> &I) const {
-    return linear(I[0], I[1], I[2]);
+  CCTK_DEVICE CCTK_HOST int linear(const vect<int, dim> &I, int n = 0) const {
+    return linear(I[0], I[1], I[2], n);
   }
-  CCTK_DEVICE CCTK_HOST int delta(int i, int j, int k) const {
-    return i * di + j * dj + k * dk;
+  CCTK_DEVICE CCTK_HOST int delta(int i, int j, int k, int n = 0) const {
+    return i * di + j * dj + k * dk + n * np;
   }
-  CCTK_DEVICE CCTK_HOST int delta(const vect<int, dim> &I) const {
-    return delta(I[0], I[1], I[2]);
+  CCTK_DEVICE CCTK_HOST int delta(const vect<int, dim> &I, int n = 0) const {
+    return delta(I[0], I[1], I[2], n);
   }
 };
 
@@ -1403,10 +1404,10 @@ struct GF3D5index {
   GF3D5index &operator=(const GF3D5index &) = default;
   GF3D5index &operator=(GF3D5index &&) = default;
   CCTK_DEVICE CCTK_HOST GF3D5index(const GF3D5layout &layout,
-                                   const vect<int, dim> &I)
+                                   const vect<int, dim> &I, int n = 0)
       :
         layout(layout),
-        m_linear(layout.linear(I)) {
+        m_linear(layout.linear(I, n)) {
   }
   CCTK_DEVICE CCTK_HOST int linear() const { return m_linear; }
 };
@@ -1436,12 +1437,13 @@ template <typename T> struct GF3D5 {
     return ptr[index.linear()];
   }
   CCTK_DEVICE CCTK_HOST constexpr T &restrict
-  operator()(const GF3D5layout &layout, const vect<int, dim> &I) const {
-    return (*this)(GF3D5index(layout, I));
+  operator()(const GF3D5layout &layout, const vect<int, dim> &I,
+             int n = 0) const {
+    return (*this)(GF3D5index(layout, I, n));
   }
   CCTK_DEVICE CCTK_HOST constexpr T &restrict
-  operator()(const GF3D5layout &layout, int i, int j, int k) const {
-    return (*this)(GF3D5index(layout, vect<int, dim>{i, j, k}));
+  operator()(const GF3D5layout &layout, int i, int j, int k, int n = 0) const {
+    return (*this)(GF3D5index(layout, vect<int, dim>{i, j, k}, n));
   }
   CCTK_DEVICE CCTK_HOST void store(const GF3D5index &index,
                                    const T &value) const {
@@ -1452,6 +1454,11 @@ template <typename T> struct GF3D5 {
                                    const T &value) const {
     operator()(layout, I) = value;
   }
+  CCTK_DEVICE CCTK_HOST void store(const GF3D5layout &layout,
+                                   const vect<int, dim> &I, int n,
+                                   const T &value) const {
+    operator()(layout, I, n) = value;
+  }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
              const GF3D5index &index) const {
@@ -1459,8 +1466,9 @@ template <typename T> struct GF3D5 {
   }
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
   operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
-             const GF3D5layout &layout, const vect<int, dim> &I) const {
-    return (*this)(mask, GF3D5index(layout, I));
+             const GF3D5layout &layout, const vect<int, dim> &I,
+             int n = 0) const {
+    return (*this)(mask, GF3D5index(layout, I, n));
   }
 #if 0
   struct simd_reference {
@@ -1526,6 +1534,12 @@ template <typename T> struct GF3D5 {
              const Arith::simd<std::remove_cv_t<T> > &other) const {
     return (*this)(mask, GF3D5index(layout, I), other);
   }
+  CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
+  operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
+             const GF3D5layout &layout, const vect<int, dim> &I, int n,
+             const Arith::simd<std::remove_cv_t<T> > &other) const {
+    return (*this)(mask, GF3D5index(layout, I, n), other);
+  }
   template <typename U,
             std::enable_if_t<std::is_convertible_v<T, U> > * = nullptr>
   CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
@@ -1533,6 +1547,14 @@ template <typename T> struct GF3D5 {
              const GF3D5layout &layout, const vect<int, dim> &I,
              const U &other) const {
     return (*this)(mask, GF3D5index(layout, I), other);
+  }
+  template <typename U,
+            std::enable_if_t<std::is_convertible_v<T, U> > * = nullptr>
+  CCTK_DEVICE CCTK_HOST Arith::simd<std::remove_cv_t<T> >
+  operator()(const Arith::simdl<std::remove_cv_t<T> > &mask,
+             const GF3D5layout &layout, const vect<int, dim> &I, int n,
+             const U &other) const {
+    return (*this)(mask, GF3D5index(layout, I, n), other);
   }
   CCTK_DEVICE CCTK_HOST void store(const Arith::simdl<T> &mask,
                                    const GF3D5index &index,
@@ -1544,6 +1566,12 @@ template <typename T> struct GF3D5 {
                                    const vect<int, dim> &I,
                                    const Arith::simd<T> &value) const {
     store(mask, GF3D5index(layout, I), value);
+  }
+  CCTK_DEVICE CCTK_HOST void store(const Arith::simdl<T> &mask,
+                                   const GF3D5layout &layout,
+                                   const vect<int, dim> &I, int n,
+                                   const Arith::simd<T> &value) const {
+    store(mask, GF3D5index(layout, I, n), value);
   }
 };
 
@@ -1574,6 +1602,18 @@ public:
   GF3D5<T> operator()(const int n) const {
     assert(n >= 0 && n < int(size()));
     return GF3D5<T>(layout, (T *)fab.dataPtr(n));
+  }
+  // A `GF3D5` covering all components; the component is selected via
+  // the `n` argument of the `GF3D5` accessors. Device kernels cannot
+  // call `operator()` because it accesses the host-only
+  // `amrex::FArrayBox`; they can capture this object instead and loop
+  // over the components.
+  GF3D5<T> all_components() const {
+    assert(size() > 0);
+    // The GF3D5 accessors assume that consecutive components are
+    // `layout.np` elements apart
+    assert(fab.box().numPts() == layout.np);
+    return GF3D5<T>(layout, (T *)fab.dataPtr(0));
   }
 };
 
