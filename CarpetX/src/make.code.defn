@@ -34,6 +34,7 @@ SRCS =							\
 	interpolate.cxx					\
 	io.cxx						\
 	io_adios2.cxx					\
+	io_conduit.cxx					\
 	io_meta.cxx					\
 	io_norm.cxx					\
 	io_openpmd.cxx					\

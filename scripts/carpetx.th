@@ -490,11 +490,12 @@ ExternalLibraries/zlib
 # Thorns required for CarpetX
 !TARGET   = $ARR
 !TYPE     = git
-!URL      = https://github.com/rhaas80/$1-$2
+!URL      = https://github.com/EinsteinToolkit/$1-$2
 !REPO_PATH = ../$1-$2
 !CHECKOUT =
 ExternalLibraries/ADIOS2
 ExternalLibraries/AMReX
+ExternalLibraries/Conduit
 ExternalLibraries/NSIMD
 ExternalLibraries/openPMD
 ExternalLibraries/Silo
