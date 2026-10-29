@@ -1,0 +1,17 @@
+# Parameter definitions for thorn TestScheduleConditionalX
+
+BOOLEAN cond_a "Select the branch that writes condVarB" STEERABLE=never
+{
+} "yes"
+
+KEYWORD cond_mode "Select which arm of the chain touches condVarC" STEERABLE=never
+{
+  "one"   :: "WRITES condVarC"
+  "two"   :: "READS condVarC"
+  "three" :: "does not mention condVarC"
+} "one"
+
+STRING out_dir "Directory for the results file (empty: do not write it)" STEERABLE=never
+{
+  ".*" :: "any directory"
+} ""

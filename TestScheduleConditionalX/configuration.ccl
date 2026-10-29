@@ -1,0 +1,7 @@
+# Configuration definitions for thorn TestScheduleConditionalX
+
+REQUIRES Loop
+
+PROVIDES TestScheduleConditionalX
+{
+}

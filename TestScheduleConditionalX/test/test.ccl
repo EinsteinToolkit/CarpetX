@@ -1,0 +1,4 @@
+# Test suite definition
+
+NPROCS 1
+EXTENSIONS asc

@@ -1,0 +1,18 @@
+# Interface definition for thorn TestScheduleConditionalX
+
+IMPLEMENTS: TestScheduleConditionalX
+
+USES INCLUDE HEADER: loop_device.hxx
+
+private:
+
+CCTK_REAL condVarA TYPE=GF "READ unconditionally"
+CCTK_REAL condVarB TYPE=GF "WRITTEN only in the cond_a branch"
+CCTK_REAL condVarC TYPE=GF "WRITTEN or READ depending on cond_mode"
+
+CCTK_INT results TYPE=SCALAR
+{
+  VarAAccessX,
+  VarBAccessX,
+  VarCAccessX,
+} "1 if the variable is accessible (non-NULL) in the routine, 0 if not"

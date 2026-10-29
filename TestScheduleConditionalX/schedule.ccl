@@ -1,0 +1,32 @@
+# Schedule definitions for thorn TestScheduleConditionalX
+
+STORAGE: condVarA condVarB condVarC
+STORAGE: results
+
+SCHEDULE TestScheduleConditionalX_Init AT initial
+{
+  LANG: C
+  WRITES: condVarA(everywhere) condVarB(everywhere) condVarC(everywhere)
+} "Initialise the test variables"
+
+SCHEDULE TestScheduleConditionalX_Check AT initial AFTER TestScheduleConditionalX_Init
+{
+  LANG: C
+  READS: condVarA(everywhere)
+  WRITES: VarAAccessX VarBAccessX VarCAccessX
+  if (cond_a) {
+    WRITES: condVarB(everywhere)
+  }
+  if (CCTK_Equals(cond_mode, "one")) {
+    WRITES: condVarC(everywhere)
+  } else if (CCTK_Equals(cond_mode, "two")) {
+    READS: condVarC(everywhere)
+  }
+} "Check that conditional clauses reach DECLARE_CCTK_ARGUMENTSX"
+
+SCHEDULE TestScheduleConditionalX_Output AT terminate
+{
+  LANG: C
+  OPTIONS: global
+  READS: VarAAccessX VarBAccessX VarCAccessX
+} "Write the accessibility results"
