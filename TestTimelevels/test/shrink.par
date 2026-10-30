@@ -28,9 +28,26 @@ IO::out_dir = $parfile
 IO::parfile_write = no
 
 CarpetX::out_metadata = no
+CarpetX::out_performance = no
 
 CarpetX::poison_undefined_values = yes
 
 TestTimelevels::initial_resize_timelevels = 3
 TestTimelevels::final_resize_timelevels = 1
 TestTimelevels::resize_iteration = 2
+
+IO::out_every = 1
+IO::out_fileinfo = "axis labels"
+
+CarpetX::out_norm_vars = "
+    TestTimelevels::test_gf
+    TestTimelevels::resize_gf
+    TestTimelevels::swap_gf
+    TestTimelevels::observed_test
+    TestTimelevels::observed_swap
+"
+CarpetX::out_norm_omit_unstable = yes
+CarpetX::out_norm_omit_sumloc_for_backward_compatibility = yes
+
+CarpetX::out_tsv_vars = "TestTimelevels::results"
+CarpetX::out_tsv_combine_iterations = yes

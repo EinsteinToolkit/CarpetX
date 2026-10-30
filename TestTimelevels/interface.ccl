@@ -9,3 +9,41 @@ CCTK_REAL test_gf TYPE=gf TIMELEVELS=3 TAGS='checkpoint="no"' "Grid function wit
 CCTK_REAL resize_gf TYPE=gf TIMELEVELS=3 TAGS='checkpoint="no"' "Grid function whose time levels are allocated and released at run time, used to test SetGroupTimelevels. Only time level 0 ever appears in a schedule clause, so that the group can be shrunk to a single time level without making those clauses unschedulable"
 
 CCTK_REAL swap_gf TYPE=gf TIMELEVELS=3 TAGS='checkpoint="no"' "Grid function whose time levels are exchanged in place each step, used to test SwapGroupTimelevels"
+
+CCTK_REAL cycle_array TYPE=array DIM=1 SIZE=5 DISTRIB=constant TIMELEVELS=3 "Grid array kept at its declared time levels, used to test that CarpetX keeps cctkGH->data pointers correct across CycleTimelevels"
+
+CCTK_REAL cycle_scalar TYPE=scalar TIMELEVELS=3 "Grid scalar kept at its declared time levels, used to test that CarpetX keeps cctkGH->data pointers correct across CycleTimelevels"
+
+CCTK_REAL storage_array TYPE=array DIM=1 SIZE=5 DISTRIB=constant TIMELEVELS=3 "Grid array whose time levels are released and reallocated at run time, used to test the Cactus group storage API. Only time level 0 ever appears in a schedule clause, so that the group can be shrunk to a single time level without making those clauses unschedulable"
+
+CCTK_REAL storage_scalar TYPE=scalar TIMELEVELS=3 "Grid scalar whose time levels are released and reallocated at run time, used to test the Cactus group storage API. Only time level 0 ever appears in a schedule clause, so that the group can be shrunk to a single time level without making those clauses unschedulable"
+
+CCTK_REAL observed_test TYPE=gf TAGS='checkpoint="no"'
+{
+  observed_test_tl1,
+  observed_test_tl2
+} "Copies of test_gf's two past time levels, taken where the rotation check reads them, so that the rotation reaches the norm output"
+
+CCTK_REAL observed_swap TYPE=gf TAGS='checkpoint="no"'
+{
+  observed_swap_tl1,
+  observed_swap_tl2
+} "Copies of swap_gf's two past time levels, taken where the exchange check reads them, so that the exchange reaches the norm output"
+
+CCTK_INT results TYPE=scalar
+{
+  resize_timelevels,
+  cycle_array_timelevels,
+  cycle_scalar_timelevels,
+  storage_array_timelevels,
+  storage_scalar_timelevels,
+  num_errors
+} "Per-iteration record of how many time levels each resized or cycled group has, and of how many checks have failed so far. Written in global mode, so that it is the same on every process"
+
+CCTK_REAL array_results TYPE=scalar
+{
+  cycle_array_tl0, cycle_array_tl1, cycle_array_tl2,
+  cycle_scalar_tl0, cycle_scalar_tl1, cycle_scalar_tl2,
+  storage_array_tl0,
+  storage_scalar_tl0
+} "Per-iteration record of the value each time level of the grid array and grid scalar groups holds. Only the time levels the groups are guaranteed to have are recorded"

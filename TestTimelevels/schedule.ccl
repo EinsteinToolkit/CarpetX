@@ -3,6 +3,14 @@
 STORAGE: test_gf[3]
 STORAGE: resize_gf[3]
 STORAGE: swap_gf[3]
+STORAGE: cycle_array[3]
+STORAGE: cycle_scalar[3]
+STORAGE: storage_array[3]
+STORAGE: storage_scalar[3]
+STORAGE: observed_test
+STORAGE: observed_swap
+STORAGE: results
+STORAGE: array_results
 
 SCHEDULE TestTimelevels_Init AT initial
 {
@@ -26,7 +34,8 @@ if (check_rotation)
     READS: test_gf(everywhere)
     READS: test_gf_p(everywhere)
     READS: test_gf_p_p(everywhere)
-  } "Check that time levels 1 and 2 hold the two previous iteration numbers"
+    WRITES: observed_test(everywhere)
+  } "Check that time levels 1 and 2 hold the two previous iteration numbers, and copy them where the norm output can reach them"
 }
 
 SCHEDULE TestTimelevels_SetupStorage AT wragh
@@ -87,7 +96,65 @@ SCHEDULE TestTimelevels_SwapCheck AT analysis
   READS: swap_gf(everywhere)
   READS: swap_gf_p(everywhere)
   READS: swap_gf_p_p(everywhere)
-} "Check that the exchange moved both the data and the validity flags, and left the marks in every other slot alone"
+  WRITES: observed_swap(everywhere)
+} "Check that the exchange moved both the data and the validity flags, and left the marks in every other slot alone, and copy the exchanged time levels where the norm output can reach them"
+
+if (check_storage_api)
+{
+  SCHEDULE TestTimelevels_ArraySetupStorage AT wragh
+  {
+    LANG: C
+    OPTIONS: global
+  } "Allocate initial_resize_timelevels time levels for storage_array and storage_scalar"
+
+  SCHEDULE TestTimelevels_ArrayInit AT initial
+  {
+    LANG: C
+    OPTIONS: global
+    WRITES: cycle_array(everywhere) cycle_array_p(everywhere) cycle_array_p_p(everywhere)
+    WRITES: cycle_scalar(everywhere) cycle_scalar_p(everywhere) cycle_scalar_p_p(everywhere)
+    WRITES: storage_array(everywhere) storage_scalar(everywhere)
+  } "Seed every time level of the cycled groups, and time level 0 of the resized groups"
+
+  SCHEDULE TestTimelevels_ArrayWrite AT evol
+  {
+    LANG: C
+    OPTIONS: global
+    WRITES: cycle_array(everywhere) cycle_scalar(everywhere)
+    WRITES: storage_array(everywhere) storage_scalar(everywhere)
+  } "Write the current iteration number into time level 0 of every grid array and grid scalar group"
+
+  SCHEDULE TestTimelevels_ArrayResize AT poststep
+  {
+    LANG: C
+    OPTIONS: global
+  } "Reallocate storage_array and storage_scalar to the number of time levels this iteration expects"
+
+  SCHEDULE TestTimelevels_StorageCheck AT analysis
+  {
+    LANG: C
+    OPTIONS: global
+  } "Check that every way of asking how many time levels a group has agrees"
+
+  SCHEDULE TestTimelevels_ArrayCheck AT analysis
+  {
+    LANG: C
+    OPTIONS: global
+    WRITES: array_results(everywhere)
+  } "Check the grid array and grid scalar groups' data and data pointers in global mode, and record what every time level holds"
+
+  SCHEDULE TestTimelevels_ArrayCheckLocal AT analysis
+  {
+    LANG: C
+  } "Check the grid array and grid scalar groups' data and data pointers through a local mode cGH"
+}
+
+SCHEDULE TestTimelevels_Record AT analysis AFTER (TestTimelevels_Check TestTimelevels_ResizeCheck TestTimelevels_SwapCheck TestTimelevels_StorageCheck TestTimelevels_ArrayCheck TestTimelevels_ArrayCheckLocal)
+{
+  LANG: C
+  OPTIONS: global
+  WRITES: results(everywhere)
+} "Record this iteration's time level counts and the number of checks that have failed, so that the output carries them"
 
 SCHEDULE TestTimelevels_Terminate AT terminate
 {
