@@ -63,6 +63,7 @@
 !TYPE     = git
 !URL      = https://bitbucket.org/simfactory/simfactory2.git
 !REPO_PATH = $1
+!REPO_BRANCH = master
 !NAME     = simfactory2
 !CHECKOUT = ./simfactory
 
@@ -722,12 +723,14 @@ CarpetX/TestBoxInBox
 CarpetX/TestDerivs
 CarpetX/TestInterpolate
 CarpetX/TestLoopX
+CarpetX/TestMSRK
 CarpetX/TestNorms
 CarpetX/TestODESolvers
 CarpetX/TestODESolvers2
 CarpetX/TestOutput
 CarpetX/TestProlongate
 CarpetX/TestSymmetries
+CarpetX/TestTimelevels
 CarpetX/TmunuBaseX
 CarpetX/VGFWaveToyX
 CarpetX/WaveToyX
