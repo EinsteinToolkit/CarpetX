@@ -1,19 +1,19 @@
 # Schedule definitions for thorn ADMBaseX
 
-# CarpetX storage is unconditional (EinsteinToolkit/tickets#2913, #1929).
+# CarpetX storage is unconditional (EinsteinToolkit/tickets#2913, #2973).
 STORAGE: lapse metric curv
 
-if (! CCTK_Equals(initial_shift, "none"))
+if (! CCTK_EQUALS(initial_shift, "none"))
 {
   STORAGE: shift
 }
 
-if (! CCTK_Equals(initial_dtlapse, "none"))
+if (! CCTK_EQUALS(initial_dtlapse, "none"))
 {
   STORAGE: dtlapse
 }
 
-if (! CCTK_Equals(initial_dtshift, "none"))
+if (! CCTK_EQUALS(initial_dtshift, "none"))
 {
   STORAGE: dtshift
 }
@@ -140,17 +140,17 @@ if (noise_amplitude != 0) {
     SYNC: metric
     SYNC: curv
     SYNC: lapse
-    if (! CCTK_Equals(initial_dtlapse, "none")) {
+    if (! CCTK_EQUALS(initial_dtlapse, "none")) {
       READS: dtlapse(interior)
       WRITES: dtlapse(interior)
       SYNC: dtlapse
     }
-    if (! CCTK_Equals(initial_shift, "none")) {
+    if (! CCTK_EQUALS(initial_shift, "none")) {
       READS: shift(interior)
       WRITES: shift(interior)
       SYNC: shift
     }
-    if (! CCTK_Equals(initial_dtshift, "none")) {
+    if (! CCTK_EQUALS(initial_dtshift, "none")) {
       READS: dtshift(interior)
       WRITES: dtshift(interior)
       SYNC: dtshift
