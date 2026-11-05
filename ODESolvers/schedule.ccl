@@ -10,6 +10,12 @@ SCHEDULE ODESolvers_InitConstants AT WRAGH
   WRITES: do_substeps
 } "Set up dummy loop counters for schedule printout"
 
+SCHEDULE ODESolvers_SetupStorage AT WRAGH
+{
+  LANG: C
+  OPTIONS: global
+} "Request the RHS time levels the selected method needs from the driver"
+
 SCHEDULE ODESolvers_Solve AT evol
 {
   LANG: C
