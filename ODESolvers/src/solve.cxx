@@ -184,9 +184,7 @@ void check_timelevel(
   assert(groupdata.mfab.size() == groupdata.valid.size());
   if (tl < 0 || tl >= int(groupdata.valid.size()))
     CCTK_VERROR("ODESolvers addressed time level %d of group %s, which has %d "
-                "time level(s) allocated. The number of allocated time levels "
-                "is chosen by CarpetX::SetGroupTimelevels and is capped by the "
-                "group's TIMELEVELS declaration in its interface.ccl.",
+                "time level(s) allocated",
                 tl, groupdata.groupname.c_str(), int(groupdata.valid.size()));
 }
 
@@ -746,9 +744,10 @@ int rhs_timelevels(const char *const method) {
 //
 // Called at WRAGH, which runs before any level exists, so that in the ordinary
 // case the very first allocation is already the right size. Called again at
-// the top of every step, because the method is steerable and a step may need
-// more slots than the previous one did.
-void setup_rhs_storage(const char *const method, const bool verbose) {
+// the top of every step, because the method is steerable and a step may need a
+// different number of slots than the previous one did.
+void setup_rhs_storage(const cGH *const cctkGH, const char *const method,
+                       const bool verbose) {
   const int ntls = rhs_timelevels(method);
   const int num_groups = CCTK_NumGroups();
   for (int gi = 0; gi < num_groups; ++gi) {
@@ -774,11 +773,14 @@ void setup_rhs_storage(const char *const method, const bool verbose) {
                   CCTK_FullGroupName(rhs_gi), CCTK_FullGroupName(gi),
                   declared_ntls, ntls);
 
-    const int old_ntls = CarpetX::SetGroupTimelevels(rhs_gi, ntls);
-    if (verbose && old_ntls != ntls)
+    int old_ntls = -1;
+    CCTK_GroupStorageIncrease(cctkGH, 1, &rhs_gi, &ntls, &old_ntls);
+    CCTK_GroupStorageDecrease(cctkGH, 1, &rhs_gi, &ntls, nullptr);
+    if (verbose && old_ntls != ntls) {
       CCTK_VINFO("Method \"%s\": RHS group \"%s\" now has %d time level(s), "
                  "was %d",
                  method, CCTK_FullGroupName(rhs_gi), ntls, old_ntls);
+    }
   }
 }
 
@@ -809,7 +811,7 @@ extern "C" void ODESolvers_SetupStorage(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_ODESolvers_SetupStorage;
   DECLARE_CCTK_PARAMETERS;
 
-  setup_rhs_storage(method, verbose);
+  setup_rhs_storage(cctkGH, method, verbose);
 }
 
 extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
@@ -838,10 +840,10 @@ extern "C" void ODESolvers_Solve(CCTK_ARGUMENTS) {
   // The method is STEERABLE=always, so what WRAGH allocated need not be what
   // this step needs. Re-request the storage before anything below caches a
   // pointer into it.
-  setup_rhs_storage(method, verbose);
+  setup_rhs_storage(cctkGH, method, verbose);
 
-  // Must not be constructed before setup_rhs_storage, which calls
-  // CarpetX::SetGroupTimelevels and asserts !integrating.
+  // Must not be constructed before setup_rhs_storage, whose storage requests
+  // abort while a state vector is being integrated.
   const CarpetX::integrating_guard_t integrating_guard;
 
   statecomp_t var, rhs;
