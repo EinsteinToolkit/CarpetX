@@ -1,5 +1,23 @@
 # Schedule definitions for thorn ADMBaseX
 
+# CarpetX storage is unconditional (EinsteinToolkit/tickets#2913, #2973).
+STORAGE: lapse metric curv
+
+if (! CCTK_EQUALS(initial_shift, "none"))
+{
+  STORAGE: shift
+}
+
+if (! CCTK_EQUALS(initial_dtlapse, "none"))
+{
+  STORAGE: dtlapse
+}
+
+if (! CCTK_EQUALS(initial_dtshift, "none"))
+{
+  STORAGE: dtshift
+}
+
 if (CCTK_IsThornActive("ODESolvers")) {
 
   SCHEDULE GROUP ADMBaseX_InitialData IN ODESolvers_Initial
@@ -116,20 +134,26 @@ if (noise_amplitude != 0) {
     READS: metric(interior)
     READS: curv(interior)
     READS: lapse(interior)
-    READS: dtlapse(interior)
-    READS: shift(interior)
-    READS: dtshift(interior)
     WRITES: metric(interior)
     WRITES: curv(interior)
     WRITES: lapse(interior)
-    WRITES: dtlapse(interior)
-    WRITES: shift(interior)
-    WRITES: dtshift(interior)
     SYNC: metric
     SYNC: curv
     SYNC: lapse
-    SYNC: dtlapse
-    SYNC: shift
-    SYNC: dtshift
+    if (! CCTK_EQUALS(initial_dtlapse, "none")) {
+      READS: dtlapse(interior)
+      WRITES: dtlapse(interior)
+      SYNC: dtlapse
+    }
+    if (! CCTK_EQUALS(initial_shift, "none")) {
+      READS: shift(interior)
+      WRITES: shift(interior)
+      SYNC: shift
+    }
+    if (! CCTK_EQUALS(initial_dtshift, "none")) {
+      READS: dtshift(interior)
+      WRITES: dtshift(interior)
+      SYNC: dtshift
+    }
   } "Add noise to ADMBaseX variables"
 }
