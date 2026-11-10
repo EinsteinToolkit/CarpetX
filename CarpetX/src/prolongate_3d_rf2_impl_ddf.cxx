@@ -4,6 +4,10 @@ namespace CarpetX {
 
 // DDF interpolation
 
+// These operators are compiled in separate files, one for each order:
+// prolongate_3d_rf2_impl_ddf_o{1,3,5,7}.cxx
+// This improves compile times by allowing the compiler to build each order in parallel.
+
 extern prolongate_3d_rf2<VC, VC, VC, POLY, POLY, POLY, 1, 1, 1, FB_NONE>
     prolongate_ddf_3d_rf2_c000_o1;
 extern prolongate_3d_rf2<VC, VC, CC, POLY, POLY, CONS, 1, 1, 0, FB_NONE>
