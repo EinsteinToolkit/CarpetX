@@ -67,22 +67,27 @@ extern "C" void ADMBaseX_add_noise(CCTK_ARGUMENTS) {
 
   loop_int<0, 0, 0>(cctkGH, [&](const PointDesc &p) { add_noise(alp_(p.I)); });
 
-  loop_int<0, 0, 0>(cctkGH,
-                    [&](const PointDesc &p) { add_noise(dtalp_(p.I)); });
+  if (!CCTK_EQUALS(initial_dtlapse, "none"))
+    loop_int<0, 0, 0>(cctkGH,
+                      [&](const PointDesc &p) { add_noise(dtalp_(p.I)); });
 
-  loop_int<0, 0, 0>(cctkGH,
-                    [&](const PointDesc &p) { add_noise(betax_(p.I)); });
-  loop_int<0, 0, 0>(cctkGH,
-                    [&](const PointDesc &p) { add_noise(betay_(p.I)); });
-  loop_int<0, 0, 0>(cctkGH,
-                    [&](const PointDesc &p) { add_noise(betaz_(p.I)); });
+  if (!CCTK_EQUALS(initial_shift, "none")) {
+    loop_int<0, 0, 0>(cctkGH,
+                      [&](const PointDesc &p) { add_noise(betax_(p.I)); });
+    loop_int<0, 0, 0>(cctkGH,
+                      [&](const PointDesc &p) { add_noise(betay_(p.I)); });
+    loop_int<0, 0, 0>(cctkGH,
+                      [&](const PointDesc &p) { add_noise(betaz_(p.I)); });
+  }
 
-  loop_int<0, 0, 0>(cctkGH,
-                    [&](const PointDesc &p) { add_noise(dtbetax_(p.I)); });
-  loop_int<0, 0, 0>(cctkGH,
-                    [&](const PointDesc &p) { add_noise(dtbetay_(p.I)); });
-  loop_int<0, 0, 0>(cctkGH,
-                    [&](const PointDesc &p) { add_noise(dtbetaz_(p.I)); });
+  if (!CCTK_EQUALS(initial_dtshift, "none")) {
+    loop_int<0, 0, 0>(cctkGH,
+                      [&](const PointDesc &p) { add_noise(dtbetax_(p.I)); });
+    loop_int<0, 0, 0>(cctkGH,
+                      [&](const PointDesc &p) { add_noise(dtbetay_(p.I)); });
+    loop_int<0, 0, 0>(cctkGH,
+                      [&](const PointDesc &p) { add_noise(dtbetaz_(p.I)); });
+  }
 }
 
 } // namespace ADMBaseX
