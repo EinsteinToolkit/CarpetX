@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cassert>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -295,7 +296,6 @@ struct GHExt {
           data; // [time level][var index + grid point index]
       int array_size;
       int dimension;
-      int activetimelevels;
       int lsh[dim];
       int ash[dim];
       int gsh[dim];
@@ -307,7 +307,6 @@ struct GHExt {
       ArrayGroupData() {
         array_size = -1;
         dimension = -1;
-        activetimelevels = -1;
         for (int d = 0; d < dim; d++) {
           lsh[d] = -1;
           ash[d] = -1;
@@ -330,6 +329,11 @@ struct GHExt {
                                      const GlobalData &globaldata);
   };
   GlobalData globaldata;
+
+  // Number of time levels currently allocated for each grid function
+  // group. The count declared in interface.ccl is only a ceiling; see
+  // Get/SetGroupTimelevels below.
+  std::vector<int> group_timelevels; // [group index]
 
   struct PatchData {
     PatchData() = delete;
@@ -490,6 +494,63 @@ extern std::unique_ptr<GHExt> ghext;
 extern std::atomic<CCTK_INT> carpetx_epoch;
 
 extern "C" CCTK_INT CarpetX_GetEpoch(void);
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Time level storage for grid function groups.
+//
+// The number of time levels a group declares in its interface.ccl is a
+// ceiling, not an allocation: it sizes `cctkGH->data[vi]`, which the flesh
+// fills in before the driver runs. How many of those slots actually hold a
+// MultiFab is a run time decision, recorded in `GHExt::group_timelevels` and
+// applied by the GroupData constructor, so that a group can declare the slots
+// a method might need without every run paying for them.
+//
+// This is a CarpetX internal interface, used by ODESolvers for the RHS history
+// of the hybrid methods. The Cactus storage API (CCTK_GroupStorageIncrease and
+// friends) is layered on top of it for grid functions, and on a parallel
+// resize of the global allocation for grid arrays and grid scalars.
+
+// Number of time levels currently allocated for a grid function group
+int GetGroupTimelevels(int gi);
+
+// Set the number of time levels allocated for a grid function group, on all
+// patches and all levels at once. Growing clones time level 0's BoxArray,
+// DistributionMap, component count and ghost width; the new slots are invalid
+// and poisoned. Shrinking releases slots from the back, so time level 0 is
+// always preserved. Either way the cached grid function pointers are
+// refreshed. Returns the previous count.
+//
+// Must not be called while a state vector is being integrated; see
+// `integrating` below.
+int SetGroupTimelevels(int gi, int ntls);
+
+// Exchange two time levels of a grid function group on the levels currently
+// being traversed: the MultiFabs, the validity flags, and the cached grid
+// function pointers. Moves no data.
+//
+// Unlike SetGroupTimelevels this allocates and frees nothing, and is meant to
+// be called during a step, while `integrating` is true. The caller must
+// rebuild anything that caches raw amrex::MultiFab pointers for either slot.
+void SwapGroupTimelevels(int gi, int tl1, int tl2);
+
+// Whether a state vector is currently being integrated. ODESolvers'
+// statecomp_t caches raw amrex::MultiFab pointers for the duration of a step,
+// so reallocating a group's time levels underneath it would be a
+// use-after-free. SetGroupTimelevels refuses to run while this is set.
+extern bool integrating;
+
+// Sets `integrating` for the duration of a scope
+class integrating_guard_t {
+public:
+  integrating_guard_t() {
+    assert(!integrating);
+    integrating = true;
+  }
+  integrating_guard_t(const integrating_guard_t &) = delete;
+  integrating_guard_t &operator=(const integrating_guard_t &) = delete;
+  ~integrating_guard_t() { integrating = false; }
+};
 
 } // namespace CarpetX
 

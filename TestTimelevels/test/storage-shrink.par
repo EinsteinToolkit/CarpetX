@@ -1,0 +1,61 @@
+# Shrink resize_gf, storage_array and storage_scalar to a single time level in
+# mid-run and grow them back, all through the Cactus group storage API, while
+# cycle_array and cycle_scalar stay at their three declared time levels.
+
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    TestTimelevels
+"
+
+$nlevels = 1
+$ncells = 16
+
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+
+Cactus::cctk_itlast = 7
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::max_num_levels = $nlevels
+
+CarpetX::dtfac = 0.5
+
+Cactus::highlight_warning_messages = "no"
+
+IO::out_dir = $parfile
+IO::parfile_write = no
+
+CarpetX::out_metadata = no
+CarpetX::out_performance = no
+
+CarpetX::poison_undefined_values = yes
+
+TestTimelevels::check_storage_api = yes
+TestTimelevels::initial_resize_timelevels = 3
+TestTimelevels::final_resize_timelevels = 1
+TestTimelevels::resize_iteration = 3
+TestTimelevels::regrow_resize_timelevels = 3
+TestTimelevels::regrow_iteration = 5
+
+IO::out_every = 1
+IO::out_fileinfo = "axis labels"
+
+CarpetX::out_norm_vars = "
+    TestTimelevels::test_gf
+    TestTimelevels::resize_gf
+    TestTimelevels::swap_gf
+    TestTimelevels::observed_test
+    TestTimelevels::observed_swap
+"
+CarpetX::out_norm_omit_unstable = yes
+CarpetX::out_norm_omit_sumloc_for_backward_compatibility = yes
+
+CarpetX::out_tsv_vars = "
+    TestTimelevels::results
+    TestTimelevels::array_results
+"
+CarpetX::out_tsv_combine_iterations = yes
