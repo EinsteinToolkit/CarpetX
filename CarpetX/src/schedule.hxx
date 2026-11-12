@@ -33,6 +33,9 @@ int GroupStorageDecrease(const cGH *cctkGH, int n_groups, const int *groups,
                          const int *tls, int *status);
 int EnableGroupStorage(const cGH *cctkGH, const char *groupname);
 int DisableGroupStorage(const cGH *cctkGH, const char *groupname);
+int QueryGroupStorageB(const cGH *cctkGH, int group, const char *groupname);
+int QueryMaxTimeLevels(const cGH *cctkGH, int n_groups, const int *groups,
+                       int *status);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -229,6 +232,17 @@ void enter_local_mode(cGH *restrict cctkGH,
 void leave_local_mode(cGH *restrict cctkGH,
                       const GHExt::PatchData::LevelData &restrict leveldata,
                       const MFPointer &mfp);
+
+// Recompute cctkGH->data[vi][tl] for one group in one component's cached cGH
+void update_group_pointers(const GHExt::PatchData::LevelData &restrict leveldata,
+                           const MFPointer &mfp, cGH *restrict cctkGH, int gi);
+// ... for one group, over every component of one patch of one level
+void update_group_pointers(
+    const GHExt::PatchData::LevelData &restrict leveldata, int gi);
+// ... for one group, over every component of every active level
+void update_group_pointers(int gi);
+// ... for every group
+void update_all_group_pointers();
 
 void synchronize();
 
