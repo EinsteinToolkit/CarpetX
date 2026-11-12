@@ -1,0 +1,32 @@
+# Parameter definitions for thorn SBPWaveToy
+
+CCTK_REAL amplitude "Initial amplitude"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL standing_wave_kx "kx for standing wave"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL standing_wave_ky "ky for standing wave"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_REAL standing_wave_kz "kz for standing wave"
+{
+  *:* :: ""
+} 1.0
+
+CCTK_STRING boundary_condition "SAT boundary condition type"
+{
+  "none"       :: "No SAT terms; use only for periodic domains"
+  "dirichlet"  :: "General fixed-value Dirichlet boundaries"
+} "none"
+
+CCTK_REAL dirichlet_value "Fixed boundary value g for u when boundary_condition = \"dirichlet\""
+{
+  *:* :: "Any real value; the SAT relaxation drives u -> g on every physical face"
+} 0.0

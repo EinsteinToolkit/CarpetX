@@ -1,0 +1,121 @@
+##### Settings #####
+
+# Number of cells to use
+$num_cells = 64 * 4
+
+# Number of full periods to run for
+$num_periods = 10.0
+
+# Save data at every iteration that is this fraction of a full period
+$out_every_period = 1.0
+
+# Iterations per period (controls the courant factor)
+$itpp = $num_cells * 4
+####################
+
+ActiveThorns = "
+    CarpetX
+    IOUtil
+    ODESolvers
+    SBPOperators
+    SBPWaveToy
+    SystemTopology
+    TimerReport
+"
+
+Cactus::cctk_show_schedule = yes
+Cactus::presync_mode       = "mixed-error"
+
+CarpetX::verbose                 = no
+CarpetX::poison_undefined_values = no
+
+CarpetX::xmin = -1.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+
+CarpetX::xmax = 1.0
+CarpetX::ymax = 1.0
+CarpetX::zmax = 1.0
+
+CarpetX::ncells_x = $num_cells
+CarpetX::ncells_y = $num_cells
+CarpetX::ncells_z = $num_cells
+
+CarpetX::blocking_factor_x = $num_cells
+CarpetX::blocking_factor_y = $num_cells
+CarpetX::blocking_factor_z = $num_cells
+
+CarpetX::max_grid_size_x = $num_cells
+CarpetX::max_grid_size_y = $num_cells
+CarpetX::max_grid_size_z = $num_cells
+
+CarpetX::max_tile_size_x = 1024000  # unlimited – SIMD vectorises along x
+CarpetX::max_tile_size_y = 8
+CarpetX::max_tile_size_z = 8
+
+# When CarpetX splits the domain across processes and threads, ghost zones are
+# required to ensure propper interior communication.
+CarpetX::ghost_size = 2
+
+# Non-periodic: physical boundaries are handled by the SAT penalty.
+# It does not really matter which CarpetX BC we will choose here, as
+# the SBP boundary closures never read ghost zones, so the fill value
+# is immaterial for correctness, but must not be NaN/poison.
+CarpetX::boundary_x       = "dirichlet"
+CarpetX::boundary_y       = "dirichlet"
+CarpetX::boundary_z       = "dirichlet"
+CarpetX::boundary_upper_x = "dirichlet"
+CarpetX::boundary_upper_y = "dirichlet"
+CarpetX::boundary_upper_z = "dirichlet"
+
+SBPWaveToy::amplitude          = 1.0
+SBPWaveToy::standing_wave_kx   = 0.25
+SBPWaveToy::standing_wave_ky   = 0.25
+SBPWaveToy::standing_wave_kz   = 0.25
+SBPWaveToy::boundary_condition = "dirichlet"
+SBPWaveToy::dirichlet_value    = 0.0
+
+# Compute oscillation period
+$omega = sqrt(SBPWaveToy::standing_wave_kx**2 +
+              SBPWaveToy::standing_wave_ky**2 +
+              SBPWaveToy::standing_wave_kz**2)
+$period = 1.0 / $omega
+
+Cactus::terminate       = "time"
+Cactus::cctk_final_time = $num_periods * $period
+
+$dt = $period / $itpp
+$dx = 2.0 / $num_cells
+
+ODESolvers::method = "RK4"
+CarpetX::dtfac = $dt / $dx
+
+$out_every = floor($out_every_period * $itpp)
+
+IO::out_dir   = $parfile
+IO::out_every = $out_every
+
+CarpetX::out_metadata    = no
+CarpetX::out_performance = no
+
+CarpetX::out_norm_vars = "
+  SBPWaveToy::energy
+  SBPWaveToy::error
+"
+
+CarpetX::out_tsv_vars = "
+  SBPWaveToy::state
+  SBPWaveToy::energy
+  SBPWaveToy::error
+"
+
+CarpetX::out_silo_vars = "
+  SBPWaveToy::state
+  SBPWaveToy::energy
+  SBPWaveToy::error
+"
+
+TimerReport::out_every              = $out_every
+TimerReport::out_filename           = "TimerReport"
+TimerReport::output_schedule_timers = no
+TimerReport::n_top_timers           = 200

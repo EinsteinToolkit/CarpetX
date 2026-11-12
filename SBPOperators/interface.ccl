@@ -1,0 +1,8 @@
+# Interface definition for thorn SBPOperators
+
+IMPLEMENTS: SBPOperators
+
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: rational.hxx
+
+INCLUDES HEADER: sbp.hxx IN sbp.hxx
