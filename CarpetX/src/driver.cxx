@@ -906,8 +906,14 @@ GHExt::PatchData::LevelData::GroupData::GroupData(
               indextype[0] ? amrex::IndexType::CELL : amrex::IndexType::NODE,
               indextype[1] ? amrex::IndexType::CELL : amrex::IndexType::NODE,
               indextype[2] ? amrex::IndexType::CELL : amrex::IndexType::NODE));
-  mfab.resize(group.numtimelevels);
-  valid.resize(group.numtimelevels);
+  // The interface.ccl declaration is only a ceiling; the number of time
+  // levels actually allocated is a run time decision. See
+  // Get/SetGroupTimelevels. Every level -- new, regridded or recovered --
+  // is built through this constructor, so they all agree.
+  const int ntls = ghext->group_timelevels.at(gi);
+  assert(ntls >= 1 && ntls <= group.numtimelevels);
+  mfab.resize(ntls);
+  valid.resize(ntls);
   for (int tl = 0; tl < int(mfab.size()); ++tl) {
     mfab.at(tl) = std::make_unique<amrex::MultiFab>(
         gba, dm, numvars, amrex::IntVect(nghostzones));
@@ -948,6 +954,127 @@ GHExt::PatchData::LevelData::GroupData::alloc_tmp_mfab() const {
 
 void GHExt::PatchData::LevelData::GroupData::free_tmp_mfabs() const {
   next_tmp_mfab = 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Time level storage for grid function groups; see driver.hxx
+
+bool integrating = false;
+
+int GetGroupTimelevels(const int gi) {
+  assert(ghext);
+  assert(gi >= 0 && gi < int(ghext->group_timelevels.size()));
+  assert(CCTK_GroupTypeI(gi) == CCTK_GF);
+  return ghext->group_timelevels.at(gi);
+}
+
+int SetGroupTimelevels(const int gi, const int ntls) {
+  assert(ghext);
+  assert(gi >= 0 && gi < int(ghext->group_timelevels.size()));
+
+  // Validate everything before touching anything, so that the change is
+  // either applied to every level or to none
+  if (CCTK_GroupTypeI(gi) != CCTK_GF)
+    CCTK_VERROR("SetGroupTimelevels: group \"%s\" is not a grid function "
+                "group; only grid functions live on levels",
+                CCTK_FullGroupName(gi));
+  const int declared_ntls = CCTK_DeclaredTimeLevelsGI(gi);
+  if (ntls < 1 || ntls > declared_ntls)
+    CCTK_VERROR("SetGroupTimelevels: cannot allocate %d time levels for group "
+                "\"%s\", which declares %d. cctkGH->data is sized from the "
+                "declaration and cannot grow; write TIMELEVELS=%d in the "
+                "group's interface.ccl.",
+                ntls, CCTK_FullGroupName(gi), declared_ntls, ntls);
+  if (integrating)
+    CCTK_VERROR("SetGroupTimelevels: cannot change the number of time levels "
+                "of group \"%s\" while a state vector is being integrated; "
+                "the integrator caches pointers to the time levels for the "
+                "duration of a step",
+                CCTK_FullGroupName(gi));
+
+  const int old_ntls = ghext->group_timelevels.at(gi);
+  if (ntls == old_ntls)
+    return old_ntls;
+
+  ghext->group_timelevels.at(gi) = ntls;
+
+  const std::string why_str = [&]() {
+    std::ostringstream buf;
+    buf << "SetGroupTimelevels " << CCTK_FullGroupName(gi) << " from "
+        << old_ntls << " to " << ntls << " time levels";
+    return buf.str();
+  }();
+  const std::function<std::string()> why = [why_str]() { return why_str; };
+
+  for (auto &patchdata : ghext->patchdata) {
+    for (auto &leveldata : patchdata.leveldata) {
+      auto &restrict groupdata = *leveldata.groupdata.at(gi);
+      assert(int(groupdata.mfab.size()) == old_ntls);
+      assert(int(groupdata.valid.size()) == old_ntls);
+
+      if (ntls < old_ntls) {
+        // Shrink from the back, so that time level 0 is preserved
+        groupdata.mfab.resize(ntls);
+        groupdata.valid.resize(ntls);
+      } else {
+        // Grow, cloning time level 0's layout. The new slots are invalid,
+        // which is the signal every consumer of the history needs.
+        const amrex::MultiFab &mfab0 = *groupdata.mfab.at(0);
+        groupdata.mfab.reserve(ntls);
+        for (int tl = old_ntls; tl < ntls; ++tl)
+          groupdata.mfab.push_back(std::make_unique<amrex::MultiFab>(
+              mfab0.boxArray(), mfab0.DistributionMap(), mfab0.nComp(),
+              mfab0.nGrowVect()));
+        groupdata.valid.resize(
+            ntls,
+            std::vector<why_valid_t>(groupdata.numvars, why_valid_t(why)));
+      }
+
+      // The cached grid function pointers name the slots that just went away,
+      // and do not name the ones that just appeared
+      update_group_pointers(leveldata, gi);
+
+      // Poison the new slots. One level and one patch at a time, because
+      // levels outside the current batch need not be at the same iteration.
+      if (ntls > old_ntls) {
+        const active_levels_t active_level(leveldata.level,
+                                           leveldata.level + 1,
+                                           patchdata.patch,
+                                           patchdata.patch + 1);
+        for (int tl = old_ntls; tl < ntls; ++tl)
+          for (int vi = 0; vi < groupdata.numvars; ++vi)
+            poison_invalid_gf(active_level, gi, vi, tl);
+      }
+    }
+  }
+
+  return old_ntls;
+}
+
+void SwapGroupTimelevels(const int gi, const int tl1, const int tl2) {
+  assert(ghext);
+  assert(gi >= 0 && gi < int(ghext->group_timelevels.size()));
+  assert(CCTK_GroupTypeI(gi) == CCTK_GF);
+  const int ntls = ghext->group_timelevels.at(gi);
+  assert(tl1 >= 0 && tl1 < ntls);
+  assert(tl2 >= 0 && tl2 < ntls);
+  if (tl1 == tl2)
+    return;
+
+  // Only the levels currently being traversed: the slot order is per level
+  // state, and a step on one batch of levels must not reorder the history of
+  // another batch.
+  assert(active_levels);
+  active_levels->loop_serially([&](auto &restrict leveldata) {
+    auto &restrict groupdata = *leveldata.groupdata.at(gi);
+    assert(int(groupdata.mfab.size()) == ntls);
+    using std::swap;
+    swap(groupdata.mfab.at(tl1), groupdata.mfab.at(tl2));
+    swap(groupdata.valid.at(tl1), groupdata.valid.at(tl2));
+  });
+
+  update_group_pointers(gi);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1006,9 +1133,7 @@ CactusAmrCore::CactusAmrCore(const int patch, const amrex::RealBox *rb,
                              amrex::Vector<amrex::IntVect> ref_ratios,
                              const int *is_per)
     : amrex::AmrCore(rb, max_level_in, n_cell_in, coord, ref_ratios, is_per),
-      patch(patch) {
-  SetupGlobals();
-}
+      patch(patch) {}
 
 CactusAmrCore::CactusAmrCore(const int patch, const amrex::RealBox &rb,
                              int max_level_in,
@@ -1016,9 +1141,7 @@ CactusAmrCore::CactusAmrCore(const int patch, const amrex::RealBox &rb,
                              amrex::Vector<amrex::IntVect> const &ref_ratios,
                              amrex::Array<int, AMREX_SPACEDIM> const &is_per)
     : amrex::AmrCore(rb, max_level_in, n_cell_in, coord, ref_ratios, is_per),
-      patch(patch) {
-  SetupGlobals();
-}
+      patch(patch) {}
 
 CactusAmrCore::~CactusAmrCore() {}
 
@@ -1132,7 +1255,6 @@ void SetupGlobals() {
 
     // Set up dynamic data
     arraygroupdata.dimension = group.dim;
-    arraygroupdata.activetimelevels = 1;
     for (int d = 0; d < group.dim; ++d) {
       arraygroupdata.lsh[d] = *sz[d];
       arraygroupdata.ash[d] = *sz[d];
@@ -1869,6 +1991,8 @@ extern "C" int CarpetX_Startup() {
   CCTK_OverloadDisableGroupStorage(DisableGroupStorage);
   CCTK_OverloadGroupStorageIncrease(GroupStorageIncrease);
   CCTK_OverloadGroupStorageDecrease(GroupStorageDecrease);
+  CCTK_OverloadQueryGroupStorageB(QueryGroupStorageB);
+  CCTK_OverloadQueryMaxTimeLevels(QueryMaxTimeLevels);
 
   CCTK_OverloadSyncGroupsByDirI(SyncGroupsByDirI);
 
@@ -1979,6 +2103,20 @@ void *SetupGH(tFleshConfig *fc, int convLevel, cGH *restrict cctkGH) {
 
   // Create grid structure
   ghext = std::make_unique<GHExt>();
+
+  // Every grid function group starts out with as many time levels allocated
+  // as it declares in its interface.ccl, so that the default is exactly the
+  // historical behaviour. SetGroupTimelevels changes this later.
+  const int numgroups = CCTK_NumGroups();
+  ghext->group_timelevels.resize(numgroups, 0);
+  for (int gi = 0; gi < numgroups; ++gi)
+    if (CCTK_GroupTypeI(gi) == CCTK_GF)
+      ghext->group_timelevels.at(gi) = CCTK_DeclaredTimeLevelsGI(gi);
+
+  // Grid arrays and grid scalars do not live on levels, so they do not need
+  // the patches. They are set up here because the flesh activates storage for
+  // them before the patches exist.
+  SetupGlobals();
 
   return ghext.get();
 }
@@ -2240,7 +2378,7 @@ int GroupDynamicData(const cGH *cctkGH, int gi, cGroupDynamicData *data) {
     data->tile_max = cctkGH->cctk_tile_max;
     data->bbox = cctkGH->cctk_bbox;
     data->nghostzones = cctkGH->cctk_nghostzones;
-    data->activetimelevels = CCTK_ActiveTimeLevelsGI(cctkGH, gi);
+    data->activetimelevels = GetGroupTimelevels(gi);
   } else if (group.grouptype == CCTK_SCALAR or group.grouptype == CCTK_ARRAY) {
     GHExt::GlobalData &globaldata = ghext->globaldata;
     GHExt::GlobalData::ArrayGroupData &arraygroupdata =
@@ -2253,7 +2391,7 @@ int GroupDynamicData(const cGH *cctkGH, int gi, cGroupDynamicData *data) {
     data->ubnd = arraygroupdata.ubnd;
     data->bbox = arraygroupdata.bbox;
     data->nghostzones = arraygroupdata.nghostzones;
-    data->activetimelevels = arraygroupdata.activetimelevels;
+    data->activetimelevels = int(arraygroupdata.data.size());
   } else {
     CCTK_VERROR("Internal error: unexpected group type %d for group '%s'",
                 (int)group.grouptype, CCTK_FullGroupName(gi));

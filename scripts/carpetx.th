@@ -728,6 +728,7 @@ CarpetX/TestODESolvers2
 CarpetX/TestOutput
 CarpetX/TestProlongate
 CarpetX/TestSymmetries
+CarpetX/TestTimelevels
 CarpetX/TmunuBaseX
 CarpetX/VGFWaveToyX
 CarpetX/WaveToyX
